@@ -91,7 +91,8 @@ Insert newline - `Ctrl+n`
 2. Install [pipenv](https://docs.pipenv.org/install/) (optional)
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
-5. Install requirements: `pipenv install --dev`
+5. Install requirements: `pipenv install --dev`  
+    - Additional requirements: `pipenv install win10toast win11toast windows-curses`
 6. Run build script: `pipenv run python build.py`
 #### Without pipenv:  
 5. Open `Pipfile` with text editor and install all packages and dev-packages with pip.
