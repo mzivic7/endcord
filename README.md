@@ -7,7 +7,7 @@ endcord is a third-party feature rich Discord client, running entirely in termin
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](##Token).  
 
-# Features
+## Features
 - Extremely low CPU and and RAM usage (~25MB)
 - Live chat, send message
 - Slelect message and: reply (`Ctrl-R`), edit (`Ctrl-E`), delete (`Ctrl-D`)
@@ -37,22 +37,22 @@ Discord token is required in order to run endcord! see [Token](##Token).
 - Show unknown emoji as `<emoji_name>`
 - Show mentions as `@username`, `@role`, `@>channel_name`
 
-# Configuration
+## Configuration
 Settings and log file location:
 - On linux: `~/.config/endcord/` or `$XDG_DATA_HOME/endcord/`
 - On windows: `%USERPROFILE%/AppData/Local/endcord/`
 - On mac: `~/Library/Application Support/endcord/`
 Run `endcord -h` or `endcord --help` to see possible command arguments.  
-## Providing config
+### Providing config
 If config is not found at that path, default one will be writen.  
 Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.  
 There can be missing entries in config, they will be filled with defaults.  
-## Debug mode
+### Debug mode
 Debug mode can be enabled with `-d` flag.  
 It will cause extra messages to be written to log file.  
 This will periodically cause writing to drive and can make log file quickly grow in size.  
 Log is overwritten in each run.  
-## Token
+### Token
 See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 Token is used to access Discord through your account without logging-in.  
 It is required to to use endcord.  
@@ -104,12 +104,12 @@ Insert newline - `Ctrl+n`
 ### Mac OS
 Never tested. Feedback is welcome.
 
-> [!IMPORTANT]
+> [!WARNING]
 > Using third-party client is against Discord's Terms of Service and may cause your account to be banned!
 > **Use endcord at your own risk!**
 
-# FAQ
-## Obtaining your Discord token:
+## FAQ
+### Obtaining your Discord token:
 1. Open Discord in browser.
 2. Open developer tools (`F12` or `Ctrl+Shift+I` on Chrome and Firefox).
 3. Go to the `Network` tab then refresh the page.
@@ -117,15 +117,15 @@ Never tested. Feedback is welcome.
 5. Click on any filtered entry. On the right side, switch to `Header` tab search for the `authorization`.
 6. Copy value of `Authorization: ...` found under `Request Headers` (right click -> Copy Value)
 7. This is your discord token. Do not share it!
-## To further decrease probability of getting banned:
+### To further decrease probability of getting banned:
 - MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
 - Discords REST API is called each time client is started, channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Typing status is using WebSocket so disabling it will make little difference.
-## What if you get banned?
+### What if you get banned?
 You can write to Discord TNS team: https://dis.gd/request.  
 If you did something particular with endcord that caused the ban, open an issue describing what that is. Maybe that can be prevented or other users can be warned.  
 
-# Planned features
+## Planned features
 Go to [TODO](todo.txt).
