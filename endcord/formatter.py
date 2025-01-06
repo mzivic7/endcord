@@ -597,7 +597,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                             "ping": mentioned_ch,
                             "active": active,
                         })
-                        if not (category["muted"] or muted_guild or hidden_ch or muted_ch):
+                        if not (category["muted"] or hidden_ch or muted_ch):
                             if unseen_ch:
                                 category["unseen"] = True
                                 unseen_guild = True
@@ -650,7 +650,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
         if not active_guild and guild["guild_id"] in collapsed:
             code -= 1
         tree_format.append(code)
-        guild_inex = len(tree_format) - 1
+        guild_index = len(tree_format) - 1
         tree_metadata.append({
             "id": guild["guild_id"],
             "type": -1,
@@ -687,7 +687,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                         "type": 4,
                         "name": category["name"],
                         "muted": category["muted"],
-                        "parent_index": guild_inex,
+                        "parent_index": guild_index,
                     })
                     category_channels = category["channels"]
                     for channel in category_channels:
@@ -734,7 +734,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                         "type": 0,
                         "name": category["name"],
                         "muted": category["muted"],
-                        "parent_index": guild_inex,
+                        "parent_index": guild_index,
                     })
 
         tree.append("END-GUILD-DROP-DOWN")

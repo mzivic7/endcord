@@ -2,15 +2,20 @@ HIGH PRIORITY:
 highlight mention messages
 warp to botom on keybind
 rich embeds text
+0.1.0
 desktop notifications
 load more messages
 limit chat buffer size
 open link in browser
+0.2.0
 rpc
+0.3.0
 show/hide blocked user messages
 fetch dms list from gateway instead API
+0.4.0
 colors
 italic/bold/underline/spoiler formatting in chat
+0.5.0
 
 MEDIUM PRIORITY:
 keybinding (use raw mode?)

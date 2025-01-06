@@ -106,7 +106,7 @@ Insert newline - `Ctrl+n`
 Never tested. Feedback is welcome.
 
 > [!WARNING]
-> Using third-party client is against Discord's Terms of Service and may cause your account to be banned!
+> Using third-party client is against Discord's Terms of Service and may cause your account to be banned!  
 > **Use endcord at your own risk!**
 
 ## FAQ
@@ -120,7 +120,7 @@ Never tested. Feedback is welcome.
 7. This is your discord token. Do not share it!
 ### To further decrease probability of getting banned:
 - MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
-- Discords REST API is called each time client is started, channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
+- Discord REST API is called each time client is started, when channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Typing status is using WebSocket so disabling it will make little difference.
