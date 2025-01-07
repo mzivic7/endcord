@@ -5,6 +5,7 @@ import time
 from endcord import discord, formatter, gateway, peripherals, tui
 
 logger = logging.getLogger(__name__)
+APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 
 
@@ -28,6 +29,9 @@ class Endcord:
         self.use_nick = config["use_nick_when_avail"]
         self.reply_mention = config["reply_mention"]
         self.cache_typed = config["cache_typed"]
+        self.enable_notifications = config["desktop_notifications"]
+        self.notification_sound = config["linux_notification_sound"]
+        self.colors = peripherals.extract_colors(config)
 
         # variables
         self.run = False
@@ -50,11 +54,12 @@ class Endcord:
         self.discord = discord.Discord(config["token"])
         self.gateway = gateway.Gateway(config["token"])
         self.tui = tui.TUI(self.screen, self.config)
+        self.colors = self.tui.init_colors(self.colors)
         self.tui.update_status_line("CONNECTING")
-        self.tui.update_chat(["Connecting to Discord"])
+        self.tui.update_chat(["Connecting to Discord"], [[self.colors[0]]] * 1)
         self.my_id = self.discord.get_my_id()
         self.my_user_data = self.discord.get_user(self.my_id)
-        self.connect()
+        self.reset()
         self.gateway.connect()
         self.gateway_state = self.gateway.get_state()
         self.chat_dim, self.tree_dim  = self.tui.get_dimensions()
@@ -71,17 +76,18 @@ class Endcord:
         self.main()
 
 
-    def connect(self):
-        """Connect and get essential data needed to display UI, should be run on startup and reconnect"""
-        self.dms = self.discord.get_dms()
+    def reset(self):
+        """Reset stored data from discord, should be run on startup and reconnect"""
         self.messages = []
         self.chat = []
+        self.chat_format = []
         self.unseen_scrolled = False
         self.chat_indexes = []
         self.update_prompt()
         self.typing = []
         self.unseen = []
         self.pings = []
+        self.notifications = []
         self.typing_sent = int(time.time())
         self.sent_ack_time = time.time()
         self.pending_ack = False
@@ -89,12 +95,11 @@ class Endcord:
 
     def reconnect(self):
         """Fetch updated data from gateway and rebuild chat after reconnecting"""
-        logger.debug("Reconnect started")
-
-        self.connect()
+        self.reset()
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
+        self.dms, self.dms_id = self.gateway.get_dms()
         self.dms_setting = self.gateway.get_dms_settings()
         self.pings = self.gateway.get_pings()
         self.unseen = self.gateway.get_unseen()
@@ -118,7 +123,7 @@ class Endcord:
         self.update_status_line()
         self.update_tree()
 
-        logger.debug("Reconnect complete")
+        logger.info("Reconnect complete")
 
 
     def switch_channel(self, channel_id, channel_name, guild_id, guild_name):
@@ -126,8 +131,6 @@ class Endcord:
         All that should be done when switching channel.
         If it is DM, guild_id and guild_name should be None.
         """
-        logger.debug(f"switching to channel_id: {channel_id}, guild_id: {guild_id}")
-
         self.active_channel["guild_id"] = guild_id
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
@@ -153,7 +156,7 @@ class Endcord:
         self.messages = self.discord.get_messages(self.active_channel["channel_id"])
 
         self.typing = []
-        #self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
+        self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.set_seen(self.active_channel["channel_id"])
 
         self.update_chat(keep_selected=False)
@@ -237,13 +240,13 @@ class Endcord:
                 sel_channel = self.tree_metadata[tree_sel]
                 guild_id = None
                 guild_name = None
-                for back, _ in enumerate(self.tree_format):
-                    num = tree_sel - back
-                    if 100 <= self.tree_format[num] <= 199:
-                        if self.tree_metadata[num]:
-                            guild_id = self.tree_metadata[num]["id"]
-                            guild_name = self.tree_metadata[num]["name"]
+                parent_index = self.tree_metadata[tree_sel]["parent_index"]
+                for i in range(3):   # avoid infinite loops, there can be max 3 nest levels
+                    if parent_index is None:
                         break
+                    guild_id = self.tree_metadata[parent_index]["id"]
+                    guild_name = self.tree_metadata[parent_index]["name"]
+                    parent_index = self.tree_metadata[parent_index]["parent_index"]
                 self.switch_channel(sel_channel["id"], sel_channel["name"], guild_id, guild_name)
                 self.reset_actions()
                 self.update_status_line()
@@ -357,7 +360,7 @@ class Endcord:
         else:
             self.unseen_scrolled = False
             self.update_status_line()
-        self.chat, self.chat_indexes = formatter.generate_chat(
+        self.chat, self.chat_format, self.chat_indexes = formatter.generate_chat(
             self.messages,
             self.current_roles,
             self.current_channels,
@@ -370,6 +373,9 @@ class Endcord:
             self.config["edited_string"],
             self.config["reactions_separator"],
             self.chat_dim[1],
+            self.my_id,
+            self.my_roles,
+            self.colors,
             limit_username=self.config["limit_username"],
             limit_global_name=self.config["limit_global_name"],
             use_nick=self.use_nick,
@@ -382,7 +388,7 @@ class Endcord:
             self.tui.set_selected(selected_line_new, change_amount=change_amount_lines)
         else:
             self.tui.set_selected(-1)   # return to bottom
-        self.tui.update_chat(self.chat)
+        self.tui.update_chat(self.chat, self.chat_format)
 
 
     def update_status_line(self):
@@ -526,14 +532,22 @@ class Endcord:
         return sum(self.chat_indexes[:msg]) + 1
 
 
-    def set_seen(self, channel_id):
-        """Set channel as seen if it is not already seen"""
-        if channel_id in self.unseen:
-            self.unseen.remove(channel_id)
+    def set_seen(self, channel_id, force=False):
+        """Set channel as seen if it is not already seen.
+        Force will send even if its not marked as unseen, used for active channel."""
+        if channel_id in self.unseen or force:
+            if not force:
+                self.unseen.remove(channel_id)
             self.update_tree(set_seen=channel_id)
             self.discord.send_ack_message(channel_id, self.messages[0]["id"])
             if channel_id in self.pings:
                 self.pings.remove(channel_id)
+            if self.enable_notifications:
+                for num, notification in enumerate(self.notifications):
+                    if notification["channel_id"] == channel_id:
+                        notification_id = self.notifications.pop(num)["notification_id"]
+                        peripherals.notify_remove(notification_id)
+                        break
 
 
     def main(self):
@@ -556,10 +570,11 @@ class Endcord:
         self.gateway_state = 1
         logger.info("Gateway is ready")
 
-        self.tui.update_chat(["Loading channels", "Connecting to Discord"])
+        self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[self.colors[0]]] * 2)
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
+        self.dms, self.dms_id = self.gateway.get_dms()
         self.dms_setting = self.gateway.get_dms_settings()
         self.pings = self.gateway.get_pings()
         self.unseen = self.gateway.get_unseen()
@@ -574,7 +589,7 @@ class Endcord:
                 "collapsed": [],
             }
         if self.state["last_channel_id"]:
-            self.tui.update_chat(["Loading messages", "Loading channels", "Connecting to Discord"])
+            self.tui.update_chat(["Loading messages", "Loading channels", "Connecting to Discord"], [[self.colors[0]]] * 3)
             guild_id = self.state["last_guild_id"]
             channel_id = self.state["last_channel_id"]
             channel_name = None
@@ -599,7 +614,7 @@ class Endcord:
 
         if not self.tree_format:
             self.init_tree()
-            self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"])
+            self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[self.colors[0]]] * 3)
 
         self.gateway.update_presence(
             self.my_status["status"],
@@ -628,8 +643,9 @@ class Endcord:
                             self.update_chat(change_amount=1)
                             if not self.unseen_scrolled:
                                 if time.time() - self.sent_ack_time > self.ack_throttling:
-                                    self.set_seen(self.active_channel["channel_id"])
+                                    self.set_seen(self.active_channel["channel_id"], force=True)
                                     self.sent_ack_time = time.time()
+                                    self.pending_ack = False
                                 else:
                                     self.pending_ack = True
                         else:
@@ -667,7 +683,7 @@ class Endcord:
                                                 if reaction["count"] <= 1:
                                                     loaded_message["reactions"].pop(num2)
                                                 else:
-                                                    reaction[num2]["count"] -= 1
+                                                    loaded_message["reactions"][num2]["count"] -= 1
                                                 break
                                         self.update_chat()
                     # handling unseen and mentions
@@ -681,9 +697,26 @@ class Endcord:
                             if (
                                 new_message["d"]["mention_everyone"] or
                                 bool([i for i in self.my_roles if i in new_message["d"]["mention_roles"]]) or
-                                self.my_id in mentions
+                                self.my_id in mentions or
+                                new_message_channel_id in self.dms_id
                             ):
                                 self.pings.append(new_message_channel_id)
+                                # notifications
+                                if self.enable_notifications:
+                                    skip = False
+                                    for notification in self.notifications:
+                                        if notification["channel_id"] == new_message_channel_id:
+                                            skip = True
+                                    if not skip:
+                                        notification_id = peripherals.notify_send(
+                                            APP_NAME,
+                                            f"{new_message["d"]["global_name"]}:\n{new_message["d"]["content"]}",
+                                            sound=self.notification_sound,
+                                        )
+                                        self.notifications.append({
+                                            "notification_id": notification_id,
+                                            "channel_id": new_message_channel_id,
+                                        })
                             self.update_tree()
                 else:
                     break
@@ -693,6 +726,13 @@ class Endcord:
                 new_typing = self.gateway.get_typing()
                 if new_typing:
                     if new_typing["channel_id"] == self.active_channel["channel_id"] and new_typing["user_id"] != self.my_id:
+                        if not new_typing["username"]:   # its DM
+                            for dm in self.dms:
+                                if dm["id"] == new_typing["channel_id"]:
+                                    new_typing["username"] = dm["username"]
+                                    new_typing["global_name"] = dm["global_name"]
+                                    # no nick in DMs
+                                    break
                         done = False
                         for num, user in enumerate(self.typing):
                             if user["user_id"] == new_typing["user_id"]:
@@ -724,6 +764,14 @@ class Endcord:
                     if ack_channel_id in self.unseen:
                         self.unseen.remove(ack_channel_id)
                         self.update_tree(set_seen=ack_channel_id)
+                        if ack_channel_id in self.pings:
+                            self.pings.remove(ack_channel_id)
+                        if self.enable_notifications:
+                            for num, notification in enumerate(self.notifications):
+                                if notification["channel_id"] == ack_channel_id:
+                                    notification_id = self.notifications.pop(num)["notification_id"]
+                                    peripherals.notify_remove(notification_id)
+                                    break
                 else:
                     break
 
@@ -752,8 +800,9 @@ class Endcord:
 
             # send pending ack
             if not self.unseen_scrolled and self.pending_ack and time.time() - self.sent_ack_time > self.ack_throttling:
-                self.set_seen(self.active_channel["channel_id"])
+                self.set_seen(self.active_channel["channel_id"], force=True)
                 self.sent_ack_time = time.time()
+                self.pending_ack = False
 
             # check gateway state
             gateway_state = self.gateway.get_state()

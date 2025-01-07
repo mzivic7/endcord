@@ -122,7 +122,8 @@ class Discord():
 
     def get_dms(self):
         """
-        Get list of open DMs with their recipient
+        Get list of open DMs with their recipient.
+        Same as gateway.get_dms()
         DM types:
         1 - single person text
         3 - group DM (name is not None)
@@ -134,6 +135,7 @@ class Discord():
         if response.status == 200:
             data = json.loads(response.read())
             dms = []
+            dms_id = []
             for dm in data:
                 recipients = []
                 for recipient in dm["recipients"]:
@@ -152,9 +154,10 @@ class Discord():
                     "recipients": recipients,
                     "name": name,
                 })
-            return dms
+                dms_id.append(dm["id"])
+            return dms, dms_id
         logger.error(f"Failed to fetch dm list. Response code: {response.status}")
-        return None
+        return None, None
 
 
     def get_channels(self, guild_id):
@@ -276,11 +279,16 @@ class Discord():
                     if "url" in embed:
                         content = embed["url"]
                     elif "fields" in embed:
-                        content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
+                        content = ""
+                        if "url" in embed:
+                            content = embed["url"]
+                        for field in embed["fields"]:
+                            content = content + "\n" + field["name"] + "\n" + field["value"]
+                        content = content.strip("\n")
                     else:
                         content = None
                     embeds.append({
-                        "type": embed["type"].replace("rich", "url"),
+                        "type": embed["type"],
                         "name": None,
                         "url": content,
                     })

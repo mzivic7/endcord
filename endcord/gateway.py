@@ -77,6 +77,8 @@ class Gateway():
         self.msg_unseen = []
         self.msg_ping = []
         self.subscribed = []
+        self.dms = []
+        self.dms_id = []
 
 
     def thread_guard(self):
@@ -133,22 +135,21 @@ class Gateway():
         """Receive and handle all traffic from gateway, should be run in a thread"""
         logger.info("Receiver stared")
         while self.run and not self.wait:
-            #try:
-            data = zlib_decompress(self.ws.recv())
-            if data:
-                try:
-                    response = json.loads(data)
-                    opcode = response["op"]
-                except ValueError:
+            try:
+                data = zlib_decompress(self.ws.recv())
+                if data:
+                    try:
+                        response = json.loads(data)
+                        opcode = response["op"]
+                    except ValueError:
+                        response = None
+                        opcode = None
+                else:
                     response = None
                     opcode = None
-            else:
-                response = None
-                opcode = None
-            # except Exception as e:
-            #     logger.warn(f"Receiver error: {e}")
-            #     break
-
+            except Exception as e:
+                logger.warn(f"Receiver error: {e}")
+                break
             logger.debug(f"Received: opcode={opcode}, optext={response["t"] if (response and "t" in response and response["t"] and "LIST" not in response["t"]) else 'None'}")
             if opcode == 11:
                 self.heartbeat_received = True
@@ -197,6 +198,29 @@ class Gateway():
                                 "color": role["color"],
                             })
                         self.roles.append({"guild_id": guild_id, "roles": guild_roles})
+                    # DM channels
+                    for dm in response["d"]["private_channels"]:
+                        recipients = []
+                        for recipient_id in dm["recipient_ids"]:
+                            for user in response["d"]["users"]:
+                                if user["id"] == recipient_id:
+                                    recipients.append({
+                                        "id": recipient_id,
+                                        "username": user["username"],
+                                        "global_name": user["global_name"],
+                                    })
+                                    break
+                        if "name" in dm:
+                            name = dm["name"]
+                        else:
+                            name = recipients[0]["global_name"]
+                        self.dms.append({
+                            "id": dm["id"],
+                            "type": dm["type"],
+                            "recipients": recipients,
+                            "name": name,
+                        })
+                        self.dms_id.append(dm["id"])
                     # unread messages and pings
                     for channel in response["d"]["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
@@ -431,11 +455,16 @@ class Gateway():
                             if "url" in embed:
                                 content = embed["url"]
                             elif "fields" in embed:
-                                content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
+                                content = ""
+                                if "url" in embed:
+                                    content = embed["url"]
+                                for field in embed["fields"]:
+                                    content = content + "\n" + field["name"] + "\n" + field["value"] + "\n"
+                                content = content.strip("\n")
                             else:
                                 content = None
                             embeds.append({
-                                "type": embed["type"].replace("rich", "url"),
+                                "type": embed["type"],
                                 "name": None,
                                 "url": content,
                             })
@@ -480,11 +509,16 @@ class Gateway():
                         if "url" in embed:
                             content = embed["url"]
                         elif "fields" in embed:
-                            content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
+                            content = ""
+                            if "url" in embed:
+                                content = embed["url"]
+                            for field in embed["fields"]:
+                                content = content + "\n" + field["name"] + "\n" + field["value"] + "\n"
+                            content = content.strip("\n")
                         else:
                             content = None
                         embeds.append({
-                            "type": embed["type"].replace("rich", "url"),
+                            "type": embed["type"],
                             "name": None,
                             "url": content,
                         })
@@ -820,6 +854,15 @@ class Gateway():
         """Get list of channels with mentions ater connecting"""
         return self.msg_ping
 
+
+    def get_dms(self):
+        """
+        Get list of open DMs with their recipient
+        DM types:
+        1 - single person text
+        3 - group DM (name is not None)
+        """
+        return self.dms, self.dms_id
 
     def get_guilds(self):
         """Get list of guilds with their metadata, updated only when reconnecting"""

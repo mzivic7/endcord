@@ -123,7 +123,7 @@ def clean_type(embed_type):
     return re.sub(match_after_slash, "", embed_type)
 
 
-def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True):
+def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -158,9 +158,24 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
     use_nick will make it use nick instead global_name whenever possible.
     """
     chat = []
+    chat_format = []
     indexes = []
     for message in messages:
         temp_chat = []   # stores only one multiline message
+        temp_format = []
+
+        # select base color
+        default_color_format = colors[0]
+        mention_color_format = colors[1]
+        base_color_format = default_color_format
+        for mention in message["mentions"]:
+            if mention["id"] == my_id:
+                base_color_format = mention_color_format
+                break
+        for role in message["mention_roles"]:
+            if bool([i for i in my_roles if i in message["d"]["mention_roles"]]):
+                base_color_format = mention_color_format
+                break
 
         # replied message line
         if message["referenced_message"]:
@@ -198,6 +213,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if len(reply_line) > max_length:
                 reply_line = reply_line[:max_length - 3] + "..."   # -3 to leave room for ""..."
             temp_chat.append(reply_line)
+            temp_format.append([base_color_format])
 
         # main message
         if use_nick and message["nick"]:
@@ -245,6 +261,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         else:
             next_line = None
         temp_chat.append(message_line)
+        temp_format.append([base_color_format])
 
         # newline
         while next_line:
@@ -272,6 +289,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             else:
                 next_line = None
             temp_chat.append(new_line)
+            temp_format.append([base_color_format])
 
         # reactions
         if message["reactions"]:
@@ -291,12 +309,14 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if len(reactions_line) > max_length:
                 reactions_line = reactions_line[:max_length]
             temp_chat.append(reactions_line)
+            temp_format.append([base_color_format])
         indexes.append(len(temp_chat))
 
         # invert message lines order and append them to chat
         # it is inverted because chat is drawn from down to upside
         chat.extend(temp_chat[::-1])
-    return chat, indexes
+        chat_format.extend(temp_format[::-1])
+    return chat, chat_format, indexes
 
 
 def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, format_status_line, format_rich, limit_typing=30, use_nick=True):

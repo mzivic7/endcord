@@ -17,12 +17,15 @@ class TUI():
     def __init__(self, screen, config):
         curses.use_default_colors()
         curses.curs_set(0)   # using custom cursor
-        curses.init_pair(1, curses.COLOR_WHITE, -1)
-        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
-        curses.init_pair(3, 242, -1)   # muted channel
-        curses.init_pair(4, curses.COLOR_RED, -1)   # mentioned channel
-        curses.init_pair(5, curses.COLOR_WHITE, 234)   # active channel
-        curses.init_pair(6, curses.COLOR_RED, 234)   # active mentioned channel
+        curses.init_pair(1, 255, -1)   # white on default
+        curses.init_pair(2, 233, 255)   # black on white
+        curses.init_pair(3, config["color_tree_default"][0], config["color_tree_default"][1])
+        curses.init_pair(4, config["color_tree_selected"][0], config["color_tree_selected"][1])
+        curses.init_pair(5, config["color_tree_muted"][0], config["color_tree_muted"][1])
+        curses.init_pair(6, config["color_tree_active"][0], config["color_tree_active"][1])
+        curses.init_pair(7, config["color_tree_unseen"][0], config["color_tree_unseen"][1])
+        curses.init_pair(8, config["color_tree_mentioned"][0], config["color_tree_mentioned"][1])
+        curses.init_pair(9, config["color_tree_active_mentioned"][0], config["color_tree_active_mentioned"][1])
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -35,7 +38,8 @@ class TUI():
         self.title_txt_l = ""
         self.title_txt_r = ""
         self.title_tree_txt = ""
-        self.text_buffer = []
+        self.chat_buffer = []
+        self.chat_format = []
         self.tree = []
         self.tree_format = []
         self.tree_clean_len = 0
@@ -195,28 +199,6 @@ class TUI():
             self.draw_title_tree()
 
 
-    def draw_chat(self):
-        """Draw text from linebuffer"""
-        h, w = self.chat_hw
-        # drawing from down to up
-        y = h
-        for num, line in enumerate(self.text_buffer[self.chat_index:]):
-            y = h - (num + 1)
-            if y < 0:
-                break
-            if num == self.chat_selected - self.chat_index:
-                color = curses.color_pair(2)
-            else:
-                color = curses.color_pair(1)
-            # filled with spaces so background is drawn all the way
-            self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", color)
-        y -= 1
-        while y >= 0:
-            self.win_chat.insstr(y, 0, "\n", curses.color_pair(1))
-            y -= 1
-        self.win_chat.refresh()
-
-
     def draw_status_line(self):
         """Draw status line"""
         h, w = self.status_hw
@@ -277,6 +259,29 @@ class TUI():
         self.win_input_line.refresh()
 
 
+    def draw_chat(self):
+        """Draw text from linebuffer"""
+        h, w = self.chat_hw
+        # drawing from down to up
+        y = h
+        chat_format = self.chat_format[self.chat_index:]
+        for num, line in enumerate(self.chat_buffer[self.chat_index:]):
+            y = h - (num + 1)
+            if y < 0 or y > h:
+                break
+            if num == self.chat_selected - self.chat_index:
+                color = curses.color_pair(2)
+            else:
+                color = curses.color_pair(chat_format[num][0])
+            # filled with spaces so background is drawn all the way
+            self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", color)
+        y -= 1
+        while y >= 0:
+            self.win_chat.insstr(y, 0, "\n", curses.color_pair(1))
+            y -= 1
+        self.win_chat.refresh()
+
+
     def draw_tree(self):
         """Draw channel tree"""
         h, w = self.tree_hw
@@ -315,23 +320,23 @@ class TUI():
             if y >= h:
                 break
             second_digit = (code % 100) // 10
-            color = curses.color_pair(1)
-            color_line = curses.color_pair(1)
+            color = curses.color_pair(3)
+            color_line = curses.color_pair(3)
             if second_digit == 1:   # muted
-                color = curses.color_pair(3)
-            elif second_digit == 2:   # mentioned
-                color = curses.color_pair(4)
-            elif second_digit == 3:   # unread
-                color = curses.color_pair(1) | curses.A_BOLD
-            elif second_digit == 4:   # active
                 color = curses.color_pair(5)
-                color_line = curses.color_pair(5)
-            elif second_digit == 5:   # active mentioned
+            elif second_digit == 2:   # mentioned
+                color = curses.color_pair(8)
+            elif second_digit == 3:   # unread
+                color = curses.color_pair(7) | curses.A_BOLD
+            elif second_digit == 4:   # active
                 color = curses.color_pair(6)
-                color_line = curses.color_pair(5)
+                color_line = curses.color_pair(6)
+            elif second_digit == 5:   # active mentioned
+                color = curses.color_pair(9)
+                color_line = curses.color_pair(6)
             if y == self.tree_selected - self.tree_index:   # selected
-                color = curses.color_pair(2)
-                color_line = curses.color_pair(2)
+                color = curses.color_pair(4)
+                color_line = curses.color_pair(4)
                 self.tree_selected_abs = self.tree_selected + skipped
             # filled with spaces so background is drawn all the way
             self.win_tree.insstr(y, 0, line[:text_start], color_line)
@@ -378,16 +383,41 @@ class TUI():
             self.draw_title_tree()
 
 
-    def update_chat(self, text):
+    def init_colors(self, colors):
+        """Initializes color pairs AOT"""
+        color_codes = []
+        for color in colors:
+            found = False
+            pair_id = 0
+            while pair_id < curses.COLOR_PAIRS:
+                try:
+                    pair = list(curses.pair_content(pair_id))
+                except curses.error:
+                    break   # new color pair will be stored with this id
+                if pair == [0, 0]:
+                    break
+                if pair == color[:2]:
+                    found = True
+                    color_codes.append(pair_id)
+                    break
+                pair_id += 1
+            if not found:
+                curses.init_pair(pair_id, color[0], color[1])
+                color_codes.append(pair_id)
+        return color_codes
+
+
+    def update_chat(self, chat_text, chat_format):
         """Update text buffer"""
-        self.text_buffer = text
+        self.chat_buffer = chat_text
+        self.chat_format = chat_format
         self.draw_chat()
         self.draw_input_line()
 
 
-    def update_tree(self, tree, tree_format):
+    def update_tree(self, tree_text, tree_format):
         """Update channel tree"""
-        self.tree = tree
+        self.tree = tree_text
         self.tree_format = tree_format
         self.draw_tree()
 
@@ -454,9 +484,9 @@ class TUI():
                         self.input_index += 1
 
             elif last == curses.KEY_UP:   # UP
-                if self.chat_selected + 1 < len(self.text_buffer):
+                if self.chat_selected + 1 < len(self.chat_buffer):
                     top_line = self.chat_index + self.chat_hw[0] - 3
-                    if top_line + 3 < len(self.text_buffer) and self.chat_selected >= top_line:
+                    if top_line + 3 < len(self.chat_buffer) and self.chat_selected >= top_line:
                         self.chat_index += 1   # move history down
                     self.chat_selected += 1   # move selection up
                     self.draw_chat()
@@ -526,6 +556,11 @@ class TUI():
                     self.input_buffer = prompt
                     self.deleting_msg = True
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 3
+
+            elif last == ctrl(98):   # Ctrl+B
+                self.chat_selected = -1
+                self.chat_index = 0
+                self.draw_chat()
 
             elif last == ctrl(112):   # CTRL+P when replying
                 tmp = self.input_buffer

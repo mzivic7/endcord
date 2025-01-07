@@ -71,18 +71,31 @@ def load_config(path, default):
     return config_data
 
 
-def notify_send(title, message):
+def notify_send(title, message, sound="message"):
     """Send simple notification containing title and message. Supports Linux, Windows and Mac."""
     if sys.platform == "linux":
-        cmd = f"notify-send '{title}' '{message}'"
-        subprocess.Popen(cmd, shell=True)
-    elif sys.platform == "win32":
+        cmd = f"notify-send -p --app-name '{APP_NAME}' -h 'string:sound-name:{sound}' '{title}' '{message}'"
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+        return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
+    if sys.platform == "win32":
         if platform_release == "10":
             toast.show_toast(title, message, threaded=True)
         elif platform_release == "11":
             win11toast.toast(title, message)
     elif sys.platform == "mac":
         cmd = f"osascript -e 'display notification \"{message}\" with title \"{title}\"'"
+        subprocess.Popen(cmd, shell=True)
+    return None
+
+
+def notify_remove(notification_id):
+    """Removes notification by its id. Linux only"""
+    if sys.platform == "linux":
+        cmd = f"gdbus call --session \
+                           --dest org.freedesktop.Notifications \
+                           --object-path /org/freedesktop/Notifications \
+                           --method org.freedesktop.Notifications.CloseNotification \
+                           {notification_id}"
         subprocess.Popen(cmd, shell=True)
 
 
@@ -105,3 +118,22 @@ def save_state(state):
     path = path = os.path.expanduser(default_config_path + "state.json")
     with open(path, "w") as f:
         json.dump(state, f, indent=2)
+
+
+def check_color_format(color_format):
+    """Check if color format is valid, and repair it"""
+    if color_format is None:
+        color_format = [-1, -1]
+    elif color_format[0] is None:
+        color_format[0] = -1
+    elif color_format[1] is None:
+        color_format[1] = -1
+    return color_format
+
+
+def extract_colors(config):
+    """Extract color format from config if any value is None, default is used"""
+    return (
+        check_color_format(config["color_format_default"]),
+        check_color_format(config["color_format_mention"]),
+    )

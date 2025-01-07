@@ -25,17 +25,22 @@ Discord token is required in order to run endcord! see [Token](##Token).
 - Show replied message
 - Send message
 - Show who is typing
+- Highlight messages with mentions
 - Optionally send 'typing' (ON by default)
-- Insertable newline in input line (`Ctr+n`)
-- Show embed and attachment types and links
+- Insertable newline in input line (`Ctr+N`)
+- Scroll back to bottom (`Ctrl+B`)
+- Desktop notifications with sound
+- Show embeds, attachment types and links
 - Customizable status and title lines
 - Customizable chat lines (message, newline, reaction, reply)
 - Customizable prompt line
+- Customizable colors
 - Automatic recovery on network failure
 - Remember last open channel and tree state
 - Resizable
 - Show unknown emoji as `<emoji_name>`
 - Show mentions as `@username`, `@role`, `@>channel_name`
+- Quit on `Ctrl+C`
 
 ## Configuration
 Settings and log file location:

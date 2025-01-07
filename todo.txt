@@ -1,33 +1,31 @@
 HIGH PRIORITY:
-highlight mention messages
-warp to botom on keybind
-rich embeds text
-0.1.0
-desktop notifications
+fix not getting events from large servers
 load more messages
 limit chat buffer size
-open link in browser
-0.2.0
-rpc
 0.3.0
 show/hide blocked user messages
-fetch dms list from gateway instead API
+open link in browser
 0.4.0
-colors
-italic/bold/underline/spoiler formatting in chat
+rpc
 0.5.0
+colors fomratting
+    general color format: [[bg, fg, [bg, fg, style, start, end]]]
+    style can be: "bold", "italic", "underline"
+    "edited" has separate format
+italic/bold/underline/spoiler formatting in chat
+1.0.0
 
 MEDIUM PRIORITY:
+blinking cursor
 keybinding (use raw mode?)
 better paste from clipboard (recognize newline)
-guild folders
 different background on code blocks
 keep deleted messages
 show pictures with ascii art
 
 LOW PRIORITY:
 better windows support (building, ctrl+key, emoji character)
-upload/download file
+upload/download attachment
 forums/threads
 assist when mentioning with @[username]/@[role]/>channel/:emoji:
 adding/removing reactions

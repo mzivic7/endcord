@@ -43,35 +43,54 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for prompt line. See [format_prompt](##format_prompt) for more info.
 - `send_typing = True`  
     Allow `[your_username] is typing...` to be sent.
+- `desktop_notifications = True`  
+    Allow sending desktop notifications when user is pinged/mentioned.
+- `linux_notification_sound = "message"`  
+    Sound played when notification is displayed. Linux only. Set to None to disable. Sound names can be found in `/usr/share/sounds/freedesktop/stereo`, without extension.
 - `ack_throttling = 5`  
     Delay in seconds between each ack send. Minimum is 3s. The larger it is, the longer will `[New unreads]` stay in status line.
-- `use_nick_when_avail = True`
+- `use_nick_when_avail = True`  
     Replace global_name with nick when it is available.
-- `tree_width = 30`
+- `tree_width = 30`  
     Width of channel tree in characters.
-- `tree_vert_line = "|"`
+- `tree_vert_line = "|"`  
     A single character used to draw vertical line separating channel tree and the chat.
-- `format_title_tree = " endcord"`
+- `format_title_tree = " endcord"`  
     Formatting for channel tree title line. See [format_status](##format_status) for more info. Set to None to disable.
-- `tree_drop_down_vline = "|"`
+- `tree_drop_down_vline = "|"`  
     A single character used to draw vertical line in tree drop down menus.
-- `tree_drop_down_hline = "-"`
+- `tree_drop_down_hline = "-"`  
     A single character used to draw horizontal line in tree drop down menus.
-- `tree_drop_down_line = "\\"`
+- `tree_drop_down_line = "\\"`  
     A single character used to draw corners in tree drop down menus.
-- `remember_state = True`
+- `remember_state = True`  
     Remeber last open channel on exit and reopen it on start.
-- `reply_mention = True`
+- `reply_mention = True`  
     Ping someone by default when replying.
-- `cache_typed = True`
+- `cache_typed = True`  
     Save unsent message when switching channel, and load it when re-opening that channel.
+
+## Colors
+Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
+- `color_format_default = [-1, -1]`  
+    Base color formatting for text.
+- `color_format_mention = [209, 234]`  
+    Color for highlighted messages containing mentions (reply with ping included) and mention roles.
+- `color_tree_default = [255, -1]`  
+    Colors for tree components
+- `color_tree_selected = [233, 255]`  
+- `color_tree_muted = [242, -1]`  
+- `color_tree_active = [255, 234]`  
+- `color_tree_unseen = [-1, -1]`  
+- `color_tree_mentioned = [197, -1]`  
+- `color_tree_active_mentioned = [197, 234]`  
 
 ## format_message
 - `%content` - message text
 - `%username` - of message author
 - `%global_name` - of message author
 - `%timestamp` - formatted with `format_timestamp`
-- `%edited` - replaced with `edited_string`
+- `%edited` - replaced with `edited_string`  
 Note: everything after `%content` may be pushed to newline.
 
 ## format_newline
