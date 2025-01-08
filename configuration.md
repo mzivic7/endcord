@@ -69,6 +69,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Ping someone by default when replying.
 - `cache_typed = True`  
     Save unsent message when switching channel, and load it when re-opening that channel.
+- `cursor_on_time = 0.7`  
+    Time in seconds the cursor stays ON. Set to None or 0 to disable cursor blinking.
+- `cursor_off_time = 0.5`  
+    Time in seconds the cursor stays OFF. Set to None or 0 to disable cursor blinking.
 
 ## Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.

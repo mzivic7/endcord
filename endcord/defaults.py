@@ -33,6 +33,8 @@ settings = {
     "remember_state": True,
     "reply_mention": True,
     "cache_typed": True,
+    "cursor_on_time": 0.7,
+    "cursor_off_time": 0.5,
     "color_format_default": [-1, -1],
     "color_format_mention": [209, 234],
     "color_tree_default": [255, -1],

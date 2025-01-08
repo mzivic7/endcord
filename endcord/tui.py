@@ -1,5 +1,6 @@
 import curses
 import logging
+import threading
 import time
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,12 @@ class TUI():
         self.have_title_tree = bool(config["format_title_tree"])
         self.vert_line = config["tree_vert_line"][0]
         self.tree_width = config["tree_width"]
+        self.blink_cursor_on = config["cursor_on_time"]
+        self.blink_cursor_off = config["cursor_off_time"]
+        if not (self.blink_cursor_on and self.blink_cursor_off):
+            self.enable_blink_cursor = False
+        else:
+            self.enable_blink_cursor = True
         self.prompt = "> "
         self.input_buffer = ""
         self.status_txt_l = ""
@@ -43,7 +50,6 @@ class TUI():
         self.tree = []
         self.tree_format = []
         self.tree_clean_len = 0
-        self.cursor_pos = (0, 0)
         self.chat_selected = -1   # hidden selection by defaut
         self.tree_selected = -1
         self.tree_selected_abs = -1
@@ -53,6 +59,7 @@ class TUI():
         self.input_index = 0   # index of input cursor
         self.input_line_index = 0   # index of input line, when moving it
         self.cursor_pos = 0
+        self.cursor_on = True
         self.deleting_msg = False
         self.replying_msg = False
         self.typing = time.time()
@@ -88,6 +95,10 @@ class TUI():
         self.input_hw = self.win_input_line.getmaxyx()
         self.tree_hw = self.win_tree.getmaxyx()
         self.redraw_ui()
+        if self.enable_blink_cursor:
+            self.run = True
+            self.blink_cursor_thread = threading.Thread(target=self.blink_cursor, daemon=True, args=())
+            self.blink_cursor_thread.start()
 
 
     def resize(self):
@@ -236,7 +247,7 @@ class TUI():
 
     def draw_input_line(self):
         """Draw text input line"""
-        h, w = self.input_hw
+        _, w = self.input_hw
         # show only part of line when longer than screen
         start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
         end = start + w - 1
@@ -255,7 +266,6 @@ class TUI():
             # cursor at the end of string
             self.win_input_line.insstr(0, len_prompt, line_text[len_prompt:] + "\n")
             self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(2))
-
         self.win_input_line.refresh()
 
 
@@ -267,7 +277,7 @@ class TUI():
         chat_format = self.chat_format[self.chat_index:]
         for num, line in enumerate(self.chat_buffer[self.chat_index:]):
             y = h - (num + 1)
-            if y < 0 or y > h:
+            if y < 0 or y >= h:
                 break
             if num == self.chat_selected - self.chat_index:
                 color = curses.color_pair(2)
@@ -347,6 +357,48 @@ class TUI():
             self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
             y += 1
         self.win_tree.refresh()
+
+
+    def set_cursor_color(self, color_id):
+        """Changes cursor color"""
+        _, w = self.input_hw
+        start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+        end = start + w - 1
+        line_text = self.input_buffer[start:end].replace("\n", "␤")
+        character = " "
+        if self.cursor_pos < len(line_text):
+            character = line_text[self.cursor_pos]
+        if self.cursor_pos == w - 1:
+            self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id))
+        else:
+            self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id))
+        self.win_input_line.refresh()
+
+
+    def blink_cursor(self):
+        """Thread that makes cursor blink, hibernates after some time"""
+        self.hibernate_cursor = 0
+        while self.run:
+            while self.run and self.hibernate_cursor >= 10:
+                time.sleep(self.blink_cursor_on)
+            if self.cursor_on:
+                color_id = 1
+                sleep_time = self.blink_cursor_on
+            else:
+                color_id = 2
+                sleep_time = self.blink_cursor_off
+            self.set_cursor_color(color_id)
+            time.sleep(sleep_time)
+            self.hibernate_cursor += 1
+            self.cursor_on = not self.cursor_on
+
+
+    def show_cursor(self):
+        """Force crsor to be shown on screen and reset blinking"""
+        if self.enable_blink_cursor:
+            self.set_cursor_color(2)
+            self.cursor_on = True
+            self.hibernate_cursor = 0
 
 
     def update_status_line(self, text_l, text_r=None):
@@ -456,16 +508,20 @@ class TUI():
                 self.draw_input_line()
                 self.win_input_line.cursyncup()
                 self.input_line_index = 0
+                self.set_cursor(2)
+                self.cursor_on = True
                 return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 0
 
             if last == curses.KEY_BACKSPACE:   # BACKSPACE
                 if self.input_index > len(prompt):
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
+                    self.show_cursor()
 
             if last == curses.KEY_DC:   # DEL
                 if self.input_index < len(self.input_buffer):
                     self.input_buffer = self.input_buffer[:self.input_index] + self.input_buffer[self.input_index+1:]
+                    self.show_cursor()
 
             elif last == curses.KEY_LEFT:   # LEFT
                 if self.input_index > len(prompt):
@@ -474,6 +530,7 @@ class TUI():
                         self.input_line_index += min(INPUT_LINE_JUMP, w - 3)
                     else:
                         self.input_index -= 1
+                    self.show_cursor()
 
             elif last == curses.KEY_RIGHT:   # RIGHT
                 if self.input_index < len(self.input_buffer):
@@ -482,6 +539,7 @@ class TUI():
                         self.input_line_index -= min(INPUT_LINE_JUMP, w - 3)
                     else:
                         self.input_index += 1
+                    self.show_cursor()
 
             elif last == curses.KEY_UP:   # UP
                 if self.chat_selected + 1 < len(self.chat_buffer):
@@ -532,6 +590,7 @@ class TUI():
             elif last == ctrl(110):   # Ctrl+N
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                 self.input_index += 1
+                self.show_cursor()
 
             elif last == ctrl(114):   # Ctrl+R
                 if self.chat_selected != -1:
@@ -596,6 +655,7 @@ class TUI():
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(last) + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.typing = int(time.time())
+                self.show_cursor()
 
             # keep index inside screen
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)

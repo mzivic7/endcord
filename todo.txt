@@ -16,12 +16,12 @@ italic/bold/underline/spoiler formatting in chat
 1.0.0
 
 MEDIUM PRIORITY:
-blinking cursor
 keybinding (use raw mode?)
 better paste from clipboard (recognize newline)
 different background on code blocks
 keep deleted messages
 show pictures with ascii art
+jump to replied message
 
 LOW PRIORITY:
 better windows support (building, ctrl+key, emoji character)

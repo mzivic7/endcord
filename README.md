@@ -37,8 +37,8 @@ Discord token is required in order to run endcord! see [Token](##Token).
 - Customizable colors
 - Automatic recovery on network failure
 - Remember last open channel and tree state
-- Resizable
-- Show unknown emoji as `<emoji_name>`
+- Resizable (unstable)
+- Show discord emoji as `<emoji_name>`
 - Show mentions as `@username`, `@role`, `@>channel_name`
 - Quit on `Ctrl+C`
 
