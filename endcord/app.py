@@ -31,6 +31,7 @@ class Endcord:
         self.cache_typed = config["cache_typed"]
         self.enable_notifications = config["desktop_notifications"]
         self.notification_sound = config["linux_notification_sound"]
+        self.blocked_mode = config["blocked_mode"]
         self.colors = peripherals.extract_colors(config)
 
         # variables
@@ -103,6 +104,7 @@ class Endcord:
         self.dms_setting = self.gateway.get_dms_settings()
         self.pings = self.gateway.get_pings()
         self.unseen = self.gateway.get_unseen()
+        self.blocked = self.gateway.get_blocked()
         self.current_roles = []   # dm has no roles
         for roles in self.all_roles:
             if roles["guild_id"] == self.active_channel["guild_id"]:
@@ -376,10 +378,12 @@ class Endcord:
             self.my_id,
             self.my_roles,
             self.colors,
+            self.blocked,
             limit_username=self.config["limit_username"],
             limit_global_name=self.config["limit_global_name"],
             use_nick=self.use_nick,
             convert_timezone=self.convert_timezone,
+            blocked_mode=self.blocked_mode,
         )
         if keep_selected:
             selected_msg = selected_msg + change_amount
@@ -402,6 +406,7 @@ class Endcord:
             action_type = 3
         action = {
             "type": action_type,
+            "username": self.replying["username"],
             "global_name": self.replying["global_name"],
             "mention": self.replying["mention"],
         }
@@ -578,6 +583,7 @@ class Endcord:
         self.dms_setting = self.gateway.get_dms_settings()
         self.pings = self.gateway.get_pings()
         self.unseen = self.gateway.get_unseen()
+        self.blocked = self.gateway.get_blocked()
 
         # restore last state
         if self.config["remember_state"]:

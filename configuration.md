@@ -73,6 +73,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Time in seconds the cursor stays ON. Set to None or 0 to disable cursor blinking.
 - `cursor_off_time = 0.5`  
     Time in seconds the cursor stays OFF. Set to None or 0 to disable cursor blinking.
+- `blocked_mode = 1`  
+    What to do with blocked messages:
+    0 - no blocking  
+    1 - mask blocked messages  
+    2 - hide blocked messages
 
 ## Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
@@ -80,6 +85,8 @@ Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add7
     Base color formatting for text.
 - `color_format_mention = [209, 234]`  
     Color for highlighted messages containing mentions (reply with ping included) and mention roles.
+- `color_format_blocked = [242, -1]`  
+    Color for blocked messages if `block_mode = 1`
 - `color_tree_default = [255, -1]`  
     Colors for tree components
 - `color_tree_selected = [233, 255]`  

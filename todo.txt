@@ -1,13 +1,10 @@
 HIGH PRIORITY:
 fix not getting events from large servers
 load more messages
-limit chat buffer size
-0.3.0
-show/hide blocked user messages
 open link in browser
-0.4.0
+0.3.0
 rpc
-0.5.0
+0.4.0
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"

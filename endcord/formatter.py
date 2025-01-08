@@ -123,7 +123,7 @@ def clean_type(embed_type):
     return re.sub(match_after_slash, "", embed_type)
 
 
-def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True):
+def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, blocked, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True, blocked_mode=1):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -153,6 +153,10 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         %count
     Possible options for format_timestamp:
         same as format codes for datetime package
+    Possoble options for blocked_mode:
+        0 - no blocking
+        1 - mask blocked messages
+        2 - hide blocked messages
     limit_username normalizes length of usernames, by cropping them or appending spaces. Set to None to disable.
     Returned indexes correspond to each message as how many lines it is covering.
     use_nick will make it use nick instead global_name whenever possible.
@@ -167,6 +171,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         # select base color
         default_color_format = colors[0]
         mention_color_format = colors[1]
+        blocked_color_format = colors[2]
         base_color_format = default_color_format
         for mention in message["mentions"]:
             if mention["id"] == my_id:
@@ -176,14 +181,35 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if bool([i for i in my_roles if i in message["d"]["mention_roles"]]):
                 base_color_format = mention_color_format
                 break
+        reply_color_format = base_color_format
+
+        # handle blocked messages
+        if blocked_mode and message["user_id"] in blocked:
+            if blocked_mode == 1:
+                message["username"] = "blocked"
+                message["global_name"] = "blocked"
+                message["nick"] = "blocked"
+                message["content"] = "Blocked message"
+                base_color_format = blocked_color_format
+            else:
+                indexes.append(0)
+                continue   # could break message to chat conversion
 
         # replied message line
         if message["referenced_message"]:
             if message["referenced_message"]["id"]:
+                if blocked_mode and message["referenced_message"]["user_id"] in blocked:
+                    message["referenced_message"]["username"] = "blocked"
+                    message["referenced_message"]["global_name"] = "blocked"
+                    message["referenced_message"]["nick"] = "blocked"
+                    message["referenced_message"]["content"] = "Blocked message"
+                    reply_color_format = blocked_color_format
                 if use_nick and message["referenced_message"]["nick"]:
                     global_name_nick = message["referenced_message"]["nick"]
-                else:
+                elif message["referenced_message"]["global_name"]:
                     global_name_nick = message["referenced_message"]["global_name"]
+                else:
+                    global_name_nick = message["referenced_message"]["username"]
                 reply_embeds = message["referenced_message"]["embeds"].copy()
                 if message["referenced_message"]["content"]:
                     content = replace_channels(replace_roles(replace_mention(clean_emojis(message["referenced_message"]["content"]), message["referenced_message"]["mentions"]), roles), channels)
@@ -213,13 +239,15 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if len(reply_line) > max_length:
                 reply_line = reply_line[:max_length - 3] + "..."   # -3 to leave room for ""..."
             temp_chat.append(reply_line)
-            temp_format.append([base_color_format])
+            temp_format.append([reply_color_format])
 
         # main message
         if use_nick and message["nick"]:
             global_name_nick = message["nick"]
-        else:
+        elif message["global_name"]:
             global_name_nick = message["global_name"]
+        else:
+            global_name_nick = message["username"]
         embeds = message["embeds"]
         if message["content"]:
             content = replace_channels(replace_roles(replace_mention(clean_emojis(message["content"]), message["mentions"]), roles), channels)
@@ -404,7 +432,11 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         ping = ""
         if action["mention"]:
             ping = "(PING) "
-        action_string = f"Repling {ping}to {action["global_name"]}"
+        if action["global_name"]:
+            name = action["global_name"]
+        else:
+            name = action["username"]
+        action_string = f"Repling {ping}to {name}"
     elif action["type"] == 2:   # editing
         action_string = "Editing the message"
     elif action["type"] == 3:   # deleting

@@ -79,6 +79,7 @@ class Gateway():
         self.subscribed = []
         self.dms = []
         self.dms_id = []
+        self.blocked = []
 
 
     def thread_guard(self):
@@ -266,6 +267,10 @@ class Gateway():
                                     "message_notifications": dm["message_notifications"],
                                     "muted": dm["muted"],
                                 })
+                    # blocked users
+                    for user in response["d"]["relationships"]:
+                        if user["type"] == 2:
+                            self.blocked.append(user["user_id"])
                     # READY is huge so lets save some memory
                     del (guild, guild_channels, role, guild_roles, last_messages)
                     self.ready_level += 1
@@ -905,6 +910,12 @@ class Gateway():
     def get_activities(self):
         """Get list of friends with their activity status, including rich presence, updated regularly"""
         return self.activities
+
+
+    def get_blocked(self):
+        """Get list of blocked user ids"""
+        return self.blocked
+
 
     # all following "get_*" work like this:
     # internally:
