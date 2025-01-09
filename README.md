@@ -10,8 +10,8 @@ Discord token is required in order to run endcord! see [Token](##token).
 ## Features
 - Extremely low CPU and and RAM usage (~25MB)
 - Live chat, send message
-- Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`)
-- Toggle reply ping (`Ctrl+P`)
+- Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
+- When replying: toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Hidden channels
@@ -44,9 +44,9 @@ Discord token is required in order to run endcord! see [Token](##token).
 
 ## Configuration
 Settings and log file location:
-- On linux: `~/.config/endcord/` or `$XDG_DATA_HOME/endcord/`
-- On windows: `%USERPROFILE%/AppData/Local/endcord/`
-- On mac: `~/Library/Application Support/endcord/`
+- On linux: `~/.config/endcord/` or `$XDG_DATA_HOME/endcord/`  
+- On windows: `%USERPROFILE%/AppData/Local/endcord/`  
+- On mac: `~/Library/Application Support/endcord/`  
 Run `endcord -h` or `endcord --help` to see possible command arguments.  
 ### Providing config
 If config is not found at that path, default one will be writen.  
@@ -79,6 +79,7 @@ Reply to selected message - `Ctrl+R`
 Edit selected message - `Ctrl+E`  
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
+Go to replied message - `Ctrl+G`
 Quit - `Ctrl+C`  
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  

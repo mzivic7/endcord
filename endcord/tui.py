@@ -158,7 +158,6 @@ class TUI():
 
     def set_selected(self, selected, change_amount=0):
         """Set selected line and text scrolling"""
-        logger.info(f"{self.chat_selected}, {selected}")
         if self.chat_selected >= selected:
             up = True
         else:
@@ -168,10 +167,12 @@ class TUI():
             self.chat_index = 0
         elif change_amount and self.chat_index:
             self.chat_index += change_amount
-        elif up:
-            self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
-        else:
-            self.chat_index = max(selected - 3, 0)
+        on_screen_h = selected - self.chat_index
+        if on_screen_h > self.chat_hw[0] - 3 or on_screen_h < 3:
+            if up:
+                self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
+            else:
+                self.chat_index = max(selected - 3, 0)
         self.draw_chat()
 
 
@@ -537,7 +538,13 @@ class TUI():
                     self.input_index -= 1
                     self.show_cursor()
 
-            if last == curses.KEY_DC:   # DEL
+            if 32 <= last <= 126:   # all regular characters
+                self.input_buffer = self.input_buffer[:self.input_index] + chr(last) + self.input_buffer[self.input_index:]
+                self.input_index += 1
+                self.typing = int(time.time())
+                self.show_cursor()
+
+            elif last == curses.KEY_DC:   # DEL
                 if self.input_index < len(self.input_buffer):
                     self.input_buffer = self.input_buffer[:self.input_index] + self.input_buffer[self.input_index+1:]
                     self.show_cursor()
@@ -665,16 +672,16 @@ class TUI():
                 self.input_buffer = prompt
                 return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 5
 
+            elif last == ctrl(103):   # Ctrl+G
+                if self.chat_selected != -1:
+                    tmp = self.input_buffer
+                    self.input_buffer = prompt
+                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 8
+
             elif last == curses.KEY_RESIZE:
                 self.resize()
                 h, _ = self.screen_hw
                 _, w = self.input_hw
-
-            elif 32 <= last <= 126:   # all regular characters
-                self.input_buffer = self.input_buffer[:self.input_index] + chr(last) + self.input_buffer[self.input_index:]
-                self.input_index += 1
-                self.typing = int(time.time())
-                self.show_cursor()
 
             # keep index inside screen
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)

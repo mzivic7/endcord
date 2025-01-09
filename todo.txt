@@ -1,6 +1,5 @@
 HIGH PRIORITY:
 rpc
-jump to replied message
 fix not getting events from large servers
 0.4.0
 colors fomratting
@@ -18,12 +17,13 @@ better paste from clipboard (recognize newline)
 show pictures with ascii art (asciigen?)
 
 LOW PRIORITY:
-better windows support (building, ctrl+key, emoji character)
+better windows support (building, ctrl+key, emoji character, rpc)
 upload/download attachment
 forums/threads
 assist when mentioning with @[username]/@[role]/>channel/:emoji:
 adding/removing reactions
 show summaries
 show channel topic
+rpc on mac-os?
 mouse controls ?
 voice and video ?

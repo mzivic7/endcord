@@ -226,6 +226,7 @@ class Endcord:
             "content": None,
         }
         self.warping = None
+        self.going_to = None
 
 
     def update_running_task(self, task=""):
@@ -247,6 +248,8 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.warping is not None:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.warping, reset=False, keep_cursor=True, scroll_bot=True)
+            elif self.going_to is not None:
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.going_to, reset=False, keep_cursor=True)
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -328,15 +331,9 @@ class Endcord:
                     self.reset_actions()
                 self.update_status_line()
 
-            # toggle meention ping
+            # toggle mention ping
             elif action == 6:
-                self.replying = {
-                    "id": self.messages[msg_index]["id"],
-                    "content": input_text,
-                    "username": self.messages[msg_index]["username"],
-                    "global_name": self.messages[msg_index]["global_name"],
-                    "mention": None if self.replying["mention"] is None else not self.replying["mention"],
-                }
+                self.replying["mention"] = None if self.replying["mention"] is None else not self.replying["mention"]
                 self.update_status_line()
 
             # warping to chat bottom
@@ -348,6 +345,15 @@ class Endcord:
                     self.update_chat()
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                     self.update_running_task()
+
+            # go to replied message
+            elif action == 8:
+                self.going_to = input_text
+                msg_index = self.lines_to_msg(chat_sel + 1)
+                if self.messages[msg_index]["referenced_message"]:
+                    reference_id = self.messages[msg_index]["referenced_message"]["id"]
+                    if reference_id:
+                        self.go_to_message(reference_id)
 
             # send message
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
@@ -389,6 +395,7 @@ class Endcord:
         """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
         self.update_running_task("Downloading chat")
         start_id = self.messages[-int(past)]["id"]
+
         if past:
             logger.debug(f"Requesting chat chunk before {start_id}")
             new_chunk = self.discord.get_messages(self.active_channel["channel_id"], before=start_id)
@@ -409,6 +416,7 @@ class Endcord:
                 logger.info(3)
                 self.tui.set_selected(selected_line)
                 logger.info(4)
+
         else:
             logger.debug(f"Requesting chat chunk after {start_id}")
             new_chunk = self.discord.get_messages(self.active_channel["channel_id"], after=start_id)
@@ -424,6 +432,28 @@ class Endcord:
             self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
             self.tui.set_selected(selected_line)
         self.update_running_task()
+
+
+    def go_to_message(self, message_id):
+        """Check if message is in current chat buffer, if not: load chunk around specified message id and select message"""
+        found = False
+        for num, message in enumerate(self.messages):
+            if message["id"] == message_id:
+                self.tui.set_selected(self.msg_to_lines(num + 1) - 2)   # idk
+                found = True
+                break
+
+        if not found:
+            new_messages = self.discord.get_messages(self.active_channel["channel_id"], around=message_id)
+            if new_messages:
+                self.messages = new_messages
+            self.update_chat(keep_selected=False)
+
+            for num, message in enumerate(self.messages):
+                if message["id"] == message_id:
+                    self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
+                    self.tui.set_selected(self.msg_to_lines(num + 1) - 2)
+                    break
 
 
     def update_chat(self, keep_selected=True, change_amount=0):
