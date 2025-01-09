@@ -14,13 +14,6 @@ DISCORD_EPOCH = 1420070400
 logger = logging.getLogger(__name__)
 
 
-def none_dict_extract(input_dict, key):
-    """Returns value from dict, if that key is invalid, returns None"""
-    if key in input_dict:
-        return input_dict[key]
-    return None
-
-
 def ceil(x):
     """
     Return the ceiling of x as an integral.
@@ -48,7 +41,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", "/api/v10/users/@me", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             if exit_on_error:
                 logger.warn("No internet connection. Exiting...")
                 raise SystemExit("No internet connection. Exiting...")
@@ -97,7 +90,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", f"/api/v10/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -176,7 +169,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", f"/api/v10/guilds/{guild_id}/channels", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -186,8 +179,8 @@ class Discord():
                     "id": channel["id"],
                     "type": channel["type"],
                     "name": channel["name"],
-                    "topic": none_dict_extract(channel, "topic"),
-                    "parent_id": none_dict_extract(channel, "parent_id"),
+                    "topic": channel.get("topic"),
+                    "parent_id": channel.get("parent_id"),
                     "position": channel["position"],
                 })
             return channels
@@ -195,7 +188,7 @@ class Discord():
         return None
 
 
-    def get_messages(self, channel_id, num=50, before=None, after=None):
+    def get_messages(self, channel_id, num=25, before=None, after=None, around=None):
         """Get specified number of messages, optionally number before and after message ID"""
         message_data = None
         url = f"/api/v10/channels/{channel_id}/messages?limit={num}"
@@ -203,11 +196,13 @@ class Discord():
             url += f"&before={before}"
         if after:
             url += f"&after={after}"
+        if around:
+            url += f"&around={around}"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -232,7 +227,7 @@ class Discord():
                             reference_embeds.append({
                                 "type": embed["type"].replace("rich", "url"),
                                 "name": None,
-                                "url": none_dict_extract(embed, "url"),
+                                "url": embed.get("url"),
 
                             })
                         for attachment in message["referenced_message"]["attachments"]:
@@ -337,7 +332,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -365,7 +360,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -400,7 +395,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("GET", f"/api/v10/users/@me/settings-proto/{num}", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())["settings"]
@@ -444,7 +439,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("POST", f"/api/v10/channels/{channel_id}/messages", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -462,7 +457,7 @@ class Discord():
             return {
                 "id": data["id"],
                 "channel_id": data["channel_id"],
-                "guild_id": none_dict_extract(data, "guild_id"),
+                "guild_id": data.get("guild_id"),
                 "timestamp": data["timestamp"],
                 "edited": False,
                 "content": data["content"],
@@ -487,7 +482,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("PATCH", f"/api/v10/channels/{channel_id}/messages/{message_id}", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status == 200:
             data = json.loads(response.read())
@@ -501,7 +496,7 @@ class Discord():
             return {
                 "id": data["id"],
                 "channel_id": data["channel_id"],
-                "guild_id": none_dict_extract(data, "guild_id"),
+                "guild_id": data.get("guild_id"),
                 "edited": True,
                 "content": data["content"],
                 "mentions": mentions,
@@ -521,7 +516,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("DELETE", f"/api/v10/channels/{channel_id}/messages/{message_id}", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status != 204:
             logger.error(f"Failed to delete the message. Response code: {response.status}")
@@ -541,7 +536,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("POST", f"/api/v10/channels/{channel_id}/messages/{message_id}/ack", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status != 200:
             logger.error(f"Failed to set the message as seen. Response code: {response.status}")
@@ -556,7 +551,7 @@ class Discord():
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("POST", f"/api/v10/channels/{channel_id}/typing", message_data, self.header)
             response = connection.getresponse()
-        except socket.gaierror:
+        except (socket.gaierror, TimeoutError):
             return None
         if response.status != 204:
             logger.error(f"Failed to set typing. Response code: {response.status}")

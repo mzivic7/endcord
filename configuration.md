@@ -5,6 +5,14 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Your discord token. Provide it here or as a command argument.
 - `debug = False`  
     Enable debug mode.
+- `limit_chat_buffer = 100`  
+    Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
+- `limit_username = 10`  
+    Limit to the username string length.
+- `limit_global_name = 15`  
+    Limit to the global name string length.
+- `convert_timezone = True`  
+    If set to False, will show UTC time.
 - `format_message = "[%timestamp] <%username> | %content %edited"`  
     Formatting for message base string. See [format_message](##format_message) for more info.
 - `format_newline = "                       %content"`  
@@ -21,12 +29,6 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A string added to the end of the message when it is edsited.
 - `reactions_separator = "; "`  
     A string placed between two reactions.
-- `limit_username = 10`  
-    Limit to the username string length.
-- `limit_global_name = 15`  
-    Limit to the global name string length.
-- `convert_timezone = True`  
-    If set to False, will show UTC time.
 - `format_status_line_l = " %global_name (%username) - %status  %unreads %action %typing"`  
     Formatting for left side of status line. See [format_status](##format_status) for more info. Set to None to disable.
 - `format_status_line_r = None`  
@@ -78,6 +80,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     0 - no blocking  
     1 - mask blocked messages  
     2 - hide blocked messages
+- `hide_spam = True`  
+    Wether to hide or show spam DM request channels in DM list.
 
 ## Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
@@ -86,9 +90,9 @@ Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add7
 - `color_format_mention = [209, 234]`  
     Color for highlighted messages containing mentions (reply with ping included) and mention roles.
 - `color_format_blocked = [242, -1]`  
-    Color for blocked messages if `block_mode = 1`
+    Color for blocked messages if `block_mode = 1`.
 - `color_tree_default = [255, -1]`  
-    Colors for tree components
+    Colors for tree components.
 - `color_tree_selected = [233, 255]`  
 - `color_tree_muted = [242, -1]`  
 - `color_tree_active = [255, 234]`  

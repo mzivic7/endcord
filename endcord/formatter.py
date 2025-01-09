@@ -16,12 +16,6 @@ match_role_id = re.compile(r"(?<=<@&)\d*?(?=>)")
 match_channel_string = re.compile(r"<#\d*?>")
 match_channel_id = re.compile(r"(?<=<#)\d*?(?=>)")
 
-def none_dict_extract(input_dict, key):
-    """Returns value from dict, if that key is invalid, returns None"""
-    if key in input_dict:
-        return input_dict[key]
-    return None
-
 
 def sort_by_indexes(input_list, indexes):
     """Sort input list by given indexes"""
@@ -168,6 +162,10 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         temp_chat = []   # stores only one multiline message
         temp_format = []
 
+        # skip deleted
+        if "deleted" in message:
+            continue
+
         # select base color
         default_color_format = colors[0]
         mention_color_format = colors[1]
@@ -178,7 +176,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 base_color_format = mention_color_format
                 break
         for role in message["mention_roles"]:
-            if bool([i for i in my_roles if i in message["d"]["mention_roles"]]):
+            if bool([i for i in my_roles if i in message["mention_roles"]]):
                 base_color_format = mention_color_format
                 break
         reply_color_format = base_color_format

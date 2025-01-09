@@ -157,13 +157,21 @@ class TUI():
 
     def set_selected(self, selected, change_amount=0):
         """Set selected line and text scrolling"""
+        if self.chat_selected >= selected:
+            up = True
+        else:
+            up = False
         self.chat_selected = selected
         if self.chat_selected == -1:
             self.chat_index = 0
-            self.draw_chat()
         elif change_amount and self.chat_index:
             self.chat_index += change_amount
-            self.draw_chat()
+        else:
+            if up:
+                self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
+            else:
+                self.chat_index = max(selected - 3, 0)
+        self.draw_chat()
 
 
     def set_tree_select_active(self):
@@ -474,7 +482,7 @@ class TUI():
         self.draw_tree()
 
 
-    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False):
+    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False):
         """
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and wether channel is changed
@@ -493,6 +501,11 @@ class TUI():
                 self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
                 self.cursor_pos = max(self.cursor_pos, 0)
                 self.cursor_pos = min(w - 1, self.cursor_pos)
+        if scroll_bot:
+            self.chat_selected = -1
+            self.chat_index = 0
+            self.draw_chat()
+
         self.draw_input_line()
         last = -1
         while last != ord("\n"):
@@ -617,9 +630,9 @@ class TUI():
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 3
 
             elif last == ctrl(98):   # Ctrl+B
-                self.chat_selected = -1
-                self.chat_index = 0
-                self.draw_chat()
+                tmp = self.input_buffer
+                self.input_buffer = prompt
+                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 7
 
             elif last == ctrl(112):   # CTRL+P when replying
                 tmp = self.input_buffer

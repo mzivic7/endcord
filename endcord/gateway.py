@@ -36,13 +36,6 @@ def reset_inflator():
     inflator = zlib.decompressobj()   # noqa
 
 
-def none_dict_extract(input_dict, key):
-    """Returns value from dict, if that key is invalid, returns None"""
-    if key in input_dict:
-        return input_dict[key]
-    return None
-
-
 class Gateway():
     """Methods for fetching and sending data to Discord using Discord's gateway through websocket"""
 
@@ -175,8 +168,8 @@ class Gateway():
                                 "id": channel["id"],
                                 "type": channel["type"],
                                 "name": channel["name"],
-                                "topic": none_dict_extract(channel, "topic"),
-                                "parent_id": none_dict_extract(channel, "parent_id"),
+                                "topic": channel.get("topic"),
+                                "parent_id": channel.get("parent_id"),
                                 "position": channel["position"],
                             })
                             # build list of last mesages from each channel
@@ -220,6 +213,8 @@ class Gateway():
                             "type": dm["type"],
                             "recipients": recipients,
                             "name": name,
+                            "is_spam": dm.get("is_spam"),
+                            "is_request": dm.get("is_message_request"),
                         })
                         self.dms_id.append(dm["id"])
                     # unread messages and pings
@@ -286,10 +281,10 @@ class Gateway():
                                     assets = activity.get("assets", {})
                                     activities.append({
                                         "name": activity["name"],
-                                        "state": none_dict_extract(activity, "state"),
-                                        "details": none_dict_extract(activity, "details"),
-                                        "small_text": none_dict_extract(assets, "small_text"),
-                                        "large_text": none_dict_extract(assets, "large_text"),
+                                        "state": activity.get("state"),
+                                        "details": activity.get("details"),
+                                        "small_text": assets.get("small_text"),
+                                        "large_text": assets.get("large_text"),
                                     })
                             self.activities.append({
                                 "id": user["user_id"],
@@ -307,10 +302,10 @@ class Gateway():
                                 assets = activity.get("assets", {})
                                 activities.append({
                                     "name": activity["name"],
-                                    "state": none_dict_extract(activity, "state"),
-                                    "details": none_dict_extract(activity, "details"),
-                                    "small_text": none_dict_extract(assets, "small_text"),
-                                    "large_text": none_dict_extract(assets, "large_text"),
+                                    "state": activity.get("state"),
+                                    "details": activity.get("details"),
+                                    "small_text": assets.get("small_text"),
+                                    "large_text": assets.get("large_text"),
                                 })
                         self.activities.append({
                             "id": user["user_id"],
@@ -330,14 +325,14 @@ class Gateway():
                             custom_status_emoji = activity["emoji"]["name"]
                         elif activity["type"] == 0:
                             if "assets" in activity:
-                                small_text = none_dict_extract(activity["assets"], "small_text")
-                                large_text = none_dict_extract(activity["assets"], "large_text")
+                                small_text = activity["assets"].get("small_text")
+                                large_text = activity["assets"].get("large_text")
                             else:
                                 small_text = None
                                 large_text = None
                             activities.append({
                                 "name": activity["name"],
-                                "state": none_dict_extract(activity, "state"),
+                                "state": activity.get("state"),
                                 "details": activity["details"],
                                 "small_text": small_text,
                                 "large_text": large_text,
@@ -359,15 +354,15 @@ class Gateway():
                             custom_status = activity["state"]
                         elif activity["type"] == 0:
                             if "assets" in activity:
-                                small_text = none_dict_extract(activity["assets"], "small_text")
-                                large_text = none_dict_extract(activity["assets"], "large_text")
+                                small_text =  activity["assets"].get("small_text")
+                                large_text =  activity["assets"].get("large_text")
                             else:
                                 small_text = None
                                 large_text = None
                             activities.append({
                                 "name": activity["name"],
-                                "state": none_dict_extract(activity, "state"),
-                                "details": none_dict_extract(activity, "details"),
+                                "state": activity.get( "state"),
+                                "details": activity.get("details"),
                                 "small_text": small_text,
                                 "large_text": large_text,
                             })
@@ -392,7 +387,7 @@ class Gateway():
                     if "member" in response["d"]:
                         username = response["d"]["member"]["user"]["username"]
                         global_name = response["d"]["member"]["user"]["global_name"]
-                        nick = none_dict_extract(response["d"]["member"]["user"], "nick")
+                        nick = response["d"]["member"]["user"].get("nick")
                     else:
                         username = None
                         global_name = None
@@ -489,7 +484,7 @@ class Gateway():
                         data = {
                             "id": response["d"]["id"],
                             "channel_id": response["d"]["channel_id"],
-                            "guild_id": none_dict_extract(response["d"], "guild_id"),
+                            "guild_id": response["d"].get("guild_id"),
                             "timestamp": response["d"]["timestamp"],
                             "edited": False,
                             "content": response["d"]["content"],
@@ -529,7 +524,7 @@ class Gateway():
                         })
                     for attachment in response["d"]["attachments"]:
                         embeds.append({
-                            "type": attachment["content_type"],
+                            "type": attachment.get("content_type", "unknown"),
                             "name": attachment["filename"],
                             "url": attachment["url"],
                         })   # keep attachments in same place as embeds
@@ -543,7 +538,7 @@ class Gateway():
                     data = {
                         "id": response["d"]["id"],
                         "channel_id": response["d"]["channel_id"],
-                        "guild_id": none_dict_extract(response["d"], "guild_id"),
+                        "guild_id": response["d"].get("guild_id"),
                         "edited": True,
                         "content": response["d"]["content"],
                         "mentions": mentions,
@@ -559,7 +554,7 @@ class Gateway():
                     data = {
                         "id": response["d"]["id"],
                         "channel_id": response["d"]["channel_id"],
-                        "guild_id": none_dict_extract(response["d"], "guild_id"),
+                        "guild_id": response["d"].get("guild_id"),
                     }
                     self.messages_buffer.append({
                         "op": "MESSAGE_DELETE",
@@ -570,7 +565,7 @@ class Gateway():
                         user_id = response["d"]["member"]["user"]["id"]
                         username = response["d"]["member"]["user"]["username"]
                         global_name = response["d"]["member"]["user"]["global_name"]
-                        nick = none_dict_extract(response["d"]["member"]["user"], "nick")
+                        nick = response["d"]["member"]["user"].get("nick")
                     else:
                         user_id = response["d"]["user_id"]
                         username = None
@@ -579,7 +574,7 @@ class Gateway():
                     data = {
                         "id": response["d"]["message_id"],
                         "channel_id": response["d"]["channel_id"],
-                        "guild_id": none_dict_extract(response["d"], "guild_id"),
+                        "guild_id": response["d"].get("guild_id"),
                         "emoji": response["d"]["emoji"]["name"],
                         "emoji_id": response["d"]["emoji"]["id"],
                         "user_id": user_id,
@@ -595,7 +590,7 @@ class Gateway():
                     data = {
                         "id": response["d"]["message_id"],
                         "channel_id": response["d"]["channel_id"],
-                        "guild_id": none_dict_extract(response["d"], "guild_id"),
+                        "guild_id": response["d"].get("guild_id"),
                         "emoji": response["d"]["emoji"]["name"],
                         "emoji_id": response["d"]["emoji"]["id"],
                         "user_id": response["d"]["user_id"],
@@ -608,7 +603,7 @@ class Gateway():
                     for summary in response["d"]["summaries"]:
                         self.summaries_buffer.append({
                             "channel_id": response["d"]["channel_id"],
-                            "guild_id": none_dict_extract(response["d"], "guild_id"),
+                            "guild_id": response["d"].get("guild_id"),
                             "topic": summary["topic"],
                             "description": summary["summ_short"],
 

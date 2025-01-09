@@ -17,9 +17,10 @@ class Endcord:
         self.config = config
 
         # load often used values from config
+        self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
+        self.limit_typing = max(config["limit_typing_string"], 25)
         self.send_my_typing = config["send_typing"]
-        self.limit_typing = min(config["limit_typing_string"], 25)
-        self.ack_throttling = min(config["ack_throttling"], 3)
+        self.ack_throttling = max(config["ack_throttling"], 3)
         self.convert_timezone = config["convert_timezone"]
         self.format_title_line_l = config["format_title_line_l"]
         self.format_title_line_r = config["format_title_line_r"]
@@ -32,6 +33,7 @@ class Endcord:
         self.enable_notifications = config["desktop_notifications"]
         self.notification_sound = config["linux_notification_sound"]
         self.blocked_mode = config["blocked_mode"]
+        self.hide_spam = config["hide_spam"]
         self.colors = peripherals.extract_colors(config)
 
         # variables
@@ -92,6 +94,7 @@ class Endcord:
         self.typing_sent = int(time.time())
         self.sent_ack_time = time.time()
         self.pending_ack = False
+        self.last_message_id = 0
 
 
     def reconnect(self):
@@ -101,6 +104,11 @@ class Endcord:
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
         self.dms, self.dms_id = self.gateway.get_dms()
+        if self.hide_spam:
+            for dm in self.dms:
+                if dm["is_spam"]:
+                    self.dms_id.remove(dm["id"])
+                    self.dms.remove(dm)
         self.dms_setting = self.gateway.get_dms_settings()
         self.pings = self.gateway.get_pings()
         self.unseen = self.gateway.get_unseen()
@@ -156,6 +164,8 @@ class Endcord:
                 self.current_channels = guild_channels["channels"]
                 break
         self.messages = self.discord.get_messages(self.active_channel["channel_id"])
+        if self.messages:
+            self.last_message_id = self.messages[0]["id"]
 
         self.typing = []
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
@@ -211,6 +221,7 @@ class Endcord:
             "id": None,
             "content": None,
         }
+        self.warping = None
 
 
     def wait_input(self):
@@ -224,6 +235,8 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.replying["content"], reset=False, keep_cursor=True)
             elif self.deleting["content"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
+            elif self.warping is not None:
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.warping, reset=False, keep_cursor=True, scroll_bot=True)
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -313,6 +326,13 @@ class Endcord:
                 }
                 self.update_status_line()
 
+            # warping to chat bottom
+            elif action == 7:
+                self.warping = input_text
+                if self.messages[0]["id"] != self.last_message_id:
+                    self.messages = self.discord.get_messages(self.active_channel["channel_id"])
+                    self.update_chat()
+
             # send message
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
                 # message will be received from gateway and then added to self.messages
@@ -347,6 +367,42 @@ class Endcord:
                 )
                 self.reset_actions()
                 self.update_status_line()
+
+
+    def get_chat_chunk(self, past=True):
+        """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
+        # get chunk
+        start_id = self.messages[-int(past)]["id"]
+        if past:
+            logger.debug(f"Requesting chat chunk before {start_id}")
+            new_chunk = self.discord.get_messages(self.active_channel["channel_id"], before=start_id)
+            self.messages = self.messages + new_chunk
+            all_msg = len(self.messages)
+            selected_line = len(self.chat) - 1
+            selected_msg = self.lines_to_msg(selected_line)
+            self.messages = self.messages[-self.limit_chat_buffer:]
+            if len(new_chunk):
+                self.update_chat(keep_selected=True)
+                # when messages are trimmed, keep same selecteed position
+                if len(self.messages) != all_msg:
+                    selected_msg_new = selected_msg - (all_msg - len(self.messages))
+                    selected_line = self.msg_to_lines(selected_msg_new)
+                self.tui.set_selected(selected_line)
+        else:
+            logger.debug(f"Requesting chat chunk after {start_id}")
+            new_chunk = self.discord.get_messages(self.active_channel["channel_id"], after=start_id)
+            selected_line = 0
+            selected_msg = self.lines_to_msg(selected_line)
+            logger.info(self.messages[selected_msg])
+            self.messages = new_chunk + self.messages
+            all_msg = len(self.messages)
+            #self.messages = self.messages[:self.limit_chat_buffer]
+            self.update_chat(keep_selected=True)
+            # keep same selecteed position
+            selected_msg_new = selected_msg + len(new_chunk)
+            logger.info(self.messages[selected_msg_new])
+            selected_line = self.msg_to_lines(selected_msg_new)
+            self.tui.set_selected(selected_line)
 
 
     def update_chat(self, keep_selected=True, change_amount=0):
@@ -580,6 +636,11 @@ class Endcord:
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
         self.dms, self.dms_id = self.gateway.get_dms()
+        if self.hide_spam:
+            for dm in self.dms:
+                if dm["is_spam"]:
+                    self.dms_id.remove(dm["id"])
+                    self.dms.remove(dm)
         self.dms_setting = self.gateway.get_dms_settings()
         self.pings = self.gateway.get_pings()
         self.unseen = self.gateway.get_unseen()
@@ -634,6 +695,7 @@ class Endcord:
         logger.info("Main loop started")
 
         while self.run:
+            selected_line, text_index = self.tui.get_selected()
             # get new messages
             while self.run:
                 new_message = self.gateway.get_messages()
@@ -645,7 +707,10 @@ class Endcord:
                         data = new_message["d"]
                         if op == "MESSAGE_CREATE":
                             del (data["guild_id"], data["channel_id"])
-                            self.messages.insert(0, data)
+                            # if latest message is loaded - not viewing old message chunks
+                            if self.messages[0]["id"] == self.last_message_id:
+                                self.messages.insert(0, data)
+                            self.last_message_id = new_message["d"]["id"]
                             self.update_chat(change_amount=1)
                             if not self.unseen_scrolled:
                                 if time.time() - self.sent_ack_time > self.ack_throttling:
@@ -662,8 +727,7 @@ class Endcord:
                                             loaded_message[element] = data[element]
                                         self.update_chat()
                                     elif op == "MESSAGE_DELETE":
-                                        self.messages.pop(num)
-                                        selected_line, _ = self.tui.get_selected()
+                                        self.messages[num]["deleted"] = True
                                         if num < selected_line:
                                             self.update_chat(change_amount=-1)
                                         else:
@@ -798,7 +862,6 @@ class Endcord:
 
             # remove unseen after scrooled to bottom on unseen channel
             if self.unseen_scrolled:
-                _, text_index = self.tui.get_selected()
                 if text_index == 0:
                     self.unseen_scrolled = False
                     self.update_status_line()
@@ -853,5 +916,11 @@ class Endcord:
                         collapsed.append(self.tree_metadata[num]["id"])
                 self.state["collapsed"] = collapsed
                 peripherals.save_state(self.state)
+
+            # check if new chat chunks needs to be downloaded in any direction
+            if selected_line == 0 and self.messages[0]["id"] != self.last_message_id:
+                self.get_chat_chunk(past=False)
+            elif selected_line >= len(self.chat) - 1:
+                self.get_chat_chunk(past=True)
 
             time.sleep(0.1)   # some reasonable delay

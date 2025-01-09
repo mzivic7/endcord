@@ -1,6 +1,5 @@
 HIGH PRIORITY:
 fix not getting events from large servers
-load more messages
 open link in browser
 0.3.0
 rpc
@@ -13,12 +12,14 @@ italic/bold/underline/spoiler formatting in chat
 1.0.0
 
 MEDIUM PRIORITY:
+highlight dm requests
 keybinding (use raw mode?)
 better paste from clipboard (recognize newline)
 different background on code blocks
-keep deleted messages
+show deleted messages
 show pictures with ascii art
 jump to replied message
+show curently running task
 
 LOW PRIORITY:
 better windows support (building, ctrl+key, emoji character)
