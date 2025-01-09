@@ -527,7 +527,7 @@ class TUI():
                 self.draw_input_line()
                 self.win_input_line.cursyncup()
                 self.input_line_index = 0
-                self.set_cursor(2)
+                self.set_cursor_color(2)
                 self.cursor_on = True
                 return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 0
 

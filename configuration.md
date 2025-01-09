@@ -82,6 +82,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     2 - hide blocked messages
 - `hide_spam = True`  
     Wether to hide or show spam DM request channels in DM list.
+- `keep_deleted = False`  
+    Wether to keep deleted messages in chat, with different color, or remove them
 
 ## Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
@@ -91,6 +93,8 @@ Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add7
     Color for highlighted messages containing mentions (reply with ping included) and mention roles.
 - `color_format_blocked = [242, -1]`  
     Color for blocked messages if `block_mode = 1`.
+- `color_format_deleted = [95, -1]`  
+    Color for deleted mesages when `keep_deleted = True`
 - `color_tree_default = [255, -1]`  
     Colors for tree components.
 - `color_tree_selected = [233, 255]`  

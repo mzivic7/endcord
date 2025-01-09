@@ -34,6 +34,7 @@ class Endcord:
         self.notification_sound = config["linux_notification_sound"]
         self.blocked_mode = config["blocked_mode"]
         self.hide_spam = config["hide_spam"]
+        self.keep_deleted = config["keep_deleted"]
         self.colors = peripherals.extract_colors(config)
 
         # variables
@@ -279,41 +280,44 @@ class Endcord:
             elif action == 1:
                 self.reset_actions()
                 msg_index = self.lines_to_msg(chat_sel + 1)
-                if self.messages[msg_index]["user_id"] == self.my_id:
-                    mention = None
-                else:
-                    mention = self.reply_mention
-                self.replying = {
-                    "id": self.messages[msg_index]["id"],
-                    "content": input_text,
-                    "username": self.messages[msg_index]["username"],
-                    "global_name": self.messages[msg_index]["global_name"],
-                    "mention": mention,
-                }
-                self.update_status_line()
+                if "deleted" not in self.messages[msg_index]:
+                    if self.messages[msg_index]["user_id"] == self.my_id:
+                        mention = None
+                    else:
+                        mention = self.reply_mention
+                    self.replying = {
+                        "id": self.messages[msg_index]["id"],
+                        "content": input_text,
+                        "username": self.messages[msg_index]["username"],
+                        "global_name": self.messages[msg_index]["global_name"],
+                        "mention": mention,
+                    }
+                    self.update_status_line()
 
             # set edit
             elif action == 2:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if self.messages[msg_index]["user_id"] == self.my_id:
-                    self.reset_actions()
-                    self.editing = {
-                        "id": self.messages[msg_index]["id"],
-                        "content": self.messages[msg_index]["content"],
-                    }
-                    self.update_status_line()
+                    if "deleted" not in self.messages[msg_index]:
+                        self.reset_actions()
+                        self.editing = {
+                            "id": self.messages[msg_index]["id"],
+                            "content": self.messages[msg_index]["content"],
+                        }
+                        self.update_status_line()
 
             # set delete
             elif action == 3:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if self.messages[msg_index]["user_id"] == self.my_id:
-                    self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.reset_actions()
-                    self.deleting = {
-                        "id": self.messages[msg_index]["id"],
-                        "content": input_text,
-                    }
-                    self.update_status_line()
+                    if "deleted" not in self.messages[msg_index]:
+                        self.add_to_store(self.active_channel["channel_id"], input_text)
+                        self.reset_actions()
+                        self.deleting = {
+                            "id": self.messages[msg_index]["id"],
+                            "content": input_text,
+                        }
+                        self.update_status_line()
 
             # escape key
             elif action == 5:
@@ -457,6 +461,7 @@ class Endcord:
             use_nick=self.use_nick,
             convert_timezone=self.convert_timezone,
             blocked_mode=self.blocked_mode,
+            keep_deleted=self.keep_deleted,
         )
         if keep_selected:
             selected_msg = selected_msg + change_amount
@@ -750,7 +755,7 @@ class Endcord:
                                         self.update_chat()
                                     elif op == "MESSAGE_DELETE":
                                         self.messages[num]["deleted"] = True
-                                        if num < selected_line:
+                                        if num < selected_line and not self.keep_deleted:
                                             self.update_chat(change_amount=-1)
                                         else:
                                             self.update_chat()

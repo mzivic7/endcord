@@ -10,7 +10,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 ## Features
 - Extremely low CPU and and RAM usage (~25MB)
 - Live chat, send message
-- Slelect message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`)
+- Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`)
 - Toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
@@ -24,9 +24,10 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Show reactions
 - Show replied message
 - Infinite chat scrolling
+- Keep deleted messages (OFF by default)
 - Show who is typing
 - Highlight messages with mentions
-- Optionally send 'typing' (ON by default)
+- Send 'typing' (ON by default)
 - Insertable newline in input line (`Ctr+N`)
 - Desktop notifications with sound
 - Show embeds, attachment types and links

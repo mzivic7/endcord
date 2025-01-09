@@ -1,21 +1,20 @@
 HIGH PRIORITY:
 rpc
+jump to replied message
 fix not getting events from large servers
 0.4.0
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"
     separate format for "(edited)" string
+    different background on code blocks
 italic/bold/underline/spoiler formatting in chat
 1.0.0
 
 MEDIUM PRIORITY:
-show deleted messages
-jump to replied message
 open link in browser
 keybinding (use raw mode?)
 better paste from clipboard (recognize newline)
-different background on code blocks
 show pictures with ascii art (asciigen?)
 
 LOW PRIORITY:

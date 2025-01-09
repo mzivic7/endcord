@@ -117,7 +117,7 @@ def clean_type(embed_type):
     return re.sub(match_after_slash, "", embed_type)
 
 
-def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, blocked, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True, blocked_mode=1):
+def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, blocked, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True, blocked_mode=1, keep_deleted=False):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -162,14 +162,11 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         temp_chat = []   # stores only one multiline message
         temp_format = []
 
-        # skip deleted
-        if "deleted" in message:
-            continue
-
         # select base color
         default_color_format = colors[0]
         mention_color_format = colors[1]
         blocked_color_format = colors[2]
+        deleted_color_format = colors[3]
         base_color_format = default_color_format
         for mention in message["mentions"]:
             if mention["id"] == my_id:
@@ -179,6 +176,14 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if bool([i for i in my_roles if i in message["mention_roles"]]):
                 base_color_format = mention_color_format
                 break
+
+        # skip deleted
+        if "deleted" in message:
+            if keep_deleted:
+                base_color_format = deleted_color_format
+            else:
+                continue
+
         reply_color_format = base_color_format
 
         # handle blocked messages

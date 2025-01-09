@@ -137,4 +137,5 @@ def extract_colors(config):
         check_color_format(config["color_format_default"]),
         check_color_format(config["color_format_mention"]),
         check_color_format(config["color_format_blocked"]),
+        check_color_format(config["color_format_deleted"]),
     )
