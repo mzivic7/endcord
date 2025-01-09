@@ -38,16 +38,16 @@ def main():
             with open(filename, 'r') as f:
                 lines = f.readlines()
                 for line in lines:
-                    if "version = " in line:
-                        if line.split("version = ")[-1] != '"' + version + '"' + "\n":
+                    if "VERSION = " in line:
+                        if line.split("VERSION = ")[-1] != '"' + version + '"' + "\n":
                             update = True
             if update:
                 print("Version number updated in: " + filename)
                 any_updated = True
                 with open(filename, 'w') as f:
                     for line in lines:
-                        if "version = " in line:
-                            line = "version = " + '"' + version + '"' + "\n"
+                        if "VERSION = " in line:
+                            line = "VERSION = " + '"' + version + '"' + "\n"
                         f.write(line)
 
     if any_updated:
