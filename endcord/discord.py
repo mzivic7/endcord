@@ -188,7 +188,7 @@ class Discord():
         return None
 
 
-    def get_messages(self, channel_id, num=25, before=None, after=None, around=None):
+    def get_messages(self, channel_id, num=50, before=None, after=None, around=None):
         """Get specified number of messages, optionally number before and after message ID"""
         message_data = None
         url = f"/api/v10/channels/{channel_id}/messages?limit={num}"

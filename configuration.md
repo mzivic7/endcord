@@ -57,7 +57,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Width of channel tree in characters.
 - `tree_vert_line = "|"`  
     A single character used to draw vertical line separating channel tree and the chat.
-- `format_title_tree = " endcord"`  
+- `format_title_tree = " endcord  %task"`  
     Formatting for channel tree title line. See [format_status](##format_status) for more info. Set to None to disable.
 - `tree_drop_down_vline = "|"`  
     A single character used to draw vertical line in tree drop down menus.
@@ -139,6 +139,7 @@ Note: everything after `%content` may be pushed to newline.
 - `%server` - currently viewed server
 - `%channel` - currently viewed channel
 - `%action` - warning for replying/editing/deleting message
+- `%task` - currently running slow task (reconnecting, downloading chat...)
 
 ## format_rich
 - `%name` - name of the rich presence app

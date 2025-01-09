@@ -52,6 +52,7 @@ class Endcord:
         self.dms_setting = []
         self.summaries = []
         self.input_store = []
+        self.running_task = ""
 
         # initialize stuff
         self.discord = discord.Discord(config["token"])
@@ -99,6 +100,7 @@ class Endcord:
 
     def reconnect(self):
         """Fetch updated data from gateway and rebuild chat after reconnecting"""
+        self.update_running_task("Reconnecting")
         self.reset()
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
@@ -130,9 +132,9 @@ class Endcord:
         )
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.update_chat(keep_selected=False)
-        self.update_status_line()
         self.update_tree()
 
+        self.update_running_task()
         logger.info("Reconnect complete")
 
 
@@ -145,6 +147,7 @@ class Endcord:
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
         self.active_channel["channel_name"] = channel_name
+        self.update_running_task("Switching channel")
 
         if self.active_channel["guild_id"]:
             my_user = self.discord.get_user_guild(self.my_id, self.active_channel["guild_id"])
@@ -173,7 +176,6 @@ class Endcord:
 
         self.update_chat(keep_selected=False)
         self.update_prompt()
-        self.update_status_line()
         if self.tree_format:
             self.update_tree()
         else:
@@ -185,6 +187,7 @@ class Endcord:
             self.state["last_channel_id"] = channel_id
             peripherals.save_state(self.state)
 
+        self.update_running_task()
         logger.debug("Channel switching complete")
 
 
@@ -222,6 +225,12 @@ class Endcord:
             "content": None,
         }
         self.warping = None
+
+
+    def update_running_task(self, task=""):
+        """Update currently running long task"""
+        self.running_task = task
+        self.update_status_line()
 
 
     def wait_input(self):
@@ -330,8 +339,11 @@ class Endcord:
             elif action == 7:
                 self.warping = input_text
                 if self.messages[0]["id"] != self.last_message_id:
+                    self.update_running_task("Downloading chat")
                     self.messages = self.discord.get_messages(self.active_channel["channel_id"])
                     self.update_chat()
+                    self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
+                    self.update_running_task()
 
             # send message
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
@@ -371,7 +383,7 @@ class Endcord:
 
     def get_chat_chunk(self, past=True):
         """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
-        # get chunk
+        self.update_running_task("Downloading chat")
         start_id = self.messages[-int(past)]["id"]
         if past:
             logger.debug(f"Requesting chat chunk before {start_id}")
@@ -382,27 +394,32 @@ class Endcord:
             selected_msg = self.lines_to_msg(selected_line)
             self.messages = self.messages[-self.limit_chat_buffer:]
             if len(new_chunk):
-                self.update_chat(keep_selected=True)
+                logger.info(1)
+                self.update_chat(keep_selected=None)
+                logger.info(2)
                 # when messages are trimmed, keep same selecteed position
                 if len(self.messages) != all_msg:
                     selected_msg_new = selected_msg - (all_msg - len(self.messages))
                     selected_line = self.msg_to_lines(selected_msg_new)
+                self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
+                logger.info(3)
                 self.tui.set_selected(selected_line)
+                logger.info(4)
         else:
             logger.debug(f"Requesting chat chunk after {start_id}")
             new_chunk = self.discord.get_messages(self.active_channel["channel_id"], after=start_id)
             selected_line = 0
             selected_msg = self.lines_to_msg(selected_line)
-            logger.info(self.messages[selected_msg])
             self.messages = new_chunk + self.messages
             all_msg = len(self.messages)
-            #self.messages = self.messages[:self.limit_chat_buffer]
+            self.messages = self.messages[:self.limit_chat_buffer]
             self.update_chat(keep_selected=True)
             # keep same selecteed position
             selected_msg_new = selected_msg + len(new_chunk)
-            logger.info(self.messages[selected_msg_new])
             selected_line = self.msg_to_lines(selected_msg_new)
+            self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
             self.tui.set_selected(selected_line)
+        self.update_running_task()
 
 
     def update_chat(self, keep_selected=True, change_amount=0):
@@ -446,7 +463,7 @@ class Endcord:
             selected_line_new = self.msg_to_lines(selected_msg)
             change_amount_lines = selected_line_new - selected_line
             self.tui.set_selected(selected_line_new, change_amount=change_amount_lines)
-        else:
+        elif keep_selected is not None:
             self.tui.set_selected(-1)   # return to bottom
         self.tui.update_chat(self.chat, self.chat_format)
 
@@ -474,6 +491,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
+                self.running_task,
                 self.format_status_line_r,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,
@@ -487,6 +505,7 @@ class Endcord:
             self.typing,
             self.active_channel,
             action,
+            self.running_task,
             self.format_status_line_l,
             self.config["format_rich"],
             limit_typing=self.limit_typing,
@@ -501,6 +520,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
+                self.running_task,
                 self.format_title_line_r,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,
@@ -515,6 +535,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
+                self.running_task,
                 self.format_title_line_l,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,
@@ -528,6 +549,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
+                self.running_task,
                 self.format_title_tree,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,

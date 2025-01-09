@@ -1,7 +1,7 @@
 settings = {
     "token": None,
     "debug": False,
-    "limit_chat_buffer": 50,
+    "limit_chat_buffer": 100,
     "limit_username": 10,
     "limit_global_name": 15,
     "convert_timezone": True,
@@ -27,7 +27,7 @@ settings = {
     "use_nick_when_avail": True,
     "tree_width": 30,
     "tree_vert_line": "|",
-    "format_title_tree": " endcord",
+    "format_title_tree": " endcord  %task",
     "tree_drop_down_vline": "|",
     "tree_drop_down_hline": "-",
     "tree_drop_down_corner": "\\",

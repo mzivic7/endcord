@@ -52,6 +52,7 @@ class TUI():
         self.tree_clean_len = 0
         self.chat_selected = -1   # hidden selection by defaut
         self.tree_selected = -1
+        self.dont_hide_chat_selection = False
         self.tree_selected_abs = -1
         self.chat_index = 0   # chat scroll index
         self.tree_index = 0
@@ -157,6 +158,7 @@ class TUI():
 
     def set_selected(self, selected, change_amount=0):
         """Set selected line and text scrolling"""
+        logger.info(f"{self.chat_selected}, {selected}")
         if self.chat_selected >= selected:
             up = True
         else:
@@ -166,12 +168,16 @@ class TUI():
             self.chat_index = 0
         elif change_amount and self.chat_index:
             self.chat_index += change_amount
+        elif up:
+            self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
         else:
-            if up:
-                self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
-            else:
-                self.chat_index = max(selected - 3, 0)
+            self.chat_index = max(selected - 3, 0)
         self.draw_chat()
+
+
+    def allow_chat_selected_hide(self, allow):
+        """Allow selected line in chat to be none, position -1"""
+        self.dont_hide_chat_selection = not(allow)
 
 
     def set_tree_select_active(self):
@@ -563,7 +569,7 @@ class TUI():
                     self.draw_chat()
 
             elif last == curses.KEY_DOWN:   # DOWN
-                if self.chat_selected >= 0:   # if it is -1, selection is hidden
+                if self.chat_selected >= self.dont_hide_chat_selection:   # if it is -1, selection is hidden
                     if self.chat_index and self.chat_selected <= self.chat_index + 2:   # +2 from status and input lines
                         self.chat_index -= 1   # move history up
                     self.chat_selected -= 1   # move selection down

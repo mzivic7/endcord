@@ -345,7 +345,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
     return chat, chat_format, indexes
 
 
-def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, format_status_line, format_rich, limit_typing=30, use_nick=True):
+def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, task, format_status_line, format_rich, limit_typing=30, use_nick=True):
     """
     Generate status line according to provided formatting.
     Possible options for format_status_line:
@@ -361,6 +361,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         %server
         %channel
         %action   # replying/editig/deleting
+        %task   # currently running long task
     Possible options for format_rich:
         %name
         %state
@@ -454,6 +455,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         .replace("%server", guild if guild else "DM")
         .replace("%channel", str(active_channel["channel_name"]))
         .replace("%action", action_string)
+        .replace("%task", task)
     )
 
 
