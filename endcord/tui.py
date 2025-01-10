@@ -678,6 +678,9 @@ class TUI():
                     self.input_buffer = prompt
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 8
 
+            elif last == ctrl(ord("l")):   # Ctrl+L
+                self.redraw_ui()
+
             elif last == curses.KEY_RESIZE:
                 self.resize()
                 h, _ = self.screen_hw

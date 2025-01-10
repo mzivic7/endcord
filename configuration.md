@@ -5,6 +5,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Your discord token. Provide it here or as a command argument.
 - `debug = False`  
     Enable debug mode.
+- `rpc = True`  
+    Enable RPC server. For now Linux only.
 - `limit_chat_buffer = 100`  
     Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
 - `limit_username = 10`  

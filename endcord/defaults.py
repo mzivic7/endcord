@@ -1,6 +1,7 @@
 settings = {
     "token": None,
     "debug": False,
+    "rpc": True,
     "limit_chat_buffer": 100,
     "limit_username": 10,
     "limit_global_name": 15,

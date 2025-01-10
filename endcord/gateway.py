@@ -322,7 +322,11 @@ class Gateway():
                     for activity in response["d"][0]["activities"]:
                         if activity["type"] == 4:
                             custom_status = activity["state"]
-                            custom_status_emoji = activity["emoji"]["name"]
+                            custom_status_emoji = {
+                                "id": activity["emoji"].get("id"),
+                                "name": activity["emoji"].get("name"),
+                                "animated": activity["emoji"].get("animated", False),
+                            }
                         elif activity["type"] == 0:
                             if "assets" in activity:
                                 small_text = activity["assets"].get("small_text")
@@ -332,8 +336,8 @@ class Gateway():
                                 large_text = None
                             activities.append({
                                 "name": activity["name"],
-                                "state": activity.get("state"),
-                                "details": activity["details"],
+                                "state": activity.get("state", ""),
+                                "details": activity.get("details", ""),
                                 "small_text": small_text,
                                 "large_text": large_text,
                             })
@@ -749,26 +753,27 @@ class Gateway():
         return self.state
 
 
-    def update_presence(self, status, custom_status, custom_status_emoji):
+    def update_presence(self, status, custom_status=None, custom_status_emoji=None, rpc=None):
         """Update client status. Statuses: 'online', 'idle', 'dnd', 'invisible', 'offline'"""
+        activities = []
+        if custom_status:
+            activities.append({
+                "name": "Custom Status",
+                "type": 4,
+                "state": custom_status,
+            })
+            if custom_status_emoji:
+                activities[0]["emoji"] = custom_status_emoji
+        if rpc:
+            for activity in rpc:
+                activities.append(activity)
         payload = {
             "op": 3,
             "d": {
                 "status": status,
                 "afk": "false",
                 "since": 0,
-                "activities": [
-                    {
-                        "name": "Custom Status",
-                        "type": 4,
-                        "state": custom_status,
-                        "emoji": {
-                            "id": None,
-                            "name": custom_status_emoji,
-                            "animated": False,
-                        },
-                    },
-                ],
+                "activities": activities,
             },
         }
         self.send(payload)
@@ -928,32 +933,40 @@ class Gateway():
 
 
     def get_messages(self):
-        """Get message CREATE, EDIT, DELETE and ACK events for every guild and channel.
-        Returns 1 by 1 event as an update for list of messages."""
+        """
+        Get message CREATE, EDIT, DELETE and ACK events for every guild and channel.
+        Returns 1 by 1 event as an update for list of messages.
+        """
         if len(self.messages_buffer) == 0:
             return None
         return self.messages_buffer.pop(0)
 
 
     def get_typing(self):
-        """Get typing accross guilds.
-        Returns 1 by 1 event as an update for list of typing."""
+        """
+        Get typing accross guilds.
+        Returns 1 by 1 event as an update for list of typing.
+        """
         if len(self.typing_buffer) == 0:
             return None
         return self.typing_buffer.pop(0)
 
 
     def get_summaries(self):
-        """Get summaries.
-        Returns 1 by 1 event as an update for list of summaries."""
+        """
+        Get summaries.
+        Returns 1 by 1 event as an update for list of summaries.
+        """
         if len(self.summaries_buffer) == 0:
             return None
         return self.summaries_buffer.pop(0)
 
 
     def get_message_ack(self):
-        """Get messages seenby other clients.
-        Returns 1 by 1 event as an update for list of summaries."""
+        """
+        Get messages seenby other clients.
+        Returns 1 by 1 event as an update for list of summaries.
+        """
         if len(self.msg_ack_buffer) == 0:
             return None
         return self.msg_ack_buffer.pop(0)

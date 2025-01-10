@@ -10,6 +10,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 ## Features
 - Extremely low CPU and and RAM usage (~25MB)
 - Live chat, send message
+- Integrated RPC (only Rich Presence)
 - Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
 - When replying: toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
@@ -79,7 +80,8 @@ Reply to selected message - `Ctrl+R`
 Edit selected message - `Ctrl+E`  
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
-Go to replied message - `Ctrl+G`
+Go to replied message - `Ctrl+G`  
+If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  
@@ -89,6 +91,12 @@ When message is sent it will be split in newlines properly.
 When last message in chat buffer is selected, buffer will be extended with older messages.  
 If number of messages in buffer exceeds `limit_chat_buffer` value in config, chat will be trimmed on the opposite side.  
 If latest message is missing, then buffer can be extended with newer messages by selecting first message in buffer.  
+### RPC
+For now RPC is only implemented for linux, it is automatically disabled on other platforms.  
+And only supports Rich Presence, which means no subscriptions, join requests, lobby, etc.  
+Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
+Usually RPC app must be started after RPC server (endcord).  
+More info about whats going on can be found in log, when endcord is in debug mode.  
 
 ## Installing
 ### Linux
@@ -141,7 +149,7 @@ Never tested. Feedback is welcome.
 - Discord REST API is called each time client is started, when channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
-- Typing status is using WebSocket so disabling it will make little difference.
+- Typing status and Rich Presence are using WebSocket so disabling will will make no difference.
 ### What if you get banned?
 You can write to Discord TNS team: https://dis.gd/request.  
 If you did something particular with endcord that caused the ban, open an issue describing what that is. Maybe that can be prevented or other users can be warned.  

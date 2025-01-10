@@ -446,13 +446,17 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
     elif action["type"] == 3:   # deleting
         action_string = "Really delete the message? [Y/n]"
 
+    if my_status["custom_status_emoji"]:
+        custom_status_emoji = str(my_status["custom_status_emoji"]["name"])
+    else:
+        custom_status_emoji = ""
     return (
         format_status_line
         .replace("%global_name", str(my_user_data["global_name"]))
         .replace("%username", my_user_data["username"])
         .replace("%status", status)
         .replace("%custom_status", str(my_status["custom_status"]))
-        .replace("%custom_emoji", str(my_status["custom_status_emoji"]))
+        .replace("%custom_emoji", custom_status_emoji)
         .replace("%pronouns", str(my_user_data["pronouns"]))
         .replace("%unreads", "[New unreads]" if unseen else "")
         .replace("%typing", typing_string)

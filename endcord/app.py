@@ -1,8 +1,9 @@
 import logging
+import sys
 import threading
 import time
 
-from endcord import discord, formatter, gateway, peripherals, tui
+from endcord import discord, formatter, gateway, peripherals, rpc, tui
 
 logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
@@ -17,6 +18,7 @@ class Endcord:
         self.config = config
 
         # load often used values from config
+        self.enable_rpc = config["rpc"] and sys.platform == "linux"
         self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
         self.limit_typing = max(config["limit_typing_string"], 25)
         self.send_my_typing = config["send_typing"]
@@ -63,7 +65,7 @@ class Endcord:
         self.tui.update_status_line("CONNECTING")
         self.tui.update_chat(["Connecting to Discord"], [[self.colors[0]]] * 1)
         self.my_id = self.discord.get_my_id()
-        self.my_user_data = self.discord.get_user(self.my_id)
+        self.my_user_data = self.discord.get_user(self.my_id, extra=True)
         self.reset()
         self.gateway.connect()
         self.gateway_state = self.gateway.get_state()
@@ -97,6 +99,8 @@ class Endcord:
         self.sent_ack_time = time.time()
         self.pending_ack = False
         self.last_message_id = 0
+        self.my_rpc = []
+        self.chat_end = False
 
 
     def reconnect(self):
@@ -128,8 +132,9 @@ class Endcord:
                 break
         self.gateway.update_presence(
             self.my_status["status"],
-            self.my_status["custom_status"],
-            self.my_status["custom_status_emoji"],
+            custom_status=self.my_status["custom_status"],
+            custom_status_emoji=self.my_status["custom_status_emoji"],
+            rpc=self.my_rpc,
         )
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.update_chat(keep_selected=False)
@@ -154,7 +159,6 @@ class Endcord:
             my_user = self.discord.get_user_guild(self.my_id, self.active_channel["guild_id"])
             self.my_roles = my_user["roles"] if my_user["roles"] else []
         else:
-            my_user = self.discord.get_user(self.my_id)
             self.my_rolse = []
 
         self.current_roles = []
@@ -172,6 +176,7 @@ class Endcord:
             self.last_message_id = self.messages[0]["id"]
 
         self.typing = []
+        self.chat_end = False
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.set_seen(self.active_channel["channel_id"])
 
@@ -280,7 +285,7 @@ class Endcord:
                 self.update_status_line()
 
             # set reply
-            elif action == 1:
+            elif action == 1 and self.messages:
                 self.reset_actions()
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if "deleted" not in self.messages[msg_index]:
@@ -298,7 +303,7 @@ class Endcord:
                     self.update_status_line()
 
             # set edit
-            elif action == 2:
+            elif action == 2 and self.messages:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
@@ -310,7 +315,7 @@ class Endcord:
                         self.update_status_line()
 
             # set delete
-            elif action == 3:
+            elif action == 3 and self.messages:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
@@ -337,7 +342,7 @@ class Endcord:
                 self.update_status_line()
 
             # warping to chat bottom
-            elif action == 7:
+            elif action == 7 and self.messages:
                 self.warping = input_text
                 if self.messages[0]["id"] != self.last_message_id:
                     self.update_running_task("Downloading chat")
@@ -347,7 +352,7 @@ class Endcord:
                     self.update_running_task()
 
             # go to replied message
-            elif action == 8:
+            elif action == 8 and self.messages:
                 self.going_to = input_text
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if self.messages[msg_index]["referenced_message"]:
@@ -404,18 +409,16 @@ class Endcord:
             selected_line = len(self.chat) - 1
             selected_msg = self.lines_to_msg(selected_line)
             self.messages = self.messages[-self.limit_chat_buffer:]
-            if len(new_chunk):
-                logger.info(1)
+            if new_chunk:
                 self.update_chat(keep_selected=None)
-                logger.info(2)
                 # when messages are trimmed, keep same selecteed position
                 if len(self.messages) != all_msg:
                     selected_msg_new = selected_msg - (all_msg - len(self.messages))
                     selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                logger.info(3)
                 self.tui.set_selected(selected_line)
-                logger.info(4)
+            else:
+                self.chat_end = True
 
         else:
             logger.debug(f"Requesting chat chunk after {start_id}")
@@ -444,6 +447,7 @@ class Endcord:
                 break
 
         if not found:
+            logger.debug(f"Requesting chat chunk around {message_id}")
             new_messages = self.discord.get_messages(self.active_channel["channel_id"], around=message_id)
             if new_messages:
                 self.messages = new_messages
@@ -678,10 +682,17 @@ class Endcord:
         self.guild_positions = []
         for folder in self.discord_settings["guildFolders"]["folders"]:
             self.guild_positions += folder["guildIds"]
+        custom_status_emoji = {
+            "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
+            "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
+            "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
+        }
+        if not (custom_status_emoji["name"] or custom_status_emoji["id"]):
+            custom_status_emoji = None
         self.my_status = {
             "status": self.discord_settings["status"]["status"],
             "custom_status": self.discord_settings["status"]["customStatus"]["text"],
-            "custom_status_emoji": self.discord_settings["status"]["customStatus"]["emojiName"],
+            "custom_status_emoji": custom_status_emoji,
             "activities": [],
             "client_state": "online",
         }
@@ -742,12 +753,18 @@ class Endcord:
 
         self.gateway.update_presence(
             self.my_status["status"],
-            self.my_status["custom_status"],
-            self.my_status["custom_status_emoji"],
+            custom_status=self.my_status["custom_status"],
+            custom_status_emoji=self.my_status["custom_status_emoji"],
+            rpc=self.my_rpc,
         )
         self.run = True
         self.send_message_thread = threading.Thread(target=self.wait_input, daemon=True, args=())
         self.send_message_thread.start()
+
+        if self.enable_rpc:
+            self.rpc = rpc.RPC(self.discord, self.my_user_data)
+            self.rpc_thread = threading.Thread(target=self.rpc.server_thread, daemon=True, args=())
+            self.rpc_thread.start()
 
         logger.info("Main loop started")
 
@@ -815,7 +832,8 @@ class Endcord:
                                         self.update_chat()
                     # handling unseen and mentions
                     if not this_channel or (this_channel and self.unseen_scrolled):
-                        if op == "MESSAGE_CREATE":
+                        # ignoring messages sent by other clients
+                        if op == "MESSAGE_CREATE" and new_message["d"]["user_id"] != self.my_id:
                             if new_message_channel_id not in self.unseen:
                                 self.unseen.append(new_message_channel_id)
                             mentions = []
@@ -825,7 +843,7 @@ class Endcord:
                                 new_message["d"]["mention_everyone"] or
                                 bool([i for i in self.my_roles if i in new_message["d"]["mention_roles"]]) or
                                 self.my_id in mentions or
-                                new_message_channel_id in self.dms_id
+                                (new_message_channel_id in self.dms_id)
                             ):
                                 self.pings.append(new_message_channel_id)
                                 # notifications
@@ -902,6 +920,18 @@ class Endcord:
                 else:
                     break
 
+            # get new rpc
+            if self.enable_rpc:
+                new_rpc = self.rpc.get_rpc()
+                if new_rpc is not None and self.gateway_state == 1:
+                    self.my_rpc = new_rpc
+                    self.gateway.update_presence(
+                        self.my_status["status"],
+                        custom_status=self.my_status["custom_status"],
+                        custom_status_emoji=self.my_status["custom_status_emoji"],
+                        rpc=self.my_rpc,
+                    )
+
             # remove expired typing
             if self.typing:
                 for num, user in enumerate(self.typing):
@@ -975,9 +1005,10 @@ class Endcord:
                 peripherals.save_state(self.state)
 
             # check if new chat chunks needs to be downloaded in any direction
-            if selected_line == 0 and self.messages[0]["id"] != self.last_message_id:
-                self.get_chat_chunk(past=False)
-            elif selected_line >= len(self.chat) - 1:
-                self.get_chat_chunk(past=True)
+            if self.messages:
+                if selected_line == 0 and self.messages[0]["id"] != self.last_message_id:
+                    self.get_chat_chunk(past=False)
+                elif selected_line >= len(self.chat) - 1 and not self.chat_end:
+                    self.get_chat_chunk(past=True)
 
             time.sleep(0.1)   # some reasonable delay

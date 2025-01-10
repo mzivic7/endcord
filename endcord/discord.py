@@ -39,7 +39,7 @@ class Discord():
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", "/api/v10/users/@me", message_data, self.header)
+            connection.request("GET", "/api/v9/users/@me", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             if exit_on_error:
@@ -55,12 +55,12 @@ class Discord():
         return None
 
 
-    def get_user(self, user_id):
+    def get_user(self, user_id, extra=False):
         """Get relevant informations about specified user"""
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v10/users/{user_id}/profile", message_data, self.header)
+            connection.request("GET", f"/api/v9/users/{user_id}/profile", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -70,6 +70,16 @@ class Discord():
                 nick = data["guild_member"]["nick"]
             else:
                 nick = None
+            if extra:   # extra data for rpc
+                extra_data = {
+                    "avatar": data["user"]["avatar"],
+                    "avatar_decoration_data": data["user"]["avatar_decoration_data"],
+                    "discriminator": data["user"]["discriminator"],
+                    "flags": data["user"]["flags"],
+                    "premium_type": data["premium_type"],
+                }
+            else:
+                extra_data = None
             return {
                 "id": data["user"]["id"],
                 "username": data["user"]["username"],
@@ -77,6 +87,7 @@ class Discord():
                 "nick": nick,
                 "bio": data["user"]["bio"],
                 "pronouns": data["user_profile"]["pronouns"],
+                "extra": extra_data,
                 "roles": None,
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")
@@ -88,7 +99,7 @@ class Discord():
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v10/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}", message_data, self.header)
+            connection.request("GET", f"/api/v9/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -123,7 +134,7 @@ class Discord():
         """
         message_data = None
         connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-        connection.request("GET", f"/api/v10/users/{self.my_id}/channels", message_data, self.header)
+        connection.request("GET", f"/api/v9/users/{self.my_id}/channels", message_data, self.header)
         response = connection.getresponse()
         if response.status == 200:
             data = json.loads(response.read())
@@ -167,7 +178,7 @@ class Discord():
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v10/guilds/{guild_id}/channels", message_data, self.header)
+            connection.request("GET", f"/api/v9/guilds/{guild_id}/channels", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -191,7 +202,7 @@ class Discord():
     def get_messages(self, channel_id, num=50, before=None, after=None, around=None):
         """Get specified number of messages, optionally number before and after message ID"""
         message_data = None
-        url = f"/api/v10/channels/{channel_id}/messages?limit={num}"
+        url = f"/api/v9/channels/{channel_id}/messages?limit={num}"
         if before:
             url += f"&before={before}"
         if after:
@@ -325,7 +336,7 @@ class Discord():
         """Get reactions belonging to {message_id} inside specified channel"""
         message_data = None
         emoji_name_enc = urllib.parse.quote(emoji_name)
-        url = f"/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji_name_enc}"
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}/reactions/{emoji_name_enc}"
         if emoji_id:
             url += f"%3A{emoji_id}"
         try:
@@ -350,7 +361,7 @@ class Discord():
 
     def get_mentions(self, num=25, roles=True, everyone=True):
         """Get specified number of mentions, optionally including role and everyone mentions"""
-        url = f"/api/v10/users/@me/mentions?limit={num}"
+        url = f"/api/v9/users/@me/mentions?limit={num}"
         if roles:
             url += "&roles=true"
         if everyone:
@@ -393,7 +404,7 @@ class Discord():
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v10/users/@me/settings-proto/{num}", message_data, self.header)
+            connection.request("GET", f"/api/v9/users/@me/settings-proto/{num}", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -407,6 +418,48 @@ class Discord():
                 self.cache_proto_2 = json.loads(MessageToJson(decoded))
                 return self.cache_proto_2
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
+        return None
+
+
+    def get_application_rpc(self, app_id):
+        """Get data about Discord RPC application"""
+        message_data = None
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection.request("GET", f"/api/v9/oauth2/applications/{app_id}/rpc", message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            return {
+                "id": data["id"],
+                "name": data["name"],
+                "description": data["description"],
+            }
+        logger.error(f"Failed to fetch application rpc data. Response code: {response.status}")
+        return None
+
+
+    def get_application_assets(self, app_id):
+        """Get Discord application assets list"""
+        message_data = None
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection.request("GET", f"/api/v9/oauth2/applications/{app_id}/assets", message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            assets = []
+            for asset in data:
+                assets.append({
+                    "id": asset["id"],
+                    "name": asset["name"],
+                })
+            return assets
+        logger.error(f"Failed to fetch application assets. Response code: {response.status}")
         return None
 
 
@@ -437,7 +490,7 @@ class Discord():
         message_data = json.dumps(message_dict)
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v10/channels/{channel_id}/messages", message_data, self.header)
+            connection.request("POST", f"/api/v9/channels/{channel_id}/messages", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -480,7 +533,7 @@ class Discord():
         message_data = json.dumps({"content": message_content})
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("PATCH", f"/api/v10/channels/{channel_id}/messages/{message_id}", message_data, self.header)
+            connection.request("PATCH", f"/api/v9/channels/{channel_id}/messages/{message_id}", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -514,7 +567,7 @@ class Discord():
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("DELETE", f"/api/v10/channels/{channel_id}/messages/{message_id}", message_data, self.header)
+            connection.request("DELETE", f"/api/v9/channels/{channel_id}/messages/{message_id}", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -534,7 +587,7 @@ class Discord():
         logger.debug("Sending message ack")
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v10/channels/{channel_id}/messages/{message_id}/ack", message_data, self.header)
+            connection.request("POST", f"/api/v9/channels/{channel_id}/messages/{message_id}/ack", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -549,7 +602,7 @@ class Discord():
         message_data = None
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v10/channels/{channel_id}/typing", message_data, self.header)
+            connection.request("POST", f"/api/v9/channels/{channel_id}/typing", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
