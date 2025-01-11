@@ -20,6 +20,7 @@ class TUI():
         curses.curs_set(0)   # using custom cursor
         curses.init_pair(1, 255, -1)   # white on default
         curses.init_pair(2, 233, 255)   # black on white
+        print("\x1b[?2004h")   # enable bracketed paste mode
         curses.init_pair(3, config["color_tree_default"][0], config["color_tree_default"][1])
         curses.init_pair(4, config["color_tree_selected"][0], config["color_tree_selected"][1])
         curses.init_pair(5, config["color_tree_muted"][0], config["color_tree_muted"][1])
@@ -514,42 +515,76 @@ class TUI():
             self.draw_chat()
 
         self.draw_input_line()
-        last = -1
-        while last != ord("\n"):
-            last = self.screen.getch()
+        bracket_paste = False
+        sequence = []   # for detecting bracket paste sequences
+        key = -1
+        while self.run:
+            key = self.screen.getch()
             h, _ = self.screen_hw
             _, w = self.input_hw
 
-            if last == ord("\n"):   # ENTER
-                tmp = self.input_buffer
-                self.input_buffer = prompt
-                self.input_index = len(prompt)
-                self.cursor_pos = len(prompt)
-                self.draw_input_line()
-                self.win_input_line.cursyncup()
-                self.input_line_index = 0
-                self.set_cursor_color(2)
-                self.cursor_on = True
-                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 0
+            if key == ord("\n"):   # ENTER
+                # wehen pasting, dont return, but insert newline character
+                if bracket_paste:
+                    self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
+                    self.input_index += 1
+                    pass
+                else:
+                    tmp = self.input_buffer
+                    self.input_buffer = prompt
+                    self.input_index = len(prompt)
+                    self.cursor_pos = len(prompt)
+                    self.draw_input_line()
+                    self.win_input_line.cursyncup()
+                    self.input_line_index = 0
+                    self.set_cursor_color(2)
+                    self.cursor_on = True
+                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 0
 
-            if last == curses.KEY_BACKSPACE:   # BACKSPACE
+            elif 32 <= key <= 126:   # all regular characters
+                self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
+                self.input_index += 1
+                self.typing = int(time.time())
+                self.show_cursor()
+
+            elif key == 27:   # ESCAPE
+                # terminal waits when Esc is pressed, but not when sending escape sequence
+                self.screen.nodelay(True)
+                key = self.screen.getch()
+                if key == -1:
+                    # escape key
+                    self.deleting_msg = False
+                    self.replying_msg = False
+                    tmp = self.input_buffer
+                    self.input_buffer = prompt
+                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 5
+                # sequence (bracketed paste or Alt+KEY)
+                sequence = [27, key]
+                # -1 means no key is pressed, 126 is end of escape sequence
+                while key != -1:
+                    key = self.screen.getch()
+                    sequence.append(key)
+                    if key == 126:
+                        break
+                self.screen.nodelay(False)
+                # match sequences
+                if sequence == [27, 91, 50, 48, 48, 126]:
+                    bracket_paste = True
+                elif sequence == [27, 91, 50, 48, 49, 126]:
+                    bracket_paste = False
+
+            elif key == curses.KEY_BACKSPACE:   # BACKSPACE
                 if self.input_index > len(prompt):
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
                     self.show_cursor()
 
-            if 32 <= last <= 126:   # all regular characters
-                self.input_buffer = self.input_buffer[:self.input_index] + chr(last) + self.input_buffer[self.input_index:]
-                self.input_index += 1
-                self.typing = int(time.time())
-                self.show_cursor()
-
-            elif last == curses.KEY_DC:   # DEL
+            elif key == curses.KEY_DC:   # DEL
                 if self.input_index < len(self.input_buffer):
                     self.input_buffer = self.input_buffer[:self.input_index] + self.input_buffer[self.input_index+1:]
                     self.show_cursor()
 
-            elif last == curses.KEY_LEFT:   # LEFT
+            elif key == curses.KEY_LEFT:   # LEFT
                 if self.input_index > len(prompt):
                     # if index hits left screen edge, but there is more text to left, move line right
                     if self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index + len(prompt)) == 0:
@@ -558,7 +593,7 @@ class TUI():
                         self.input_index -= 1
                     self.show_cursor()
 
-            elif last == curses.KEY_RIGHT:   # RIGHT
+            elif key == curses.KEY_RIGHT:   # RIGHT
                 if self.input_index < len(self.input_buffer):
                     # if index hits right screen edge, but there is more text to right, move line right
                     if self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) == w:
@@ -567,7 +602,7 @@ class TUI():
                         self.input_index += 1
                     self.show_cursor()
 
-            elif last == curses.KEY_UP:   # UP
+            elif key == curses.KEY_UP:   # UP
                 if self.chat_selected + 1 < len(self.chat_buffer):
                     top_line = self.chat_index + self.chat_hw[0] - 3
                     if top_line + 3 < len(self.chat_buffer) and self.chat_selected >= top_line:
@@ -575,7 +610,7 @@ class TUI():
                     self.chat_selected += 1   # move selection up
                     self.draw_chat()
 
-            elif last == curses.KEY_DOWN:   # DOWN
+            elif key == curses.KEY_DOWN:   # DOWN
                 if self.chat_selected >= self.dont_hide_chat_selection:   # if it is -1, selection is hidden
                     if self.chat_index and self.chat_selected <= self.chat_index + 2:   # +2 from status and input lines
                         self.chat_index -= 1   # move history up
@@ -583,14 +618,14 @@ class TUI():
                     self.draw_chat()
 
             # opposite than above, because tree is drawn top down
-            elif last == 575:   # CTRL+UP
+            elif key == 575:   # CTRL+UP
                 if self.tree_selected >= 0:
                     if self.tree_index and self.tree_selected <= self.tree_index + 2:
                         self.tree_index -= 1
                     self.tree_selected -= 1
                     self.draw_tree()
 
-            elif last == 534:   # CTRL+DOWN
+            elif key == 534:   # CTRL+DOWN
                 if self.tree_selected + 1 < self.tree_clean_len:
                     top_line = self.tree_index + self.tree_hw[0] - 3
                     if top_line + 3 < self.tree_clean_len and self.tree_selected >= top_line:
@@ -598,7 +633,7 @@ class TUI():
                     self.tree_selected += 1
                     self.draw_tree()
 
-            elif last == 0:   # CTRL+SPACE
+            elif key == 0:   # CTRL+SPACE
                 if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
                     # if selected tree entry is channel
                     # stop wait_input and return so new prompt can be loaded
@@ -613,12 +648,12 @@ class TUI():
                 self.draw_tree()
                 self.tree_format_changed = 1
 
-            elif last == ctrl(110):   # Ctrl+N
+            elif key == ctrl(110):   # Ctrl+N
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.show_cursor()
 
-            elif last == ctrl(114):   # Ctrl+R
+            elif key == ctrl(114):   # Ctrl+R
                 if self.chat_selected != -1:
                     self.replying_msg = True
                     self.deleting_msg = False
@@ -626,7 +661,7 @@ class TUI():
                     self.input_buffer = prompt
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 1
 
-            elif last == ctrl(101):   # Ctrl+E
+            elif key == ctrl(101):   # Ctrl+E
                 if self.chat_selected != -1:
                     self.deleting_msg = False
                     self.replying_msg = False
@@ -634,7 +669,7 @@ class TUI():
                     self.input_buffer = prompt
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 2
 
-            elif last == ctrl(100):   # Ctrl+D
+            elif key == ctrl(100):   # Ctrl+D
                 if self.chat_selected != -1:
                     self.replying_msg = False
                     tmp = self.input_buffer
@@ -642,46 +677,38 @@ class TUI():
                     self.deleting_msg = True
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 3
 
-            elif last == ctrl(98):   # Ctrl+B
+            elif key == ctrl(98):   # Ctrl+B
                 tmp = self.input_buffer
                 self.input_buffer = prompt
                 return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 7
 
-            elif last == ctrl(112):   # CTRL+P when replying
+            elif key == ctrl(112):   # CTRL+P when replying
                 tmp = self.input_buffer
                 self.input_buffer = prompt
                 return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 6
 
-            elif self.deleting_msg and last == 110:   # N when deleting
+            elif self.deleting_msg and key == 110:   # N when deleting
                 self.deleting_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = prompt
                 return "n", self.chat_selected, self.tree_selected_abs, 5
 
-            elif self.deleting_msg and last == 121:   # Y when deleting
+            elif self.deleting_msg and key == 121:   # Y when deleting
                 self.deleting_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = prompt
                 return "y", self.chat_selected, self.tree_selected_abs, 0
 
-            elif last == 27:   # ESCAPE
-                # terminal waits when Esc is pressed
-                self.deleting_msg = False
-                self.replying_msg = False
-                tmp = self.input_buffer
-                self.input_buffer = prompt
-                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 5
-
-            elif last == ctrl(103):   # Ctrl+G
+            elif key == ctrl(103):   # Ctrl+G
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
                     self.input_buffer = prompt
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 8
 
-            elif last == ctrl(ord("l")):   # Ctrl+L
+            elif key == ctrl(ord("l")):   # Ctrl+L
                 self.redraw_ui()
 
-            elif last == curses.KEY_RESIZE:
+            elif key == curses.KEY_RESIZE:
                 self.resize()
                 h, _ = self.screen_hw
                 _, w = self.input_hw

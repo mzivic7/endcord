@@ -707,6 +707,7 @@ class Gateway():
     def reconnect(self):
         """Try to resume session, if failed, create new one"""
         if not self.wait:
+            self.state = 2
             logger.info("Trying to reconnect")
         try:
             code = self.resume()

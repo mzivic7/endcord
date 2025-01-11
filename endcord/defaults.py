@@ -23,6 +23,7 @@ settings = {
     "format_prompt": "[%channel] > ",
     "send_typing": True,
     "desktop_notifications": True,
+    "notification_in_active": True,
     "linux_notification_sound": "message",
     "ack_throttling": 5,
     "use_nick_when_avail": True,

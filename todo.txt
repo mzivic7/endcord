@@ -1,4 +1,5 @@
 HIGH PRIORITY:
+upload/download attachment
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"
@@ -6,21 +7,22 @@ colors fomratting
     different background on code blocks
 italic/bold/underline/spoiler formatting in chat
 fix not getting events from large servers
-1.0.0
 
 MEDIUM PRIORITY:
 open link in browser
-keybinding (use raw mode?)
-better paste from clipboard (recognize newline)
-show pictures with ascii art (asciigen?)
+show pictures with ascii art (gifs too)
+keybinding
+spellchecking inputline
 
 LOW PRIORITY:
-upload/download attachment
-forums/threads
+show summaries and channel topic
 assist when mentioning with @[username]/@[role]/>channel/:emoji: and reactions
-show summaries
-show channel topic
+forums/threads
+search and go to messages
 better windows support (building, ctrl+key, emoji character, rpc)
-rpc on mac-os ?
-mouse controls ?
-voice and video ?
+
+MAYBE:
+videos with ascii art
+rpc on mac-os
+mouse controls
+voice and video (normal/ascii)

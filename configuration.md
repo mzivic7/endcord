@@ -49,6 +49,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Allow `[your_username] is typing...` to be sent.
 - `desktop_notifications = True`  
     Allow sending desktop notifications when user is pinged/mentioned.
+- `notification_in_active = True`  
+    Allow sending desktop notifications for mentions even in active channel.
 - `linux_notification_sound = "message"`  
     Sound played when notification is displayed. Linux only. Set to None to disable. Sound names can be found in `/usr/share/sounds/freedesktop/stereo`, without extension.
 - `ack_throttling = 5`  

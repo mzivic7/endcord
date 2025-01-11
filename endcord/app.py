@@ -37,6 +37,7 @@ class Endcord:
         self.blocked_mode = config["blocked_mode"]
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
+        self.ping_this_channel = config["notification_in_active"]
         self.colors = peripherals.extract_colors(config)
 
         # variables
@@ -136,6 +137,13 @@ class Endcord:
             custom_status_emoji=self.my_status["custom_status_emoji"],
             rpc=self.my_rpc,
         )
+
+        self.messages = self.discord.get_messages(self.active_channel["channel_id"])
+        if self.messages:
+            self.last_message_id = self.messages[0]["id"]
+
+        self.typing = []
+        self.chat_end = False
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.update_chat(keep_selected=False)
         self.update_tree()
@@ -149,6 +157,12 @@ class Endcord:
         All that should be done when switching channel.
         If it is DM, guild_id and guild_name should be None.
         """
+
+        # dont switch when offline
+        if self.my_status["client_state"] in ("OFFLINE", "connecting"):
+            self.update_running_task()
+            return
+
         self.active_channel["guild_id"] = guild_id
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
@@ -156,9 +170,20 @@ class Endcord:
         self.update_running_task("Switching channel")
 
         if self.active_channel["guild_id"]:
-            my_user = self.discord.get_user_guild(self.my_id, self.active_channel["guild_id"])
-            self.my_roles = my_user["roles"] if my_user["roles"] else []
+            my_user = self.discord.get_user_guild(self.my_id, self.active_channel["guild_id"])   # using this as ping
+            if my_user:
+                self.my_roles = my_user["roles"] if my_user["roles"] else []
+            else:
+                self.my_roles = []
+                self.update_running_task()
+                logger.warn("Channel switching failed")
+                return
         else:
+            my_user = self.discord.get_user(self.my_id)   # using this as ping
+            if not my_user:
+                self.update_running_task()
+                logger.warn("Channel switching failed")
+                return
             self.my_rolse = []
 
         self.current_roles = []
@@ -417,23 +442,24 @@ class Endcord:
                     selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                 self.tui.set_selected(selected_line)
-            else:
+            elif new_chunk == []:   # if its None - its network error
                 self.chat_end = True
 
         else:
             logger.debug(f"Requesting chat chunk after {start_id}")
             new_chunk = self.discord.get_messages(self.active_channel["channel_id"], after=start_id)
-            selected_line = 0
-            selected_msg = self.lines_to_msg(selected_line)
-            self.messages = new_chunk + self.messages
-            all_msg = len(self.messages)
-            self.messages = self.messages[:self.limit_chat_buffer]
-            self.update_chat(keep_selected=True)
-            # keep same selecteed position
-            selected_msg_new = selected_msg + len(new_chunk)
-            selected_line = self.msg_to_lines(selected_msg_new)
-            self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-            self.tui.set_selected(selected_line)
+            if new_chunk is not None:   # if its None - its network error
+                selected_line = 0
+                selected_msg = self.lines_to_msg(selected_line)
+                self.messages = new_chunk + self.messages
+                all_msg = len(self.messages)
+                self.messages = self.messages[:self.limit_chat_buffer]
+                self.update_chat(keep_selected=True)
+                # keep same selecteed position
+                selected_msg_new = selected_msg + len(new_chunk)
+                selected_line = self.msg_to_lines(selected_msg_new)
+                self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
+                self.tui.set_selected(selected_line)
         self.update_running_task()
 
 
@@ -672,6 +698,28 @@ class Endcord:
                         break
 
 
+    def send_desktop_nitification(self, new_message):
+        """
+        Send desktop notification, and handle its ID so it can be removed.
+        Send only one notification per channel.
+        """
+        if self.enable_notifications:
+            skip = False
+            for notification in self.notifications:
+                if notification["channel_id"] == new_message["d"]["channel_id"]:
+                    skip = True
+            if not skip:
+                notification_id = peripherals.notify_send(
+                    APP_NAME,
+                    f"{new_message["d"]["global_name"]}:\n{new_message["d"]["content"]}",
+                    sound=self.notification_sound,
+                )
+                self.notifications.append({
+                    "notification_id": notification_id,
+                    "channel_id": new_message["d"]["channel_id"],
+                })
+
+
     def main(self):
         """Main app method"""
         logger.info("Main started")
@@ -682,16 +730,20 @@ class Endcord:
         self.guild_positions = []
         for folder in self.discord_settings["guildFolders"]["folders"]:
             self.guild_positions += folder["guildIds"]
-        custom_status_emoji = {
-            "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
-            "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
-            "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
-        }
-        if not (custom_status_emoji["name"] or custom_status_emoji["id"]):
+        custom_status_emoji = None
+        custom_status = None
+        if "customStatus" in self.discord_settings["status"]:
+            custom_status_emoji = {
+                "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
+                "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
+                "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
+            }
+            custom_status = self.discord_settings["status"]["customStatus"]["text"]
+        if custom_status_emoji and not (custom_status_emoji["name"] or custom_status_emoji["id"]):
             custom_status_emoji = None
         self.my_status = {
             "status": self.discord_settings["status"]["status"],
-            "custom_status": self.discord_settings["status"]["customStatus"]["text"],
+            "custom_status": custom_status,
             "custom_status_emoji": custom_status_emoji,
             "activities": [],
             "client_state": "online",
@@ -831,10 +883,10 @@ class Endcord:
                                                 break
                                         self.update_chat()
                     # handling unseen and mentions
-                    if not this_channel or (this_channel and self.unseen_scrolled):
+                    if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
                         # ignoring messages sent by other clients
                         if op == "MESSAGE_CREATE" and new_message["d"]["user_id"] != self.my_id:
-                            if new_message_channel_id not in self.unseen:
+                            if new_message_channel_id not in self.unseen and not self.ping_this_channel:
                                 self.unseen.append(new_message_channel_id)
                             mentions = []
                             for mention in new_message["d"]["mentions"]:
@@ -845,23 +897,9 @@ class Endcord:
                                 self.my_id in mentions or
                                 (new_message_channel_id in self.dms_id)
                             ):
-                                self.pings.append(new_message_channel_id)
-                                # notifications
-                                if self.enable_notifications:
-                                    skip = False
-                                    for notification in self.notifications:
-                                        if notification["channel_id"] == new_message_channel_id:
-                                            skip = True
-                                    if not skip:
-                                        notification_id = peripherals.notify_send(
-                                            APP_NAME,
-                                            f"{new_message["d"]["global_name"]}:\n{new_message["d"]["content"]}",
-                                            sound=self.notification_sound,
-                                        )
-                                        self.notifications.append({
-                                            "notification_id": notification_id,
-                                            "channel_id": new_message_channel_id,
-                                        })
+                                if not self.ping_this_channel:
+                                    self.pings.append(new_message_channel_id)
+                                self.send_desktop_nitification(new_message)
                             self.update_tree()
                 else:
                     break

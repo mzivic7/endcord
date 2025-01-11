@@ -255,7 +255,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         if message["content"]:
             content = replace_channels(replace_roles(replace_mention(clean_emojis(message["content"]), message["mentions"]), roles), channels)
             for embed in embeds:
-                if embed["url"] not in content:
+                if embed["url"] and embed["url"] not in content:
                     content = content + f"\n[{clean_type(embed["type"])} embed]: {embed["url"]}"
         elif embeds:
             embed = embeds[0]
