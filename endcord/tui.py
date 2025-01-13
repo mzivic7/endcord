@@ -256,7 +256,7 @@ class TUI():
     def draw_title_tree(self):
         """Draw tree title line, works same as status line, but without right text"""
         h, w = self.tree_title_hw
-        title_txt = self.title_tree_txt[:w-1]
+        title_txt = self.title_tree_txt[:w]
         title_line = title_txt + " " * (w - len(title_txt))
         self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(2))
         self.win_title_tree.refresh()
@@ -728,6 +728,11 @@ class TUI():
                     self.deleting_msg = True
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 11
 
+            elif key == ctrl(104):   # Ctrl+H
+                tmp = self.input_buffer
+                self.input_buffer = prompt
+                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 12
+
             elif key == ctrl(108):   # Ctrl+L
                 self.screen.clear()
                 self.redraw_ui()
@@ -736,6 +741,8 @@ class TUI():
                 self.resize()
                 h, _ = self.screen_hw
                 _, w = self.input_hw
+
+            # terminal reserved keys: Ctrl+ C, Q, S, Z, M
 
             # keep index inside screen
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)

@@ -28,7 +28,7 @@ settings = {
     "linux_notification_sound": "message",
     "ack_throttling": 5,
     "use_nick_when_avail": True,
-    "tree_width": 30,
+    "tree_width": 32,
     "tree_vert_line": "|",
     "format_title_tree": " endcord  %task",
     "tree_drop_down_vline": "|",

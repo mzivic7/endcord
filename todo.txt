@@ -1,6 +1,5 @@
 HIGH PRIORITY:
 upload file
-copy message to clipboard
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"

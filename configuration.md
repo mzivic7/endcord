@@ -41,7 +41,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for left side of title line. See [format_status](##format_status) for more info. Set to None to disable.
 - `format_title_line_r = "%rich"`  
     Formatting for right side of title line. See [format_status](##format_status) for more info.
-- `limit_typing_string = 30`  
+- `limit_typing_string = 32`  
     Limit to the typing string length. Also limits `%details` and `%state` in `format_rich`
 - `format_rich = "playing: %name - %state - %details "`  
     Formatting for rich presence string used in `format_status`. See [format_rich](##format_rich) for more info.

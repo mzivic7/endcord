@@ -344,7 +344,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
     return chat, chat_format, indexes
 
 
-def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, task, format_status_line, format_rich, limit_typing=30, use_nick=True):
+def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, format_status_line, format_rich, limit_typing=30, use_nick=True):
     """
     Generate status line according to provided formatting.
     Possible options for format_status_line:
@@ -450,6 +450,16 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])
     else:
         custom_status_emoji = ""
+
+    # running long tasks
+    tasks = sorted(tasks, key=lambda x:x[1], reverse=False)
+    if len(tasks) == 0:
+        task = ""
+    elif len(tasks) == 1:
+        task = tasks[0][0]
+    else:
+        task = f"{tasks[0][0]} (+{len(tasks) - 1})"
+
     return (
         format_status_line
         .replace("%global_name", str(my_user_data["global_name"]))

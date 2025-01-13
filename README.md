@@ -26,6 +26,7 @@ Discord token is required in order to run endcord! see [Token](##token).
     - DMs in separate drop-down
 - Show reactions
 - Show replied message
+- Show embeds, attachment types and links
 - Open link in browser (`Ctrl+O`)
 - Infinite chat scrolling
 - Keep deleted messages (OFF by default)
@@ -33,7 +34,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Highlight messages with mentions
 - Send 'typing' (ON by default)
 - Insertable newline in input line (`Ctr+N`)
-- Show embeds, attachment types and links
+- Copy message text to clipboard (`Ctrl+H`)
 - Customizable status and title lines
 - Customizable chat lines (message, newline, reaction, reply)
 - Customizable prompt line
@@ -75,7 +76,7 @@ Go to [configuration](configuration.md).
 Navigating messages - `Arrow-Up/Down`  
 Navigating channel tree - `Ctrl-Up/Down`  
 Insert newline - `Ctrl+N`  
-Scroll back to bottom - `Ctrl+B`  
+Scroll back to bottom - `Ctrl+H`  
 Expand selected categories and servers - `Ctrl+Space`  
 Enter selected channel - `Ctrl+Space`  
 Reply to selected message - `Ctrl+R`  
@@ -83,6 +84,7 @@ Edit selected message - `Ctrl+E`
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
 Go to replied message - `Ctrl+G`  
+Copy message to clipboard - `Ctrl+B`
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
 Cancel all downloads - `Ctrl+X`
@@ -114,10 +116,12 @@ More info about whats going on can be found in log, when endcord is in debug mod
 
 ## Installing
 ### Linux
-- From AUR: `yay -S easyeffects-record`
+- From AUR: `yay -S easyeffects-record`  
 - Build, then copy built executable to system:  
     `sudo cp dist/cmus-rpc-py /usr/local/sbin/`
-
+Optional dependencies:  
+- `xcopy` - clipboard support on X11  
+- `wl-clipboard` - clipboard support on Wayland  
 > [!WARNING]
 > Using third-party client is against Discord's Terms of Service and may cause your account to be banned!  
 > **Use endcord at your own risk!**

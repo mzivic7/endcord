@@ -11,11 +11,13 @@ APP_NAME = "endcord"
 
 platform_release = str(platform.release())
 if sys.platform == "win32":
+    import win32clipboard
     if platform_release == "10":
         from win10toast import ToastNotifier
         toast = ToastNotifier()
     elif platform_release == "11":
         import win11toast
+
 
 
 if sys.platform == "linux":
@@ -87,7 +89,7 @@ def load_config(path, default):
 
 
 def notify_send(title, message, sound="message"):
-    """Send simple notification containing title and message. Supports Linux, Windows and Mac."""
+    """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":
         cmd = f"notify-send -p --app-name '{APP_NAME}' -h 'string:sound-name:{sound}' '{title}' '{message}'"
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
@@ -104,7 +106,7 @@ def notify_send(title, message, sound="message"):
 
 
 def notify_remove(notification_id):
-    """Removes notification by its id. Linux only"""
+    """Removes notification by its id. Linux only."""
     if sys.platform == "linux":
         cmd = f"gdbus call --session \
                            --dest org.freedesktop.Notifications \
@@ -154,3 +156,40 @@ def extract_colors(config):
         check_color_format(config["color_format_blocked"]),
         check_color_format(config["color_format_deleted"]),
     )
+
+def copy_to_clipboard(text):
+    """Copy text to clipboard. Cross-platform."""
+    text = str(text)
+    if sys.platform == "linux":
+        if os.getenv("WAYLAND_DISPLAY"):
+            proc = subprocess.Popen(
+                "wl-copy",
+                shell=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
+            proc.communicate(input=text.encode("utf-8"))
+        else:
+            proc = subprocess.Popen(
+                "xclip",
+                shell=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
+            proc.communicate(input=text.encode("utf-8"))
+    elif sys.platform == "win32":
+        win32clipboard.OpenClipboard()
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboard(text, win32clipboard.CF_UNICODETEXT)
+        win32clipboard.CloseClipboard()
+    elif sys.platform == "mac":
+        proc = subprocess.Popen(
+            "pbcopy w",
+            shell=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+        )
+        proc.communicate(input=text.encode("utf-8"))

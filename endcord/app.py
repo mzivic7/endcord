@@ -67,7 +67,7 @@ class Endcord:
         self.dms_setting = []
         self.summaries = []
         self.input_store = []
-        self.running_task = ""
+        self.running_tasks = []
 
         # initialize stuff
         self.discord = discord.Discord(config["token"])
@@ -113,14 +113,14 @@ class Endcord:
         self.last_message_id = 0
         self.my_rpc = []
         self.chat_end = False
-        self.downloading = 0
+
         download.cancel()
         self.send_downlaod_threads = []
 
 
     def reconnect(self):
         """Fetch updated data from gateway and rebuild chat after reconnecting"""
-        self.update_running_task("Reconnecting")
+        self.add_running_task("Reconnecting", 1)
         self.reset()
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
@@ -162,7 +162,7 @@ class Endcord:
         self.update_chat(keep_selected=False)
         self.update_tree()
 
-        self.update_running_task()
+        self.remove_running_task("Reconnecting", 1)
         logger.info("Reconnect complete")
 
 
@@ -174,14 +174,13 @@ class Endcord:
 
         # dont switch when offline
         if self.my_status["client_state"] in ("OFFLINE", "connecting"):
-            self.update_running_task()
             return
 
         self.active_channel["guild_id"] = guild_id
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
         self.active_channel["channel_name"] = channel_name
-        self.update_running_task("Switching channel")
+        self.add_running_task("Switching channel", 1)
 
         if self.active_channel["guild_id"]:
             my_user = self.discord.get_user_guild(self.my_id, self.active_channel["guild_id"])   # using this as ping
@@ -189,13 +188,13 @@ class Endcord:
                 self.my_roles = my_user["roles"] if my_user["roles"] else []
             else:
                 self.my_roles = []
-                self.update_running_task()
+                self.remove_running_task("Switching channel", 1)
                 logger.warn("Channel switching failed")
                 return
         else:
             my_user = self.discord.get_user(self.my_id)   # using this as ping
             if not my_user:
-                self.update_running_task()
+                self.remove_running_task("Switching channel", 1)
                 logger.warn("Channel switching failed")
                 return
             self.my_rolse = []
@@ -232,7 +231,7 @@ class Endcord:
             self.state["last_channel_id"] = channel_id
             peripherals.save_state(self.state)
 
-        self.update_running_task()
+        self.remove_running_task("Switching channel", 1)
         logger.debug("Channel switching complete")
 
 
@@ -279,10 +278,19 @@ class Endcord:
         self.cancel_download = None
 
 
-    def update_running_task(self, task=""):
-        """Update currently running long task"""
-        self.running_task = task
+    def add_running_task(self, task, priority=5):
+        """Add currently running long task with priority (lower number = higher priority)"""
+        self.running_tasks.append([task, priority])
         self.update_status_line()
+
+
+    def remove_running_task(self, task, priority):
+        """Remove currently running long task"""
+        try:
+            self.running_tasks.remove([task, priority])
+            self.update_status_line()
+        except ValueError:
+            pass
 
 
     def wait_input(self):
@@ -379,6 +387,7 @@ class Endcord:
 
             # toggle mention ping
             elif action == 6:
+                self.replying["content"] = input_text
                 self.replying["mention"] = None if self.replying["mention"] is None else not self.replying["mention"]
                 self.update_status_line()
 
@@ -386,11 +395,11 @@ class Endcord:
             elif action == 7 and self.messages:
                 self.warping = input_text
                 if self.messages[0]["id"] != self.last_message_id:
-                    self.update_running_task("Downloading chat")
+                    self.add_running_task("Downloading chat", 3)
                     self.messages = self.discord.get_messages(self.active_channel["channel_id"])
                     self.update_chat()
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                    self.update_running_task()
+                    self.remove_running_task("Downloading chat", 3)
 
             # go to replied message
             elif action == 8 and self.messages:
@@ -462,6 +471,12 @@ class Endcord:
                     self.cancel_download = True
                     self.update_status_line()
 
+            # copy message to clipboard
+            elif action == 12 and self.messages:
+                msg_index = self.lines_to_msg(chat_sel + 1)
+                self.going_to = input_text   # reusing variable
+                peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
+
             # escape key
             elif action == 5:
                 if self.replying["id"]:
@@ -485,7 +500,7 @@ class Endcord:
                         channel_id=self.active_channel["channel_id"],
                         message_id=self.deleting["id"],
                     )
-                elif self.downloading_file["urls"]:
+                elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
                     if self.downloading_file["web"]:
                         try:
                             num = max(int(input_text) - 1, 0)
@@ -530,13 +545,7 @@ class Endcord:
 
     def download_and_move(self, url):
         """Thread that downloads and moves file to downloads dir"""
-        self.downloading += 1
-        if self.downloading == 0:
-            self.update_running_task()
-        elif self.downloading == 1:
-            self.update_running_task("Downloading file")
-        else:
-            self.update_running_task(f"Downloading {self.downloading} files")
+        self.add_running_task("Downloading file", 2)
         if "https://media.tenor.com/" in url:
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
 
@@ -549,19 +558,13 @@ class Endcord:
         except Exception as e:
             logger.error(f"Failed downloading file: {e}")
 
-        self.downloading -= 1
-        if self.downloading == 0:
-            self.update_running_task()
-        elif self.downloading == 1:
-            self.update_running_task("Downloading file")
-        else:
-            self.update_running_task(f"Downloading {self.downloading} files")
+        self.remove_running_task("Downloading file", 2)
 
 
 
     def get_chat_chunk(self, past=True):
         """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
-        self.update_running_task("Downloading chat")
+        self.add_running_task("Downloading chat", 3)
         start_id = self.messages[-int(past)]["id"]
 
         if past:
@@ -598,7 +601,7 @@ class Endcord:
                 selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                 self.tui.set_selected(selected_line)
-        self.update_running_task()
+        self.remove_running_task("Downloading chat", 3)
 
 
     def go_to_message(self, message_id):
@@ -680,7 +683,7 @@ class Endcord:
             action_type = 2
         elif self.deleting["id"]:
             action_type = 3
-        elif self.downloading_file["urls"]:
+        elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
             if self.downloading_file["web"]:
                 action_type = 4
             else:
@@ -701,7 +704,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
-                self.running_task,
+                self.running_tasks,
                 self.format_status_line_r,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,
@@ -715,7 +718,7 @@ class Endcord:
             self.typing,
             self.active_channel,
             action,
-            self.running_task,
+            self.running_tasks,
             self.format_status_line_l,
             self.config["format_rich"],
             limit_typing=self.limit_typing,
@@ -730,7 +733,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
-                self.running_task,
+                self.running_tasks,
                 self.format_title_line_r,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,
@@ -745,7 +748,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
-                self.running_task,
+                self.running_tasks,
                 self.format_title_line_l,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,
@@ -759,7 +762,7 @@ class Endcord:
                 self.typing,
                 self.active_channel,
                 action,
-                self.running_task,
+                self.running_tasks,
                 self.format_title_tree,
                 self.config["format_rich"],
                 limit_typing=self.limit_typing,

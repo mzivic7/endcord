@@ -218,6 +218,9 @@ class Discord():
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            # debug
+            # with open("messages.json", "w") as f:
+            #     json.dump(data, f, indent=2)
             messages = []
             for message in data:
                 if "referenced_message" in message:
@@ -237,8 +240,8 @@ class Discord():
                         reference_embeds = []
                         for embed in message["referenced_message"]["embeds"]:
                             url = embed.get("url")
-                            # take direct video url to tenor
-                            if url and "https://tenor.com/" in url and "video"in embed:
+                            # take direct video url
+                            if "video" in embed and "url" in embed["video"]:
                                 url = embed["video"]["url"]
                             reference_embeds.append({
                                 "type": embed["type"].replace("rich", "url"),
@@ -289,8 +292,8 @@ class Discord():
                 for embed in message["embeds"]:
                     if "url" in embed:
                         content = embed["url"]
-                        # take direct video url to tenor
-                        if "https://tenor.com/" in embed["url"] and "video" in embed:
+                        # take direct video url
+                        if "video" in embed and "url" in embed["video"]:
                             content = embed["video"]["url"]
                     elif "fields" in embed:
                         content = ""
@@ -472,7 +475,7 @@ class Discord():
 
 
     def get_file(self, url, save_path):
-        """Download file from discord with proper header"""
+        """Download file from discord with proper headeer"""
         message_data = None
         url_object = urllib.parse.urlparse(url)
         filename = os.path.basename(url_object.path)

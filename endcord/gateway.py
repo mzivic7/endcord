@@ -423,8 +423,8 @@ class Gateway():
                             for embed in response["d"]["referenced_message"]["embeds"]:
                                 if "url" in embed:
                                     content = embed["url"]
-                                    # take direct video url to tenor
-                                    if "https://tenor.com/" in embed["url"] and "video" in embed:
+                                    # take direct video url
+                                    if "video" in embed and "url" in embed["video"]:
                                         content = embed["video"]["url"]
                                 elif "fields" in embed:
                                     content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
@@ -461,8 +461,8 @@ class Gateway():
                         for embed in response["d"]["embeds"]:
                             if "url" in embed:
                                 content = embed["url"]
-                                # take direct video url to tenor
-                                if "https://tenor.com/" in embed["url"] and "video" in embed:
+                                # take direct video url
+                                if "video" in embed and "url" in embed["video"]:
                                     content = embed["video"]["url"]
                             elif "fields" in embed:
                                 content = ""
@@ -518,8 +518,8 @@ class Gateway():
                     for embed in response["d"]["embeds"]:
                         if "url" in embed:
                             content = embed["url"]
-                            # take direct video url to tenor
-                            if "https://tenor.com/" in embed["url"] and "video" in embed:
+                            # take direct video url
+                            if "video" in embed and "url" in embed["video"]:
                                 content = embed["video"]["url"]
                         elif "fields" in embed:
                             content = ""
