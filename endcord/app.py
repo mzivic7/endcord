@@ -1,14 +1,20 @@
 import logging
+import os
+import re
+import shutil
 import sys
 import threading
 import time
+import webbrowser
 
-from endcord import discord, formatter, gateway, peripherals, rpc, tui
+from endcord import discord, downloader, formatter, gateway, peripherals, rpc, tui
 
 logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 
+download = downloader.Downloader()
+match_urls = re.compile(r"https?:\/\/\w+(\.\w+)+\S*")
 
 class Endcord:
     """Main app class"""
@@ -38,6 +44,11 @@ class Endcord:
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
         self.ping_this_channel = config["notification_in_active"]
+        downloads_path = config["downloads_path"]
+        if not downloads_path:
+            downloads_path = peripherals.downloads_path
+        self.downloads_path = os.path.expanduser(downloads_path)
+        self.tenor_gif_type = config["tenor_gif_type"]
         self.colors = peripherals.extract_colors(config)
 
         # variables
@@ -102,6 +113,9 @@ class Endcord:
         self.last_message_id = 0
         self.my_rpc = []
         self.chat_end = False
+        self.downloading = 0
+        download.cancel()
+        self.send_downlaod_threads = []
 
 
     def reconnect(self):
@@ -228,7 +242,7 @@ class Endcord:
             done = False
             for num, channel in enumerate(self.input_store):
                 if channel["id"] == channel_id:
-                    self.input_store["content"] = text
+                    self.input_store[num]["content"] = text
                     done = True
                     break
             if not done:
@@ -257,6 +271,12 @@ class Endcord:
         }
         self.warping = None
         self.going_to = None
+        self.downloading_file = {
+            "content": None,
+            "urls": None,
+            "web": False,
+        }
+        self.cancel_download = None
 
 
     def update_running_task(self, task=""):
@@ -274,12 +294,17 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.editing["content"], reset=False)
             elif self.replying["content"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.replying["content"], reset=False, keep_cursor=True)
-            elif self.deleting["content"]:
+            elif self.deleting["content"] or self.cancel_download:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.warping is not None:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.warping, reset=False, keep_cursor=True, scroll_bot=True)
             elif self.going_to is not None:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.going_to, reset=False, keep_cursor=True)
+            elif self.downloading_file["urls"]:
+                if len(self.downloading_file["urls"]) == 1:
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.downloading_file["content"], reset=False, keep_cursor=True)
+                else:
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -352,15 +377,6 @@ class Endcord:
                         }
                         self.update_status_line()
 
-            # escape key
-            elif action == 5:
-                if self.replying["id"]:
-                    self.reset_actions()
-                    self.replying["content"] = input_text
-                else:
-                    self.reset_actions()
-                self.update_status_line()
-
             # toggle mention ping
             elif action == 6:
                 self.replying["mention"] = None if self.replying["mention"] is None else not self.replying["mention"]
@@ -385,6 +401,76 @@ class Endcord:
                     if reference_id:
                         self.go_to_message(reference_id)
 
+            # download file
+            elif action == 9:
+                msg_index = self.lines_to_msg(chat_sel + 1)
+                urls = []
+                for embed in self.messages[msg_index]["embeds"]:
+                    if embed["url"]:
+                        urls.append(embed["url"])
+                if len(urls) == 1:
+                    self.downloading_file = {
+                        "content": input_text,
+                        "urls": urls,
+                        "web": False,
+                    }
+                    self.send_downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[0], )))
+                    self.send_downlaod_threads[-1].start()
+                elif len(urls) > 1:
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.downloading_file = {
+                        "content": input_text,
+                        "urls": urls,
+                        "web": False,
+                    }
+                    self.update_status_line()
+
+            # open link in browser
+            elif action == 10:
+                msg_index = self.lines_to_msg(chat_sel + 1)
+                urls = []
+                for url in re.findall(match_urls, self.messages[msg_index]["content"]):
+                    urls.append(url)
+                for embed in self.messages[msg_index]["embeds"]:
+                    if embed["url"]:
+                        urls.append(embed["url"])
+                if len(urls) == 1:
+                    self.downloading_file = {
+                        "content": input_text,
+                        "urls": urls,
+                        "web": False,
+
+                    }
+                    webbrowser.open(urls[0], new=0, autoraise=True)
+                    logger.info("SHIT")
+                elif len(urls) > 1:
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.downloading_file = {
+                        "content": input_text,
+                        "urls": urls,
+                        "web": True,
+                    }
+                    logger.info("OK")
+                    self.update_status_line()
+
+            # cancel all downloads
+            elif action == 11:
+                msg_index = self.lines_to_msg(chat_sel + 1)
+                if self.messages[msg_index]["user_id"] == self.my_id:
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.reset_actions()
+                    self.cancel_download = True
+                    self.update_status_line()
+
+            # escape key
+            elif action == 5:
+                if self.replying["id"]:
+                    self.reset_actions()
+                    self.replying["content"] = input_text
+                else:
+                    self.reset_actions()
+                self.update_status_line()
+
             # send message
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
                 # message will be received from gateway and then added to self.messages
@@ -399,6 +485,24 @@ class Endcord:
                         channel_id=self.active_channel["channel_id"],
                         message_id=self.deleting["id"],
                     )
+                elif self.downloading_file["urls"]:
+                    if self.downloading_file["web"]:
+                        try:
+                            num = max(int(input_text) - 1, 0)
+                            if num <= len(self.downloading_file["urls"]):
+                                webbrowser.open(urls[num], new=0, autoraise=True)
+                        except ValueError:
+                            pass
+                    else:
+                        try:
+                            num = max(int(input_text) - 1, 0)
+                            if num <= len(self.downloading_file["urls"]):
+                                self.send_downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[num], )))
+                                self.send_downlaod_threads[-1].start()
+                        except ValueError:
+                            pass
+                elif self.cancel_download and input_text.lower() == "y":
+                    download.cancel()
                 else:
                     self.discord.send_message(
                         self.active_channel["channel_id"],
@@ -411,14 +515,48 @@ class Endcord:
                 self.reset_actions()
                 self.update_status_line()
 
-            # deleting on enter
-            elif input_text == "" and self.deleting["id"]:
-                self.discord.send_delete_message(
-                    channel_id=self.active_channel["channel_id"],
-                    message_id=self.deleting["id"],
-                )
+            # accept on enter
+            elif input_text == "":
+                if self.deleting["id"]:
+                    self.discord.send_delete_message(
+                        channel_id=self.active_channel["channel_id"],
+                        message_id=self.deleting["id"],
+                    )
+                elif self.cancel_download:
+                    download.cancel()
                 self.reset_actions()
                 self.update_status_line()
+
+
+    def download_and_move(self, url):
+        """Thread that downloads and moves file to downloads dir"""
+        self.downloading += 1
+        if self.downloading == 0:
+            self.update_running_task()
+        elif self.downloading == 1:
+            self.update_running_task("Downloading file")
+        else:
+            self.update_running_task(f"Downloading {self.downloading} files")
+        if "https://media.tenor.com/" in url:
+            url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
+
+        try:
+            path = download.download(url)
+            if path:
+                if not os.path.exists(self.downloads_path):
+                    os.makedirs(os.path.expanduser(os.path.dirname(self.downloads_path)), exist_ok=True)
+                shutil.move(path, os.path.join(self.downloads_path, os.path.basename(path)))
+        except Exception as e:
+            logger.error(f"Failed downloading file: {e}")
+
+        self.downloading -= 1
+        if self.downloading == 0:
+            self.update_running_task()
+        elif self.downloading == 1:
+            self.update_running_task("Downloading file")
+        else:
+            self.update_running_task(f"Downloading {self.downloading} files")
+
 
 
     def get_chat_chunk(self, past=True):
@@ -542,6 +680,13 @@ class Endcord:
             action_type = 2
         elif self.deleting["id"]:
             action_type = 3
+        elif self.downloading_file["urls"]:
+            if self.downloading_file["web"]:
+                action_type = 4
+            else:
+                action_type = 5
+        elif self.cancel_download:
+            action_type = 6
         action = {
             "type": action_type,
             "username": self.replying["username"],

@@ -2,6 +2,7 @@ import base64
 import http
 import json
 import logging
+import os
 import socket
 import time
 import urllib.parse
@@ -235,10 +236,14 @@ class Discord():
                                 })
                         reference_embeds = []
                         for embed in message["referenced_message"]["embeds"]:
+                            url = embed.get("url")
+                            # take direct video url to tenor
+                            if url and "https://tenor.com/" in url and "video"in embed:
+                                url = embed["video"]["url"]
                             reference_embeds.append({
                                 "type": embed["type"].replace("rich", "url"),
                                 "name": None,
-                                "url": embed.get("url"),
+                                "url": url,
 
                             })
                         for attachment in message["referenced_message"]["attachments"]:
@@ -284,6 +289,9 @@ class Discord():
                 for embed in message["embeds"]:
                     if "url" in embed:
                         content = embed["url"]
+                        # take direct video url to tenor
+                        if "https://tenor.com/" in embed["url"] and "video" in embed:
+                            content = embed["video"]["url"]
                     elif "fields" in embed:
                         content = ""
                         if "url" in embed:
@@ -461,6 +469,22 @@ class Discord():
             return assets
         logger.error(f"Failed to fetch application assets. Response code: {response.status}")
         return None
+
+
+    def get_file(self, url, save_path):
+        """Download file from discord with proper header"""
+        message_data = None
+        url_object = urllib.parse.urlparse(url)
+        filename = os.path.basename(url_object.path)
+        connection = http.client.HTTPSConnection(url_object.netloc, 443, timeout=5)
+        connection.request("GET", url_object.path + "?" + url_object.query, message_data, self.header)
+        response = connection.getresponse()
+        extension = response.getheader("Content-Type").split("/")[-1].replace("jpeg", "jpg")
+        destination = os.path.join(save_path, filename)
+        if os.path.splitext(destination)[-1] == "":
+            destination = destination + "." + extension
+        with open(destination, mode="wb") as file:
+            file.write(response.read())
 
 
     def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True):

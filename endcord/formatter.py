@@ -214,16 +214,13 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 else:
                     global_name_nick = message["referenced_message"]["username"]
                 reply_embeds = message["referenced_message"]["embeds"].copy()
+                content = ""
                 if message["referenced_message"]["content"]:
                     content = replace_channels(replace_roles(replace_mention(clean_emojis(message["referenced_message"]["content"]), message["referenced_message"]["mentions"]), roles), channels)
+                if reply_embeds:
                     for embed in reply_embeds:
                         if embed["url"] not in content:
                             content = content + f"\n[{clean_type(embed["type"])} embed]: {embed["url"]}"
-                elif reply_embeds:
-                    embed = reply_embeds[0]
-                    content = f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
-                else:
-                    content = ""
                 reply_line = (
                     format_reply
                     .replace("%username", normalize_string(message["referenced_message"]["username"], limit_username))
@@ -252,16 +249,13 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         else:
             global_name_nick = message["username"]
         embeds = message["embeds"]
+        content = ""
         if message["content"]:
             content = replace_channels(replace_roles(replace_mention(clean_emojis(message["content"]), message["mentions"]), roles), channels)
+        if embeds:
             for embed in embeds:
                 if embed["url"] and embed["url"] not in content:
                     content = content + f"\n[{clean_type(embed["type"])} embed]: {embed["url"]}"
-        elif embeds:
-            embed = embeds[0]
-            content = f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
-        else:
-            content = ""
         message_line = (
             format_message
             .replace("%username", normalize_string(message["username"], limit_username))
@@ -445,6 +439,12 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = "Editing the message"
     elif action["type"] == 3:   # deleting
         action_string = "Really delete the message? [Y/n]"
+    elif action["type"] == 4:   # select from multiple links
+        action_string = "Select link to open in browser (type a number)"
+    elif action["type"] == 5:   # select from multiple attachments
+        action_string = "Select attachment link to download (type a number)"
+    elif action["type"] == 6:   # cancel all downloads
+        action_string = "Really cancel all downloads? [Y/n]"
 
     if my_status["custom_status_emoji"]:
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])

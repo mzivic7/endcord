@@ -64,6 +64,7 @@ class TUI():
         self.cursor_on = True
         self.deleting_msg = False
         self.replying_msg = False
+        self.asking_num = False
         self.typing = time.time()
         chat_hwyx = (
             curses.LINES - 2 - int(self.have_title),
@@ -555,6 +556,7 @@ class TUI():
                     # escape key
                     self.deleting_msg = False
                     self.replying_msg = False
+                    self.asking_num = False
                     tmp = self.input_buffer
                     self.input_buffer = prompt
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 5
@@ -705,7 +707,29 @@ class TUI():
                     self.input_buffer = prompt
                     return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 8
 
-            elif key == ctrl(ord("l")):   # Ctrl+L
+            elif key == ctrl(119):   # Ctrl+W
+                if self.chat_selected != -1:
+                    tmp = self.input_buffer
+                    self.input_buffer = prompt
+                    self.asking_num = True
+                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 9
+
+            elif key == ctrl(111):   # Ctrl+O
+                if self.chat_selected != -1:
+                    tmp = self.input_buffer
+                    self.input_buffer = prompt
+                    self.asking_num = True
+                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 10
+
+            elif key == ctrl(120):   # Ctrl+X
+                if self.chat_selected != -1:
+                    tmp = self.input_buffer
+                    self.input_buffer = prompt
+                    self.deleting_msg = True
+                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 11
+
+            elif key == ctrl(108):   # Ctrl+L
+                self.screen.clear()
                 self.redraw_ui()
 
             elif key == curses.KEY_RESIZE:

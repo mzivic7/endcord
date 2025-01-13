@@ -1,5 +1,6 @@
 HIGH PRIORITY:
-upload/download attachment
+upload file
+copy message to clipboard
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"
@@ -9,12 +10,12 @@ italic/bold/underline/spoiler formatting in chat
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
-open link in browser
-show pictures with ascii art (gifs too)
-keybinding
+optional media with ascii art
 spellchecking inputline
+keybinding
 
 LOW PRIORITY:
+zoom and move ascii image
 show summaries and channel topic
 assist when mentioning with @[username]/@[role]/>channel/:emoji: and reactions
 forums/threads
@@ -22,7 +23,6 @@ search and go to messages
 better windows support (building, ctrl+key, emoji character, rpc)
 
 MAYBE:
-videos with ascii art
 rpc on mac-os
 mouse controls
 voice and video (normal/ascii)

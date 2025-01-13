@@ -423,6 +423,9 @@ class Gateway():
                             for embed in response["d"]["referenced_message"]["embeds"]:
                                 if "url" in embed:
                                     content = embed["url"]
+                                    # take direct video url to tenor
+                                    if "https://tenor.com/" in embed["url"] and "video" in embed:
+                                        content = embed["video"]["url"]
                                 elif "fields" in embed:
                                     content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
                                 else:
@@ -458,6 +461,9 @@ class Gateway():
                         for embed in response["d"]["embeds"]:
                             if "url" in embed:
                                 content = embed["url"]
+                                # take direct video url to tenor
+                                if "https://tenor.com/" in embed["url"] and "video" in embed:
+                                    content = embed["video"]["url"]
                             elif "fields" in embed:
                                 content = ""
                                 if "url" in embed:
@@ -512,6 +518,9 @@ class Gateway():
                     for embed in response["d"]["embeds"]:
                         if "url" in embed:
                             content = embed["url"]
+                            # take direct video url to tenor
+                            if "https://tenor.com/" in embed["url"] and "video" in embed:
+                                content = embed["video"]["url"]
                         elif "fields" in embed:
                             content = ""
                             if "url" in embed:
@@ -690,7 +699,7 @@ class Gateway():
         Returns gateway response code, 9 means resumming has failed
         """
         self.ws.close(timeout=0)   # this will stop receiver
-        time.sleep(1)   # so receiver ends before oppening new socket
+        time.sleep(1)   # so receiver ends before opening new socket
         reset_inflator()   # otherwise decompression wont work
         self.ws = websocket.WebSocket()
         self.ws.connect(self.resume_gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
@@ -713,7 +722,7 @@ class Gateway():
             code = self.resume()
             if code == 9:
                 self.ws.close(timeout=0)   # this will stop receiver
-                time.sleep(1)   # so receiver ends before oppening new socket
+                time.sleep(1)   # so receiver ends before opening new socket
                 reset_inflator()   # otherwise decompression wont work
                 self.ws = websocket.WebSocket()
                 self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")

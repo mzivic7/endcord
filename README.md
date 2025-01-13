@@ -11,6 +11,8 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Extremely low CPU and and RAM usage (~25MB)
 - Live chat, send message
 - Integrated RPC (only Rich Presence)
+- Desktop notifications
+- Download attachments (`Ctrl+W`)
 - Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
 - When replying: toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
@@ -24,13 +26,13 @@ Discord token is required in order to run endcord! see [Token](##token).
     - DMs in separate drop-down
 - Show reactions
 - Show replied message
+- Open link in browser (`Ctrl+O`)
 - Infinite chat scrolling
 - Keep deleted messages (OFF by default)
 - Show who is typing
 - Highlight messages with mentions
 - Send 'typing' (ON by default)
 - Insertable newline in input line (`Ctr+N`)
-- Desktop notifications with sound
 - Show embeds, attachment types and links
 - Customizable status and title lines
 - Customizable chat lines (message, newline, reaction, reply)
@@ -81,6 +83,9 @@ Edit selected message - `Ctrl+E`
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
 Go to replied message - `Ctrl+G`  
+Open link in browser - `Ctrl+O`  
+Download attachment - `Ctrl+W`  
+Cancel all downloads - `Ctrl+X`
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 ### Newline
@@ -91,6 +96,15 @@ When message is sent it will be split in newlines properly.
 When last message in chat buffer is selected, buffer will be extended with older messages.  
 If number of messages in buffer exceeds `limit_chat_buffer` value in config, chat will be trimmed on the opposite side.  
 If latest message is missing, then buffer can be extended with newer messages by selecting first message in buffer.  
+### Downloads / Open in browser
+Downloading and opening links have similar mechanism:  
+If there is one item, download will start immediately / open in browser.  
+If there are multiple items, it will prompt for a single number indicating what item.  
+Items can be:  
+- Links and attachments for 'open in browser'  
+- Only attachments for 'download'.  
+Links are counted first. Items are counted from start to end of the message, in order.  
+Downloads are parallel. If there are downloads running, `Ctrl-X` will cancel ALL downloads, with a confirmation prompt.  
 ### RPC
 For now RPC is only implemented for linux, it is automatically disabled on other platforms.  
 And only supports Rich Presence, which means no subscriptions, join requests, lobby, etc.  

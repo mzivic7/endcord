@@ -7,6 +7,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Enable debug mode.
 - `rpc = True`  
     Enable RPC server. For now Linux only.
+- `downloads_path = None`  
+    Directory where to store downloaded files. Set to None to use 'Downloads' directory (cross platform).
 - `limit_chat_buffer = 100`  
     Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
 - `limit_username = 10`  
@@ -81,13 +83,18 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Time in seconds the cursor stays OFF. Set to None or 0 to disable cursor blinking.
 - `blocked_mode = 1`  
     What to do with blocked messages:
-    0 - no blocking  
-    1 - mask blocked messages  
-    2 - hide blocked messages
+    0 - No blocking  
+    1 - Mask blocked messages  
+    2 - Hide blocked messages  
 - `hide_spam = True`  
     Wether to hide or show spam DM request channels in DM list.
 - `keep_deleted = False`  
     Wether to keep deleted messages in chat, with different color, or remove them
+- `tenor_gif_type = 1`  
+    Type of the media when gif is downloaded from tenor:  
+    0 - gif HD  
+    1 - gif UHD  
+    2 - mp4 Video  
 
 ## Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.

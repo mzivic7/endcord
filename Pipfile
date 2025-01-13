@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 discord-protos = "*"
 websocket-client = "*"
+urllib3 = "*"
 
 [dev-packages]
 pyinstaller = ">=6"

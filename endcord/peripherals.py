@@ -26,12 +26,27 @@ if sys.platform == "linux":
     else:
         default_config_path = f"~/.config/{APP_NAME}/"
         log_path = f"~/.config/{APP_NAME}/"
+    path = os.environ.get("XDG_RUNTIME_DIR", "")
+    if path.strip():
+        temp_path = os.path.join(path, f"{APP_NAME}/")
+    else:
+        # per-user temp dir
+        temp_path = f"/run/user/{os.getuid()}/{APP_NAME}"
+    path = os.environ.get("XDG_DOWNLOAD_DIR", "")
+    if path.strip():
+        downloads_path = os.path.join(path, f"{APP_NAME}/")
+    else:
+        downloads_path = "~/Downloads"
 elif sys.platform == "win32":
     default_config_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
     log_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
+    temp_path = f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"
+    downloads_path = f"{os.environ["USERPROFILE"]}/Downloads"
 elif sys.platform == "mac":
     default_config_path = f"~/Library/Application Support/{APP_NAME}/"
     log_path = f"~/Library/Application Support/{APP_NAME}/"
+    temp_path = f"~/Library/Caches/TemporaryItems{APP_NAME}"
+    downloads_path = "~/Downloads"
 else:
     sys.exit(f"Unsupported platform: {sys.platform}")
 
