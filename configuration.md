@@ -95,6 +95,16 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     0 - gif HD  
     1 - gif UHD  
     2 - mp4 Video  
+- `aspell_mode`  
+    [Aspell](http://aspell.net/) filter mode.  
+    Available options: `ultra` / `fast` / `normal` / `slow` / `bad-spellers`  
+    Set to None to disable spell checking.  
+    More info [here](http://aspell.net/man-html/Notes-on-the-Different-Suggestion-Modes.html#Notes-on-the-Different-Suggestion-Modes).  
+- `aspell_lang = en_US`  
+    Language dictionary for aspell.  
+    To list all installed languages, run `aspell dump dicts`.
+    Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
+
 
 ## Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
@@ -105,7 +115,9 @@ Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add7
 - `color_format_blocked = [242, -1]`  
     Color for blocked messages if `block_mode = 1`.
 - `color_format_deleted = [95, -1]`  
-    Color for deleted mesages when `keep_deleted = True`
+    Color for deleted mesages when `keep_deleted = True`.
+- `color_format_misspelled = [222, -1]`  
+    Color for misspelled words in input line.
 - `color_tree_default = [255, -1]`  
     Colors for tree components.
 - `color_tree_selected = [233, 255]`  

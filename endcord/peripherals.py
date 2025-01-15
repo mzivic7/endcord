@@ -1,11 +1,18 @@
 import json
+import logging
 import os
 import platform
+import re
+import shutil
 import subprocess
 import sys
 from ast import literal_eval
 from configparser import ConfigParser
 
+import pexpect
+
+logger = logging.getLogger(__name__)
+match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
 
 
@@ -91,8 +98,13 @@ def load_config(path, default):
 def notify_send(title, message, sound="message"):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":
-        cmd = f"notify-send -p --app-name '{APP_NAME}' -h 'string:sound-name:{sound}' '{title}' '{message}'"
-        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+        command = ["notify-send", "-p", f"--app-name '{APP_NAME}'", "-h", f"'string:sound-name:{sound}'", f"'{title}'", f"'{message}'"]
+        proc = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
         return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
     if sys.platform == "win32":
         if platform_release == "10":
@@ -163,8 +175,7 @@ def copy_to_clipboard(text):
     if sys.platform == "linux":
         if os.getenv("WAYLAND_DISPLAY"):
             proc = subprocess.Popen(
-                "wl-copy",
-                shell=True,
+                ["wl-copy"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
@@ -172,8 +183,7 @@ def copy_to_clipboard(text):
             proc.communicate(input=text.encode("utf-8"))
         else:
             proc = subprocess.Popen(
-                "xclip",
-                shell=True,
+                ["xclip"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
@@ -186,10 +196,108 @@ def copy_to_clipboard(text):
         win32clipboard.CloseClipboard()
     elif sys.platform == "mac":
         proc = subprocess.Popen(
-            "pbcopy w",
-            shell=True,
+            ["pbcopy", "w"],
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
         proc.communicate(input=text.encode("utf-8"))
+
+
+class SpellCheck(object):
+    """Sentence and word spellchecker. Linux only."""
+
+    def __init__(self, aspell_mode, aspell_language):
+        self.aspell_mode = aspell_mode
+        self.aspell_language = aspell_language
+        self.enable = True
+        self.command = ["aspell", "-a", f"--sug-mode={aspell_mode}", f"--lang={aspell_language}"]
+        if not aspell_mode or sys.platform != "linux" or not shutil.which("aspell"):
+            self.enable = False
+            logger.info("Spellchecking disabled")
+        else:
+            self.start_aspell()
+
+
+    def start_aspell(self):
+        """Start aspell with selected mode and language"""
+        self.proc = pexpect.spawn(f"aspell -a --sug-mode={self.aspell_mode} --lang={self.aspell_language}", encoding="utf-8")
+        self.proc.delaybeforesend = None
+        try:
+            self.proc.expect("Ispell", timeout=0.5)
+            logger.info("Aspell initialised")
+        except pexpect.exceptions.EOF:
+            logger.info("Aspell initialization error")
+            self.enable = False
+
+
+    def check_word_pexpect(self, word):
+        """Spellcheck single word with aspell"""
+        try:
+            self.proc.sendline(word)
+            self.proc.expect(r"\*|\&|\#", timeout=0.01)
+            after = self.proc.after
+            if after in ("&", "#"):
+                return True
+            return False
+        except pexpect.exceptions.TIMEOUT:
+            return False
+        except pexpect.exceptions.EOF as e:
+            logger.info(e)
+            if self.enable:
+                self.start_aspell()
+                return False
+
+
+    def check_word_subprocess(self, word):
+        """Spellcheck single word with aspell"""
+        try:
+            proc = subprocess.Popen(
+                self.command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            output, error = proc.communicate(word.encode())
+            check = output.decode().split("\n")[1]
+            if check == "*":
+                return False
+            return True
+        except FileNotFoundError:   # aspell not installed
+            return False
+
+
+    def check_sentence(self, sentence):
+        """
+        Spellcheck a sentence with aspell.
+        Excluding last word if there is no space after it.
+        Return list of bools representing whether each word is misspelled or not.
+        Linux only.
+        """
+        misspelled = []
+        if self.enable:
+            for word in sentence.split(" "):
+                if word == "":
+                    misspelled.append(False)
+                else:
+                    misspelled.append(self.check_word_pexpect(word))
+        return misspelled
+
+
+    def check_list(self, words):
+        """
+        Spellcheck a a list of words with aspell.
+        Return list of bools representing whether each word is misspelled or not.
+        Linux only.
+        """
+        misspelled = []
+        if self.enable:
+            for word in words:
+                if word == "":
+                    misspelled.append(False)
+                else:
+                    # regex here might cause troubles with non-latin characters
+                    misspelled.append(self.check_word_pexpect(re.sub(match_first_non_alfanumeric, "", word)))
+        else:
+            return [False] * len(words)
+        return misspelled

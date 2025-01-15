@@ -27,6 +27,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Show reactions
 - Show replied message
 - Show embeds, attachment types and links
+- Spellchecking
 - Open link in browser (`Ctrl+O`)
 - Infinite chat scrolling
 - Keep deleted messages (OFF by default)
@@ -87,7 +88,8 @@ Go to replied message - `Ctrl+G`
 Copy message to clipboard - `Ctrl+B`
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
-Cancel all downloads - `Ctrl+X`
+Cancel all downloads - `Ctrl+X`  
+Paste text - terminal paste, usually `Ctrl+Shift+V`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 ### Newline
@@ -120,8 +122,10 @@ More info about whats going on can be found in log, when endcord is in debug mod
 - Build, then copy built executable to system:  
     `sudo cp dist/cmus-rpc-py /usr/local/sbin/`
 Optional dependencies:  
-- `xcopy` - clipboard support on X11  
-- `wl-clipboard` - clipboard support on Wayland  
+- `xcopy` - Clipboard support on X11  
+- `wl-clipboard` - Clipboard support on Wayland  
+- `aspell` - Spellchecking
+
 > [!WARNING]
 > Using third-party client is against Discord's Terms of Service and may cause your account to be banned!  
 > **Use endcord at your own risk!**

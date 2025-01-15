@@ -3,6 +3,8 @@ import logging
 import threading
 import time
 
+from endcord import peripherals
+
 logger = logging.getLogger(__name__)
 INPUT_LINE_JUMP = 20   # jump size when moving input line
 
@@ -16,6 +18,7 @@ class TUI():
     """Methods used to draw terminal user interface"""
 
     def __init__(self, screen, config):
+        self.spellchecker = peripherals.SpellCheck(config["aspell_mode"], config["aspell_lang"])
         curses.use_default_colors()
         curses.curs_set(0)   # using custom cursor
         curses.init_pair(1, 255, -1)   # white on default
@@ -28,6 +31,7 @@ class TUI():
         curses.init_pair(7, config["color_tree_unseen"][0], config["color_tree_unseen"][1])
         curses.init_pair(8, config["color_tree_mentioned"][0], config["color_tree_mentioned"][1])
         curses.init_pair(9, config["color_tree_active_mentioned"][0], config["color_tree_active_mentioned"][1])
+        curses.init_pair(10, config["color_format_misspelled"][0], config["color_format_misspelled"][1])
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -59,12 +63,14 @@ class TUI():
         self.tree_index = 0
         self.tree_format_changed = False
         self.input_index = 0   # index of input cursor
-        self.input_line_index = 0   # index of input line, when moving it
-        self.cursor_pos = 0
+        self.input_line_index = 0   # index of input line, when moving it to left
+        self.cursor_pos = 0   # on-screen position of cursor
         self.cursor_on = True
         self.deleting_msg = False
         self.replying_msg = False
         self.asking_num = False
+        self.spelling_range = [0, 0]
+        self.misspelled = []
         self.typing = time.time()
         chat_hwyx = (
             curses.LINES - 2 - int(self.have_title),
@@ -144,7 +150,7 @@ class TUI():
 
 
     def get_my_typing(self):
-        """Return wether it has been typied in past 3s"""
+        """Return whether it has been typied in past 3s"""
         if time.time() - self.typing > 3:
             return None
         return True
@@ -219,7 +225,7 @@ class TUI():
             self.screen.insch(0, self.tree_hw[1], self.vert_line, curses.color_pair(2))
         self.draw_status_line()
         self.draw_chat()
-        self.draw_input_line()
+        self.update_prompt(self.prompt)   # draw_input_line() is already called in here
         self.draw_tree()
         if self.have_title:
             self.draw_title_line()
@@ -263,26 +269,41 @@ class TUI():
 
 
     def draw_input_line(self):
-        """Draw text input line"""
-        _, w = self.input_hw
+        """Draw text input line and prompt"""
+        w = self.input_hw[1]
         # show only part of line when longer than screen
         start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
         end = start + w - 1
         line_text = self.input_buffer[start:end].replace("\n", "␤")
-        # cursor
         character = " "
-        self.win_input_line.insstr(0, 0, self.prompt)
-        len_prompt = len(self.prompt)
-        if self.cursor_pos < len(line_text):
+        pos = 0
+        cursor_drawn = False
+        for pos, character in enumerate(line_text):
             # cursor in the string
-            character = line_text[self.cursor_pos]
-            self.win_input_line.insstr(0, len_prompt, line_text[len_prompt:self.cursor_pos])
-            self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(2))
-            self.win_input_line.insstr(0, self.cursor_pos+1, line_text[self.cursor_pos+1:] + "\n")
-        else:
-            # cursor at the end of string
-            self.win_input_line.insstr(0, len_prompt, line_text[len_prompt:] + "\n")
-            self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(2))
+            if not cursor_drawn and self.cursor_pos == pos:
+                self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(2))
+                cursor_drawn = True
+            else:
+                bad = False
+                for bad_range in self.misspelled:
+                    if bad_range[0] <= pos < sum(bad_range):
+                        try:
+                            # cant insch weird characters, still faster than always calling insstr
+                            self.win_input_line.insch(0, pos, character, curses.color_pair(10))
+                        except OverflowError:
+                            self.win_input_line.insstr(0, pos, character, curses.color_pair(10))
+                        bad = True
+                        break
+                if not bad:
+                    try:
+                        self.win_input_line.insch(0, pos, character, curses.color_pair(0))
+                    except OverflowError:
+                        self.win_input_line.insstr(0, pos, character, curses.color_pair(0))
+        self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
+        # cursor at the end of string
+        if not cursor_drawn and self.cursor_pos >= len(line_text):
+            self.show_cursor()
+
         self.win_input_line.refresh()
 
 
@@ -378,7 +399,7 @@ class TUI():
 
     def set_cursor_color(self, color_id):
         """Changes cursor color"""
-        _, w = self.input_hw
+        w = self.input_hw[1]
         start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
         end = start + w - 1
         line_text = self.input_buffer[start:end].replace("\n", "␤")
@@ -411,7 +432,7 @@ class TUI():
 
 
     def show_cursor(self):
-        """Force crsor to be shown on screen and reset blinking"""
+        """Force cursor to be shown on screen and reset blinking"""
         if self.enable_blink_cursor:
             self.set_cursor_color(2)
             self.cursor_on = True
@@ -491,19 +512,72 @@ class TUI():
         self.draw_tree()
 
 
+    def update_prompt(self, prompt):
+        """Draw prompt line and resize input line"""
+        self.prompt = prompt
+        prompt_hwyx = (1, len(prompt), curses.LINES - 1, self.tree_width + 1)
+        self.win_prompt = self.screen.derwin(*prompt_hwyx)
+        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(0))
+        input_line_hwyx = (
+            1,
+            curses.COLS - (self.tree_width + 1) - len(prompt),
+            curses.LINES - 1,
+            self.tree_width + len(prompt) + 1,
+        )
+        self.win_input_line = self.screen.derwin(*input_line_hwyx)
+        self.input_hw = self.win_input_line.getmaxyx()
+        self.spellcheck()
+        self.draw_input_line()
+
+
+    def spellcheck(self):
+        """Spellcheck words visible on screen"""
+        w = self.input_hw[1]
+        input_buffer = self.input_buffer
+        line_start = max(0, len(input_buffer) - w + 1 - self.input_line_index)
+        # first space before line_start in input_buffer
+        if " " in input_buffer[:line_start]:
+            range_word_start = len(input_buffer[:line_start].rsplit(" ", 1)[0]) + bool(line_start)
+        else:
+            range_word_start = 0
+        # when input buffer cant fit on screen
+        if len(input_buffer) > w:
+            # first space after input_index + input_line_w in input_buffer
+            range_word_end = line_start + w + len(input_buffer[line_start+w:].split(" ")[0])
+        else:
+            # first space before last word
+            range_word_end = len(input_buffer) - len(input_buffer.split(" ")[-1]) - 1
+        # indexes of words visible on screen
+        spelling_range = [range_word_start, range_word_end]
+        if spelling_range != self.spelling_range:
+            words_on_screen = input_buffer[range_word_start:range_word_end].split(" ")
+            misspelled_words_on_screen = self.spellchecker.check_list(words_on_screen)
+            misspelled_words_on_screen.append(False)
+            # loop over all words visible on screen
+            self.misspelled = []
+            index = 0
+            for num, word in enumerate(input_buffer[line_start:line_start+w].split(" ")):
+                word_len = len(word)
+                if misspelled_words_on_screen[num]:
+                    self.misspelled.append([index, word_len])
+                index += word_len + 1
+            # self.misspelled format: [start_index_on_screen, word_len] for all misspelled words on screen
+        self.spelling_range = spelling_range
+
+
     def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False):
         """
         Take input from user, and show it on screen
-        Return typed text, absolute_tree_position and wether channel is changed
+        Return typed text, absolute_tree_position and whether channel is changed
         """
+        self.prompt = prompt
+        self.update_prompt(prompt)
         if reset:
-            self.prompt = prompt
-            self.input_buffer = prompt
-            self.input_index = len(prompt)
-            self.cursor_pos = len(prompt)
+            self.input_buffer = ""
+            self.input_index = 0
+            self.cursor_pos = 0
         if init_text:
-            self.prompt = prompt
-            self.input_buffer = self.prompt + init_text
+            self.input_buffer = init_text
             if not keep_cursor:
                 self.input_index = len(self.input_buffer)
                 _, w = self.input_hw
@@ -514,7 +588,7 @@ class TUI():
             self.chat_selected = -1
             self.chat_index = 0
             self.draw_chat()
-
+        self.spellcheck()
         self.draw_input_line()
         bracket_paste = False
         sequence = []   # for detecting bracket paste sequences
@@ -532,15 +606,15 @@ class TUI():
                     pass
                 else:
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
-                    self.input_index = len(prompt)
-                    self.cursor_pos = len(prompt)
+                    self.input_buffer = ""
+                    self.input_index = 0
+                    self.cursor_pos = 0
                     self.draw_input_line()
                     self.win_input_line.cursyncup()
                     self.input_line_index = 0
                     self.set_cursor_color(2)
                     self.cursor_on = True
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 0
+                    return tmp, self.chat_selected, self.tree_selected_abs, 0
 
             elif 32 <= key <= 126:   # all regular characters
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
@@ -558,8 +632,9 @@ class TUI():
                     self.replying_msg = False
                     self.asking_num = False
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 5
+                    self.input_buffer = ""
+                    self.screen.nodelay(False)
+                    return tmp, self.chat_selected, self.tree_selected_abs, 5
                 # sequence (bracketed paste or Alt+KEY)
                 sequence = [27, key]
                 # -1 means no key is pressed, 126 is end of escape sequence
@@ -576,7 +651,7 @@ class TUI():
                     bracket_paste = False
 
             elif key == curses.KEY_BACKSPACE:   # BACKSPACE
-                if self.input_index > len(prompt):
+                if self.input_index > 0:
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
                     self.show_cursor()
@@ -587,9 +662,9 @@ class TUI():
                     self.show_cursor()
 
             elif key == curses.KEY_LEFT:   # LEFT
-                if self.input_index > len(prompt):
+                if self.input_index > 0:
                     # if index hits left screen edge, but there is more text to left, move line right
-                    if self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index + len(prompt)) == 0:
+                    if self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index) == 0:
                         self.input_line_index += min(INPUT_LINE_JUMP, w - 3)
                     else:
                         self.input_index -= 1
@@ -640,8 +715,8 @@ class TUI():
                     # if selected tree entry is channel
                     # stop wait_input and return so new prompt can be loaded
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 4
+                    self.input_buffer = ""
+                    return tmp, self.chat_selected, self.tree_selected_abs, 4
                 # if selected tree entry is drop-down
                 if (self.tree_format[self.tree_selected_abs] % 10):
                     self.tree_format[self.tree_selected_abs] -= 1
@@ -660,78 +735,78 @@ class TUI():
                     self.replying_msg = True
                     self.deleting_msg = False
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 1
+                    self.input_buffer = ""
+                    return tmp, self.chat_selected, self.tree_selected_abs, 1
 
             elif key == ctrl(101):   # Ctrl+E
                 if self.chat_selected != -1:
                     self.deleting_msg = False
                     self.replying_msg = False
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 2
+                    self.input_buffer = ""
+                    return tmp, self.chat_selected, self.tree_selected_abs, 2
 
             elif key == ctrl(100):   # Ctrl+D
                 if self.chat_selected != -1:
                     self.replying_msg = False
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
+                    self.input_buffer = ""
                     self.deleting_msg = True
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 3
+                    return tmp, self.chat_selected, self.tree_selected_abs, 3
 
             elif key == ctrl(98):   # Ctrl+B
                 tmp = self.input_buffer
-                self.input_buffer = prompt
-                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 7
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 7
 
             elif key == ctrl(112):   # CTRL+P when replying
                 tmp = self.input_buffer
-                self.input_buffer = prompt
-                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 6
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 6
 
             elif self.deleting_msg and key == 110:   # N when deleting
                 self.deleting_msg = False
                 tmp = self.input_buffer
-                self.input_buffer = prompt
+                self.input_buffer = ""
                 return "n", self.chat_selected, self.tree_selected_abs, 5
 
             elif self.deleting_msg and key == 121:   # Y when deleting
                 self.deleting_msg = False
                 tmp = self.input_buffer
-                self.input_buffer = prompt
+                self.input_buffer = ""
                 return "y", self.chat_selected, self.tree_selected_abs, 0
 
             elif key == ctrl(103):   # Ctrl+G
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 8
+                    self.input_buffer = ""
+                    return tmp, self.chat_selected, self.tree_selected_abs, 8
 
             elif key == ctrl(119):   # Ctrl+W
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
+                    self.input_buffer = ""
                     self.asking_num = True
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 9
+                    return tmp, self.chat_selected, self.tree_selected_abs, 9
 
             elif key == ctrl(111):   # Ctrl+O
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
+                    self.input_buffer = ""
                     self.asking_num = True
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 10
+                    return tmp, self.chat_selected, self.tree_selected_abs, 10
 
             elif key == ctrl(120):   # Ctrl+X
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
-                    self.input_buffer = prompt
+                    self.input_buffer = ""
                     self.deleting_msg = True
-                    return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 11
+                    return tmp, self.chat_selected, self.tree_selected_abs, 11
 
             elif key == ctrl(104):   # Ctrl+H
                 tmp = self.input_buffer
-                self.input_buffer = prompt
-                return tmp[len(prompt):], self.chat_selected, self.tree_selected_abs, 12
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 12
 
             elif key == ctrl(108):   # Ctrl+L
                 self.screen.clear()
@@ -748,5 +823,6 @@ class TUI():
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
             self.cursor_pos = max(self.cursor_pos, 0)
             self.cursor_pos = min(w - 1, self.cursor_pos)
+            self.spellcheck()
             self.draw_input_line()
         return None, None, None, None
