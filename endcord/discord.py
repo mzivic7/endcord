@@ -1,5 +1,5 @@
 import base64
-import http
+import http.client
 import json
 import logging
 import os
@@ -8,6 +8,7 @@ import time
 import urllib.parse
 
 from discord_protos import PreloadedUserSettings
+from endcord import peripherals
 from google.protobuf.json_format import MessageToJson
 
 CLIENT_NAME = "endcord"
@@ -29,7 +30,11 @@ class Discord():
 
     def __init__(self, token):
         self.token = token
-        self.header = {"content-type": "application/json", "user-agent": CLIENT_NAME, "authorization": self.token}
+        self.header = {
+            "content-type": "application/json",
+            "user-agent": CLIENT_NAME,
+            "authorization": self.token,
+        }
         self.my_id = self.get_my_id(exit_on_error=True)
         self.cache_proto_1 = None
         self.cache_proto_2 = None
@@ -405,7 +410,7 @@ class Discord():
     def get_settings_proto(self, num):
         """
         Get account settings:
-        num=1 - General Discord user settings
+        num=1 - General user settings
         num=2 - Frecency and favorites storage for various things
         """
         if num == 1 and self.cache_proto_1:
@@ -475,7 +480,7 @@ class Discord():
 
 
     def get_file(self, url, save_path):
-        """Download file from discord with proper headeer"""
+        """Download file from discord with proper header"""
         message_data = None
         url_object = urllib.parse.urlparse(url)
         filename = os.path.basename(url_object.path)
@@ -490,7 +495,7 @@ class Discord():
             file.write(response.read())
 
 
-    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True):
+    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None):
         """Send a message in the channel with reply with or without ping"""
         message_dict = {
             "content": message_text,
@@ -514,8 +519,24 @@ class Discord():
                         "parse": ["users", "roles", "everyone"],
                         "replied_user": False,
                     }
+        if attachments:
+            for attachment in attachments:
+                if attachment["upload_url"]:
+                    if "attachments" not in message_dict:
+                        message_dict["attachments"] = []
+                        message_dict["type"] = 0
+                        message_dict["sticker_ids"] = []
+                        message_dict["channel_id"] = channel_id
+                        message_dict.pop("tts")
+                        message_dict.pop("flags")
+                    message_dict["attachments"].append({
+                        "id": len(message_dict["attachments"]),
+                        "filename": attachment["name"],
+                        "uploaded_filename": attachment["upload_filename"],
+                    })
         message_data = json.dumps(message_dict)
         try:
+            logger.info(json.dumps(message_dict, indent=2))
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("POST", f"/api/v9/channels/{channel_id}/messages", message_data, self.header)
             response = connection.getresponse()
@@ -605,7 +626,7 @@ class Discord():
 
 
     def send_ack_message(self, channel_id, message_id):
-        """Send discord information that this channel has been seen up to this message"""
+        """Send information that this channel has been seen up to this message"""
         last_viewed = ceil((time.time() - DISCORD_EPOCH) / 86400)   # days since first second of 2015 (discord epoch)
         message_data = json.dumps({
             "last_viewed": last_viewed,
@@ -637,3 +658,74 @@ class Discord():
             logger.error(f"Failed to set typing. Response code: {response.status}")
             return False
         return True
+
+
+    def request_attachment_link(self, channel_id, path):
+        """
+        Request attachment upload link.
+        If file is too large - will return None.
+        """
+        message_data = json.dumps({
+            "files": [{
+                "file_size": peripherals.get_file_size(path),
+                "filename": os.path.basename(path),
+                "id": None,   # should not be None, but works
+                "is_clip": peripherals.get_is_clip(path),
+            }],
+        })
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection.request("POST", f"/api/v9/channels/{channel_id}/attachments", message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status == 200:
+            return json.loads(response.read())["attachments"][0]
+        if response.status == 413:
+            logger.warn("Failed to get attachment upload link: 413 - File too large.")
+            return None   # file too large
+        logger.error(f"Failed to get attachment upload link. Response code: {response.status}")
+        return None
+
+
+    def upload_attachment(self, upload_url, path):
+        """Upload a file to provided url"""
+        # will load whole file into RAM, but discord limits upload size anyways
+        # and this function wont be run if request_attachment_link() is not successful
+        header = {
+            "Content-Type": "application/octet-stream",
+            "Origin": "https://discord.com",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+            "user-agent": CLIENT_NAME,
+        }
+        url = urllib.parse.urlparse(upload_url)
+        upload_url_path = f"{url.path}?{url.query}"
+        with open(path, "rb") as f:
+            try:
+                connection = http.client.HTTPSConnection(url.netloc, 443)
+                connection.request("PUT", upload_url_path, f, header)
+                response = connection.getresponse()
+            except (socket.gaierror, TimeoutError):
+                return False
+            if response.status == 200:
+                return True
+            # discord client is also performing OPTIONS request, idk why, not needed here
+            logger.error(f"Failed to upload attachment. Response code: {response.status}")
+            return False
+
+
+    def cancel_attachemnt(self, attachment_name):
+        """Cancel attachment upload"""
+        attachment_name = urllib.parse.quote(attachment_name, safe="")
+        message_data = None
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection.request("DELETE", f"/api/v9/attachments/{attachment_name}", message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status == 200:
+            return True
+        logger.error(f"Failed to cancel attachemnt. Response code: {response.status}")
+        return None

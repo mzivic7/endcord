@@ -113,9 +113,10 @@ class Endcord:
         self.last_message_id = 0
         self.my_rpc = []
         self.chat_end = False
-
         download.cancel()
-        self.send_downlaod_threads = []
+        self.downlaod_threads = []
+        self.upload_threads = []
+        self.ready_attachments = []
 
 
     def reconnect(self):
@@ -276,6 +277,7 @@ class Endcord:
             "web": False,
         }
         self.cancel_download = None
+        self.uploading = False
 
 
     def add_running_task(self, task, priority=5):
@@ -313,6 +315,8 @@ class Endcord:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.downloading_file["content"], reset=False, keep_cursor=True)
                 else:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
+            elif self.uploading:
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -395,11 +399,11 @@ class Endcord:
             elif action == 7 and self.messages:
                 self.warping = input_text
                 if self.messages[0]["id"] != self.last_message_id:
-                    self.add_running_task("Downloading chat", 3)
+                    self.add_running_task("Downloading chat", 4)
                     self.messages = self.discord.get_messages(self.active_channel["channel_id"])
                     self.update_chat()
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                    self.remove_running_task("Downloading chat", 3)
+                    self.remove_running_task("Downloading chat", 4)
 
             # go to replied message
             elif action == 8 and self.messages:
@@ -423,8 +427,8 @@ class Endcord:
                         "urls": urls,
                         "web": False,
                     }
-                    self.send_downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[0], )))
-                    self.send_downlaod_threads[-1].start()
+                    self.downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[0], )))
+                    self.downlaod_threads[-1].start()
                 elif len(urls) > 1:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.downloading_file = {
@@ -477,6 +481,12 @@ class Endcord:
                 self.going_to = input_text   # reusing variable
                 peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
 
+            # upload attachment
+            elif action == 13 and self.messages:
+                self.uploading = True
+                self.add_to_store(self.active_channel["channel_id"], input_text)
+                self.update_status_line()
+
             # escape key
             elif action == 5:
                 if self.replying["id"]:
@@ -512,13 +522,19 @@ class Endcord:
                         try:
                             num = max(int(input_text) - 1, 0)
                             if num <= len(self.downloading_file["urls"]):
-                                self.send_downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[num], )))
-                                self.send_downlaod_threads[-1].start()
+                                self.downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[num], )))
+                                self.downlaod_threads[-1].start()
                         except ValueError:
                             pass
                 elif self.cancel_download and input_text.lower() == "y":
                     download.cancel()
+                elif self.uploading:
+                    self.upload(input_text)
                 else:
+                    attachments = {"attachments": None}
+                    for attachments in self.ready_attachments:
+                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                            break
                     self.discord.send_message(
                         self.active_channel["channel_id"],
                         input_text,
@@ -526,11 +542,12 @@ class Endcord:
                         reply_channel_id=self.active_channel["channel_id"],
                         reply_guild_id=self.active_channel["guild_id"],
                         reply_ping=self.replying["mention"],
+                        attachments=attachments["attachments"],
                     )
                 self.reset_actions()
                 self.update_status_line()
 
-            # accept on enter
+            # enter with no text
             elif input_text == "":
                 if self.deleting["id"]:
                     self.discord.send_delete_message(
@@ -539,6 +556,20 @@ class Endcord:
                     )
                 elif self.cancel_download:
                     download.cancel()
+                elif self.ready_attachments:
+                    attachments = {"attachments": None}
+                    for attachments in self.ready_attachments:
+                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                            break
+                    self.discord.send_message(
+                        self.active_channel["channel_id"],
+                        "",
+                        reply_id=self.replying["id"],
+                        reply_channel_id=self.active_channel["channel_id"],
+                        reply_guild_id=self.active_channel["guild_id"],
+                        reply_ping=self.replying["mention"],
+                        attachments=attachments["attachments"],
+                    )
                 self.reset_actions()
                 self.update_status_line()
 
@@ -558,13 +589,51 @@ class Endcord:
         except Exception as e:
             logger.error(f"Failed downloading file: {e}")
 
-        self.remove_running_task("Downloading file", 2)
+        self.remove_running_task("Downloading file", 3)
 
+
+    def upload(self, path):
+        """Thread that uploads file to curently open channel"""
+        path = os.path.expanduser(path)
+        if os.path.exists(path) and not os.path.isdir(path):
+
+            # add attachment to list
+            found = False
+            for ch_index, channel in enumerate(self.ready_attachments):
+                if channel["id"] == self.active_channel["channel_id"]:
+                    found = True
+                    break
+            if not found:
+                self.ready_attachments.append({
+                    "channel_id": self.active_channel["channel_id"],
+                    "attachments": [],
+                })
+                ch_index = len(self.ready_attachments) - 1
+            self.ready_attachments[ch_index]["attachments"].append({
+                "path": path,
+                "name": os.path.basename(path),
+                "upload_url": None,
+                "upload_filename": None,
+            })
+            at_index = len(self.ready_attachments[ch_index]["attachments"]) - 1
+
+            self.add_running_task("Uploading file", 2)
+            upload_data = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
+            if upload_data:
+                uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
+                if uploaded:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["upload_url"] = upload_data["upload_url"]
+                    self.ready_attachments[ch_index]["attachments"][at_index]["upload_filename"] = upload_data["upload_filename"]
+                else:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
+            else:
+                self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
+            self.remove_running_task("Uploading file", 2)
 
 
     def get_chat_chunk(self, past=True):
         """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
-        self.add_running_task("Downloading chat", 3)
+        self.add_running_task("Downloading chat", 4)
         start_id = self.messages[-int(past)]["id"]
 
         if past:
@@ -601,7 +670,7 @@ class Endcord:
                 selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                 self.tui.set_selected(selected_line)
-        self.remove_running_task("Downloading chat", 3)
+        self.remove_running_task("Downloading chat", 4)
 
 
     def go_to_message(self, message_id):
@@ -690,6 +759,8 @@ class Endcord:
                 action_type = 5
         elif self.cancel_download:
             action_type = 6
+        elif self.uploading:
+            action_type = 7
         action = {
             "type": action_type,
             "username": self.replying["username"],
@@ -993,6 +1064,12 @@ class Endcord:
                                     self.pending_ack = False
                                 else:
                                     self.pending_ack = True
+                            # remove user from typing
+                            for num, user in enumerate(self.typing):
+                                if user["user_id"] == data["user_id"]:
+                                    self.typing.pop(num)
+                                    self.update_status_line()
+                                    break
                         else:
                             for num, loaded_message in enumerate(self.messages):
                                 if data["id"] == loaded_message["id"]:
@@ -1034,7 +1111,7 @@ class Endcord:
                     if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
                         # ignoring messages sent by other clients
                         if op == "MESSAGE_CREATE" and new_message["d"]["user_id"] != self.my_id:
-                            if new_message_channel_id not in self.unseen and not self.ping_this_channel:
+                            if new_message_channel_id not in self.unseen:
                                 self.unseen.append(new_message_channel_id)
                             mentions = []
                             for mention in new_message["d"]["mentions"]:
@@ -1045,8 +1122,7 @@ class Endcord:
                                 self.my_id in mentions or
                                 (new_message_channel_id in self.dms_id)
                             ):
-                                if not self.ping_this_channel:
-                                    self.pings.append(new_message_channel_id)
+                                self.pings.append(new_message_channel_id)
                                 self.send_desktop_nitification(new_message)
                             self.update_tree()
                 else:

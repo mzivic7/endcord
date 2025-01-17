@@ -8,6 +8,7 @@ discord-protos = "*"
 websocket-client = "*"
 urllib3 = "*"
 pexpect = "*"
+python-magic = "*"
 
 [dev-packages]
 pyinstaller = ">=6"

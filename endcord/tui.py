@@ -1,5 +1,6 @@
 import curses
 import logging
+import os
 import threading
 import time
 
@@ -69,6 +70,7 @@ class TUI():
         self.deleting_msg = False
         self.replying_msg = False
         self.asking_num = False
+        self.enable_autocomplete = False
         self.spelling_range = [0, 0]
         self.misspelled = []
         self.typing = time.time()
@@ -87,6 +89,14 @@ class TUI():
             0,
         )
         self.win_chat = screen.derwin(*chat_hwyx)
+        prompt_hwyx = (1, len(self.prompt), curses.LINES - 1, self.tree_width + 1)
+        self.win_prompt = self.screen.derwin(*prompt_hwyx)
+        input_line_hwyx = (
+            1,
+            curses.COLS - (self.tree_width + 1) - len(self.prompt),
+            curses.LINES - 1,
+            self.tree_width + len(self.prompt) + 1,
+        )
         self.win_input_line = screen.derwin(*input_line_hwyx)
         self.win_status_line = screen.derwin(*status_line_hwyx)
         self.win_tree = screen.derwin(*tree_hwyx)
@@ -115,8 +125,10 @@ class TUI():
         h, w = self.screen.getmaxyx()
         self.win_tree.mvwin(int(self.have_title), 0)
         self.win_tree.resize(h - int(self.have_title_tree), self.tree_width)
-        self.win_input_line.mvwin(h - 1, self.tree_width + 1)
-        self.win_input_line.resize(1, w - (self.tree_width + 1))
+        self.win_input_line.resize(1, w - (self.tree_width + 1) - len(self.prompt))
+        self.win_input_line.mvwin(h - 1, self.tree_width + len(self.prompt) + 1)
+        self.win_prompt.mvwin(h - 1, self.tree_width + 1)
+        self.win_prompt.resize(1, len(self.prompt))
         self.win_status_line.mvwin(h - 2, self.tree_width + 1)
         self.win_status_line.resize(1, w - (self.tree_width + 1))
         if self.have_title:
@@ -225,7 +237,7 @@ class TUI():
             self.screen.insch(0, self.tree_hw[1], self.vert_line, curses.color_pair(2))
         self.draw_status_line()
         self.draw_chat()
-        self.update_prompt(self.prompt)   # draw_input_line() is already called in here
+        self.update_prompt(self.prompt)   # draw_input_line() is called in here
         self.draw_tree()
         if self.have_title:
             self.draw_title_line()
@@ -286,7 +298,7 @@ class TUI():
             else:
                 bad = False
                 for bad_range in self.misspelled:
-                    if bad_range[0] <= pos < sum(bad_range):
+                    if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)):
                         try:
                             # cant insch weird characters, still faster than always calling insstr
                             self.win_input_line.insch(0, pos, character, curses.color_pair(10))
@@ -303,7 +315,6 @@ class TUI():
         # cursor at the end of string
         if not cursor_drawn and self.cursor_pos >= len(line_text):
             self.show_cursor()
-
         self.win_input_line.refresh()
 
 
@@ -502,7 +513,6 @@ class TUI():
         self.chat_buffer = chat_text
         self.chat_format = chat_format
         self.draw_chat()
-        self.draw_input_line()
 
 
     def update_tree(self, tree_text, tree_format):
@@ -514,20 +524,18 @@ class TUI():
 
     def update_prompt(self, prompt):
         """Draw prompt line and resize input line"""
+        h, w = self.screen.getmaxyx()
         self.prompt = prompt
-        prompt_hwyx = (1, len(prompt), curses.LINES - 1, self.tree_width + 1)
-        self.win_prompt = self.screen.derwin(*prompt_hwyx)
-        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(0))
-        input_line_hwyx = (
-            1,
-            curses.COLS - (self.tree_width + 1) - len(prompt),
-            curses.LINES - 1,
-            self.tree_width + len(prompt) + 1,
-        )
-        self.win_input_line = self.screen.derwin(*input_line_hwyx)
+        self.win_input_line.resize(1, w - (self.tree_width + 1) - len(self.prompt))
+        self.win_input_line.mvwin(h - 1, self.tree_width + len(self.prompt) + 1)
         self.input_hw = self.win_input_line.getmaxyx()
         self.spellcheck()
         self.draw_input_line()
+        self.win_prompt.mvwin(h - 1, self.tree_width + 1)
+        self.win_prompt.resize(1, len(self.prompt))
+        self.win_prompt.refresh()
+        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(0))
+        self.win_prompt.refresh()
 
 
     def spellcheck(self):
@@ -542,7 +550,7 @@ class TUI():
             range_word_start = 0
         # when input buffer cant fit on screen
         if len(input_buffer) > w:
-            # first space after input_index + input_line_w in input_buffer
+            # first space after line_start + input_line_w in input_buffer
             range_word_end = line_start + w + len(input_buffer[line_start+w:].split(" ")[0])
         else:
             # first space before last word
@@ -565,17 +573,16 @@ class TUI():
         self.spelling_range = spelling_range
 
 
-    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False):
+    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False, autocomplete=False):
         """
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and whether channel is changed
         """
-        self.prompt = prompt
-        self.update_prompt(prompt)
         if reset:
             self.input_buffer = ""
             self.input_index = 0
             self.cursor_pos = 0
+            self.enable_autocomplete = autocomplete
         if init_text:
             self.input_buffer = init_text
             if not keep_cursor:
@@ -589,14 +596,15 @@ class TUI():
             self.chat_index = 0
             self.draw_chat()
         self.spellcheck()
-        self.draw_input_line()
+        self.update_prompt(prompt)   # draw_input_line() is called in heren
         bracket_paste = False
         sequence = []   # for detecting bracket paste sequences
+        selected_completion = 0
         key = -1
         while self.run:
             key = self.screen.getch()
-            h, _ = self.screen_hw
-            _, w = self.input_hw
+            h = self.screen_hw[0]
+            w = self.input_hw[1]
 
             if key == ord("\n"):   # ENTER
                 # wehen pasting, dont return, but insert newline character
@@ -620,6 +628,9 @@ class TUI():
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.typing = int(time.time())
+                if self.enable_autocomplete:
+                    completion_base = self.input_buffer
+                    selected_completion = 0
                 self.show_cursor()
 
             elif key == 27:   # ESCAPE
@@ -654,6 +665,9 @@ class TUI():
                 if self.input_index > 0:
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
+                    if self.enable_autocomplete:
+                        completion_base = self.input_buffer
+                        selected_completion = 0
                     self.show_cursor()
 
             elif key == curses.KEY_DC:   # DEL
@@ -693,6 +707,18 @@ class TUI():
                         self.chat_index -= 1   # move history up
                     self.chat_selected -= 1   # move selection down
                     self.draw_chat()
+
+            elif self.enable_autocomplete and key == 9:   # TAB - same as CTRL+I
+                if self.input_buffer and self.input_index == len(self.input_buffer):
+                    completions = peripherals.complete_path(completion_base, separator=False)
+                    if completions:
+                        path = completions[selected_completion]
+                        self.input_buffer = path
+                        self.input_index = len(path)
+                        self.show_cursor()
+                        selected_completion += 1
+                        if selected_completion > len(completions) - 1:
+                            selected_completion = 0
 
             # opposite than above, because tree is drawn top down
             elif key == 575:   # CTRL+UP
@@ -808,6 +834,13 @@ class TUI():
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 12
 
+            elif key == ctrl(117):   # Ctrl+U
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.enable_autocomplete = True
+                self.misspelled = []
+                return tmp, self.chat_selected, self.tree_selected_abs, 13
+
             elif key == ctrl(108):   # Ctrl+L
                 self.screen.clear()
                 self.redraw_ui()
@@ -823,6 +856,7 @@ class TUI():
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
             self.cursor_pos = max(self.cursor_pos, 0)
             self.cursor_pos = min(w - 1, self.cursor_pos)
-            self.spellcheck()
+            if not self.enable_autocomplete:
+                self.spellcheck()
             self.draw_input_line()
         return None, None, None, None

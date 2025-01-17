@@ -445,6 +445,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = "Select attachment link to download (type a number)"
     elif action["type"] == 6:   # cancel all downloads
         action_string = "Really cancel all downloads? [Y/n]"
+    elif action["type"] == 7:   # ask for upload path
+        action_string = "Type file path to upload"
 
     if my_status["custom_status_emoji"]:
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])

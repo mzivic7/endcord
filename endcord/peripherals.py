@@ -1,3 +1,4 @@
+import glob
 import json
 import logging
 import os
@@ -9,6 +10,7 @@ import sys
 from ast import literal_eval
 from configparser import ConfigParser
 
+import magic
 import pexpect
 
 logger = logging.getLogger(__name__)
@@ -98,7 +100,7 @@ def load_config(path, default):
 def notify_send(title, message, sound="message"):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":
-        command = ["notify-send", "-p", f"--app-name '{APP_NAME}'", "-h", f"'string:sound-name:{sound}'", f"'{title}'", f"'{message}'"]
+        command = ["notify-send", "-p", "--app-name", APP_NAME, "-h", f"string:sound-name:{sound}", title, message]
         proc = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
@@ -202,6 +204,30 @@ def copy_to_clipboard(text):
             stderr=subprocess.STDOUT,
         )
         proc.communicate(input=text.encode("utf-8"))
+
+
+def get_file_size(path):
+    """Get file size in bytes"""
+    return os.stat(path).st_size
+
+
+def get_is_clip(path):
+    """Get whether file is video or not"""
+    return magic.from_file(path, mime=True).split("/")[0] == "video"
+
+
+def complete_path(path, separator=True):
+    """Get possible completions for path"""
+    if not path:
+        return []
+    path = os.path.expanduser(path)
+    completions = []
+    for path in glob.glob(path + "*"):
+        if separator and path and os.path.isdir(path) and path[-1] != "/":
+            completions.append(path + "/")
+        else:
+            completions.append(path)
+    return completions
 
 
 class SpellCheck(object):

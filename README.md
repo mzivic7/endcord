@@ -75,7 +75,7 @@ Go to [configuration](configuration.md).
 ## Usage
 ### Keybindings
 Navigating messages - `Arrow-Up/Down`  
-Navigating channel tree - `Ctrl-Up/Down`  
+Navigating channel tree - `Ctrl+Up/Down`  
 Insert newline - `Ctrl+N`  
 Scroll back to bottom - `Ctrl+H`  
 Expand selected categories and servers - `Ctrl+Space`  
@@ -85,22 +85,23 @@ Edit selected message - `Ctrl+E`
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
 Go to replied message - `Ctrl+G`  
-Copy message to clipboard - `Ctrl+B`
+Copy message to clipboard - `Ctrl+B`  
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
-Cancel all downloads - `Ctrl+X`  
+Upload attachments - `Ctrl+U`  
+Cancel all downloads/uploads - `Ctrl+X`  
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  
 To keep text in one line it is represented as `␤` only in input line.  
-When message is sent it will be split in newlines properly.  
+When message is sent, it will be split in newlines properly.  
 ### Chat scrolling
 When last message in chat buffer is selected, buffer will be extended with older messages.  
 If number of messages in buffer exceeds `limit_chat_buffer` value in config, chat will be trimmed on the opposite side.  
 If latest message is missing, then buffer can be extended with newer messages by selecting first message in buffer.  
-### Downloads / Open in browser
+### Downloading / Open in browser
 Downloading and opening links have similar mechanism:  
 If there is one item, download will start immediately / open in browser.  
 If there are multiple items, it will prompt for a single number indicating what item.  
@@ -108,10 +109,16 @@ Items can be:
 - Links and attachments for 'open in browser'  
 - Only attachments for 'download'.  
 Links are counted first. Items are counted from start to end of the message, in order.  
-Downloads are parallel. If there are downloads running, `Ctrl-X` will cancel ALL downloads, with a confirmation prompt.  
+Downloads are parallel. If there are downloads running, `Ctrl+X` will cancel ALL downloads, with a confirmation prompt.  
+### Uploading
+Uploading is initiated by pressing `Ctrl+U`. Previously typed content will be cached.  
+Type path to file that should be uploaded and press enter. Cached content will be restored.   
+Wait until file is uploaded and then send the message. Mutliple files can be added this way.  
+Path can be absolute or relative, and has autocomplete on `tab` key.  
+If file size exceeds discord's limit it will not be added to the message.  
 ### RPC
-For now RPC is only implemented for linux, it is automatically disabled on other platforms.  
-And only supports Rich Presence, which means no subscriptions, join requests, lobby, etc.  
+For now RPC is only implemented for Linux, it is automatically disabled on other platforms.  
+And only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
 Usually RPC app must be started after RPC server (endcord).  
 More info about whats going on can be found in log, when endcord is in debug mode.  

@@ -34,6 +34,8 @@ def sigint_handler(_signum, _frame):
 def main(args):
     """Main function"""
     config_path = args.config
+    if config_path:
+        config_path = os.path.expanduser(config_path)
     token = args.token
     logger.info(f"Started endcord {VERSION}")
     if not config_path:
