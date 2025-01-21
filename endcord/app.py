@@ -81,7 +81,7 @@ class Endcord:
         self.reset()
         self.gateway.connect()
         self.gateway_state = self.gateway.get_state()
-        self.chat_dim, self.tree_dim  = self.tui.get_dimensions()
+        self.chat_dim, self.tree_dim, _  = self.tui.get_dimensions()
         self.state = {
             "last_guild_id": None,
             "last_channel_id": None,
@@ -133,7 +133,12 @@ class Endcord:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
         self.dms_setting = self.gateway.get_dms_settings()
-        self.pings = self.gateway.get_pings()
+        self.pings = []
+        for channel in self.gateway.get_pings():
+            self.pings.append({
+                "channel_id": channel,
+                "message_id": None,
+            })
         self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.current_roles = []   # dm has no roles
@@ -220,6 +225,7 @@ class Endcord:
         self.set_seen(self.active_channel["channel_id"])
 
         self.update_chat(keep_selected=False)
+        self.update_extra_line()
         self.update_prompt()
         if self.tree_format:
             self.update_tree()
@@ -452,10 +458,8 @@ class Endcord:
                         "content": input_text,
                         "urls": urls,
                         "web": False,
-
                     }
                     webbrowser.open(urls[0], new=0, autoraise=True)
-                    logger.info("SHIT")
                 elif len(urls) > 1:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.downloading_file = {
@@ -463,16 +467,21 @@ class Endcord:
                         "urls": urls,
                         "web": True,
                     }
-                    logger.info("OK")
                     self.update_status_line()
 
-            # cancel all downloads
+            # cancel all downloads and uploads
             elif action == 11:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.reset_actions()
                     self.cancel_download = True
+                    self.discord.cancel_uploading()
+                    for attachments in self.ready_attachments:
+                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                            self.update_extra_line()
+                            this_attachments = self.ready_attachments.pop(num)["attachments"]
+                            break
                     self.update_status_line()
 
             # copy message to clipboard
@@ -531,9 +540,11 @@ class Endcord:
                 elif self.uploading:
                     self.upload(input_text)
                 else:
-                    attachments = {"attachments": None}
-                    for attachments in self.ready_attachments:
+                    this_attachments = None
+                    for num, attachments in enumerate(self.ready_attachments):
                         if attachments["channel_id"] == self.active_channel["channel_id"]:
+                            this_attachments = self.ready_attachments.pop(num)["attachments"]
+                            self.update_extra_line()
                             break
                     self.discord.send_message(
                         self.active_channel["channel_id"],
@@ -542,7 +553,7 @@ class Endcord:
                         reply_channel_id=self.active_channel["channel_id"],
                         reply_guild_id=self.active_channel["guild_id"],
                         reply_ping=self.replying["mention"],
-                        attachments=attachments["attachments"],
+                        attachments=this_attachments,
                     )
                 self.reset_actions()
                 self.update_status_line()
@@ -557,9 +568,10 @@ class Endcord:
                 elif self.cancel_download:
                     download.cancel()
                 elif self.ready_attachments:
-                    attachments = {"attachments": None}
+                    this_attachments = None
                     for attachments in self.ready_attachments:
-                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                            this_attachments = self.ready_attachments.pop(num)["attachments"]
+                            self.update_extra_line()
                             break
                     self.discord.send_message(
                         self.active_channel["channel_id"],
@@ -568,7 +580,7 @@ class Endcord:
                         reply_channel_id=self.active_channel["channel_id"],
                         reply_guild_id=self.active_channel["guild_id"],
                         reply_ping=self.replying["mention"],
-                        attachments=attachments["attachments"],
+                        attachments=this_attachments,
                     )
                 self.reset_actions()
                 self.update_status_line()
@@ -614,20 +626,29 @@ class Endcord:
                 "name": os.path.basename(path),
                 "upload_url": None,
                 "upload_filename": None,
+                "state": 0,
             })
             at_index = len(self.ready_attachments[ch_index]["attachments"]) - 1
 
             self.add_running_task("Uploading file", 2)
-            upload_data = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
+            self.update_extra_line()
+            upload_data, code = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
             if upload_data:
                 uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
                 if uploaded:
                     self.ready_attachments[ch_index]["attachments"][at_index]["upload_url"] = upload_data["upload_url"]
                     self.ready_attachments[ch_index]["attachments"][at_index]["upload_filename"] = upload_data["upload_filename"]
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 1
                 else:
                     self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
             else:
                 self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
+                if code == 1:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
+                elif code == 2:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
+            self.update_extra_line()
             self.remove_running_task("Uploading file", 2)
 
 
@@ -852,6 +873,20 @@ class Endcord:
         )
 
 
+    def update_extra_line(self):
+        """Genearate extra line and update it in TUI"""
+        attachments = None
+        for attachments in self.ready_attachments:
+            if attachments["channel_id"] == self.active_channel["channel_id"]:
+                break
+        if attachments:
+            statusline_w = self.tui.get_dimensions()[2][1]
+            extra_line = formatter.generate_extra_line(attachments["attachments"], 0, statusline_w)
+            self.tui.draw_extra_line(extra_line)
+        else:
+            self.tui.remove_extra_line()
+
+
     def init_tree(self):
         """Generate initial channel tree"""
         self.tree, self.tree_format, self.tree_metadata = formatter.generate_tree(
@@ -860,7 +895,7 @@ class Endcord:
             self.dms_setting,
             self.guilds_settings,
             self.unseen,
-            self.pings,
+            [x["channel_id"] for x in self.pings],
             self.guild_positions,
             self.state["collapsed"],
             self.active_channel["channel_id"],
@@ -877,7 +912,7 @@ class Endcord:
             self.tree_format,
             self.tree_metadata,
             self.unseen,
-            self.pings,
+            [x["channel_id"] for x in self.pings],
             self.active_channel["channel_id"],
             set_seen,
         )
@@ -907,8 +942,10 @@ class Endcord:
                 self.unseen.remove(channel_id)
             self.update_tree(set_seen=channel_id)
             self.discord.send_ack_message(channel_id, self.messages[0]["id"])
-            if channel_id in self.pings:
-                self.pings.remove(channel_id)
+            for num, pinged_channel in enumerate(self.pings):
+                if channel_id == pinged_channel["channel_id"]:
+                    self.pings.pop(num)
+                    break
             if self.enable_notifications:
                 for num, notification in enumerate(self.notifications):
                     if notification["channel_id"] == channel_id:
@@ -981,7 +1018,12 @@ class Endcord:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
         self.dms_setting = self.gateway.get_dms_settings()
-        self.pings = self.gateway.get_pings()
+        self.pings = []
+        for channel in self.gateway.get_pings():
+            self.pings.append({
+                "channel_id": channel,
+                "message_id": None,
+            })
         self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
 
@@ -1056,6 +1098,9 @@ class Endcord:
                             if self.messages[0]["id"] == self.last_message_id:
                                 self.messages.insert(0, data)
                             self.last_message_id = new_message["d"]["id"]
+                            # limit chat size
+                            if len(self.messages) > self.limit_chat_buffer:
+                                self.messgaes.pop(-1)
                             self.update_chat(change_amount=1)
                             if not self.unseen_scrolled:
                                 if time.time() - self.sent_ack_time > self.ack_throttling:
@@ -1122,9 +1167,27 @@ class Endcord:
                                 self.my_id in mentions or
                                 (new_message_channel_id in self.dms_id)
                             ):
-                                self.pings.append(new_message_channel_id)
+                                self.pings.append({
+                                    "channel_id": new_message_channel_id,
+                                    "message_id": new_message["d"]["id"],
+                                })
                                 self.send_desktop_nitification(new_message)
                             self.update_tree()
+                    # remove ghost pings
+                    if op == "MESSAGE_DELETE" and not self.keep_deleted:
+                        for num, pinged_channel in enumerate(self.pings):
+                            if (
+                                new_message_channel_id == pinged_channel["channel_id"] and
+                                new_message["d"]["id"] == pinged_channel["message_id"]
+                            ):
+                                self.pings.pop(num)
+                                if self.enable_notifications:
+                                    for num_1, notification in enumerate(self.notifications):
+                                        if notification["channel_id"] == new_message_channel_id:
+                                            notification_id = self.notifications.pop(num_1)["notification_id"]
+                                            peripherals.notify_remove(notification_id)
+                                            break
+                                break
                 else:
                     break
 
@@ -1171,8 +1234,10 @@ class Endcord:
                     if ack_channel_id in self.unseen:
                         self.unseen.remove(ack_channel_id)
                         self.update_tree(set_seen=ack_channel_id)
-                        if ack_channel_id in self.pings:
-                            self.pings.remove(ack_channel_id)
+                        for num, pinged_channel in enumerate(self.pings):
+                            if ack_channel_id == pinged_channel["channel_id"]:
+                                self.pings.pop(num)
+                                break
                         if self.enable_notifications:
                             for num, notification in enumerate(self.notifications):
                                 if notification["channel_id"] == ack_channel_id:
@@ -1236,11 +1301,12 @@ class Endcord:
                 self.update_status_line()
 
             # check change in dimensions
-            new_chat_dim, _  = self.tui.get_dimensions()
+            new_chat_dim = self.tui.get_dimensions()[0]
             if new_chat_dim != self.chat_dim:
                 self.chat_dim = new_chat_dim
                 self.update_chat()
                 self.update_tree()
+                self.update_extra_line()
 
             # check and update my status
             new_status = self.gateway.get_my_status()

@@ -1,6 +1,5 @@
 import curses
 import logging
-import os
 import threading
 import time
 
@@ -33,6 +32,7 @@ class TUI():
         curses.init_pair(8, config["color_tree_mentioned"][0], config["color_tree_mentioned"][1])
         curses.init_pair(9, config["color_tree_active_mentioned"][0], config["color_tree_active_mentioned"][1])
         curses.init_pair(10, config["color_format_misspelled"][0], config["color_format_misspelled"][1])
+        curses.init_pair(11, 233, 245)   # black on gray
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -74,48 +74,11 @@ class TUI():
         self.spelling_range = [0, 0]
         self.misspelled = []
         self.typing = time.time()
-        chat_hwyx = (
-            curses.LINES - 2 - int(self.have_title),
-            curses.COLS - (self.tree_width + 1),
-            int(self.have_title),
-            self.tree_width + 1,
-        )
-        input_line_hwyx = (1, curses.COLS - (self.tree_width + 1), curses.LINES - 1, self.tree_width + 1)
-        status_line_hwyx = (1, curses.COLS - (self.tree_width + 1), curses.LINES - 2, self.tree_width + 1)
-        tree_hwyx = (
-            curses.LINES - int(self.have_title_tree),
-            self.tree_width,
-            int(self.have_title),
-            0,
-        )
-        self.win_chat = screen.derwin(*chat_hwyx)
-        prompt_hwyx = (1, len(self.prompt), curses.LINES - 1, self.tree_width + 1)
-        self.win_prompt = self.screen.derwin(*prompt_hwyx)
-        input_line_hwyx = (
-            1,
-            curses.COLS - (self.tree_width + 1) - len(self.prompt),
-            curses.LINES - 1,
-            self.tree_width + len(self.prompt) + 1,
-        )
-        self.win_input_line = screen.derwin(*input_line_hwyx)
-        self.win_status_line = screen.derwin(*status_line_hwyx)
-        self.win_tree = screen.derwin(*tree_hwyx)
-        if self.have_title:
-            title_line_yx = (1, curses.COLS - (self.tree_width + 1), 0, self.tree_width + 1)
-            self.win_title_line = screen.derwin(*title_line_yx)
-            self.title_hw = self.win_title_line.getmaxyx()
-        if self.have_title_tree:
-            tree_title_line_hwyx = (1, self.tree_width, 0, 0)
-            self.win_title_tree = screen.derwin(*tree_title_line_hwyx)
-            self.tree_title_hw = self.win_title_tree.getmaxyx()
-        self.screen_hw = self.screen.getmaxyx()
-        self.chat_hw = self.win_chat.getmaxyx()
-        self.status_hw = self.win_status_line.getmaxyx()
-        self.input_hw = self.win_input_line.getmaxyx()
-        self.tree_hw = self.win_tree.getmaxyx()
-        self.redraw_ui()
+        self.extra_line_text = ""
+        self.run = True
+        self.win_extra_line = None
+        self.resize()
         if self.enable_blink_cursor:
-            self.run = True
             self.blink_cursor_thread = threading.Thread(target=self.blink_cursor, daemon=True, args=())
             self.blink_cursor_thread.start()
 
@@ -123,29 +86,46 @@ class TUI():
     def resize(self):
         """Resize screen area"""
         h, w = self.screen.getmaxyx()
-        self.win_tree.mvwin(int(self.have_title), 0)
-        self.win_tree.resize(h - int(self.have_title_tree), self.tree_width)
-        self.win_input_line.resize(1, w - (self.tree_width + 1) - len(self.prompt))
-        self.win_input_line.mvwin(h - 1, self.tree_width + len(self.prompt) + 1)
-        self.win_prompt.mvwin(h - 1, self.tree_width + 1)
-        self.win_prompt.resize(1, len(self.prompt))
-        self.win_status_line.mvwin(h - 2, self.tree_width + 1)
-        self.win_status_line.resize(1, w - (self.tree_width + 1))
+        chat_hwyx = (
+            h - 2 - int(self.have_title),
+            w - (self.tree_width + 1),
+            int(self.have_title),
+            self.tree_width + 1,
+        )
+        input_line_hwyx = (1, w - (self.tree_width + 1), h - 1, self.tree_width + 1)
+        status_line_hwyx = (1, w - (self.tree_width + 1), h - 2, self.tree_width + 1)
+        tree_hwyx = (
+            h - int(self.have_title_tree),
+            self.tree_width,
+            int(self.have_title),
+            0,
+        )
+        self.win_chat = self.screen.derwin(*chat_hwyx)
+        prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+        self.win_prompt = self.screen.derwin(*prompt_hwyx)
+        input_line_hwyx = (
+            1,
+            w - (self.tree_width + 1) - len(self.prompt),
+            h - 1,
+            self.tree_width + len(self.prompt) + 1,
+        )
+        self.win_input_line = self.screen.derwin(*input_line_hwyx)
+        self.win_status_line = self.screen.derwin(*status_line_hwyx)
+        self.win_tree = self.screen.derwin(*tree_hwyx)
         if self.have_title:
-            self.win_title_line.mvwin(0, self.tree_width + 1)
-            self.win_title_line.resize(1, w - (self.tree_width + 1))
+            title_line_yx = (1, w - (self.tree_width + 1), 0, self.tree_width + 1)
+            self.win_title_line = self.screen.derwin(*title_line_yx)
             self.title_hw = self.win_title_line.getmaxyx()
         if self.have_title_tree:
-            self.win_title_tree.mvwin(0, 0)
-            self.win_title_tree.resize(1, self.tree_width)
+            tree_title_line_hwyx = (1, self.tree_width, 0, 0)
+            self.win_title_tree = self.screen.derwin(*tree_title_line_hwyx)
             self.tree_title_hw = self.win_title_tree.getmaxyx()
-        self.win_chat.mvwin(int(self.have_title), self.tree_width + 1)
-        self.win_chat.resize(h - 2 - int(self.have_title), w - (self.tree_width + 1))
         self.screen_hw = self.screen.getmaxyx()
         self.chat_hw = self.win_chat.getmaxyx()
         self.status_hw = self.win_status_line.getmaxyx()
         self.input_hw = self.win_input_line.getmaxyx()
         self.tree_hw = self.win_tree.getmaxyx()
+        self.win_extra_line = None
         self.redraw_ui()
 
 
@@ -154,6 +134,7 @@ class TUI():
         return (
             tuple(self.win_chat.getmaxyx()),
             tuple(self.win_tree.getmaxyx()),
+            tuple(self.win_status_line.getmaxyx()),
         )
 
     def get_selected(self):
@@ -243,6 +224,7 @@ class TUI():
             self.draw_title_line()
         if self.have_title_tree:
             self.draw_title_tree()
+        self.draw_extra_line(self.extra_line_text)
 
 
     def draw_status_line(self):
@@ -320,92 +302,129 @@ class TUI():
 
     def draw_chat(self):
         """Draw text from linebuffer"""
-        h, w = self.chat_hw
-        # drawing from down to up
-        y = h
-        chat_format = self.chat_format[self.chat_index:]
-        for num, line in enumerate(self.chat_buffer[self.chat_index:]):
-            y = h - (num + 1)
-            if y < 0 or y >= h:
-                break
-            if num == self.chat_selected - self.chat_index:
-                color = curses.color_pair(2)
-            else:
-                color = curses.color_pair(chat_format[num][0])
-            # filled with spaces so background is drawn all the way
-            self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", color)
-        y -= 1
-        while y >= 0:
-            self.win_chat.insstr(y, 0, "\n", curses.color_pair(1))
+        try:
+            h, w = self.chat_hw
+            # drawing from down to up
+            y = h
+            chat_format = self.chat_format[self.chat_index:]
+            for num, line in enumerate(self.chat_buffer[self.chat_index:]):
+                y = h - (num + 1)
+                if y < 0 or y >= h:
+                    break
+                if num == self.chat_selected - self.chat_index:
+                    color = curses.color_pair(2)
+                else:
+                    color = curses.color_pair(chat_format[num][0])
+                # filled with spaces so background is drawn all the way
+                self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", color)
             y -= 1
-        self.win_chat.refresh()
+            while y >= 0:
+                self.win_chat.insstr(y, 0, "\n", curses.color_pair(1))
+                y -= 1
+            self.win_chat.refresh()
+        except curses.error:
+            # this exception will happen when window is resized to smaller w dimensions
+            self.resize()
 
 
     def draw_tree(self):
         """Draw channel tree"""
-        h, w = self.tree_hw
-        # drawinf from top to down
-        skipped = 0   # skipping drop-down ends (code 1000)
-        drop_down_skip_category = False
-        drop_down_skip_guild = False
-        drop_down_level = 0
-        self.tree_clean_len = 0
-        y = 0
-        for num, line in enumerate(self.tree):
-            code = self.tree_format[num]
-            first_digit = (code % 10)
-            if code == 1100:
-                skipped += 1
-                drop_down_level -= 1
-                drop_down_skip_guild = False
-                continue
-            elif code == 1200:
-                skipped += 1
-                drop_down_level -= 1
-                drop_down_skip_category = False
-                continue
-            text_start = drop_down_level * 3 + 1
-            if code < 300:   # must be befre "if drop_down_skip..." and after "text_start = "
-                drop_down_level += 1
-            if drop_down_skip_guild or drop_down_skip_category:
-                skipped += 1
-                continue
-            self.tree_clean_len += 1
-            if first_digit == 0 and code < 200:
-                drop_down_skip_guild = True
-            elif first_digit == 0 and code < 300:
-                drop_down_skip_category = True
-            y = max(num - skipped - self.tree_index, 0)
-            if y >= h:
-                break
-            second_digit = (code % 100) // 10
-            color = curses.color_pair(3)
-            color_line = curses.color_pair(3)
-            if second_digit == 1:   # muted
-                color = curses.color_pair(5)
-            elif second_digit == 2:   # mentioned
-                color = curses.color_pair(8)
-            elif second_digit == 3:   # unread
-                color = curses.color_pair(7) | curses.A_BOLD
-            elif second_digit == 4:   # active
-                color = curses.color_pair(6)
-                color_line = curses.color_pair(6)
-            elif second_digit == 5:   # active mentioned
-                color = curses.color_pair(9)
-                color_line = curses.color_pair(6)
-            if y == self.tree_selected - self.tree_index:   # selected
-                color = curses.color_pair(4)
-                color_line = curses.color_pair(4)
-                self.tree_selected_abs = self.tree_selected + skipped
-            # filled with spaces so background is drawn all the way
-            self.win_tree.insstr(y, 0, line[:text_start], color_line)
-            self.win_tree.insstr(y, text_start, line[text_start:] + " " * (w - len(line)) + "\n", color)
+        try:
+            h, w = self.tree_hw
+            # drawinf from top to down
+            skipped = 0   # skipping drop-down ends (code 1000)
+            drop_down_skip_category = False
+            drop_down_skip_guild = False
+            drop_down_level = 0
+            self.tree_clean_len = 0
+            y = 0
+            for num, line in enumerate(self.tree):
+                code = self.tree_format[num]
+                first_digit = (code % 10)
+                if code == 1100:
+                    skipped += 1
+                    drop_down_level -= 1
+                    drop_down_skip_guild = False
+                    continue
+                elif code == 1200:
+                    skipped += 1
+                    drop_down_level -= 1
+                    drop_down_skip_category = False
+                    continue
+                text_start = drop_down_level * 3 + 1
+                if code < 300:   # must be befre "if drop_down_skip..." and after "text_start = "
+                    drop_down_level += 1
+                if drop_down_skip_guild or drop_down_skip_category:
+                    skipped += 1
+                    continue
+                self.tree_clean_len += 1
+                if first_digit == 0 and code < 200:
+                    drop_down_skip_guild = True
+                elif first_digit == 0 and code < 300:
+                    drop_down_skip_category = True
+                y = max(num - skipped - self.tree_index, 0)
+                if y >= h:
+                    break
+                second_digit = (code % 100) // 10
+                color = curses.color_pair(3)
+                color_line = curses.color_pair(3)
+                if second_digit == 1:   # muted
+                    color = curses.color_pair(5)
+                elif second_digit == 2:   # mentioned
+                    color = curses.color_pair(8)
+                elif second_digit == 3:   # unread
+                    color = curses.color_pair(7) | curses.A_BOLD
+                elif second_digit == 4:   # active
+                    color = curses.color_pair(6)
+                    color_line = curses.color_pair(6)
+                elif second_digit == 5:   # active mentioned
+                    color = curses.color_pair(9)
+                    color_line = curses.color_pair(6)
+                if y == self.tree_selected - self.tree_index:   # selected
+                    color = curses.color_pair(4)
+                    color_line = curses.color_pair(4)
+                    self.tree_selected_abs = self.tree_selected + skipped
+                # filled with spaces so background is drawn all the way
+                self.win_tree.insstr(y, 0, line[:text_start], color_line)
+                self.win_tree.insstr(y, text_start, line[text_start:] + " " * (w - len(line)) + "\n", color)
 
-        y += 1
-        while y < h:
-            self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
             y += 1
-        self.win_tree.refresh()
+            while y < h:
+                self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
+                y += 1
+            self.win_tree.refresh()
+        except curses.error:
+            # this exception will happen when window is resized to smaller h dimensions
+            self.resize()
+
+
+    def draw_extra_line(self, text=None):
+        """Draw extra line above status line and resize chat if needed"""
+        self.extra_line_text = text
+        if text:
+            h, w = self.screen.getmaxyx()
+            if not self.win_extra_line:
+                del self.win_chat
+                chat_hwyx = (h - 3 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
+                self.draw_chat()
+                extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
+                self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
+            self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11))
+            self.win_extra_line.refresh()
+
+
+    def remove_extra_line(self):
+        """Disable drawing of extra line above status line, and resize chat"""
+        if self.win_extra_line:
+            del (self.win_extra_line, self.win_chat)
+            self.win_extra_line = None
+            h, w = self.screen.getmaxyx()
+            chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+            self.win_chat = self.screen.derwin(*chat_hwyx)
+            self.chat_hw = self.win_chat.getmaxyx()
+            self.draw_chat()
 
 
     def set_cursor_color(self, color_id):
@@ -526,14 +545,13 @@ class TUI():
         """Draw prompt line and resize input line"""
         h, w = self.screen.getmaxyx()
         self.prompt = prompt
-        self.win_input_line.resize(1, w - (self.tree_width + 1) - len(self.prompt))
-        self.win_input_line.mvwin(h - 1, self.tree_width + len(self.prompt) + 1)
-        self.input_hw = self.win_input_line.getmaxyx()
+        del (self.win_prompt, self.win_input_line)
+        input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
+        self.win_input_line = self.screen.derwin(*input_line_hwyx)
         self.spellcheck()
         self.draw_input_line()
-        self.win_prompt.mvwin(h - 1, self.tree_width + 1)
-        self.win_prompt.resize(1, len(self.prompt))
-        self.win_prompt.refresh()
+        prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+        self.win_prompt = self.screen.derwin(*prompt_hwyx)
         self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(0))
         self.win_prompt.refresh()
 

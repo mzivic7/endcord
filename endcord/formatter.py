@@ -499,6 +499,32 @@ def generate_prompt(my_user_data, active_channel, format_prompt):
     )
 
 
+def generate_extra_line(attachments, selected, max_len):
+    """
+    Generate extra line containing attachments information, with format: 
+    Attachments: [attachment.name] - [Uploading/OK/Too-Large/Restricted/Failed], Selected:N, Total:N
+    """
+    if attachments:
+        total = len(attachments)
+        name = attachments[selected]["name"]
+        match attachments[selected]["state"]:
+            case 0:
+                state = "Uploading"
+            case 1:
+                state = "OK"
+            case 2:
+                state = "Too Large"
+            case 3:
+                state = "Restricted"
+            case 4:
+                state = "Failed"
+            case _:
+                state = "Unknown"
+        end = f" - {state}, Selected:{selected + 1}, Total:{total}"
+        return f"Attachments: {name}"[:max_len - len(end)] + end
+    return ""
+
+
 def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_corner):
     """
     Generate channel tree according to provided formatting.

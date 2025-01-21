@@ -38,6 +38,7 @@ class Discord():
         self.my_id = self.get_my_id(exit_on_error=True)
         self.cache_proto_1 = None
         self.cache_proto_2 = None
+        self.uploading = []
 
 
     def get_my_id(self, exit_on_error=False):
@@ -536,7 +537,6 @@ class Discord():
                     })
         message_data = json.dumps(message_dict)
         try:
-            logger.info(json.dumps(message_dict, indent=2))
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("POST", f"/api/v9/channels/{channel_id}/messages", message_data, self.header)
             response = connection.getresponse()
@@ -664,6 +664,10 @@ class Discord():
         """
         Request attachment upload link.
         If file is too large - will return None.
+        Return codes:
+        0 - OK
+        1 - Failed
+        2 - File too large
         """
         message_data = json.dumps({
             "files": [{
@@ -678,18 +682,20 @@ class Discord():
             connection.request("POST", f"/api/v9/channels/{channel_id}/attachments", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
-            return None
+            return None, 1
         if response.status == 200:
-            return json.loads(response.read())["attachments"][0]
+            return json.loads(response.read())["attachments"][0], 0
         if response.status == 413:
             logger.warn("Failed to get attachment upload link: 413 - File too large.")
-            return None   # file too large
+            return None, 2   # file too large
         logger.error(f"Failed to get attachment upload link. Response code: {response.status}")
-        return None
+        return None, 1
 
 
     def upload_attachment(self, upload_url, path):
-        """Upload a file to provided url"""
+        """
+        Upload a file to provided url
+        """
         # will load whole file into RAM, but discord limits upload size anyways
         # and this function wont be run if request_attachment_link() is not successful
         header = {
@@ -704,8 +710,10 @@ class Discord():
         with open(path, "rb") as f:
             try:
                 connection = http.client.HTTPSConnection(url.netloc, 443)
+                self.uploading.append(connection)
                 connection.request("PUT", upload_url_path, f, header)
                 response = connection.getresponse()
+                self.uploading.remove(connection)
             except (socket.gaierror, TimeoutError):
                 return False
             if response.status == 200:
@@ -713,6 +721,17 @@ class Discord():
             # discord client is also performing OPTIONS request, idk why, not needed here
             logger.error(f"Failed to upload attachment. Response code: {response.status}")
             return False
+
+
+    def cancel_uploading(self):
+        """Stop all running uploads"""
+        for connection in self.uploading:
+            try:
+                connection.sock.shutdown()
+                connection.sock.close()
+            except Exception:
+                pass
+            self.uploading.remove(connection)
 
 
     def cancel_attachemnt(self, attachment_name):

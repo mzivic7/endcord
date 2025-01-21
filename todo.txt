@@ -1,11 +1,8 @@
 HIGH PRIORITY:
 uploading files UI
-    cancel running upload on Ctrl+X
-    handle restricted upload
-    attachments line: Attachments: [attachment.name] - [Uploaded/Too-Large/Restricted/Failed], Selected:N, Total:N
+    cancel attachments and delete (Ctrl+X)
     select attachment: Ctrl+Left/Right
-    cancel attachments and delete
-    show too large file
+    handle restricted upload (code 3)
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"
@@ -16,15 +13,20 @@ fix not getting events from large servers
 
 MEDIUM PRIORITY:
 theming
-optional media with ascii art 0 Ctrl+I
+    split settings into [main] and [theme]
+    themes folder
+    load theme from command argument
+    load theme from config
+optional media with ascii art - Ctrl+I
+keep deleted messgaes in non-open channels
 keybinding
-tabs
 
 LOW PRIORITY:
 show summaries and channel topic
 search and go to messages (Ctrl+F)
 assist when mentioning with @[username]/@[role]/>channel/:emoji: and reactions
 forums/threads
+tabs
 better windows support (building, ctrl+key, emoji character, rpc)
 
 MAYBE:

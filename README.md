@@ -36,6 +36,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Send 'typing' (ON by default)
 - Insertable newline in input line (`Ctr+N`)
 - Copy message text to clipboard (`Ctrl+H`)
+- No ghost pings (hopefully)
 - Customizable status and title lines
 - Customizable chat lines (message, newline, reaction, reply)
 - Customizable prompt line
