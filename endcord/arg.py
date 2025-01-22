@@ -26,6 +26,16 @@ def parser(app_name, version, default_config_path, log_path):
         Default config is in {default_config_path}",
     )
     parser.add_argument(
+        "-e",
+        "--theme",
+        type=str,
+        action="store",
+        help=f"\
+        custom path to theme file; If file does not exist, \
+        theme from config then defaults wil be created; \
+        Default config is in {default_config_path}",
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",

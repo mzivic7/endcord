@@ -6,6 +6,7 @@
 endcord is a third-party feature rich Discord client, running entirely in terminal.  
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](##token).  
+[Alternate theme](./.github/screenshots/02.png) with continuous lines.  
 
 ## Features
 - Extremely low CPU and and RAM usage (~25MB)
@@ -37,6 +38,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Insertable newline in input line (`Ctr+N`)
 - Copy message text to clipboard (`Ctrl+H`)
 - No ghost pings (hopefully)
+- Theming
 - Customizable status and title lines
 - Customizable chat lines (message, newline, reaction, reply)
 - Customizable prompt line
@@ -55,7 +57,7 @@ Settings and log file location:
 - On mac: `~/Library/Application Support/endcord/`  
 Run `endcord -h` or `endcord --help` to see possible command arguments.  
 ### Providing config
-If config is not found at that path, default one will be writen.  
+If config is not found at that path, default will be writen.  
 Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.  
 There can be missing entries in config, they will be filled with defaults.  
 ### Debug mode
@@ -127,12 +129,17 @@ And only supports Rich Presence over IPC, which means no process detection, subs
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
 Usually RPC app must be started after RPC server (endcord).  
 More info about whats going on can be found in log, when endcord is in debug mode.  
+### Theming
+Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
+`[theme]` section in `config.ini` is default theme. If custom theme is provided eiter with argument or in `[main]` section, those values wil be used.  
+Same format and entries as in `config.ini` are used in custom themes (as separate file). If any value is missing, it will be loaded from `config.ini`, and if its missing there too, default value will be used.  
+If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, in the same location where config is.
 
 ## Installing
 ### Linux
-- From AUR: `yay -S easyeffects-record`  
+- From AUR: `yay -S endcord`  
 - Build, then copy built executable to system:  
-    `sudo cp dist/cmus-rpc-py /usr/local/sbin/`
+    `sudo cp dist/endcord /usr/local/sbin/`
 Optional dependencies:  
 - `xcopy` - Clipboard support on X11  
 - `wl-clipboard` - Clipboard support on Wayland  

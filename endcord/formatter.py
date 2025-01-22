@@ -525,7 +525,7 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_corner, dd_pointer):
+def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -544,7 +544,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
         1200 - end of second level drop down
     Voice channels are ignored.
     """
-    intersection = f"{dd_vline}{dd_hline*2}"   # default: "|--"
+    intersection = f"{dd_intersect}{dd_hline*2}"   # default: "|--"
     pass_by = f"{dd_vline}  "   # default: "|  "
     intersection_end = f"{dd_corner}{dd_hline*2}"   # default: "\\--"
     pass_by_end = f"{pass_by}{intersection_end}"   # default: "|  \\--"

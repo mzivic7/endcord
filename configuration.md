@@ -1,52 +1,21 @@
 ## Default config values with explanations:
 Note: always put string in `""`. To use `"` inside the string escape it like this: `\"`. To use `\` escape it like this: `\\`. These are counted as single character.
 
+### Main
 - `token = None`  
     Your discord token. Provide it here or as a command argument.
 - `debug = False`  
     Enable debug mode.
 - `rpc = True`  
     Enable RPC server. For now Linux only.
+- `theme = None`  
+    Custom theme path, or name of file in `Themes` directory.  Set to None to use theme from `config.ini` `[theme]` section or defaults.
 - `downloads_path = None`  
     Directory where to store downloaded files. Set to None to use 'Downloads' directory (cross platform).
 - `limit_chat_buffer = 100`  
     Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
-- `limit_username = 10`  
-    Limit to the username string length.
-- `limit_global_name = 15`  
-    Limit to the global name string length.
 - `convert_timezone = True`  
     If set to False, will show UTC time.
-- `format_message = "[%timestamp] <%username> | %content %edited"`  
-    Formatting for message base string. See [format_message](##format_message) for more info.
-- `format_newline = "                       %content"`  
-    Formatting for each newline string after message base. See [format_newline](##format_newline) for more info.
-- `format_reply = "[REPLY] <%username> | /--> [%timestamp] %content"`  
-    Formatting for replied message string. It is above message base. See [format_reply](##format_reply) for more info.
-- `fformat_reactions = "[REACT]                \\--< %reactions"`  
-    Formatting for message reactions string. It is bellow last newline string. See [format_reactions](##format_reactions) for more info.
-- `format_one_reaction = "%count:%reaction"`  
-    Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](##format_one_reaction) for more info.
-- `format_timestamp = "%H:%M"`  
-    Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
-- `edited_string = "(edited)"`  
-    A string added to the end of the message when it is edsited.
-- `reactions_separator = "; "`  
-    A string placed between two reactions.
-- `format_status_line_l = " %global_name (%username) - %status  %unreads %action %typing"`  
-    Formatting for left side of status line. See [format_status](##format_status) for more info. Set to None to disable.
-- `format_status_line_r = None`  
-    Formatting for right side of status line. See [format_status](##format_status) for more info.
-- `format_title_line_l = " %server: %channel"`  
-    Formatting for left side of title line. See [format_status](##format_status) for more info. Set to None to disable.
-- `format_title_line_r = "%rich"`  
-    Formatting for right side of title line. See [format_status](##format_status) for more info.
-- `limit_typing_string = 32`  
-    Limit to the typing string length. Also limits `%details` and `%state` in `format_rich`
-- `format_rich = "playing: %name - %state - %details "`  
-    Formatting for rich presence string used in `format_status`. See [format_rich](##format_rich) for more info.
-- `format_prompt = "[%channel] > "`  
-    Formatting for prompt line. See [format_prompt](##format_prompt) for more info.
 - `send_typing = True`  
     Allow `[your_username] is typing...` to be sent.
 - `desktop_notifications = True`  
@@ -59,20 +28,6 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Delay in seconds between each ack send. Minimum is 3s. The larger it is, the longer will `[New unreads]` stay in status line.
 - `use_nick_when_avail = True`  
     Replace global_name with nick when it is available.
-- `tree_width = 30`  
-    Width of channel tree in characters.
-- `tree_vert_line = "|"`  
-    A single character used to draw vertical line separating channel tree and the chat.
-- `format_title_tree = " endcord  %task"`  
-    Formatting for channel tree title line. See [format_status](##format_status) for more info. Set to None to disable.
-- `tree_drop_down_vline = "|"`  
-    A single character used to draw vertical line in tree drop down menus.
-- `tree_drop_down_hline = "-"`  
-    A single character used to draw horizontal line in tree drop down menus.
-- `tree_drop_down_line = "\\"`  
-    A single character used to draw corners in tree drop down menus.
-- `tree_drop_down_line = ">"`  
-    A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 - `remember_state = True`  
     Remeber last open channel on exit and reopen it on start.
 - `reply_mention = True`  
@@ -107,8 +62,59 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     To list all installed languages, run `aspell dump dicts`.
     Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
 
+### Theme
+- `tree_width = 32`  
+    Width of channel tree in characters.
+- `format_message = "[%timestamp] <%username> | %content %edited"`  
+    Formatting for message base string. See [format_message](##format_message) for more info.
+- `format_newline = "                       %content"`  
+    Formatting for each newline string after message base. See [format_newline](##format_newline) for more info.
+- `format_reply = "[REPLY] <%username> | /--> [%timestamp] %content"`  
+    Formatting for replied message string. It is above message base. See [format_reply](##format_reply) for more info.
+- `format_reactions = "[REACT]                \\--< %reactions"`  
+    Formatting for message reactions string. It is bellow last newline string. See [format_reactions](##format_reactions) for more info.
+- `format_one_reaction = "%count:%reaction"`  
+    Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](##format_one_reaction) for more info.
+- `format_timestamp = "%H:%M"`  
+    Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
+- `format_status_line_l = " %global_name (%username) - %status  %unreads %action %typing"`  
+    Formatting for left side of status line. See [format_status](##format_status) for more info. Set to None to disable.
+- `format_status_line_r = None`  
+    Formatting for right side of status line. See [format_status](##format_status) for more info.
+- `format_title_line_l = " %server: %channel"`  
+    Formatting for left side of title line. See [format_status](##format_status) for more info. Set to None to disable.
+- `format_title_line_r = "%rich"`  
+    Formatting for right side of title line. See [format_status](##format_status) for more info.
+- `format_title_tree = " endcord  %task"`  
+    Formatting for channel tree title line. See [format_status](##format_status) for more info. Set to None to disable.
+- `format_rich = "playing: %name - %state - %details "`  
+    Formatting for rich presence string used in `format_status`. See [format_rich](##format_rich) for more info.
+- `format_prompt = "[%channel] > "`  
+    Formatting for prompt line. See [format_prompt](##format_prompt) for more info.
+- `edited_string = "(edited)"`  
+    A string added to the end of the message when it is edsited.
+- `reactions_separator = "; "`  
+    A string placed between two reactions.
+- `limit_username = 10`  
+    Limit to the username string length.
+- `limit_global_name = 15`  
+    Limit to the global name string length.
+- `limit_typing_string = 32`  
+    Limit to the typing string length. Also limits `%details` and `%state` in `format_rich`
+- `tree_vert_line = "|"`  
+    A single character used to draw vertical line separating channel tree and the chat.
+- `tree_drop_down_vline = "|"`  
+    A single character used to draw vertical line in tree drop down menus.
+- `tree_drop_down_hline = "-"`  
+    A single character used to draw horizontal line in tree drop down menus.
+- `tree_drop_down_intersect = "|"`  
+    A single character used to draw intersections in tree drop down menus.
+- `tree_drop_down_corner = "\\"`  
+    A single character used to draw corners in tree drop down menus.
+- `tree_drop_down_pointer = ">"`  
+    A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 
-## Colors
+### Colors
 Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
 - `color_format_default = [-1, -1]`  
     Base color formatting for text.

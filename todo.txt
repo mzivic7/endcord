@@ -8,14 +8,9 @@ italic/bold/underline/spoiler formatting in chat
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
-theming
-    split settings into [main] and [theme]
-    themes folder
-    load theme from command argument
-    load theme from config
-    few default themes
 optional media with ascii art - Ctrl+I
 keep deleted messgaes in non-open channels
+show forwarded messages
 keybinding
 
 LOW PRIORITY:

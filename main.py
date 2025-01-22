@@ -4,11 +4,11 @@ import os
 import signal
 import sys
 
-from endcord import app, arg, defaults, peripherals
+from endcord import app, arg, peripherals
 
 APP_NAME = "endcord"
 VERSION = "0.5.0"
-default_config_path = peripherals.default_config_path
+default_config_path = peripherals.config_path
 log_path = peripherals.log_path
 
 
@@ -34,15 +34,12 @@ def sigint_handler(_signum, _frame):
 def main(args):
     """Main function"""
     config_path = args.config
+    theme_path = args.theme
     if config_path:
         config_path = os.path.expanduser(config_path)
     token = args.token
     logger.info(f"Started endcord {VERSION}")
-    if not config_path:
-        if not os.path.exists(default_config_path + "config.ini"):
-            logger.info("Using default config")
-        config_path = default_config_path + "config.ini"
-    config = peripherals.load_config(config_path, defaults.settings)
+    config = peripherals.merge_configs(config_path, theme_path)
     if not token and not config["token"]:
         sys.exit(f"Token not provided in config ({config_path}) nor as argument")
     if token:

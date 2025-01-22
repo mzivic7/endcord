@@ -35,7 +35,7 @@ class Endcord:
         self.format_status_line_l = config["format_status_line_l"]
         self.format_status_line_r = config["format_status_line_r"]
         self.format_title_tree = config["format_title_tree"]
-        self.use_nick = config["use_nick_when_avail"]
+        self.use_nick = config["use_nick_when_available"]
         self.reply_mention = config["reply_mention"]
         self.cache_typed = config["cache_typed"]
         self.enable_notifications = config["desktop_notifications"]
@@ -956,6 +956,7 @@ class Endcord:
             self.active_channel["channel_id"],
             self.config["tree_drop_down_vline"],
             self.config["tree_drop_down_hline"],
+            self.config["tree_drop_down_intersect"],
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
         )

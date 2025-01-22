@@ -12,6 +12,7 @@ from configparser import ConfigParser
 
 import magic
 import pexpect
+from endcord import defaults
 
 logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
@@ -28,14 +29,13 @@ if sys.platform == "win32":
         import win11toast
 
 
-
 if sys.platform == "linux":
     path = os.environ.get("XDG_DATA_HOME", "")
     if path.strip():
-        default_config_path = os.path.join(path, f"{APP_NAME}/")
+        config_path = os.path.join(path, f"{APP_NAME}/")
         log_path = os.path.join(path, f"{APP_NAME}/")
     else:
-        default_config_path = f"~/.config/{APP_NAME}/"
+        config_path = f"~/.config/{APP_NAME}/"
         log_path = f"~/.config/{APP_NAME}/"
     path = os.environ.get("XDG_RUNTIME_DIR", "")
     if path.strip():
@@ -49,12 +49,12 @@ if sys.platform == "linux":
     else:
         downloads_path = "~/Downloads"
 elif sys.platform == "win32":
-    default_config_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
+    config_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
     log_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
     temp_path = f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"
     downloads_path = f"{os.environ["USERPROFILE"]}/Downloads"
 elif sys.platform == "mac":
-    default_config_path = f"~/Library/Application Support/{APP_NAME}/"
+    config_path = f"~/Library/Application Support/{APP_NAME}/"
     log_path = f"~/Library/Application Support/{APP_NAME}/"
     temp_path = f"~/Library/Caches/TemporaryItems{APP_NAME}"
     downloads_path = "~/Downloads"
@@ -62,31 +62,34 @@ else:
     sys.exit(f"Unsupported platform: {sys.platform}")
 
 
-def load_config(path, default):
+def load_config(path, default, section="main", gen_config=False):
     """
-    Load settings from config
+    Load settings and theme from config
     If some value is missing, it is replaced wih default value
     """
     config = ConfigParser(interpolation=None)
     path = os.path.expanduser(path)
     config.read(path)
-    if not os.path.exists(path):
+    if not os.path.exists(path) or gen_config:
         os.makedirs(os.path.expanduser(os.path.dirname(log_path)), exist_ok=True)
-        config.add_section("main")
+        config.add_section(section)
         for key in default:
-            if default[key] in (True, False, None) or isinstance(default[key], int):
-                config.set("main", key, str(default[key]))
+            if default[key] in (True, False, None) or isinstance(default[key], (list, int, float)):
+                config.set(section, key, str(default[key]))
             else:
-                config.set("main", key, f'"{str(default[key]).replace("\\", "\\\\")}"')
+                config.set(section, key, f'"{str(default[key]).replace("\\", "\\\\")}"')
         with open(path, "w") as f:
             config.write(f)
-            print(f"Default config generated at: {path}")
+            if not gen_config:
+                print(f"Default config generated at: {path}")
         config_data = default
     else:
-        config_data_raw = config._sections["main"]
+        if not config.has_section(section):
+            return default
+        config_data_raw = config._sections[section]
         config_data = dict.fromkeys(default)
         for key in default:
-            if key in list(config["main"].keys()):
+            if key in list(config[section].keys()):
                 try:
                     eval_value = literal_eval(config_data_raw[key])
                     config_data[key] = eval_value
@@ -95,6 +98,45 @@ def load_config(path, default):
             else:
                 config_data[key] = default[key]
     return config_data
+
+
+def get_themes():
+    """Return list of all themes found in Themes directory"""
+    themes_path = os.path.expanduser(os.path.join(config_path, "Themes"))
+    if not os.path.exists(themes_path):
+        os.makedirs(themes_path, exist_ok=True)
+    themes = []
+    for file in os.listdir(themes_path):
+        if file.endswith(".ini"):
+            themes.append(os.path.join(themes_path, file))
+    return themes
+
+
+def merge_configs(custom_config_path, theme_path):
+    """Merge config and themes, from varios locations"""
+    gen_config = False
+    if not custom_config_path:
+        if not os.path.exists(os.path.expanduser(config_path) + "config.ini"):
+            logger.info("Using default config")
+            gen_config = True
+        custom_config_path = config_path + "config.ini"
+    elif not os.path.exists(os.path.expanduser(custom_config_path)):
+        gen_config = True
+    config = load_config(custom_config_path, defaults.settings)
+    if config["theme"]:
+        theme_path = os.path.expanduser(config["theme"])
+    saved_themes = get_themes()
+    theme = load_config(custom_config_path, defaults.theme, section="theme", gen_config=gen_config)
+    if theme_path:
+        # if path is only file name without extension
+        if os.path.splitext(os.path.basename(theme_path))[0] == theme_path:
+            for saved_theme in saved_themes:
+                if os.path.splitext(os.path.basename(saved_theme))[0] == theme_path:
+                    theme_path = saved_theme
+        theme_path = os.path.expanduser(theme_path)
+        theme = load_config(theme_path, theme, section="theme")
+    config.update(theme)
+    return config
 
 
 def notify_send(title, message, sound="message"):
@@ -132,7 +174,7 @@ def notify_remove(notification_id):
 
 def load_state():
     """Load saved states from same location where default config is saved"""
-    path = os.path.expanduser(default_config_path + "state.json")
+    path = os.path.expanduser(config_path + "state.json")
     if not os.path.exists(path):
         return None
     try:
@@ -144,9 +186,9 @@ def load_state():
 
 def save_state(state):
     """Save state to same location where default config is saved"""
-    if not os.path.exists(default_config_path):
-        os.makedirs(os.path.expanduser(default_config_path), exist_ok=True)
-    path = path = os.path.expanduser(default_config_path + "state.json")
+    if not os.path.exists(config_path):
+        os.makedirs(os.path.expanduser(config_path), exist_ok=True)
+    path = path = os.path.expanduser(config_path + "state.json")
     with open(path, "w") as f:
         json.dump(state, f, indent=2)
 

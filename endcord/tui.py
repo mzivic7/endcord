@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 
-from endcord import peripherals
+from endcord import acs, peripherals
 
 logger = logging.getLogger(__name__)
 INPUT_LINE_JUMP = 20   # jump size when moving input line
@@ -19,6 +19,7 @@ class TUI():
 
     def __init__(self, screen, config):
         self.spellchecker = peripherals.SpellCheck(config["aspell_mode"], config["aspell_lang"])
+        acs_map = acs.get_map()
         curses.use_default_colors()
         curses.curs_set(0)   # using custom cursor
         curses.init_pair(1, 255, -1)   # white on default
@@ -36,7 +37,8 @@ class TUI():
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
-        self.vert_line = config["tree_vert_line"][0]
+        vert_line = config["tree_vert_line"][0]
+        self.vert_line = acs_map.get(vert_line, vert_line)
         self.tree_width = config["tree_width"]
         self.blink_cursor_on = config["cursor_on_time"]
         self.blink_cursor_off = config["cursor_off_time"]
@@ -419,6 +421,7 @@ class TUI():
         """Disable drawing of extra line above status line, and resize chat"""
         if self.win_extra_line:
             del (self.win_extra_line, self.win_chat)
+            self.extra_line_text = ""
             self.win_extra_line = None
             h, w = self.screen.getmaxyx()
             chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
