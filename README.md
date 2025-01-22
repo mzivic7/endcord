@@ -91,6 +91,7 @@ Open link in browser - `Ctrl+O`
 Download attachment - `Ctrl+W`  
 Upload attachments - `Ctrl+U`  
 Cancel all downloads/uploads - `Ctrl+X`  
+Cancel selected attachment - `Ctrl+K`
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
@@ -110,13 +111,16 @@ Items can be:
 - Links and attachments for 'open in browser'  
 - Only attachments for 'download'.  
 Links are counted first. Items are counted from start to end of the message, in order.  
-Downloads are parallel. If there are downloads running, `Ctrl+X` will cancel ALL downloads, with a confirmation prompt.  
+Downloads are parallel. `Ctrl+X` will cancel ALL downloads and attachments, with a confirmation prompt.  
 ### Uploading
 Uploading is initiated by pressing `Ctrl+U`. Previously typed content will be cached.  
 Type path to file that should be uploaded and press enter. Cached content will be restored.   
 Wait until file is uploaded and then send the message. Mutliple files can be added this way.  
 Path can be absolute or relative, and has autocomplete on `tab` key.  
-If file size exceeds discord's limit it will not be added to the message.  
+If file size exceeds discord's limit it will not be added to the sent message.  
+Attachments can be navigated with `Ctrl+Left/Right` in extra line (above status line).  
+`Ctrl+X` will cancel ALL downloads and attachments, with a confirmation prompt.  
+`Ctrl+K` will cancel selected attachment (and stop upload) and remove it from attachments list.
 ### RPC
 For now RPC is only implemented for Linux, it is automatically disabled on other platforms.  
 And only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  

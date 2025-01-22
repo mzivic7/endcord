@@ -117,6 +117,7 @@ class Endcord:
         self.downlaod_threads = []
         self.upload_threads = []
         self.ready_attachments = []
+        self.selected_attachment = 0
 
 
     def reconnect(self):
@@ -221,6 +222,7 @@ class Endcord:
 
         self.typing = []
         self.chat_end = False
+        self.selected_attachment = 0
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.set_seen(self.active_channel["channel_id"])
 
@@ -334,6 +336,7 @@ class Endcord:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, reset=False)
                 else:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
+
             # switch channel
             if action == 4:
                 if input_text and input_text != "\n":
@@ -471,18 +474,10 @@ class Endcord:
 
             # cancel all downloads and uploads
             elif action == 11:
-                msg_index = self.lines_to_msg(chat_sel + 1)
-                if self.messages[msg_index]["user_id"] == self.my_id:
-                    self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.reset_actions()
-                    self.cancel_download = True
-                    self.discord.cancel_uploading()
-                    for attachments in self.ready_attachments:
-                        if attachments["channel_id"] == self.active_channel["channel_id"]:
-                            self.update_extra_line()
-                            this_attachments = self.ready_attachments.pop(num)["attachments"]
-                            break
-                    self.update_status_line()
+                self.add_to_store(self.active_channel["channel_id"], input_text)
+                self.reset_actions()
+                self.cancel_download = True
+                self.update_status_line()
 
             # copy message to clipboard
             elif action == 12 and self.messages:
@@ -496,6 +491,28 @@ class Endcord:
                 self.add_to_store(self.active_channel["channel_id"], input_text)
                 self.update_status_line()
 
+            # moving left/right through attachments
+            elif action == 14:
+                self.going_to = input_text   # reusing variable
+                if self.selected_attachment > 0:
+                    self.selected_attachment -= 1
+                    self.update_extra_line()
+            elif action == 15:
+                self.going_to = input_text   # reusing variable
+                num_attachments = 0
+                for attachments in self.ready_attachments:
+                    if attachments["channel_id"] == self.active_channel["channel_id"]:
+                        num_attachments = len(attachments["attachments"])
+                if self.selected_attachment + 1 < num_attachments:
+                    self.selected_attachment += 1
+                    self.update_extra_line()
+
+            # cancel selected attachment
+            elif action == 16:
+                self.going_to = input_text   # reusing variable
+                self.cancel_attachment()
+                self.update_extra_line()
+
             # escape key
             elif action == 5:
                 if self.replying["id"]:
@@ -505,7 +522,7 @@ class Endcord:
                     self.reset_actions()
                 self.update_status_line()
 
-            # send message
+            # enter
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
                 # message will be received from gateway and then added to self.messages
                 if self.editing["id"]:
@@ -537,8 +554,12 @@ class Endcord:
                             pass
                 elif self.cancel_download and input_text.lower() == "y":
                     download.cancel()
+                    self.download_threads = []
+                    self.cancel_upload()
+                    self.upload_threads = []
                 elif self.uploading:
-                    self.upload(input_text)
+                    self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(input_text, )))
+                    self.upload_threads[-1].start()
                 else:
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
@@ -567,6 +588,9 @@ class Endcord:
                     )
                 elif self.cancel_download:
                     download.cancel()
+                    self.download_threads = []
+                    self.cancel_upload()
+                    self.upload_threads = []
                 elif self.ready_attachments:
                     this_attachments = None
                     for attachments in self.ready_attachments:
@@ -612,7 +636,7 @@ class Endcord:
             # add attachment to list
             found = False
             for ch_index, channel in enumerate(self.ready_attachments):
-                if channel["id"] == self.active_channel["channel_id"]:
+                if channel["channel_id"] == self.active_channel["channel_id"]:
                     found = True
                     break
             if not found:
@@ -650,6 +674,37 @@ class Endcord:
                     self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
             self.update_extra_line()
             self.remove_running_task("Uploading file", 2)
+
+
+    def cancel_upload(self):
+        """Cancels and removes all uploaded attachments from list"""
+        for num, attachments_ch in enumerate(self.ready_attachments):
+            if attachments_ch["channel_id"] == self.active_channel["channel_id"]:
+                attachments = self.ready_attachments.pop(num)["attachments"]
+                if not attachments:
+                    break
+                for attachment in attachments:
+                    self.discord.cancel_uploading(url=attachment["upload_url"])
+                    self.discord.cancel_attachment(attachment["upload_filename"])
+                    self.selected_attachment = 0
+                    self.update_extra_line()
+                break
+
+
+    def cancel_attachment(self):
+        """Cancel currently selected attachment"""
+        for num, attachments_ch in enumerate(self.ready_attachments):
+            if attachments_ch["channel_id"] == self.active_channel["channel_id"]:
+                attachments = self.ready_attachments[num]["attachments"]
+                if attachments:
+                    attachment = attachments.pop(self.selected_attachment)["upload_filename"]
+                    if not len(attachments):
+                        self.ready_attachments.pop(num)
+                    self.discord.cancel_attachment(attachment)
+                    if self.selected_attachment >= 1:
+                        self.selected_attachment -= 1
+                    self.update_extra_line()
+                break
 
 
     def get_chat_chunk(self, past=True):
@@ -881,7 +936,7 @@ class Endcord:
                 break
         if attachments:
             statusline_w = self.tui.get_dimensions()[2][1]
-            extra_line = formatter.generate_extra_line(attachments["attachments"], 0, statusline_w)
+            extra_line = formatter.generate_extra_line(attachments["attachments"], self.selected_attachment, statusline_w)
             self.tui.draw_extra_line(extra_line)
         else:
             self.tui.remove_extra_line()
@@ -902,6 +957,7 @@ class Endcord:
             self.config["tree_drop_down_vline"],
             self.config["tree_drop_down_hline"],
             self.config["tree_drop_down_corner"],
+            self.config["tree_drop_down_pointer"],
         )
         self.tui.update_tree(self.tree, self.tree_format)
 
@@ -954,7 +1010,7 @@ class Endcord:
                         break
 
 
-    def send_desktop_nitification(self, new_message):
+    def send_desktop_notification(self, new_message):
         """
         Send desktop notification, and handle its ID so it can be removed.
         Send only one notification per channel.
@@ -1171,7 +1227,7 @@ class Endcord:
                                     "channel_id": new_message_channel_id,
                                     "message_id": new_message["d"]["id"],
                                 })
-                                self.send_desktop_nitification(new_message)
+                                self.send_desktop_notification(new_message)
                             self.update_tree()
                     # remove ghost pings
                     if op == "MESSAGE_DELETE" and not self.keep_deleted:

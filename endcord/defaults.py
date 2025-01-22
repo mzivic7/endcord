@@ -34,6 +34,7 @@ settings = {
     "tree_drop_down_vline": "|",
     "tree_drop_down_hline": "-",
     "tree_drop_down_corner": "\\",
+    "tree_drop_down_pointer": ">",
     "remember_state": True,
     "reply_mention": True,
     "cache_typed": True,

@@ -196,7 +196,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 base_color_format = blocked_color_format
             else:
                 indexes.append(0)
-                continue   # could break message to chat conversion
+                continue   # to not break message-to-chat conversion
 
         # replied message line
         if message["referenced_message"]:
@@ -444,7 +444,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
     elif action["type"] == 5:   # select from multiple attachments
         action_string = "Select attachment link to download (type a number)"
     elif action["type"] == 6:   # cancel all downloads
-        action_string = "Really cancel all downloads? [Y/n]"
+        action_string = "Really cancel all downloads/attachments? [Y/n]"
     elif action["type"] == 7:   # ask for upload path
         action_string = "Type file path to upload"
 
@@ -501,7 +501,7 @@ def generate_prompt(my_user_data, active_channel, format_prompt):
 
 def generate_extra_line(attachments, selected, max_len):
     """
-    Generate extra line containing attachments information, with format: 
+    Generate extra line containing attachments information, with format:
     Attachments: [attachment.name] - [Uploading/OK/Too-Large/Restricted/Failed], Selected:N, Total:N
     """
     if attachments:
@@ -521,11 +521,11 @@ def generate_extra_line(attachments, selected, max_len):
             case _:
                 state = "Unknown"
         end = f" - {state}, Selected:{selected + 1}, Total:{total}"
-        return f"Attachments: {name}"[:max_len - len(end)] + end
+        return f" Attachments: {name}"[:max_len - len(end)] + end
     return ""
 
 
-def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_corner):
+def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_corner, dd_pointer):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -551,7 +551,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
     tree = []
     tree_format = []
     tree_metadata = []
-    tree.append("> Direct Messages")
+    tree.append(f"{dd_pointer} Direct Messages")
     code = 101
     if 0 in collapsed:
         code = 100
@@ -608,13 +608,15 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
     tree_format.append(1100)
     tree_metadata.append(None)
 
-    #sort guilds:
+    # sort guilds
     guilds_sorted = []
     for guild_sorted_id in guild_positions:
         for num, guild in enumerate(guilds):
             if guild["guild_id"] == guild_sorted_id:
-                guilds_sorted.append(guilds[num])
+                guilds_sorted.append(guilds.pop(num))
                 break
+    # add unsorted guilds
+    guilds_sorted = guilds_sorted + guilds
 
     for guild in guilds_sorted:
         # prepare data
@@ -622,6 +624,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
         unseen_guild = False
         ping_guild = False
         active_guild = False
+        owned = guild["owned"]
 
         # search for guild and channel settings
         found_setings = False
@@ -680,11 +683,13 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                                     muted_ch = channel_set["muted"]
                                     hidden_ch = channel_set["hidden"]
                                     break
+                        if owned or not found_setings:
+                            hidden_ch = False   # if there are no settings - all channels are accessible
                         if not hidden_ch:
                             category["hidden"] = False
                         active = (channel["id"] == active_channel_id)
                         if active:
-                            # unwrap top level gild
+                            # unwrap top level guild
                             active_guild = True
                         category["channels"].append({
                             "id": channel["id"],
@@ -716,6 +721,8 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                                 muted_ch = channel_set["muted"]
                                 hidden_ch = channel_set["hidden"]
                                 break
+                    if owned or not found_setings:
+                        hidden_ch = False   # if there are no settings - all channels are accessible
                     active = channel["id"] == active_channel_id
                     if active:
                         # unwrap top level guild
@@ -738,7 +745,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
         categories = sort_by_indexes(categories, categories_position)
 
         # add guild to the tree
-        tree.append(f"> {guild["name"]}")
+        tree.append(f"{dd_pointer} {guild["name"]}")
         code = 101
         if muted_guild:
             code += 10
@@ -770,7 +777,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                     category["channels"] = sort_by_indexes(category["channels"], sorted_indexes(channels_position))
 
                     # add to the tree
-                    tree.append(f"{intersection}> {category["name"]}")
+                    tree.append(f"{intersection}{dd_pointer} {category["name"]}")
                     code = 201
                     if category["muted"]:
                         code += 10
@@ -843,7 +850,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
     # add drop-down corners
     for num, code in enumerate(tree_format):
         if code >= 1000:
-            if tree[num - 1][:4] != f"{intersection}>":
+            if tree[num - 1][:4] != f"{intersection}{dd_pointer}":
                 if tree[num][:3] == pass_by:
                     tree[num - 1] = pass_by_end + tree[num - 1][6:]
                 elif tree[num - 1][:3] == intersection:

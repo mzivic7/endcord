@@ -710,10 +710,10 @@ class Discord():
         with open(path, "rb") as f:
             try:
                 connection = http.client.HTTPSConnection(url.netloc, 443)
-                self.uploading.append(connection)
+                self.uploading.append((upload_url, connection))
                 connection.request("PUT", upload_url_path, f, header)
                 response = connection.getresponse()
-                self.uploading.remove(connection)
+                self.uploading.remove((upload_url, connection))
             except (socket.gaierror, TimeoutError):
                 return False
             if response.status == 200:
@@ -723,19 +723,26 @@ class Discord():
             return False
 
 
-    def cancel_uploading(self):
-        """Stop all running uploads"""
-        for connection in self.uploading:
-            try:
-                connection.sock.shutdown()
-                connection.sock.close()
-            except Exception:
-                pass
-            self.uploading.remove(connection)
+    def cancel_uploading(self, url=None):
+        """Stop specified upload, or all running uploads"""
+        if url:
+            for upload in self.uploading:
+                upload_url, connection = upload
+                if upload_url == url:
+                    self.uploading.remove(upload)
+        else:
+            for upload in self.uploading:
+                upload_url, connection = upload
+                try:
+                    connection.sock.shutdown()
+                    connection.sock.close()
+                except Exception:
+                    pass
+                self.uploading.remove(upload)
 
 
-    def cancel_attachemnt(self, attachment_name):
-        """Cancel attachment upload"""
+    def cancel_attachment(self, attachment_name):
+        """Cancel uploaded attachments"""
         attachment_name = urllib.parse.quote(attachment_name, safe="")
         message_data = None
         try:
@@ -744,7 +751,12 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
-        if response.status == 200:
+        if response.status == 204:
             return True
-        logger.error(f"Failed to cancel attachemnt. Response code: {response.status}")
+        if response.status == 429:
+            # discord usually returns 429 for this request, but original client does not retry afteer some time
+            # so this wont retry either, file wont be sent in the messgae anyway
+            logger.debug("Failed to delete attachemnt. Response code: 429 - Too Many Requests")
+            return True
+        logger.error(f"Failed to delete attachemnt. Response code: {response.status}")
         return None

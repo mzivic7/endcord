@@ -71,6 +71,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw horizontal line in tree drop down menus.
 - `tree_drop_down_line = "\\"`  
     A single character used to draw corners in tree drop down menus.
+- `tree_drop_down_line = ">"`  
+    A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 - `remember_state = True`  
     Remeber last open channel on exit and reopen it on start.
 - `reply_mention = True`  

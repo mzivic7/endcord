@@ -159,6 +159,7 @@ class Gateway():
                     self.session_id = response["d"]["session_id"]
                     self.clear_ready_vars()
                     last_messages = []
+                    self.my_id = response["d"]["user"]["id"]
                     # guilds and channels
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
@@ -180,6 +181,7 @@ class Gateway():
                                 })
                         self.guilds.append({
                             "guild_id": guild_id,
+                            "owned": self.my_id == guild["properties"]["owner_id"],
                             "name": guild["properties"]["name"],
                             "description": guild["properties"]["description"],
                             "channels": guild_channels,

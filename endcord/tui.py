@@ -548,6 +548,7 @@ class TUI():
         del (self.win_prompt, self.win_input_line)
         input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
         self.win_input_line = self.screen.derwin(*input_line_hwyx)
+        self.input_hw = self.win_input_line.getmaxyx()
         self.spellcheck()
         self.draw_input_line()
         prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
@@ -624,7 +625,7 @@ class TUI():
             h = self.screen_hw[0]
             w = self.input_hw[1]
 
-            if key == ord("\n"):   # ENTER
+            if key == 10:   # ENTER
                 # wehen pasting, dont return, but insert newline character
                 if bracket_paste:
                     self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
@@ -754,6 +755,16 @@ class TUI():
                     self.tree_selected += 1
                     self.draw_tree()
 
+            elif key == 554:   # CTRL+LEFT
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 14
+
+            elif key == 569:   # CTRL+RIGHT
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 15
+
             elif key == 0:   # CTRL+SPACE
                 if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
                     # if selected tree entry is channel
@@ -769,12 +780,12 @@ class TUI():
                 self.draw_tree()
                 self.tree_format_changed = 1
 
-            elif key == ctrl(110):   # Ctrl+N
+            elif key == ctrl(110):   # CTRL+N
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.show_cursor()
 
-            elif key == ctrl(114):   # Ctrl+R
+            elif key == ctrl(114):   # CTRL+R
                 if self.chat_selected != -1:
                     self.replying_msg = True
                     self.deleting_msg = False
@@ -782,7 +793,7 @@ class TUI():
                     self.input_buffer = ""
                     return tmp, self.chat_selected, self.tree_selected_abs, 1
 
-            elif key == ctrl(101):   # Ctrl+E
+            elif key == ctrl(101):   # CTRL+E
                 if self.chat_selected != -1:
                     self.deleting_msg = False
                     self.replying_msg = False
@@ -790,7 +801,7 @@ class TUI():
                     self.input_buffer = ""
                     return tmp, self.chat_selected, self.tree_selected_abs, 2
 
-            elif key == ctrl(100):   # Ctrl+D
+            elif key == ctrl(100):   # CTRL+D
                 if self.chat_selected != -1:
                     self.replying_msg = False
                     tmp = self.input_buffer
@@ -798,7 +809,7 @@ class TUI():
                     self.deleting_msg = True
                     return tmp, self.chat_selected, self.tree_selected_abs, 3
 
-            elif key == ctrl(98):   # Ctrl+B
+            elif key == ctrl(98):   # CTRL+B
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 7
@@ -820,55 +831,58 @@ class TUI():
                 self.input_buffer = ""
                 return "y", self.chat_selected, self.tree_selected_abs, 0
 
-            elif key == ctrl(103):   # Ctrl+G
+            elif key == ctrl(103):   # CTRL+G
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     return tmp, self.chat_selected, self.tree_selected_abs, 8
 
-            elif key == ctrl(119):   # Ctrl+W
+            elif key == ctrl(119):   # CTRL+W
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     self.asking_num = True
                     return tmp, self.chat_selected, self.tree_selected_abs, 9
 
-            elif key == ctrl(111):   # Ctrl+O
+            elif key == ctrl(111):   # CTRL+O
                 if self.chat_selected != -1:
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     self.asking_num = True
                     return tmp, self.chat_selected, self.tree_selected_abs, 10
 
-            elif key == ctrl(120):   # Ctrl+X
-                if self.chat_selected != -1:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    self.deleting_msg = True
-                    return tmp, self.chat_selected, self.tree_selected_abs, 11
+            elif key == ctrl(120):   # CTRL+X
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 11
 
-            elif key == ctrl(104):   # Ctrl+H
+            elif key == ctrl(104):   # CTRL+H
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 12
 
-            elif key == ctrl(117):   # Ctrl+U
+            elif key == ctrl(117):   # CTRL+U
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.enable_autocomplete = True
                 self.misspelled = []
                 return tmp, self.chat_selected, self.tree_selected_abs, 13
 
-            elif key == ctrl(108):   # Ctrl+L
+            elif key == ctrl(108):   # CTRL+L
                 self.screen.clear()
                 self.redraw_ui()
+
+            elif key == ctrl(107):   # CTRL+K
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 16
 
             elif key == curses.KEY_RESIZE:
                 self.resize()
                 h, _ = self.screen_hw
                 _, w = self.input_hw
 
-            # terminal reserved keys: Ctrl+ C, Q, S, Z, M
+            # terminal reserved keys: CTRL+ C, M, Q, S, Z
 
             # keep index inside screen
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)

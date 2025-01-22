@@ -1,8 +1,4 @@
 HIGH PRIORITY:
-uploading files UI
-    cancel attachments and delete (Ctrl+X)
-    select attachment: Ctrl+Left/Right
-    handle restricted upload (code 3)
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
     style can be: "bold", "italic", "underline"
@@ -17,6 +13,7 @@ theming
     themes folder
     load theme from command argument
     load theme from config
+    few default themes
 optional media with ascii art - Ctrl+I
 keep deleted messgaes in non-open channels
 keybinding
