@@ -278,7 +278,7 @@ class Gateway():
                             activities = []
                             for activity in user["activities"]:
                                 if activity["type"] == 4:
-                                    custom_status = activity["state"]
+                                    custom_status = activity.get("state", "")
                                 elif activity["type"] == 0:
                                     assets = activity.get("assets", {})
                                     activities.append({

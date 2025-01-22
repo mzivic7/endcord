@@ -70,7 +70,7 @@ Token is used to access Discord through your account without logging-in.
 It is required to to use endcord.  
 After obtaining token, you can either:  
 - Pass token to endcord as command argument: `endcord -t [YOUR_TOKEN]`  
-- Save token in cofig - recommended  
+- Save token in config - recommended  
 See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 ## Config options
 Go to [configuration](configuration.md).
