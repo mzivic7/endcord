@@ -114,24 +114,29 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `tree_drop_down_pointer = ">"`  
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 
-### Colors
-Colors use 8bit ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). Eg. `[255, 232]`, where 255 is foreground and 232 is background. -1 is terminal default color.
-- `color_format_default = [-1, -1]`  
-    Base color formatting for text.
-- `color_format_mention = [209, 234]`  
+### Colors and attributes
+Colors are configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
+Foreground and background are ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). -1 is terminal default color.  
+Attribute is optional string: `"b"/"bold"`, `"u"/""`, `"i"/"italic"`
+Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underline
+- `color_chat_default = [-1, -1]`  
+    Base color formatting for text. No attribute.
+- `color_chat_mention = [209, 234]`  
     Color for highlighted messages containing mentions (reply with ping included) and mention roles.
-- `color_format_blocked = [242, -1]`  
+- `color_chat_blocked = [242, -1]`  
     Color for blocked messages if `block_mode = 1`.
-- `color_format_deleted = [95, -1]`  
+- `color_chat_deleted = [95, -1]`  
     Color for deleted mesages when `keep_deleted = True`.
-- `color_format_misspelled = [222, -1]`  
+- `color_misspelled = [222, -1]`  
     Color for misspelled words in input line.
+- `color_extra_line = [233, 245]`  
+    Color for extra line, drawn above status line.
 - `color_tree_default = [255, -1]`  
-    Colors for tree components.
+    Base color for tree components.  No attribute.
 - `color_tree_selected = [233, 255]`  
 - `color_tree_muted = [242, -1]`  
 - `color_tree_active = [255, 234]`  
-- `color_tree_unseen = [-1, -1]`  
+- `color_tree_unseen = [255, -1, "b"]`  
 - `color_tree_mentioned = [197, -1]`  
 - `color_tree_active_mentioned = [197, 234]`  
 

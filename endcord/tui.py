@@ -22,18 +22,20 @@ class TUI():
         acs_map = acs.get_map()
         curses.use_default_colors()
         curses.curs_set(0)   # using custom cursor
-        curses.init_pair(1, 255, -1)   # white on default
-        curses.init_pair(2, 233, 255)   # black on white
         print("\x1b[?2004h")   # enable bracketed paste mode
-        curses.init_pair(3, config["color_tree_default"][0], config["color_tree_default"][1])
-        curses.init_pair(4, config["color_tree_selected"][0], config["color_tree_selected"][1])
-        curses.init_pair(5, config["color_tree_muted"][0], config["color_tree_muted"][1])
-        curses.init_pair(6, config["color_tree_active"][0], config["color_tree_active"][1])
-        curses.init_pair(7, config["color_tree_unseen"][0], config["color_tree_unseen"][1])
-        curses.init_pair(8, config["color_tree_mentioned"][0], config["color_tree_mentioned"][1])
-        curses.init_pair(9, config["color_tree_active_mentioned"][0], config["color_tree_active_mentioned"][1])
-        curses.init_pair(10, config["color_format_misspelled"][0], config["color_format_misspelled"][1])
-        curses.init_pair(11, 233, 245)   # black on gray
+        self.last_free_id = 1   # last free color pair id
+        self.attrib_map = [0]   # has 0 so its index starts from 1 to be matched with color pairs
+        self.init_pair((255, -1))   # white on default
+        self.init_pair((233, 255))   # black on white
+        self.init_pair(config["color_tree_default"])
+        self.init_pair(config["color_tree_selected"])
+        self.init_pair(config["color_tree_muted"])
+        self.init_pair(config["color_tree_active"])
+        self.init_pair(config["color_tree_unseen"])
+        self.init_pair(config["color_tree_mentioned"])
+        self.init_pair(config["color_tree_active_mentioned"])
+        self.init_pair(config["color_misspelled"])
+        self.init_pair(config["color_extra_line"])
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -285,7 +287,7 @@ class TUI():
                     if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)):
                         try:
                             # cant insch weird characters, still faster than always calling insstr
-                            self.win_input_line.insch(0, pos, character, curses.color_pair(10))
+                            self.win_input_line.insch(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
                         except OverflowError:
                             self.win_input_line.insstr(0, pos, character, curses.color_pair(10))
                         bad = True
@@ -371,19 +373,19 @@ class TUI():
                 color = curses.color_pair(3)
                 color_line = curses.color_pair(3)
                 if second_digit == 1:   # muted
-                    color = curses.color_pair(5)
+                    color = curses.color_pair(5) | self.attrib_map[5]
                 elif second_digit == 2:   # mentioned
-                    color = curses.color_pair(8)
+                    color = curses.color_pair(8) | self.attrib_map[8]
                 elif second_digit == 3:   # unread
-                    color = curses.color_pair(7) | curses.A_BOLD
+                    color = curses.color_pair(7) | self.attrib_map[7]
                 elif second_digit == 4:   # active
-                    color = curses.color_pair(6)
+                    color = curses.color_pair(6) | self.attrib_map[6]
                     color_line = curses.color_pair(6)
                 elif second_digit == 5:   # active mentioned
-                    color = curses.color_pair(9)
+                    color = curses.color_pair(9) | self.attrib_map[9]
                     color_line = curses.color_pair(6)
                 if y == self.tree_selected - self.tree_index:   # selected
-                    color = curses.color_pair(4)
+                    color = curses.color_pair(4) | self.attrib_map[4]
                     color_line = curses.color_pair(4)
                     self.tree_selected_abs = self.tree_selected + skipped
                 # filled with spaces so background is drawn all the way
@@ -413,7 +415,7 @@ class TUI():
                 self.draw_chat()
                 extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
                 self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
-            self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11))
+            self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
             self.win_extra_line.refresh()
 
 
@@ -506,27 +508,34 @@ class TUI():
             self.draw_title_tree()
 
 
+    def init_pair(self, color):
+        """Initialize color pair while keeping track of last unuusd id, and store its attribute in attr_map"""
+        if len(color) == 2:
+            fg, bg = color
+            attribute = 0
+        else:
+            fg, bg, attribute = color
+            attribute = str(attribute).lower()
+            if attribute in ("b", "bold"):
+                attribute = curses.A_BOLD
+            elif attribute in ("u", "underline"):
+                attribute = curses.A_UNDERLINE
+            elif attribute in ("i", "italic"):
+                attribute = curses.A_ITALIC
+            else:
+                attribute = 0
+        curses.init_pair(self.last_free_id, fg, bg)
+        self.attrib_map.append(attribute)
+        self.last_free_id += 1
+        return self.last_free_id - 1
+
+
     def init_colors(self, colors):
-        """Initializes color pairs AOT"""
+        """Initializes multiple color pairs"""
         color_codes = []
         for color in colors:
-            found = False
-            pair_id = 0
-            while pair_id < curses.COLOR_PAIRS:
-                try:
-                    pair = list(curses.pair_content(pair_id))
-                except curses.error:
-                    break   # new color pair will be stored with this id
-                if pair == [0, 0]:
-                    break
-                if pair == color[:2]:
-                    found = True
-                    color_codes.append(pair_id)
-                    break
-                pair_id += 1
-            if not found:
-                curses.init_pair(pair_id, color[0], color[1])
-                color_codes.append(pair_id)
+            pair_id = self.init_pair(color)
+            color_codes.append(pair_id)
         return color_codes
 
 

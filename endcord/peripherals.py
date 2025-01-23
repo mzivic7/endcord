@@ -207,10 +207,10 @@ def check_color_format(color_format):
 def extract_colors(config):
     """Extract color format from config if any value is None, default is used"""
     return (
-        check_color_format(config["color_format_default"]),
-        check_color_format(config["color_format_mention"]),
-        check_color_format(config["color_format_blocked"]),
-        check_color_format(config["color_format_deleted"]),
+        check_color_format(config["color_default"]),
+        check_color_format(config["color_chat_mention"]),
+        check_color_format(config["color_chat_blocked"]),
+        check_color_format(config["color_chat_deleted"]),
     )
 
 def copy_to_clipboard(text):

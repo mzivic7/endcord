@@ -1,7 +1,6 @@
 HIGH PRIORITY:
 colors fomratting
     general color format: [[bg, fg, [bg, fg, style, start, end]]]
-    style can be: "bold", "italic", "underline"
     separate format for "(edited)" string
     different background on code blocks
 italic/bold/underline/spoiler formatting in chat
@@ -20,9 +19,9 @@ assist when mentioning with @[username]/@[role]/>channel/:emoji: and reactions
 forums/threads
 tabs
 better windows support (building, ctrl+key, emoji character, rpc)
+better mac-os support (building, testing, spellchecking)
 
 MAYBE:
-rpc on mac-os
 mouse controls
 voice messages
 voice and video (normal/ascii)
