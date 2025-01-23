@@ -1,9 +1,7 @@
 HIGH PRIORITY:
 colors fomratting
-    general color format: [[bg, fg, [bg, fg, style, start, end]]]
-    separate format for "(edited)" string
-    different background on code blocks
-italic/bold/underline/spoiler formatting in chat
+    general color format: [bg, fg, [bg, fg, style, start, end], [...]...]
+italic/bold/underline/spoiler/code-blocks formatting in chat
 fix not getting events from large servers
 
 MEDIUM PRIORITY:

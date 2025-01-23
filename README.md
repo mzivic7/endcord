@@ -39,9 +39,8 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Copy message text to clipboard (`Ctrl+H`)
 - No ghost pings (hopefully)
 - Theming
-- Customizable status and title lines
+- Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
-- Customizable prompt line
 - Customizable colors
 - Automatic recovery on network failure
 - Remember last open channel and tree state
@@ -57,8 +56,8 @@ Settings and log file location:
 - On mac: `~/Library/Application Support/endcord/`  
 Run `endcord -h` or `endcord --help` to see possible command arguments.  
 ### Providing config
-If config is not found at that path, default will be writen.  
-Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.  
+Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.
+If config is not found at that path, default will be written.   
 There can be missing entries in config, they will be filled with defaults.  
 ### Debug mode
 Debug mode can be enabled with `-d` flag.  

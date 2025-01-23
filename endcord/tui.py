@@ -27,15 +27,20 @@ class TUI():
         self.attrib_map = [0]   # has 0 so its index starts from 1 to be matched with color pairs
         self.init_pair((255, -1))   # white on default
         self.init_pair((233, 255))   # black on white
-        self.init_pair(config["color_tree_default"])
+        self.init_pair(config["color_tree_default"])   # 3
         self.init_pair(config["color_tree_selected"])
         self.init_pair(config["color_tree_muted"])
-        self.init_pair(config["color_tree_active"])
+        self.init_pair(config["color_tree_active"])   # 6
         self.init_pair(config["color_tree_unseen"])
         self.init_pair(config["color_tree_mentioned"])
-        self.init_pair(config["color_tree_active_mentioned"])
+        self.init_pair(config["color_tree_active_mentioned"])   # 9
         self.init_pair(config["color_misspelled"])
         self.init_pair(config["color_extra_line"])
+        self.init_pair(config["color_title_line"])   # 12
+        self.init_pair(config["color_prompt"])
+        self.init_pair(config["color_input_line"])
+        self.init_pair(config["color_cursor"])   # 15
+        self.init_pair(config["color_chat_selected"])
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -253,7 +258,7 @@ class TUI():
             title_line = title_txt + " " * (w - len(title_txt) - len(self.title_txt_r)) + self.title_txt_r
         else:
             title_line = title_txt + " " * (w - len(title_txt))
-        self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(2))
+        self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
         self.win_title_line.refresh()
 
 
@@ -262,7 +267,7 @@ class TUI():
         h, w = self.tree_title_hw
         title_txt = self.title_tree_txt[:w]
         title_line = title_txt + " " * (w - len(title_txt))
-        self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(2))
+        self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
         self.win_title_tree.refresh()
 
 
@@ -289,14 +294,14 @@ class TUI():
                             # cant insch weird characters, still faster than always calling insstr
                             self.win_input_line.insch(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
                         except OverflowError:
-                            self.win_input_line.insstr(0, pos, character, curses.color_pair(10))
+                            self.win_input_line.insstr(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
                         bad = True
                         break
                 if not bad:
                     try:
-                        self.win_input_line.insch(0, pos, character, curses.color_pair(0))
+                        self.win_input_line.insch(0, pos, character, curses.color_pair(14) | self.attrib_map[14])
                     except OverflowError:
-                        self.win_input_line.insstr(0, pos, character, curses.color_pair(0))
+                        self.win_input_line.insstr(0, pos, character, curses.color_pair(14) | self.attrib_map[14])
         self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
         # cursor at the end of string
         if not cursor_drawn and self.cursor_pos >= len(line_text):
@@ -316,7 +321,7 @@ class TUI():
                 if y < 0 or y >= h:
                     break
                 if num == self.chat_selected - self.chat_index:
-                    color = curses.color_pair(2)
+                    color = curses.color_pair(16)
                 else:
                     color = curses.color_pair(chat_format[num][0])
                 # filled with spaces so background is drawn all the way
@@ -442,9 +447,9 @@ class TUI():
         if self.cursor_pos < len(line_text):
             character = line_text[self.cursor_pos]
         if self.cursor_pos == w - 1:
-            self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id))
+            self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
         else:
-            self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id))
+            self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
         self.win_input_line.refresh()
 
 
@@ -455,10 +460,10 @@ class TUI():
             while self.run and self.hibernate_cursor >= 10:
                 time.sleep(self.blink_cursor_on)
             if self.cursor_on:
-                color_id = 1
+                color_id = 14
                 sleep_time = self.blink_cursor_on
             else:
-                color_id = 2
+                color_id = 15
                 sleep_time = self.blink_cursor_off
             self.set_cursor_color(color_id)
             time.sleep(sleep_time)
@@ -469,7 +474,7 @@ class TUI():
     def show_cursor(self):
         """Force cursor to be shown on screen and reset blinking"""
         if self.enable_blink_cursor:
-            self.set_cursor_color(2)
+            self.set_cursor_color(15)
             self.cursor_on = True
             self.hibernate_cursor = 0
 
@@ -565,7 +570,7 @@ class TUI():
         self.draw_input_line()
         prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
         self.win_prompt = self.screen.derwin(*prompt_hwyx)
-        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(0))
+        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
         self.win_prompt.refresh()
 
 

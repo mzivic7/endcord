@@ -127,10 +127,20 @@ Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underl
     Color for blocked messages if `block_mode = 1`.
 - `color_chat_deleted = [95, -1]`  
     Color for deleted mesages when `keep_deleted = True`.
-- `color_misspelled = [222, -1]`  
-    Color for misspelled words in input line.
+- `color_chat_selected = [233, 255]`  
+    Color for selected line in chat.
 - `color_extra_line = [233, 245]`  
     Color for extra line, drawn above status line.
+- `"color_title_line" = [233, 255]`  
+    Color for chat title line and tree title line.
+- `color_prompt = [255, -1]`  
+    Color for prompt line.
+- `color_input_line = [255, -1]`  
+    Base color for input line.
+- `color_cursor = [233, 255]`  
+    COlor for cursor in input line.
+- `color_misspelled = [222, -1]`  
+    Color for misspelled words in input line.
 - `color_tree_default = [255, -1]`  
     Base color for tree components.  No attribute.
 - `color_tree_selected = [233, 255]`  
