@@ -312,12 +312,12 @@ class TUI():
 
 
     def draw_chat(self):
-        """Draw text from linebuffer"""
+        """Draw chat with applied color formatting"""
+        h, w = self.chat_hw
+        # drawing from down to up
+        y = h
+        chat_format = self.chat_format[self.chat_index:]
         try:
-            h, w = self.chat_hw
-            # drawing from down to up
-            y = h
-            chat_format = self.chat_format[self.chat_index:]
             for num, line in enumerate(self.chat_buffer[self.chat_index:]):
                 y = h - (num + 1)
                 if y < 0 or y >= h:
@@ -331,6 +331,8 @@ class TUI():
                     default_color = curses.color_pair(default_color_id) | self.attrib_map[default_color_id]
                     self.win_chat.insstr(y, 0, " " * w + "\n", curses.color_pair(default_color_id))
                     for pos, character in enumerate(line):
+                        if pos >= w:
+                            break
                         found = False
                         for format_part in line_format[1:]:
                             if format_part[1] <= pos <= format_part[2]:
