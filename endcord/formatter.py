@@ -352,11 +352,11 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 temp_format.append([color_base])
             elif mentioned:
                 if edited and not next_line:
-                    temp_format.append(color_mention_newline + [[*color_mention_chat_edited, len(new_line) - len_edited, len(message_line) - 1]])
+                    temp_format.append(color_mention_newline + [[*color_mention_chat_edited, len(new_line) - len_edited, len(new_line) - 1]])
                 else:
                     temp_format.append(color_mention_newline)
             elif edited and not next_line:
-                temp_format.append(color_newline + [[*color_chat_edited, len(new_line) - len_edited, len(message_line) - 1]])
+                temp_format.append(color_newline + [[*color_chat_edited, len(new_line) - len_edited, len(new_line) - 1]])
             else:
                 temp_format.append(color_newline)
 
