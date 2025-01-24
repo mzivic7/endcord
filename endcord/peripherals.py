@@ -193,25 +193,45 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
-def check_color_format(color_format):
-    """Check if color format is valid, and repair it"""
-    if color_format is None:
-        color_format = [-1, -1]
-    elif color_format[0] is None:
-        color_format[0] = -1
-    elif color_format[1] is None:
-        color_format[1] = -1
-    return color_format
+def check_color(color):
+    """Check if color format is valid and repair it"""
+    if color is None:
+        return [-1, -1]
+    if color[0] is None:
+        color[0] = -1
+    elif color[1] is None:
+        color[1] = -1
+    return color
 
 
 def extract_colors(config):
-    """Extract color format from config if any value is None, default is used"""
+    """Extract simple colors from config if any value is None, default is used"""
     return (
-        check_color_format(config["color_default"]),
-        check_color_format(config["color_chat_mention"]),
-        check_color_format(config["color_chat_blocked"]),
-        check_color_format(config["color_chat_deleted"]),
+        check_color(config["color_default"]),
+        check_color(config["color_chat_mention"]),
+        check_color(config["color_chat_blocked"]),
+        check_color(config["color_chat_deleted"]),
     )
+
+
+def check_color_formatted(color):
+    """Check if color format is valid and repair it"""
+    if color is None:
+        return [[-1, -1]]
+    return color
+
+
+def extract_colors_formatted(config):
+    """Extract complex formatted colors from config"""
+    return (
+        check_color_formatted(config["color_format_message"]),
+        check_color_formatted(config["color_format_newline"]),
+        check_color_formatted(config["color_format_reply"]),
+        check_color_formatted(config["color_format_reactions"]),
+        # not complex but is here so it can be initialized for alt bg color
+        [check_color(config["color_chat_edited"])],
+    )
+
 
 def copy_to_clipboard(text):
     """Copy text to clipboard. Cross-platform."""

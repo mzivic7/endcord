@@ -117,7 +117,7 @@ def clean_type(embed_type):
     return re.sub(match_after_slash, "", embed_type)
 
 
-def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, blocked, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True, blocked_mode=1, keep_deleted=False):
+def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, colors, colors_formatted, blocked, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True, blocked_mode=1, keep_deleted=False):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -158,33 +158,52 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
     chat = []
     chat_format = []
     indexes = []
+    len_edited = len(edited_string)
+
+    # load colors
+    color_default = colors[0]
+    color_blocked = colors[2]
+    color_deleted = colors[3]
+    color_chat_edited = colors_formatted[4][0]   # coming from formated colors
+    color_mention_chat_edited = colors_formatted[9][0]
+
+    # load formatted colors: [[id], [id, start, end]...]
+    color_message = colors_formatted[0]
+    color_newline = colors_formatted[1]
+    color_reply = colors_formatted[2]
+    color_reactions = colors_formatted[3]
+    color_mention_message = colors_formatted[5]
+    color_mention_newline = colors_formatted[6]
+    color_mention_reply = colors_formatted[7]
+    color_mention_reactions = colors_formatted[8]
+
     for message in messages:
         temp_chat = []   # stores only one multiline message
         temp_format = []
+        mentioned = False
+        edited = message["edited"]
 
         # select base color
-        default_color_format = colors[0]
-        mention_color_format = colors[1]
-        blocked_color_format = colors[2]
-        deleted_color_format = colors[3]
-        base_color_format = default_color_format
+        color_base = [color_default]
         for mention in message["mentions"]:
             if mention["id"] == my_id:
-                base_color_format = mention_color_format
+                mentioned = True
                 break
         for role in message["mention_roles"]:
             if bool([i for i in my_roles if i in message["mention_roles"]]):
-                base_color_format = mention_color_format
+                mentioned = True
                 break
 
         # skip deleted
+        disable_formatting = False
         if "deleted" in message:
             if keep_deleted:
-                base_color_format = deleted_color_format
+                color_base = [color_deleted]
+                disable_formatting = True
             else:
                 continue
 
-        reply_color_format = base_color_format
+        reply_color_format = color_base
 
         # handle blocked messages
         if blocked_mode and message["user_id"] in blocked:
@@ -193,7 +212,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 message["global_name"] = "blocked"
                 message["nick"] = "blocked"
                 message["content"] = "Blocked message"
-                base_color_format = blocked_color_format
+                color_base = color_blocked
             else:
                 indexes.append(0)
                 continue   # to not break message-to-chat conversion
@@ -206,7 +225,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                     message["referenced_message"]["global_name"] = "blocked"
                     message["referenced_message"]["nick"] = "blocked"
                     message["referenced_message"]["content"] = "Blocked message"
-                    reply_color_format = blocked_color_format
+                    reply_color_format = color_blocked
                 if use_nick and message["referenced_message"]["nick"]:
                     global_name_nick = message["referenced_message"]["nick"]
                 elif message["referenced_message"]["global_name"]:
@@ -239,7 +258,12 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if len(reply_line) > max_length:
                 reply_line = reply_line[:max_length - 3] + "..."   # -3 to leave room for ""..."
             temp_chat.append(reply_line)
-            temp_format.append([reply_color_format])
+            if disable_formatting or reply_color_format == color_blocked:
+                temp_format.append([reply_color_format])
+            elif mentioned:
+                temp_format.append(color_mention_reply)
+            else:
+                temp_format.append(color_reply)
 
         # main message
         if use_nick and message["nick"]:
@@ -261,7 +285,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             .replace("%username", normalize_string(message["username"], limit_username))
             .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
             .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
-            .replace("%edited", edited_string if message["edited"] else "")
+            .replace("%edited", edited_string if edited else "")
             .replace("%content", content)
         )
 
@@ -286,7 +310,17 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         else:
             next_line = None
         temp_chat.append(message_line)
-        temp_format.append([base_color_format])
+        if disable_formatting:
+            temp_format.append([color_base])
+        elif mentioned:
+            if edited and not next_line:
+                temp_format.append(color_mention_message + [[*color_mention_chat_edited, len(message_line) - len_edited, len(message_line) - 1]])
+            else:
+                temp_format.append(color_mention_message)
+        elif edited and not next_line:
+            temp_format.append(color_message + [[*color_chat_edited, len(message_line) - len_edited, len(message_line) - 1]])
+        else:
+            temp_format.append(color_message)
 
         # newline
         while next_line:
@@ -314,7 +348,17 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             else:
                 next_line = None
             temp_chat.append(new_line)
-            temp_format.append([base_color_format])
+            if disable_formatting:
+                temp_format.append([color_base])
+            elif mentioned:
+                if edited and not next_line:
+                    temp_format.append(color_mention_newline + [[*color_mention_chat_edited, len(new_line) - len_edited, len(message_line) - 1]])
+                else:
+                    temp_format.append(color_mention_newline)
+            elif edited and not next_line:
+                temp_format.append(color_newline + [[*color_chat_edited, len(new_line) - len_edited, len(message_line) - 1]])
+            else:
+                temp_format.append(color_newline)
 
         # reactions
         if message["reactions"]:
@@ -334,7 +378,12 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             if len(reactions_line) > max_length:
                 reactions_line = reactions_line[:max_length]
             temp_chat.append(reactions_line)
-            temp_format.append([base_color_format])
+            if disable_formatting:
+                temp_format.append([color_base])
+            elif mentioned:
+                temp_format.append(color_mention_reactions)
+            else:
+                temp_format.append(color_reactions)
         indexes.append(len(temp_chat))
 
         # invert message lines order and append them to chat

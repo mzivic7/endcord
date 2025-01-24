@@ -41,6 +41,7 @@ class TUI():
         self.init_pair(config["color_input_line"])
         self.init_pair(config["color_cursor"])   # 15
         self.init_pair(config["color_chat_selected"])
+        self.init_pair(config["color_status_line"])
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -224,7 +225,8 @@ class TUI():
         """Redraw entire ui"""
         self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
         if self.have_title and self.have_title_tree:
-            self.screen.insch(0, self.tree_hw[1], self.vert_line, curses.color_pair(2))
+            # fill gab between titles
+            self.screen.insch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
         self.draw_status_line()
         self.draw_chat()
         self.update_prompt(self.prompt)   # draw_input_line() is called in here
@@ -246,7 +248,7 @@ class TUI():
         else:
             # add spaces to end of line
             status_line = status_txt + " " * (w - len(status_txt))
-        self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(2))
+        self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
         self.win_status_line.refresh()
 
 
@@ -284,14 +286,14 @@ class TUI():
         for pos, character in enumerate(line_text):
             # cursor in the string
             if not cursor_drawn and self.cursor_pos == pos:
-                self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(2))
+                self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(15) | self.attrib_map[15])
                 cursor_drawn = True
             else:
                 bad = False
                 for bad_range in self.misspelled:
                     if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)):
                         try:
-                            # cant insch weird characters, still faster than always calling insstr
+                            # cant insch weird characters, but this is faster than always calling insstr
                             self.win_input_line.insch(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
                         except OverflowError:
                             self.win_input_line.insstr(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
@@ -321,18 +323,38 @@ class TUI():
                 if y < 0 or y >= h:
                     break
                 if num == self.chat_selected - self.chat_index:
-                    color = curses.color_pair(16)
+                    self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(16))
                 else:
-                    color = curses.color_pair(chat_format[num][0])
-                # filled with spaces so background is drawn all the way
-                self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", color)
+                    line_format = chat_format[num]
+                    default_color_id = line_format[0][0]
+                    # filled with spaces so background is drawn all the way
+                    default_color = curses.color_pair(default_color_id) | self.attrib_map[default_color_id]
+                    self.win_chat.insstr(y, 0, " " * w + "\n", curses.color_pair(default_color_id))
+                    for pos, character in enumerate(line):
+                        found = False
+                        for format_part in line_format[1:]:
+                            if format_part[1] <= pos <= format_part[2]:
+                                color = format_part[0]
+                                try:
+                                    # cant insch weird characters, but this is faster than always calling insstr
+                                    self.win_chat.insch(y, pos, character, curses.color_pair(color) | self.attrib_map[color])
+                                except OverflowError:
+                                    self.win_chat.insstr(y, pos, character, curses.color_pair(color) | self.attrib_map[color])
+                                found = True
+                                break
+                        if not found:
+                            try:
+                                self.win_chat.insch(y, pos, character, default_color)
+                            except OverflowError:
+                                self.win_chat.insstr(y, pos, character, default_color)
+            # fill empty lines with spaces so background is drawn all the way
             y -= 1
             while y >= 0:
-                self.win_chat.insstr(y, 0, "\n", curses.color_pair(1))
+                self.win_chat.insstr(y, 0, "\n", curses.color_pair(0))
                 y -= 1
             self.win_chat.refresh()
         except curses.error:
-            # this exception will happen when window is resized to smaller w dimensions
+            # exception will happen when window is resized to smaller w dimensions
             self.resize()
 
 
@@ -394,9 +416,9 @@ class TUI():
                     color_line = curses.color_pair(4)
                     self.tree_selected_abs = self.tree_selected + skipped
                 # filled with spaces so background is drawn all the way
+                self.win_tree.insstr(y, 0, " " * w + "\n", color_line)
                 self.win_tree.insstr(y, 0, line[:text_start], color_line)
-                self.win_tree.insstr(y, text_start, line[text_start:] + " " * (w - len(line)) + "\n", color)
-
+                self.win_tree.insstr(y, text_start, line[text_start:], color)
             y += 1
             while y < h:
                 self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
@@ -541,6 +563,27 @@ class TUI():
         for color in colors:
             pair_id = self.init_pair(color)
             color_codes.append(pair_id)
+        return color_codes
+
+
+    def init_colors_formatted(self, colors, alt_color):
+        """Initializes multiple color pairs in double nested lists twice, one wih normal color and one bg from with alt_color"""
+        color_codes = []
+        for format_colors in colors:
+            format_codes = []
+            for color in format_colors:
+                pair_id = self.init_pair(color[:3])
+                format_codes.append([pair_id, *color[3:]])
+            color_codes.append(format_codes)
+        # using bg from alt_color
+        for format_colors in colors:
+            format_codes = []
+            for color in format_colors:
+                if color[1] == -1:
+                    color[1] = alt_color[1]
+                pair_id = self.init_pair(color[:3])
+                format_codes.append([pair_id, *color[3:]])
+            color_codes.append(format_codes)
         return color_codes
 
 

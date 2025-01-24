@@ -50,6 +50,7 @@ class Endcord:
         self.downloads_path = os.path.expanduser(downloads_path)
         self.tenor_gif_type = config["tenor_gif_type"]
         self.colors = peripherals.extract_colors(config)
+        self.colors_formatted = peripherals.extract_colors_formatted(config)
 
         # variables
         self.run = False
@@ -73,9 +74,11 @@ class Endcord:
         self.discord = discord.Discord(config["token"])
         self.gateway = gateway.Gateway(config["token"])
         self.tui = tui.TUI(self.screen, self.config)
+        alt_color = self.colors[1]
         self.colors = self.tui.init_colors(self.colors)
+        self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, alt_color)
+        self.tui.update_chat(["Connecting to Discord"], [[[self.colors[0]]]] * 1)
         self.tui.update_status_line("CONNECTING")
-        self.tui.update_chat(["Connecting to Discord"], [[self.colors[0]]] * 1)
         self.my_id = self.discord.get_my_id()
         self.my_user_data = self.discord.get_user(self.my_id, extra=True)
         self.reset()
@@ -801,6 +804,7 @@ class Endcord:
             self.my_id,
             self.my_roles,
             self.colors,
+            self.colors_formatted,
             self.blocked,
             limit_username=self.config["limit_username"],
             limit_global_name=self.config["limit_global_name"],
@@ -1064,7 +1068,7 @@ class Endcord:
         self.gateway_state = 1
         logger.info("Gateway is ready")
 
-        self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[self.colors[0]]] * 2)
+        self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 2)
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
@@ -1094,7 +1098,7 @@ class Endcord:
                 "collapsed": [],
             }
         if self.state["last_channel_id"]:
-            self.tui.update_chat(["Loading messages", "Loading channels", "Connecting to Discord"], [[self.colors[0]]] * 3)
+            self.tui.update_chat(["Loading messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
             guild_id = self.state["last_guild_id"]
             channel_id = self.state["last_channel_id"]
             channel_name = None
@@ -1119,7 +1123,7 @@ class Endcord:
 
         if not self.tree_format:
             self.init_tree()
-            self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[self.colors[0]]] * 3)
+            self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
 
         self.gateway.update_presence(
             self.my_status["status"],

@@ -55,6 +55,7 @@ theme = {
     "color_chat_blocked": [242, -1],
     "color_chat_deleted": [95, -1],
     "color_chat_selected": [233, 255],
+    "color_status_line": [233, 255],
     "color_extra_line": [233, 245],
     "color_title_line": [233, 255],
     "color_prompt": [255, -1],
@@ -68,4 +69,9 @@ theme = {
     "color_tree_unseen": [255, -1, "b"],
     "color_tree_mentioned": [197, -1],
     "color_tree_active_mentioned": [197, 234],
+    "color_format_message": [[-1, -1], [242, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19]],
+    "color_format_newline": None,
+    "color_format_reply": [[245, -1], [67, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19], [-1, -1, 0, 21, 26]],
+    "color_format_reactions": [[245, -1], [131, -1, 0, 0, 6], [-1, -1, 0, 23, 26]],
+    "color_chat_edited": [241, -1],
 }

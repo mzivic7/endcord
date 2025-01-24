@@ -117,8 +117,14 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 ### Colors and attributes
 Colors are configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
 Foreground and background are ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). -1 is terminal default color.  
-Attribute is optional string: `"b"/"bold"`, `"u"/""`, `"i"/"italic"`
-Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underline
+Set to None to use terminal default colors.  
+Attribute is optional string: `"b"/"bold"`, `"u"/"underline"`, `"i"/"italic"`
+Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underline.  
+All colors starting with `color_format` are formatted like this:  
+`[[fg, bg, attr], [fg, bg, attr, start, end], [...]...]`  
+First `[fg, bg, attr]` is base color for whole context. If `bg` is -1, `bg` from `color_chat_default` and `color_chat_mention` is used. Same for `fg`.  
+Every next list has additional `start` and `end`- indexes on a line where color is applied.  
+Set to None to use terminal default colors.  
 - `color_chat_default = [-1, -1]`  
     Base color formatting for text. No attribute.
 - `color_chat_mention = [209, 234]`  
@@ -129,6 +135,8 @@ Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underl
     Color for deleted mesages when `keep_deleted = True`.
 - `color_chat_selected = [233, 255]`  
     Color for selected line in chat.
+- `color_status_line = [233, 255]`  
+    Color for status line.
 - `color_extra_line = [233, 245]`  
     Color for extra line, drawn above status line.
 - `"color_title_line" = [233, 255]`  
@@ -138,17 +146,27 @@ Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underl
 - `color_input_line = [255, -1]`  
     Base color for input line.
 - `color_cursor = [233, 255]`  
-    COlor for cursor in input line.
+    Color for cursor in input line.
 - `color_misspelled = [222, -1]`  
     Color for misspelled words in input line.
 - `color_tree_default = [255, -1]`  
-    Base color for tree components.  No attribute.
+    Base color for tree components. No attribute.
 - `color_tree_selected = [233, 255]`  
 - `color_tree_muted = [242, -1]`  
 - `color_tree_active = [255, 234]`  
 - `color_tree_unseen = [255, -1, "b"]`  
 - `color_tree_mentioned = [197, -1]`  
-- `color_tree_active_mentioned = [197, 234]`  
+- `color_tree_active_mentioned = [197, 234]`
+- `color_format_message = [[-1, -1], [242, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19]]`  
+    Color format for message base string. Corresponding to `format_message`.
+- `color_format_newline = None`  
+    Color format for each newline string after message base. Corresponding to `format_newline`.
+- `color_format_reply = [[245, -1], [67, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19], [-1, -1, 0, 21, 26]]`  
+    Color format for replied message string. Corresponding to `format_reply`.
+- `color_format_reactions = [[245, -1], [131, -1, 0, 0, 6], [-1, -1, 0, 23, 26]]`  
+    Color format for message reactions string. Corresponding to `format_reactions`.
+- `color_chat_edited = [241, -1]`  
+    Color for `edited_string`.
 
 ## format_message
 - `%content` - message text

@@ -1,20 +1,23 @@
 HIGH PRIORITY:
-colors fomratting
-    general color format: [bg, fg, [bg, fg, style, start, end], [...]...]
+fix servers not in tree
 italic/bold/underline/spoiler/code-blocks formatting in chat
+role colors
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
-optional media with ascii art - Ctrl+I
+optional media with ascii art (Ctrl+I)
 keep deleted messgaes in non-open channels
 show forwarded messages
 keybinding
 
 LOW PRIORITY:
+forums and threads
 show summaries and channel topic
 search and go to messages (Ctrl+F)
-assist when mentioning with @[username]/@[role]/>channel/:emoji: and reactions
-forums/threads
+assist with @[username]/@[role]/>channel/:emoji: and reactions
+show user info
+
+VERY LOW PRIORITY:
 tabs
 better windows support (building, ctrl+key, emoji character, rpc)
 better mac-os support (building, testing, spellchecking)
@@ -22,4 +25,4 @@ better mac-os support (building, testing, spellchecking)
 MAYBE:
 mouse controls
 voice messages
-voice and video (normal/ascii)
+voice and video calls (normal/ascii)
