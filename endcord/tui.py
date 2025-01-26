@@ -335,13 +335,21 @@ class TUI():
                             break
                         found = False
                         for format_part in line_format[1:]:
-                            if format_part[1] <= pos <= format_part[2]:
+                            logger.info(format_part)
+                            if format_part[1] <= pos < format_part[2]:
                                 color = format_part[0]
+                                if isinstance(color, list):   # attribute-only color is a list
+                                    # using base color because it is in message content anyway
+                                    color_ready = curses.color_pair(default_color_id)
+                                    for attribute in color:
+                                        color_ready |= attribute
+                                else:
+                                    color_ready = curses.color_pair(color) | self.attrib_map[color]
                                 try:
                                     # cant insch weird characters, but this is faster than always calling insstr
-                                    self.win_chat.insch(y, pos, character, curses.color_pair(color) | self.attrib_map[color])
+                                    self.win_chat.insch(y, pos, character, color_ready)
                                 except OverflowError:
-                                    self.win_chat.insstr(y, pos, character, curses.color_pair(color) | self.attrib_map[color])
+                                    self.win_chat.insstr(y, pos, character, color_ready)
                                 found = True
                                 break
                         if not found:
@@ -834,13 +842,14 @@ class TUI():
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     return tmp, self.chat_selected, self.tree_selected_abs, 4
-                # if selected tree entry is drop-down
-                if (self.tree_format[self.tree_selected_abs] % 10):
-                    self.tree_format[self.tree_selected_abs] -= 1
-                else:
-                    self.tree_format[self.tree_selected_abs] += 1
-                self.draw_tree()
-                self.tree_format_changed = 1
+                # if selected tree entry is drop-down and not -1
+                if self.tree_index >= 0:
+                    if (self.tree_format[self.tree_selected_abs] % 10):
+                        self.tree_format[self.tree_selected_abs] -= 1
+                    else:
+                        self.tree_format[self.tree_selected_abs] += 1
+                    self.draw_tree()
+                    self.tree_format_changed = 1
 
             elif key == ctrl(110):   # CTRL+N
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]

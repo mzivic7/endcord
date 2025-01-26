@@ -8,8 +8,9 @@ import time
 import urllib.parse
 
 from discord_protos import PreloadedUserSettings
-from endcord import peripherals
 from google.protobuf.json_format import MessageToJson
+
+from endcord import peripherals
 
 CLIENT_NAME = "endcord"
 DISCORD_EPOCH = 1420070400

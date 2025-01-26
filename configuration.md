@@ -123,7 +123,7 @@ Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underl
 All colors starting with `color_format` are formatted like this:  
 `[[fg, bg, attr], [fg, bg, attr, start, end], [...]...]`  
 First `[fg, bg, attr]` is base color for whole context. If `bg` is -1, `bg` from `color_chat_default` and `color_chat_mention` is used. Same for `fg`.  
-Every next list has additional `start` and `end`- indexes on a line where color is applied.  
+Every next list has additional `start` and `end`- indexes on a line where color is applied. if `bg` is -1, `bg` from base color is used. same for `fg`.  
 Set to None to use terminal default colors.  
 - `color_chat_default = [-1, -1]`  
     Base color formatting for text. No attribute.

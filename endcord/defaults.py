@@ -69,9 +69,9 @@ theme = {
     "color_tree_unseen": [255, -1, "b"],
     "color_tree_mentioned": [197, -1],
     "color_tree_active_mentioned": [197, 234],
-    "color_format_message": [[-1, -1], [242, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19]],
+    "color_format_message": [[-1, -1], [242, -1, 0, 0, 7], [25, -1, 0, 8, 9], [25, -1, 0, 19, 20]],
     "color_format_newline": None,
-    "color_format_reply": [[245, -1], [67, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19], [-1, -1, 0, 21, 26]],
-    "color_format_reactions": [[245, -1], [131, -1, 0, 0, 6], [-1, -1, 0, 23, 26]],
+    "color_format_reply": [[245, -1], [67, -1, 0, 0, 7], [25, -1, 0, 8, 9], [25, -1, 0, 19, 20], [-1, -1, 0, 21, 27]],
+    "color_format_reactions": [[245, -1], [131, -1, 0, 0, 7], [-1, -1, 0, 23, 27]],
     "color_chat_edited": [241, -1],
 }

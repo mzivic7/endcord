@@ -12,6 +12,7 @@ from configparser import ConfigParser
 
 import magic
 import pexpect
+
 from endcord import defaults
 
 logger = logging.getLogger(__name__)
@@ -214,11 +215,19 @@ def extract_colors(config):
     )
 
 
-def check_color_formatted(color):
-    """Check if color format is valid and repair it"""
-    if color is None:
+def check_color_formatted(color_format):
+    """
+    Check if color format is valid and repair it.
+    Replace -1 values for non-default colors with default for this format.
+    """
+    if color_format is None:
         return [[-1, -1]]
-    return color
+    for color in color_format[1:]:
+        if color[0] == -1:
+            color[0] = color_format[0][0]
+        if color[1] == -1:
+            color[1] = color_format[0][1]
+    return color_format
 
 
 def extract_colors_formatted(config):

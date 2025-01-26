@@ -9,7 +9,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 [Alternate theme](./.github/screenshots/02.png) with continuous lines.  
 
 ## Features
-- Extremely low CPU and and RAM usage (~25MB)
+- Extremely low CPU and and RAM usage (~30MB)
 - Live chat, send message
 - Integrated RPC (only Rich Presence)
 - Desktop notifications

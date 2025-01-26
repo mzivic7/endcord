@@ -1,10 +1,14 @@
 HIGH PRIORITY:
-fix servers not in tree
-italic/bold/underline/spoiler/code-blocks formatting in chat
+strikethrough formatting
+dont format if surrounded by ``
 role colors
+links and embeds with different color
+fix servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
+ignored users
+spoilers and code-blocks
 optional media with ascii art (Ctrl+I)
 keep deleted messgaes in non-open channels
 show forwarded messages

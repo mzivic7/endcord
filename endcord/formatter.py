@@ -1,3 +1,4 @@
+import curses
 import logging
 import re
 from datetime import datetime
@@ -15,6 +16,9 @@ match_role_string = re.compile(r"<@&\d*?>")
 match_role_id = re.compile(r"(?<=<@&)\d*?(?=>)")
 match_channel_string = re.compile(r"<#\d*?>")
 match_channel_id = re.compile(r"(?<=<#)\d*?(?=>)")
+match_md_underline = re.compile(r"((?<=_))?__[^_]+__")
+match_md_bold = re.compile(r"((?<=\*))?\*\*[^\*]+\*\*")
+match_md_italic = re.compile(r"(((?<=_))?_[^_]+_)|(((?<=\*))?\*[^\*]+\*)")
 
 
 def sort_by_indexes(input_list, indexes):
@@ -95,18 +99,60 @@ def replace_roles(line, roles_ids):
     return line
 
 
-def replace_channels(line, cchanels_ids):
+def replace_channels(line, chanels_ids):
     """
     Transforms channels string into nicer looking one:
     `some text <#channel_id> more text` --> `some text >channel_name more text`
     """
     for string_match in re.findall(match_channel_string, line):
         text = re.search(match_channel_id, string_match)
-        for channel in cchanels_ids:
+        for channel in chanels_ids:
             if text.group() == channel["id"]:
                 line = line.replace(string_match, f">{channel["name"]}")
                 break
     return line
+
+
+def format_md_all(line):
+    """
+    Replace all supported formatted markdown strings and return list of their formats.
+    This should be called only after curses has initialized color.
+    """
+    line_format = []
+    for _ in range(10):   # lets have some limits
+        format_len = 2
+        string_match = re.search(match_md_underline, line)
+        if not string_match:
+            string_match = re.search(match_md_bold, line)
+            if not string_match:
+                string_match = re.search(match_md_italic, line)
+                # curses.color() must be initialized
+                attribute = curses.A_ITALIC
+                format_len = 1
+                if not string_match:
+                    break
+            else:
+                attribute = curses.A_BOLD
+        else:
+            attribute = curses.A_UNDERLINE
+        start = string_match.start()
+        end = string_match.end()
+        text = string_match.group(0)[format_len:-format_len]
+        line = line[:start] + text + line[end:]
+        # rearrange formats at indexes after this format index
+        done = False
+        for format_part in line_format:
+            if format_part[1] > start:
+                format_part[1] -= 2 * format_len
+                format_part[2] -= 2 * format_len
+            if format_part[1] == start:
+                format_part[2] -= 2 * format_len
+            if format_part[1] == start and format_part[2] == end - 2 * format_len and format_part[1] != attribute:
+                format_part[0] += [attribute]
+                done = True
+        if not done:
+            line_format.append([[attribute], start, end - 2 * format_len])
+    return line, line_format
 
 
 def clean_type(embed_type):
@@ -309,18 +355,22 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             message_line = message_line[:newline_index]
         else:
             next_line = None
+        message_line, md_format = format_md_all(message_line)
         temp_chat.append(message_line)
         if disable_formatting:
             temp_format.append([color_base])
         elif mentioned:
+            format_line = color_mention_message[:]
+            format_line += md_format
             if edited and not next_line:
-                temp_format.append(color_mention_message + [[*color_mention_chat_edited, len(message_line) - len_edited, len(message_line) - 1]])
-            else:
-                temp_format.append(color_mention_message)
-        elif edited and not next_line:
-            temp_format.append(color_message + [[*color_chat_edited, len(message_line) - len_edited, len(message_line) - 1]])
+                format_line.append(color_mention_chat_edited + [len(message_line) - len_edited, len(message_line) - 1])
+            temp_format.append(format_line)
         else:
-            temp_format.append(color_message)
+            format_line = color_message[:]
+            format_line += md_format
+            if edited and not next_line:
+                format_line.append([*color_chat_edited, len(message_line) - len_edited, len(message_line) - 1])
+            temp_format.append(format_line)
 
         # newline
         while next_line:
@@ -347,18 +397,22 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 new_line = new_line[:newline_index]
             else:
                 next_line = None
+            new_line, md_format = format_md_all(new_line)
             temp_chat.append(new_line)
             if disable_formatting:
                 temp_format.append([color_base])
             elif mentioned:
+                format_line = color_mention_newline[:]
+                format_line += md_format
                 if edited and not next_line:
-                    temp_format.append(color_mention_newline + [[*color_mention_chat_edited, len(new_line) - len_edited, len(new_line) - 1]])
-                else:
-                    temp_format.append(color_mention_newline)
-            elif edited and not next_line:
-                temp_format.append(color_newline + [[*color_chat_edited, len(new_line) - len_edited, len(new_line) - 1]])
+                    format_line.append(color_mention_chat_edited + [len(new_line) - len_edited, len(new_line) - 1])
+                temp_format.append(format_line)
             else:
-                temp_format.append(color_newline)
+                format_line = color_newline[:]
+                format_line += md_format
+                if edited and not next_line:
+                    format_line.append([*color_chat_edited, len(new_line) - len_edited, len(new_line) - 1])
+                temp_format.append(format_line)
 
         # reactions
         if message["reactions"]:
