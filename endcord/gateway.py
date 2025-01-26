@@ -266,7 +266,7 @@ class Gateway():
                                 })
                     # blocked users
                     for user in response["d"]["relationships"]:
-                        if user["type"] == 2:
+                        if user["type"] == 2 or user.get("user_ignored"):
                             self.blocked.append(user["user_id"])
                     # READY is huge so lets save some memory
                     del (guild, guild_channels, role, guild_roles, last_messages)

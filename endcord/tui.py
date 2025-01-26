@@ -335,7 +335,6 @@ class TUI():
                             break
                         found = False
                         for format_part in line_format[1:]:
-                            logger.info(format_part)
                             if format_part[1] <= pos < format_part[2]:
                                 color = format_part[0]
                                 if isinstance(color, list):   # attribute-only color is a list

@@ -39,7 +39,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `cursor_off_time = 0.5`  
     Time in seconds the cursor stays OFF. Set to None or 0 to disable cursor blinking.
 - `blocked_mode = 1`  
-    What to do with blocked messages:
+    What to do with blocked/ignored messages:
     0 - No blocking  
     1 - Mask blocked messages  
     2 - Hide blocked messages  

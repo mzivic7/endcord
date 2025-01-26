@@ -1,14 +1,11 @@
 HIGH PRIORITY:
-strikethrough formatting
-dont format if surrounded by ``
 role colors
 links and embeds with different color
 fix servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
-ignored users
-spoilers and code-blocks
+spoilers and code-blocks, dont format code blocks
 optional media with ascii art (Ctrl+I)
 keep deleted messgaes in non-open channels
 show forwarded messages
