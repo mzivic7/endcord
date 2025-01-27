@@ -576,7 +576,7 @@ class TUI():
 
 
     def init_colors_formatted(self, colors, alt_color):
-        """Initializes multiple color pairs in double nested lists twice, one wih normal color and one bg from with alt_color"""
+        """Initialize multiple color pairs in double nested lists twice, one wih normal color and one bg from with alt_color"""
         color_codes = []
         for format_colors in colors:
             format_codes = []
@@ -594,6 +594,18 @@ class TUI():
                 format_codes.append([pair_id, *color[3:]])
             color_codes.append(format_codes)
         return color_codes
+
+
+    def init_role_colors(self, all_roles, bg, alt_bg):
+        """Initialize 2 pairs of role colors: 2 different backgrounds"""
+        for server in all_roles:
+            for role in server["roles"]:
+                color = role["ansi"]
+                pair_id = self.init_pair((color, bg))
+                role["color_id"] = pair_id
+                pair_id = self.init_pair((color, alt_bg))
+                role["alt_color_id"] = pair_id
+        return all_roles
 
 
     def update_chat(self, chat_text, chat_format):

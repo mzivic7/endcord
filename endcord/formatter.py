@@ -346,6 +346,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             .replace("%edited", edited_string if edited else "")
             .replace("%content", content)
         )
+        message_line, md_format = format_md_all(message_line, pre_content_len)
 
         # limit message_line and split to multiline
         if len(message_line) > max_length:
@@ -367,8 +368,9 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             message_line = message_line[:newline_index]
         else:
             next_line = None
-        message_line, md_format = format_md_all(message_line, pre_content_len)
         temp_chat.append(message_line)
+
+        # formatting
         if disable_formatting:
             temp_format.append([color_base])
         elif mentioned:
@@ -391,6 +393,9 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
                 .replace("%content", next_line)
             )
+            new_line, md_format = format_md_all(new_line, pre_content_len)
+
+            # limit new_line and split to next line
             if len(new_line) > max_length:
                 newline_index = len(new_line[:max_length].rsplit(" ", 1)[0])
                 if newline_index <= len(
@@ -409,7 +414,8 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
                 new_line = new_line[:newline_index]
             else:
                 next_line = None
-            new_line, md_format = format_md_all(new_line, pre_content_len)
+
+            # formatting
             temp_chat.append(new_line)
             if disable_formatting:
                 temp_format.append([color_base])

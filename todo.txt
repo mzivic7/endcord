@@ -1,5 +1,8 @@
 HIGH PRIORITY:
 role colors
+    tui: reuse old colors
+    gateway: get roles per message
+    formatter: format username color
 links and embeds with different color
 fix servers not in tree
 fix not getting events from large servers

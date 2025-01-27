@@ -7,7 +7,16 @@ import threading
 import time
 import webbrowser
 
-from endcord import discord, downloader, formatter, gateway, peripherals, rpc, tui
+from endcord import (
+    color,
+    discord,
+    downloader,
+    formatter,
+    gateway,
+    peripherals,
+    rpc,
+    tui,
+)
 
 logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
@@ -51,6 +60,8 @@ class Endcord:
         self.tenor_gif_type = config["tenor_gif_type"]
         self.colors = peripherals.extract_colors(config)
         self.colors_formatted = peripherals.extract_colors_formatted(config)
+        self.default_msg_color = self.colors_formatted[0][0]
+        self.default_msg_alt_color = self.colors[1]
 
         # variables
         self.run = False
@@ -74,9 +85,8 @@ class Endcord:
         self.discord = discord.Discord(config["token"])
         self.gateway = gateway.Gateway(config["token"])
         self.tui = tui.TUI(self.screen, self.config)
-        alt_color = self.colors[1]
         self.colors = self.tui.init_colors(self.colors)
-        self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, alt_color)
+        self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
         self.tui.update_chat(["Connecting to Discord"], [[[self.colors[0]]]] * 1)
         self.tui.update_status_line("CONNECTING")
         self.my_id = self.discord.get_my_id()
@@ -130,6 +140,8 @@ class Endcord:
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
+        self.all_roles = color.convert_role_colors(self.all_roles)
+        self.all_roles = self.tui.init_role_colors(self.all_roles, self.default_msg_color[1], self.default_msg_alt_color[1])
         self.dms, self.dms_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
@@ -1072,6 +1084,8 @@ class Endcord:
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
+        self.all_roles = color.convert_role_colors(self.all_roles)
+        self.all_roles = self.tui.init_role_colors(self.all_roles, self.default_msg_color[1], self.default_msg_alt_color[1])
         self.dms, self.dms_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
