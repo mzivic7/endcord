@@ -25,8 +25,7 @@ Discord token is required in order to run endcord! see [Token](##token).
     - Navigate tree (`Ctrl+Up/Down`)
     - Expand categories and servers, enter channel (`Ctrl+Space`)
     - DMs in separate drop-down
-- Show reactions
-- Show replied message
+- Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links
 - Spellchecking
 - Open link in browser (`Ctrl+O`)
@@ -39,6 +38,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Copy message text to clipboard (`Ctrl+H`)
 - Hide or mask blocked/ignored users
 - No ghost pings (hopefully)
+- Role colors in chat
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)

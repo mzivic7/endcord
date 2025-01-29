@@ -244,6 +244,12 @@ class Discord():
                                     "username": ref_mention["username"],
                                     "id": ref_mention["id"],
                                 })
+                        if "message_snapshots" in message["referenced_message"]:
+                            forwarded = message["referenced_message"]["message_snapshots"][0]["message"]
+                            # additional text with forwarded message is sent separately
+                            message["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
+                            message["referenced_message"]["embeds"] = forwarded.get("embeds")
+                            message["referenced_message"]["attachments"] = forwarded.get("attachments")
                         reference_embeds = []
                         for embed in message["referenced_message"]["embeds"]:
                             url = embed.get("url")
@@ -295,6 +301,12 @@ class Discord():
                     nick = response["d"]["member"]["nick"]
                 else:
                     nick = None
+                if "message_snapshots" in message:
+                    forwarded = message["message_snapshots"][0]["message"]
+                    # additional text with forwarded message is sent separately
+                    message["content"] = f"[Forwarded]: {forwarded.get("content")}"
+                    message["embeds"] = forwarded.get("embeds")
+                    message["attachments"] = forwarded.get("attachments")
                 embeds = []
                 for embed in message["embeds"]:
                     if "url" in embed:
@@ -311,11 +323,13 @@ class Discord():
                         content = content.strip("\n")
                     else:
                         content = None
-                    embeds.append({
-                        "type": embed["type"],
-                        "name": None,
-                        "url": content,
-                    })
+                    # checking url path because query can be changed by discord
+                    if urllib.parse.urlparse(content).path not in message["content"]:
+                        embeds.append({
+                            "type": embed["type"],
+                            "name": None,
+                            "url": content,
+                        })
                 for attachment in message["attachments"]:
                     embeds.append({
                         "type": attachment["content_type"],

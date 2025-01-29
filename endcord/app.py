@@ -53,6 +53,7 @@ class Endcord:
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
         self.ping_this_channel = config["notification_in_active"]
+        self.username_role_colors = config["username_role_colors"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -60,7 +61,7 @@ class Endcord:
         self.tenor_gif_type = config["tenor_gif_type"]
         self.colors = peripherals.extract_colors(config)
         self.colors_formatted = peripherals.extract_colors_formatted(config)
-        self.default_msg_color = self.colors_formatted[0][0]
+        self.default_msg_color = self.colors_formatted[0][0][:]
         self.default_msg_alt_color = self.colors[1]
 
         # variables
@@ -131,6 +132,8 @@ class Endcord:
         self.upload_threads = []
         self.ready_attachments = []
         self.selected_attachment = 0
+        self.member_roles = []
+        self.current_member_roles = []
 
 
     def reconnect(self):
@@ -162,6 +165,7 @@ class Endcord:
             if roles["guild_id"] == self.active_channel["guild_id"]:
                 self.current_roles = roles["roles"]
                 break
+        self.select_current_member_roles()
         self.current_channels = []   # dm has no multiple channels
         for guild_channels in self.guilds:
             if guild_channels["guild_id"] == self.active_channel["guild_id"]:
@@ -174,7 +178,7 @@ class Endcord:
             rpc=self.my_rpc,
         )
 
-        self.messages = self.discord.get_messages(self.active_channel["channel_id"])
+        self.messages =self.get_messages_with_members()
         if self.messages:
             self.last_message_id = self.messages[0]["id"]
 
@@ -226,12 +230,13 @@ class Endcord:
             if roles["guild_id"] == self.active_channel["guild_id"]:
                 self.current_roles = roles["roles"]
                 break
+        self.select_current_member_roles()
         self.current_channels = []
         for guild_channels in self.guilds:
             if guild_channels["guild_id"] == self.active_channel["guild_id"]:
                 self.current_channels = guild_channels["channels"]
                 break
-        self.messages = self.discord.get_messages(self.active_channel["channel_id"])
+        self.messages = self.get_messages_with_members()
         if self.messages:
             self.last_message_id = self.messages[0]["id"]
 
@@ -257,6 +262,24 @@ class Endcord:
 
         self.remove_running_task("Switching channel", 1)
         logger.debug("Channel switching complete")
+
+
+    def select_current_member_roles(self):
+        """Select member-roles for currently active guild and check for missing primary role colors"""
+        for guild in self.member_roles:
+            if guild["guild_id"] == self.active_channel["guild_id"]:
+                if self.username_role_colors:
+                    for member in guild["members"]:
+                        if "primary_role_color" not in member:
+                            member_roles = member["roles"]
+                            for role in self.current_roles:
+                                if role["id"] in member_roles:
+                                    member["primary_role_color"] = role.get("color_id")
+                                    member["primary_role_alt_color"] = role.get("alt_color_id")
+                                    break
+
+                self.current_member_roles = guild["members"]
+                break
 
 
     def add_to_store(self, channel_id, text):
@@ -424,7 +447,7 @@ class Endcord:
                 self.warping = input_text
                 if self.messages[0]["id"] != self.last_message_id:
                     self.add_running_task("Downloading chat", 4)
-                    self.messages = self.discord.get_messages(self.active_channel["channel_id"])
+                    self.messages = self.get_messages_with_members()
                     self.update_chat()
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                     self.remove_running_task("Downloading chat", 4)
@@ -722,6 +745,41 @@ class Endcord:
                 break
 
 
+    def get_messages_with_members(self, num=50, before=None, after=None, around=None):
+        """Get messages, check for missing members, request and wait for member chunk, and update local member list"""
+        channel_id = self.active_channel["channel_id"]
+        messages = self.discord.get_messages(channel_id, num, before, after, around)
+        missing_members = []
+        if not self.active_channel["guild_id"]:
+            # skipping DMs
+            return messages
+        # find missing members
+        for message in messages:
+            found = False
+            message_user_id = message["user_id"]
+            if message_user_id in missing_members:
+                continue
+            for member in self.current_member_roles:
+                if member["user_id"] == message_user_id:
+                    found = True
+                    break
+            if not found:
+                missing_members.append(message_user_id)
+        # request missing members
+        if missing_members:
+            self.gateway.request_members(self.active_channel["guild_id"], missing_members)
+            for _ in range(10):   # wait max 1s
+                new_member_roles = self.gateway.get_member_roles()
+                if new_member_roles:
+                    # update member list
+                    self.member_roles = new_member_roles
+                    self.select_current_member_roles()
+                else:
+                    # wait to receive
+                    time.sleep(0.1)
+        return messages
+
+
     def get_chat_chunk(self, past=True):
         """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
         self.add_running_task("Downloading chat", 4)
@@ -729,7 +787,7 @@ class Endcord:
 
         if past:
             logger.debug(f"Requesting chat chunk before {start_id}")
-            new_chunk = self.discord.get_messages(self.active_channel["channel_id"], before=start_id)
+            new_chunk = self.get_messages_with_members(before=start_id)
             self.messages = self.messages + new_chunk
             all_msg = len(self.messages)
             selected_line = len(self.chat) - 1
@@ -748,7 +806,7 @@ class Endcord:
 
         else:
             logger.debug(f"Requesting chat chunk after {start_id}")
-            new_chunk = self.discord.get_messages(self.active_channel["channel_id"], after=start_id)
+            new_chunk = self.get_messages_with_members(after=start_id)
             if new_chunk is not None:   # if its None - its network error
                 selected_line = 0
                 selected_msg = self.lines_to_msg(selected_line)
@@ -775,7 +833,7 @@ class Endcord:
 
         if not found:
             logger.debug(f"Requesting chat chunk around {message_id}")
-            new_messages = self.discord.get_messages(self.active_channel["channel_id"], around=message_id)
+            new_messages = self.get_messages_with_members(around=message_id)
             if new_messages:
                 self.messages = new_messages
             self.update_chat(keep_selected=False)
@@ -815,6 +873,7 @@ class Endcord:
             self.chat_dim[1],
             self.my_id,
             self.my_roles,
+            self.current_member_roles,
             self.colors,
             self.colors_formatted,
             self.blocked,
@@ -1101,6 +1160,7 @@ class Endcord:
             })
         self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
+        self.run = True
 
         # restore last state
         if self.config["remember_state"]:
@@ -1145,7 +1205,6 @@ class Endcord:
             custom_status_emoji=self.my_status["custom_status_emoji"],
             rpc=self.my_rpc,
         )
-        self.run = True
         self.send_message_thread = threading.Thread(target=self.wait_input, daemon=True, args=())
         self.send_message_thread.start()
 
@@ -1190,6 +1249,11 @@ class Endcord:
                                     self.typing.pop(num)
                                     self.update_status_line()
                                     break
+                            new_member_roles = self.gateway.get_member_roles()
+                            if new_member_roles:
+                                self.member_roles = new_member_roles
+                                self.select_current_member_roles()
+                                self.update_chat()
                         else:
                             for num, loaded_message in enumerate(self.messages):
                                 if data["id"] == loaded_message["id"]:
@@ -1227,6 +1291,10 @@ class Endcord:
                                                     loaded_message["reactions"][num2]["count"] -= 1
                                                 break
                                         self.update_chat()
+                    else:
+                        new_member_roles = self.gateway.get_member_roles()
+                        if new_member_roles:
+                            self.member_roles = new_member_roles
                     # handling unseen and mentions
                     if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
                         # ignoring messages sent by other clients
@@ -1399,7 +1467,7 @@ class Endcord:
             new_tree_format = self.tui.get_tree_format()
             if new_tree_format:
                 self.tree_format = new_tree_format
-                # get all collapsed channels/servers and save them
+                # get all collapsed channels/guilds and save them
                 collapsed = []
                 for num, code in enumerate(self.tree_format):
                     if code < 300 and (code % 10) == 0:

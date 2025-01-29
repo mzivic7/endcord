@@ -15,7 +15,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_chat_buffer = 100`  
     Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
 - `convert_timezone = True`  
-    If set to False, will show UTC time.
+    Use local time. If set to False, will show UTC time.
 - `send_typing = True`  
     Allow `[your_username] is typing...` to be sent.
 - `desktop_notifications = True`  
@@ -113,6 +113,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw corners in tree drop down menus.
 - `tree_drop_down_pointer = ">"`  
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
+- `username_role_colors = True`  
+    Allow `%username` and `%global_name` to have color of primary role.
 
 ### Colors and attributes
 Colors are configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
@@ -123,8 +125,7 @@ Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underl
 All colors starting with `color_format` are formatted like this:  
 `[[fg, bg, attr], [fg, bg, attr, start, end], [...]...]`  
 First `[fg, bg, attr]` is base color for whole context. If `bg` is -1, `bg` from `color_chat_default` and `color_chat_mention` is used. Same for `fg`.  
-Every next list has additional `start` and `end`- indexes on a line where color is applied. if `bg` is -1, `bg` from base color is used. same for `fg`.  
-Set to None to use terminal default colors.  
+Every next list has additional `start` and `end`- indexes on a line where color is applied. If `bg` is -2, `bg` from base color is used. -1 is terminal default color. Same for `fg`.  
 - `color_chat_default = [-1, -1]`  
     Base color formatting for text. No attribute.
 - `color_chat_mention = [209, 234]`  
@@ -157,13 +158,13 @@ Set to None to use terminal default colors.
 - `color_tree_unseen = [255, -1, "b"]`  
 - `color_tree_mentioned = [197, -1]`  
 - `color_tree_active_mentioned = [197, 234]`
-- `color_format_message = [[-1, -1], [242, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19]]`  
+- `color_format_message = [[-1, -1], [242, -2, 0, 0, 6], [25, -2, 0, 8, 8], [25, -2, 0, 19, 19]]`  
     Color format for message base string. Corresponding to `format_message`.
 - `color_format_newline = None`  
     Color format for each newline string after message base. Corresponding to `format_newline`.
-- `color_format_reply = [[245, -1], [67, -1, 0, 0, 6], [25, -1, 0, 8, 8], [25, -1, 0, 19, 19], [-1, -1, 0, 21, 26]]`  
+- `color_format_reply = [[245, -1], [67, -2, 0, 0, 6], [25, -2, 0, 8, 8], [25, -2, 0, 19, 19], [-1, -1, 0, 21, 26]]`  
     Color format for replied message string. Corresponding to `format_reply`.
-- `color_format_reactions = [[245, -1], [131, -1, 0, 0, 6], [-1, -1, 0, 23, 26]]`  
+- `color_format_reactions = [[245, -1], [131, -2, 0, 0, 6], [-1, -1, 0, 23, 26]]`  
     Color format for message reactions string. Corresponding to `format_reactions`.
 - `color_chat_edited = [241, -1]`  
     Color for `edited_string`.

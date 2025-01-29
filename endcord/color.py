@@ -37,14 +37,12 @@ def int_to_rgb(int_color):
 def convert_role_colors(all_roles):
     """
     For all roles, in all guilds, convert integer color format into rgb tuple color and closest 8bit ANSI color code.
-    If ANSI code is 0 (black) - when role has no color - it is converted to 255 (white).
+    If ANSI code is 0 (black).
     """
     for guild in all_roles:
         for role in guild["roles"]:
             rgb = int_to_rgb(role["color"])
             ansi = closest_color(rgb)[0]
-            if ansi == 0:
-                ansi = 255
             role["color"] = rgb
             role["ansi"] = ansi
     return all_roles

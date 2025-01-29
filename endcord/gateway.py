@@ -5,12 +5,14 @@ import socket
 import sys
 import threading
 import time
+import urllib.parse
 import zlib
 from http.client import HTTPSConnection
 
 import websocket
 
 CLIENT_NAME = "endcord"
+LOCAL_MEMBER_COUNT = 50   # CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
 inflator = zlib.decompressobj()
 logger = logging.getLogger(__name__)
@@ -55,6 +57,7 @@ class Gateway():
         self.msg_ack_buffer = []
         self.reconnect_requested = False
         self.status_changed = False
+        self.roles_changed = False
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
@@ -65,6 +68,7 @@ class Gateway():
         self.activities = []
         self.guilds = []
         self.roles = []
+        self.member_roles = []
         self.guilds_settings = []
         self.dms_settings = []
         self.msg_unseen = []
@@ -123,6 +127,32 @@ class Gateway():
             self.ws.send(json.dumps(request))
         except websocket._exceptions.WebSocketException:
             self.reconnect_requested = True
+
+
+    def add_member_roles(self, guild_id, user_id, roles):
+        """Add member-role pair to corresponding guild, number of users per guild is limited"""
+        found = False
+        num = -1
+        for num, guild in enumerate(self.member_roles):
+            if guild["guild_id"] == guild_id:
+                found = True
+                break
+        if not found:
+            self.member_roles.append({
+                "guild_id": guild_id,
+                "members": [],
+            })
+            num += 1
+        for member in self.member_roles[num]["members"]:
+            if member["user_id"] == user_id:
+                return
+        self.member_roles[num]["members"].insert(0, {
+            "user_id": user_id,
+            "roles": roles,
+        })
+        if len(self.member_roles[num]) > LOCAL_MEMBER_COUNT:
+            self.member_roles[num].pop(-1)
+        self.roles_changed = True
 
 
     def receiver(self):
@@ -192,7 +222,15 @@ class Gateway():
                                 "id": role["id"],
                                 "name": role["name"],
                                 "color": role["color"],
+                                "position": role["position"],   # for sorting only
+                                "hoist": role["hoist"],   # for sorting only
+                                # "flags": role["flags"],   # flags=1 - self-assign
+                                # "managed": role["managed"],   # for bots
                             })
+                        # sort roles
+                        guild_roles = sorted(guild_roles, key=lambda x: x.pop("position"), reverse=True)
+                        guild_roles = sorted(guild_roles, key=lambda x: x.pop("hoist", False), reverse=True)
+                        guild_roles = sorted(guild_roles, key=lambda x: bool(x.get("color")), reverse=True)
                         self.roles.append({"guild_id": guild_id, "roles": guild_roles})
                     # DM channels
                     for dm in response["d"]["private_channels"]:
@@ -318,6 +356,7 @@ class Gateway():
                     del (guild)   # this is large dict so lets save some memory
                     self.ready_level += 1
                 elif optext == "SESSIONS_REPLACE":
+                    # received when new client is connected
                     custom_status = None
                     custom_status_emoji = None
                     activities = []
@@ -351,6 +390,7 @@ class Gateway():
                     }
                     self.status_changed = True
                 elif optext == "PRESENCE_UPDATE":
+                    # received when friend/DM user changes presence state (online/rich/custom)
                     user_id = response["d"]["user"]["id"]
                     done = False
                     custom_status = None
@@ -390,6 +430,7 @@ class Gateway():
                             "activities": activities,
                         })
                 elif optext == "TYPING_START":
+                    # received when user in currently subscribed guild channel starts typing
                     if "member" in response["d"]:
                         username = response["d"]["member"]["user"]["username"]
                         global_name = response["d"]["member"]["user"]["global_name"]
@@ -421,6 +462,12 @@ class Gateway():
                                         "username": ref_mention["username"],
                                         "id": ref_mention["id"],
                                     })
+                            if "message_snapshots" in response["d"]["referenced_message"]:
+                                forwarded = response["d"]["referenced_message"]["message_snapshots"][0]["message"]
+                                # additional text with forwarded message is sent separately
+                                response["d"]["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
+                                response["d"]["referenced_message"]["embeds"] = forwarded.get("embeds")
+                                response["d"]["referenced_message"]["attachments"] = forwarded.get("attachments")
                             reference_embeds = []
                             for embed in response["d"]["referenced_message"]["embeds"]:
                                 if "url" in embed:
@@ -460,6 +507,12 @@ class Gateway():
                         if "member" in response["d"]:
                             nick = response["d"]["member"]["nick"]
                         embeds = []
+                        if "message_snapshots" in response["d"]:
+                            forwarded = response["d"]["message_snapshots"][0]["message"]
+                            # additional text with forwarded message is sent separately
+                            response["d"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
+                            response["d"]["embeds"] = forwarded.get("embeds")
+                            response["d"]["attachments"] = forwarded.get("attachments")
                         for embed in response["d"]["embeds"]:
                             if "url" in embed:
                                 content = embed["url"]
@@ -475,11 +528,13 @@ class Gateway():
                                 content = content.strip("\n")
                             else:
                                 content = None
-                            embeds.append({
-                                "type": embed["type"],
-                                "name": None,
-                                "url": content,
-                            })
+                            # checking url path because query can be changed by discord
+                            if urllib.parse.urlparse(content).path not in response["d"]["content"]:
+                                embeds.append({
+                                    "type": embed["type"],
+                                    "name": None,
+                                    "url": content,
+                                })
                         for attachment in response["d"]["attachments"]:
                             embeds.append({
                                 "type": attachment["content_type"],
@@ -493,27 +548,34 @@ class Gateway():
                                     "username": mention["username"],
                                     "id": mention["id"],
                                 })
-                        data = {
-                            "id": response["d"]["id"],
-                            "channel_id": response["d"]["channel_id"],
-                            "guild_id": response["d"].get("guild_id"),
-                            "timestamp": response["d"]["timestamp"],
-                            "edited": False,
-                            "content": response["d"]["content"],
-                            "mentions": mentions,
-                            "mention_roles": response["d"]["mention_roles"],
-                            "mention_everyone": response["d"]["mention_everyone"],
-                            "user_id": response["d"]["author"]["id"],
-                            "username": response["d"]["author"]["username"],
-                            "global_name": response["d"]["author"]["global_name"],
-                            "nick": nick,
-                            "referenced_message": reference,
-                            "reactions": [],
-                            "embeds": embeds,
-                        }
+                        if "member" in response["d"] and "roles" in response["d"]["member"]:
+                            if response["d"]["member"]["roles"]:
+                                # for now, saving only first role, used for username color
+                                self.add_member_roles(
+                                    guild_id,
+                                    response["d"]["author"]["id"],
+                                    response["d"]["member"]["roles"],
+                                )
                         self.messages_buffer.append({
                             "op": "MESSAGE_CREATE",
-                            "d": data,
+                            "d": {
+                                "id": response["d"]["id"],
+                                "channel_id": response["d"]["channel_id"],
+                                "guild_id": response["d"].get("guild_id"),
+                                "timestamp": response["d"]["timestamp"],
+                                "edited": False,
+                                "content": response["d"]["content"],
+                                "mentions": mentions,
+                                "mention_roles": response["d"]["mention_roles"],
+                                "mention_everyone": response["d"]["mention_everyone"],
+                                "user_id": response["d"]["author"]["id"],
+                                "username": response["d"]["author"]["username"],
+                                "global_name": response["d"]["author"]["global_name"],
+                                "nick": nick,
+                                "referenced_message": reference,
+                                "reactions": [],
+                                "embeds": embeds,
+                            },
                         })
                 elif optext == "MESSAGE_UPDATE":
                     embeds = []
@@ -615,6 +677,7 @@ class Gateway():
                         "d": data,
                     })
                 elif optext == "CONVERSATION_SUMMARY_UPDATE":
+                    # received when new conversation summary is generated
                     for summary in response["d"]["summaries"]:
                         self.summaries_buffer.append({
                             "channel_id": response["d"]["channel_id"],
@@ -624,10 +687,23 @@ class Gateway():
 
                         })
                 elif optext == "MESSAGE_ACK":
+                    # received when other client ACKs messages
                     self.msg_ack_buffer.append({
                         "message_id": response["d"]["message_id"],
                         "channel_id": response["d"]["channel_id"],
                     })
+                elif optext == "GUILD_MEMBERS_CHUNK":
+                    # received when requesting members (op 8)
+                    guild_id = response["d"]["guild_id"]
+                    members = response["d"]["members"]
+                    for member in members:
+                        if "roles" in member and member["roles"]:
+                            # for now, saving only first role, used for username color
+                            self.add_member_roles(
+                                guild_id,
+                                member["user"]["id"],
+                                member["roles"],
+                            )
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
                 break
@@ -855,6 +931,26 @@ class Gateway():
             logger.debug("Subscribed to a DM")
 
 
+    def request_members(self, guild_id, members):
+        """
+        Request update chunk for specified members in this guild.
+        GUILD_MEMBERS_CHUNK event will be received after this.
+        """
+        if members:
+            payload = {
+                "op": 8,
+                "d": {
+                    "guild_id": [guild_id],
+                    "query": None,
+                    "limit": None,
+                    "presences": False,
+                    "user_ids": members,
+                },
+            }
+            self.send(payload)
+            logger.debug("Requesting guild members chunk")
+
+
     def get_ready(self):
         """Returns True only when READY, READY_SUPPLEMENTAL and SESSION_REPLACE events are processed"""
         if self.ready_level >= 2:
@@ -928,6 +1024,13 @@ class Gateway():
         """Get list of blocked user ids"""
         return self.blocked
 
+    def get_member_roles(self):
+        """Get member roles, updated regularly."""
+        if self.roles_changed:
+            self.roles_changed = False
+            return self.member_roles
+        return None
+
 
     # all following "get_*" work like this:
     # internally:
@@ -976,7 +1079,7 @@ class Gateway():
 
     def get_message_ack(self):
         """
-        Get messages seenby other clients.
+        Get messages seen by other clients.
         Returns 1 by 1 event as an update for list of summaries.
         """
         if len(self.msg_ack_buffer) == 0:

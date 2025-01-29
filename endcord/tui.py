@@ -545,7 +545,7 @@ class TUI():
 
 
     def init_pair(self, color):
-        """Initialize color pair while keeping track of last unuusd id, and store its attribute in attr_map"""
+        """Initialize color pair while keeping track of last unuused id, and store its attribute in attr_map"""
         if len(color) == 2:
             fg, bg = color
             attribute = 0
@@ -588,7 +588,7 @@ class TUI():
         for format_colors in colors:
             format_codes = []
             for color in format_colors:
-                if color[1] == -1:
+                if color[1] == -2:
                     color[1] = alt_color[1]
                 pair_id = self.init_pair(color[:3])
                 format_codes.append([pair_id, *color[3:]])
@@ -598,13 +598,26 @@ class TUI():
 
     def init_role_colors(self, all_roles, bg, alt_bg):
         """Initialize 2 pairs of role colors: 2 different backgrounds"""
-        for server in all_roles:
-            for role in server["roles"]:
+        for guild in all_roles:
+            for role in guild["roles"]:
                 color = role["ansi"]
-                pair_id = self.init_pair((color, bg))
-                role["color_id"] = pair_id
-                pair_id = self.init_pair((color, alt_bg))
-                role["alt_color_id"] = pair_id
+                found = False
+                for guild_i in all_roles:
+                    for role_i in guild_i["roles"]:
+                        if "color_id" not in role_i:
+                            break
+                        if role_i["ansi"] == color:
+                            role["color_id"] = role_i["color_id"]
+                            role["alt_color_id"] = role_i["alt_color_id"]
+                            found = True
+                            break
+                    if found:
+                        break
+                if not found:
+                    pair_id = self.init_pair((color, bg))
+                    role["color_id"] = pair_id
+                    pair_id = self.init_pair((color, alt_bg))
+                    role["alt_color_id"] = pair_id
         return all_roles
 
 

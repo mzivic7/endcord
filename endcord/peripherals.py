@@ -218,14 +218,14 @@ def extract_colors(config):
 def check_color_formatted(color_format):
     """
     Check if color format is valid and repair it.
-    Replace -1 values for non-default colors with default for this format.
+    Replace -2 values for non-default colors with default for this format.
     """
     if color_format is None:
         return [[-1, -1]]
     for color in color_format[1:]:
-        if color[0] == -1:
+        if color[0] == -2:
             color[0] = color_format[0][0]
-        if color[1] == -1:
+        if color[1] == -2:
             color[1] = color_format[0][1]
     return color_format
 

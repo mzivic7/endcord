@@ -1,28 +1,27 @@
 HIGH PRIORITY:
-role colors
-    tui: reuse old colors
-    gateway: get roles per message
-    formatter: format username color
 links and embeds with different color
-fix servers not in tree
+fix some servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
 spoilers and code-blocks, dont format code blocks
 optional media with ascii art (Ctrl+I)
 keep deleted messgaes in non-open channels
-show forwarded messages
 keybinding
+dont regenerate whole chat, only changed part
 
 LOW PRIORITY:
+date separator
 forums and threads
 show summaries and channel topic
 search and go to messages (Ctrl+F)
 assist with @[username]/@[role]/>channel/:emoji: and reactions
+member list
 show user info
 
 VERY LOW PRIORITY:
 tabs
+dangerous features (sending friend request, starting DM)
 better windows support (building, ctrl+key, emoji character, rpc)
 better mac-os support (building, testing, spellchecking)
 
