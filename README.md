@@ -58,7 +58,7 @@ Settings and log file location:
 Run `endcord -h` or `endcord --help` to see possible command arguments.  
 ### Providing config
 Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.
-If config is not found at that path, default will be written.   
+If config is not found at that path, default will be written.  
 There can be missing entries in config, they will be filled with defaults.  
 ### Debug mode
 Debug mode can be enabled with `-d` flag.  
@@ -93,7 +93,7 @@ Open link in browser - `Ctrl+O`
 Download attachment - `Ctrl+W`  
 Upload attachments - `Ctrl+U`  
 Cancel all downloads/uploads - `Ctrl+X`  
-Cancel selected attachment - `Ctrl+K`
+Cancel selected attachment - `Ctrl+K`  
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
@@ -116,7 +116,7 @@ Links are counted first. Items are counted from start to end of the message, in 
 Downloads are parallel. `Ctrl+X` will cancel ALL downloads and attachments, with a confirmation prompt.  
 ### Uploading
 Uploading is initiated by pressing `Ctrl+U`. Previously typed content will be cached.  
-Type path to file that should be uploaded and press enter. Cached content will be restored.   
+Type path to file that should be uploaded and press enter. Cached content will be restored.  
 Wait until file is uploaded and then send the message. Mutliple files can be added this way.  
 Path can be absolute or relative, and has autocomplete on `tab` key.  
 If file size exceeds discord's limit it will not be added to the sent message.  
