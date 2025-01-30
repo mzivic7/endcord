@@ -158,16 +158,18 @@ Every next list has additional `start` and `end`- indexes on a line where color 
 - `color_tree_unseen = [255, -1, "b"]`  
 - `color_tree_mentioned = [197, -1]`  
 - `color_tree_active_mentioned = [197, 234]`
-- `color_format_message = [[-1, -1], [242, -2, 0, 0, 6], [25, -2, 0, 8, 8], [25, -2, 0, 19, 19]]`  
+- `color_format_message = [[-1, -1], [242, -2, 0, 0, 7], [25, -2, 0, 8, 9], [25, -2, 0, 19, 20]]`  
     Color format for message base string. Corresponding to `format_message`.
 - `color_format_newline = None`  
     Color format for each newline string after message base. Corresponding to `format_newline`.
-- `color_format_reply = [[245, -1], [67, -2, 0, 0, 6], [25, -2, 0, 8, 8], [25, -2, 0, 19, 19], [-1, -1, 0, 21, 26]]`  
+- `color_format_reply = [[245, -1], [67, -2, 0, 0, 7], [25, -2, 0, 8, 9], [25, -2, 0, 19, 20], [-1, -2, 0, 21, 27]]`  
     Color format for replied message string. Corresponding to `format_reply`.
-- `color_format_reactions = [[245, -1], [131, -2, 0, 0, 6], [-1, -1, 0, 23, 26]]`  
+- `color_format_reactions = [[245, -1], [131, -2, 0, 0, 7], [-1, -2, 0, 23, 27]]`  
     Color format for message reactions string. Corresponding to `format_reactions`.
 - `color_chat_edited = [241, -1]`  
     Color for `edited_string`.
+- `color_chat_url = [153, -1, "u"]`  
+    Color for urls in message content and embeds.
 
 ## format_message
 - `%content` - message text

@@ -1,23 +1,23 @@
 HIGH PRIORITY:
-links and embeds with different color
+optional media with ascii art (Ctrl+I)
+keep deleted messgaes in non-open channels
+date separator
 fix some servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
 spoilers and code-blocks, dont format code blocks
-optional media with ascii art (Ctrl+I)
-keep deleted messgaes in non-open channels
 keybinding
 dont regenerate whole chat, only changed part
 
 LOW PRIORITY:
-date separator
 forums and threads
 show summaries and channel topic
 search and go to messages (Ctrl+F)
 assist with @[username]/@[role]/>channel/:emoji: and reactions
 member list
 show user info
+vi-mode?
 
 VERY LOW PRIORITY:
 tabs

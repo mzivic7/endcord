@@ -225,8 +225,6 @@ def check_color_formatted(color_format):
     for color in color_format[1:]:
         if color[0] == -2:
             color[0] = color_format[0][0]
-        if color[1] == -2:
-            color[1] = color_format[0][1]
     return color_format
 
 
@@ -239,6 +237,7 @@ def extract_colors_formatted(config):
         check_color_formatted(config["color_format_reactions"]),
         # not complex but is here so it can be initialized for alt bg color
         [check_color(config["color_chat_edited"])],
+        [check_color(config["color_chat_url"])],
     )
 
 

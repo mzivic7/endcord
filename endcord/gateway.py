@@ -594,11 +594,12 @@ class Gateway():
                             content = content.strip("\n")
                         else:
                             content = None
-                        embeds.append({
-                            "type": embed["type"],
-                            "name": None,
-                            "url": content,
-                        })
+                        if urllib.parse.urlparse(content).path not in response["d"]["content"]:
+                            embeds.append({
+                                "type": embed["type"],
+                                "name": None,
+                                "url": content,
+                            })
                     for attachment in response["d"]["attachments"]:
                         embeds.append({
                             "type": attachment.get("content_type", "unknown"),

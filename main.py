@@ -7,7 +7,7 @@ import sys
 from endcord import app, arg, peripherals
 
 APP_NAME = "endcord"
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 default_config_path = peripherals.config_path
 log_path = peripherals.log_path
 

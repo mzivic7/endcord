@@ -587,8 +587,11 @@ class TUI():
         # using bg from alt_color
         for format_colors in colors:
             format_codes = []
-            for color in format_colors:
+            for num, color in enumerate(format_colors):
+                if num == 0:
+                    color[1] = alt_color[1]
                 if color[1] == -2:
+                    color[1] = format_colors[0][1]
                     color[1] = alt_color[1]
                 pair_id = self.init_pair(color[:3])
                 format_codes.append([pair_id, *color[3:]])

@@ -23,7 +23,7 @@ APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 
 download = downloader.Downloader()
-match_urls = re.compile(r"https?:\/\/\w+(\.\w+)+\S*")
+match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 
 class Endcord:
     """Main app class"""
@@ -489,7 +489,7 @@ class Endcord:
             elif action == 10:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 urls = []
-                for url in re.findall(match_urls, self.messages[msg_index]["content"]):
+                for url in re.findall(match_url, self.messages[msg_index]["content"]):
                     urls.append(url)
                 for embed in self.messages[msg_index]["embeds"]:
                     if embed["url"]:
