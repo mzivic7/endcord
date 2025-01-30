@@ -266,6 +266,9 @@ class Endcord:
 
     def select_current_member_roles(self):
         """Select member-roles for currently active guild and check for missing primary role colors"""
+        if not self.active_channel["guild_id"]:
+            self.current_member_roles = []
+            return
         for guild in self.member_roles:
             if guild["guild_id"] == self.active_channel["guild_id"]:
                 if self.username_role_colors:
