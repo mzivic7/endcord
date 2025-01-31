@@ -1,11 +1,13 @@
 HIGH PRIORITY:
-optional media with ascii art (Ctrl+I)
-keep deleted messgaes in non-open channels
+optional media with ascii art (Ctrl+I, escape)
 date separator
+
+TO FIX:
 fix some servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
+escaping markdown
 spoilers and code-blocks, dont format code blocks
 keybinding
 dont regenerate whole chat, only changed part
@@ -20,6 +22,7 @@ show user info
 vi-mode?
 
 VERY LOW PRIORITY:
+media player: zoom, seek, pause
 tabs
 dangerous features (sending friend request, starting DM)
 better windows support (building, ctrl+key, emoji character, rpc)

@@ -25,6 +25,7 @@ MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles
 download = downloader.Downloader()
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 
+
 class Endcord:
     """Main app class"""
 
@@ -52,6 +53,7 @@ class Endcord:
         self.blocked_mode = config["blocked_mode"]
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
+        self.deleted_cache_limit = config["deleted_cache_limit"]
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
         downloads_path = config["downloads_path"]
@@ -105,6 +107,7 @@ class Endcord:
         self.tree_format = []
         self.tree_metadata = []
         self.my_roles = []
+        self.deleted_cache = []
         self.reset_actions()
         self.main()
 
@@ -202,6 +205,10 @@ class Endcord:
         if self.my_status["client_state"] in ("OFFLINE", "connecting"):
             return
 
+        # save deleted
+        if self.keep_deleted:
+            self.cache_deleted()
+
         self.active_channel["guild_id"] = guild_id
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
@@ -280,7 +287,6 @@ class Endcord:
                                     member["primary_role_color"] = role.get("color_id")
                                     member["primary_role_alt_color"] = role.get("alt_color_id")
                                     break
-
                 self.current_member_roles = guild["members"]
                 break
 
@@ -752,6 +758,9 @@ class Endcord:
         """Get messages, check for missing members, request and wait for member chunk, and update local member list"""
         channel_id = self.active_channel["channel_id"]
         messages = self.discord.get_messages(channel_id, num, before, after, around)
+        # restore deleted
+        if self.restore_deleted:
+            messages = self.restore_deleted(messages)
         missing_members = []
         if not self.active_channel["guild_id"]:
             # skipping DMs
@@ -846,6 +855,64 @@ class Endcord:
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                     self.tui.set_selected(self.msg_to_lines(num + 1) - 2)
                     break
+
+
+    def cache_deleted(self):
+        """Cache all deleted messages from current channel"""
+        if not self.active_channel["channel_id"]:
+            return
+        found = False
+        for channel in self.deleted_cache:
+            if channel["channel_id"] == self.active_channel["channel_id"]:
+                this_channel_cache = channel["messages"]
+                found = True
+                break
+        if not found:
+            self.deleted_cache.append({
+                "channel_id": self.active_channel["channel_id"],
+                "messages": [],
+            })
+            this_channel_cache = self.deleted_cache[-1]["messages"]
+        for message in self.messages:
+            if message.get("deleted"):
+                found = False
+                for message_c in this_channel_cache:
+                    if message_c["id"] == message["id"]:
+                        found = True
+                if not found:
+                    this_channel_cache.append(message)
+                    if len(this_channel_cache) > self.deleted_cache_limit:
+                        this_channel_cache.pop(0)
+
+
+    def restore_deleted(self, messages):
+        """Restore all cached deleted messages for this channels in the correct position"""
+        found = False
+        for channel in self.deleted_cache:
+            if channel["channel_id"] == self.active_channel["channel_id"]:
+                this_channel_cache = channel["messages"]
+                found = True
+                break
+        if not found:
+            return messages
+        for message_c in this_channel_cache:
+            message_c_id = message_c["id"]
+            # ids are discord snowflakes containing unix time so it can be used message sent time
+            if message_c_id < messages[-1]["id"]:
+                # if message_c date is before last message date
+                continue
+            if message_c_id > messages[0]["id"]:
+                # if message_c date is after first message date
+                continue
+            for num, message in enumerate(messages):
+                try:
+                    if message["id"] > message_c_id > messages[num+1]["id"]:
+                        # if message_c date is between this and next message dates
+                        messages.insert(num+1, message_c)
+                        break
+                except IndexError:
+                    break
+        return messages
 
 
     def update_chat(self, keep_selected=True, change_amount=0):

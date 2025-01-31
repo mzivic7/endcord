@@ -46,7 +46,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `hide_spam = True`  
     Wether to hide or show spam DM request channels in DM list.
 - `keep_deleted = False`  
-    Wether to keep deleted messages in chat, with different color, or remove them
+    Wether to keep deleted messages in chat, with different color, or remove them.
+- `deleted_cache_limit = 50`  
+    Limit lumber of cached deleted messages per channel.
 - `tenor_gif_type = 1`  
     Type of the media when gif is downloaded from tenor:  
     0 - gif HD  

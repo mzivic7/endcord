@@ -20,6 +20,7 @@ settings = {
     "blocked_mode": 2,
     "hide_spam": True,
     "keep_deleted": False,
+    "deleted_cache_limit": 30,
     "tenor_gif_type": 1,
     "aspell_mode": "normal",
     "aspell_lang": "en_US",
