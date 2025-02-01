@@ -1,13 +1,12 @@
 HIGH PRIORITY:
-optional media with ascii art (Ctrl+I, escape)
 date separator
+optional media with ascii art (Ctrl+I, escape)
 
 TO FIX:
 fix some servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
-escaping markdown
 spoilers and code-blocks, dont format code blocks
 keybinding
 dont regenerate whole chat, only changed part

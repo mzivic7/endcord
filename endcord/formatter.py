@@ -17,10 +17,10 @@ match_role_id = re.compile(r"(?<=<@&)\d*?(?=>)")
 match_channel_string = re.compile(r"<#\d*?>")
 match_channel_id = re.compile(r"(?<=<#)\d*?(?=>)")
 match_escaped_md = re.compile(r"\\(?=[^a-zA-Z\d\s])")
-match_md_underline = re.compile(r"((?<=_))?__[^_]+__")
-match_md_bold = re.compile(r"((?<=\*))?\*\*[^\*]+\*\*")
-match_md_strikethrough = re.compile(r"((?<=~))?~~[^~]+~~")   # unused
-match_md_italic = re.compile(r"(((?<=_))?_[^_]+_)|(((?<=\*))?\*[^\*]+\*)")
+match_md_underline = re.compile(r"(?<!\\)((?<=_))?__[^_]+__")
+match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
+match_md_strikethrough = re.compile(r"(?<!\\)((?<=~))?~~[^~]+~~")   # unused
+match_md_italic = re.compile(r"(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 
 
@@ -390,7 +390,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
         embeds = message["embeds"]
         content = ""
         if message["content"]:
-            content = replace_channels(replace_roles(replace_mention(clean_emojis(replace_escaped_md(message["content"])), message["mentions"]), roles), channels)
+            content = replace_channels(replace_roles(replace_mention(clean_emojis(message["content"]), message["mentions"]), roles), channels)
         if embeds:
             for embed in embeds:
                 if embed["url"] and embed["url"] not in content:
@@ -406,6 +406,8 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             .replace("%content", content)
         )
         message_line, md_format = format_md_all(message_line, pre_content_len)
+        message_line = replace_escaped_md(message_line)
+
 
         # find all urls
         urls = []
