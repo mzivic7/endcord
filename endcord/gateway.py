@@ -470,20 +470,21 @@ class Gateway():
                                 response["d"]["referenced_message"]["attachments"] = forwarded.get("attachments")
                             reference_embeds = []
                             for embed in response["d"]["referenced_message"]["embeds"]:
-                                if "url" in embed:
-                                    content = embed["url"]
-                                    # take direct video url
-                                    if "video" in embed and "url" in embed["video"]:
-                                        content = embed["video"]["url"]
+                                content = embed.get("url")
+                                if "video" in embed and "url" in embed["video"]:
+                                    content = embed["video"]["url"]
+                                elif "image" in embed and "url" in embed["image"]:
+                                    content = embed["image"]["url"]
                                 elif "fields" in embed:
                                     content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
                                 else:
                                     content = None
-                                reference_embeds.append({
-                                    "type": embed["type"].replace("rich", "url"),
-                                    "name": None,
-                                    "url": content,
-                                })
+                                if content:
+                                    reference_embeds.append({
+                                        "type": embed["type"],
+                                        "name": None,
+                                        "url": content,
+                                    })
                             for attachment in response["d"]["referenced_message"]["attachments"]:
                                 reference_embeds.append({
                                     "type": attachment["content_type"],
@@ -514,11 +515,11 @@ class Gateway():
                             response["d"]["embeds"] = forwarded.get("embeds")
                             response["d"]["attachments"] = forwarded.get("attachments")
                         for embed in response["d"]["embeds"]:
-                            if "url" in embed:
-                                content = embed["url"]
-                                # take direct video url
-                                if "video" in embed and "url" in embed["video"]:
-                                    content = embed["video"]["url"]
+                            content = embed.get("url")
+                            if "video" in embed and "url" in embed["video"]:
+                                content = embed["video"]["url"]
+                            elif "image" in embed and "url" in embed["image"]:
+                                content = embed["image"]["url"]
                             elif "fields" in embed:
                                 content = ""
                                 if "url" in embed:
@@ -529,7 +530,7 @@ class Gateway():
                             else:
                                 content = None
                             # checking url path because query can be changed by discord
-                            if urllib.parse.urlparse(content).path not in response["d"]["content"]:
+                            if content and urllib.parse.urlparse(content).path not in response["d"]["content"]:
                                 embeds.append({
                                     "type": embed["type"],
                                     "name": None,
@@ -580,11 +581,11 @@ class Gateway():
                 elif optext == "MESSAGE_UPDATE":
                     embeds = []
                     for embed in response["d"]["embeds"]:
-                        if "url" in embed:
-                            content = embed["url"]
-                            # take direct video url
-                            if "video" in embed and "url" in embed["video"]:
-                                content = embed["video"]["url"]
+                        content = embed.get("url")
+                        if "video" in embed and "url" in embed["video"]:
+                            content = embed["video"]["url"]
+                        elif "image" in embed and "url" in embed["image"]:
+                            content = embed["image"]["url"]
                         elif "fields" in embed:
                             content = ""
                             if "url" in embed:
@@ -594,7 +595,7 @@ class Gateway():
                             content = content.strip("\n")
                         else:
                             content = None
-                        if urllib.parse.urlparse(content).path not in response["d"]["content"]:
+                        if content and urllib.parse.urlparse(content).path not in response["d"]["content"]:
                             embeds.append({
                                 "type": embed["type"],
                                 "name": None,

@@ -78,7 +78,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `format_one_reaction = "%count:%reaction"`  
     Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](##format_one_reaction) for more info.
 - `format_timestamp = "%H:%M"`  
-    Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
+    Format for timestamps in messages. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
 - `format_status_line_l = " %global_name (%username) - %status  %unreads %action %typing"`  
     Formatting for left side of status line. See [format_status](##format_status) for more info. Set to None to disable.
 - `format_status_line_r = None`  
@@ -97,6 +97,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A string added to the end of the message when it is edsited.
 - `reactions_separator = "; "`  
     A string placed between two reactions.
+- `chat_date_separator = "-"`  
+    A single character used to draw horizontal line for separating messages sent on different days. Set to None to disable date separator.
+- `format_date = " %B %d, %Y "`  
+    Format for timestamps in `chat_date_separator`. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
 - `limit_username = 10`  
     Limit to the username string length.
 - `limit_global_name = 15`  
@@ -138,6 +142,8 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for deleted mesages when `keep_deleted = True`.
 - `color_chat_selected = [233, 255]`  
     Color for selected line in chat.
+- `color_chat_separator = [242, -1, "i"]`  
+    Color for date separator line in chat.
 - `color_status_line = [233, 255]`  
     Color for status line.
 - `color_extra_line = [233, 245]`  

@@ -252,16 +252,18 @@ class Discord():
                             message["referenced_message"]["attachments"] = forwarded.get("attachments")
                         reference_embeds = []
                         for embed in message["referenced_message"]["embeds"]:
-                            url = embed.get("url")
-                            # take direct video url
+                            content = embed.get("url")
                             if "video" in embed and "url" in embed["video"]:
                                 url = embed["video"]["url"]
-                            reference_embeds.append({
-                                "type": embed["type"].replace("rich", "url"),
-                                "name": None,
-                                "url": url,
+                            elif "image" in embed and "url" in embed["image"]:
+                                content = embed["image"]["url"]
+                            if content:
+                                reference_embeds.append({
+                                    "type": embed["type"],
+                                    "name": None,
+                                    "url": url,
 
-                            })
+                                })
                         for attachment in message["referenced_message"]["attachments"]:
                             reference_embeds.append({
                                 "type": attachment["content_type"],
@@ -309,11 +311,11 @@ class Discord():
                     message["attachments"] = forwarded.get("attachments")
                 embeds = []
                 for embed in message["embeds"]:
-                    if "url" in embed:
-                        content = embed["url"]
-                        # take direct video url
-                        if "video" in embed and "url" in embed["video"]:
-                            content = embed["video"]["url"]
+                    content = embed.get("url")
+                    if "video" in embed and "url" in embed["video"]:
+                        content = embed["video"]["url"]
+                    elif "image" in embed and "url" in embed["image"]:
+                        content = embed["image"]["url"]
                     elif "fields" in embed:
                         content = ""
                         if "url" in embed:
@@ -324,7 +326,7 @@ class Discord():
                     else:
                         content = None
                     # checking url path because query can be changed by discord
-                    if urllib.parse.urlparse(content).path not in message["content"]:
+                    if content and urllib.parse.urlparse(content).path not in message["content"]:
                         embeds.append({
                             "type": embed["type"],
                             "name": None,

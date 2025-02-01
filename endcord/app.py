@@ -39,18 +39,15 @@ class Endcord:
         self.limit_typing = max(config["limit_typing_string"], 25)
         self.send_my_typing = config["send_typing"]
         self.ack_throttling = max(config["ack_throttling"], 3)
-        self.convert_timezone = config["convert_timezone"]
         self.format_title_line_l = config["format_title_line_l"]
         self.format_title_line_r = config["format_title_line_r"]
         self.format_status_line_l = config["format_status_line_l"]
         self.format_status_line_r = config["format_status_line_r"]
         self.format_title_tree = config["format_title_tree"]
-        self.use_nick = config["use_nick_when_available"]
         self.reply_mention = config["reply_mention"]
         self.cache_typed = config["cache_typed"]
         self.enable_notifications = config["desktop_notifications"]
         self.notification_sound = config["linux_notification_sound"]
-        self.blocked_mode = config["blocked_mode"]
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
         self.deleted_cache_limit = config["deleted_cache_limit"]
@@ -932,14 +929,6 @@ class Endcord:
             self.messages,
             self.current_roles,
             self.current_channels,
-            self.config["format_message"],
-            self.config["format_newline"],
-            self.config["format_reply"],
-            self.config["format_reactions"],
-            self.config["format_one_reaction"],
-            self.config["format_timestamp"],
-            self.config["edited_string"],
-            self.config["reactions_separator"],
             self.chat_dim[1],
             self.my_id,
             self.my_roles,
@@ -947,12 +936,7 @@ class Endcord:
             self.colors,
             self.colors_formatted,
             self.blocked,
-            limit_username=self.config["limit_username"],
-            limit_global_name=self.config["limit_global_name"],
-            use_nick=self.use_nick,
-            convert_timezone=self.convert_timezone,
-            blocked_mode=self.blocked_mode,
-            keep_deleted=self.keep_deleted,
+            self.config,
         )
         if keep_selected:
             selected_msg = selected_msg + change_amount

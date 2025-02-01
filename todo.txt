@@ -1,5 +1,5 @@
 HIGH PRIORITY:
-date separator
+Add saving anonimized debug data
 optional media with ascii art (Ctrl+I, escape)
 
 TO FIX:

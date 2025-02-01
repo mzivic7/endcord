@@ -212,6 +212,7 @@ def extract_colors(config):
         check_color(config["color_chat_mention"]),
         check_color(config["color_chat_blocked"]),
         check_color(config["color_chat_deleted"]),
+        check_color(config["color_chat_separator"]),
     )
 
 

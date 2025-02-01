@@ -4,7 +4,8 @@ import re
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
-
+DAY_MS = 24*60*60*1000
+DISCORD_EPOCH_MS = 1420070400000
 
 match_emoji_string = re.compile(r"<.*?:.*?:\d*?>")
 match_emoji_name = re.compile(r"(?<=<:).*?(?=:)")
@@ -58,6 +59,18 @@ def generate_timestamp(discord_time, format_string, timezone=True):
     if timezone:
         time_obj = time_obj.astimezone()
     return datetime.strftime(time_obj, format_string)
+
+
+def day_from_snowflake(snowflake, timezone=True):
+    """Extract day from discord snowflake with optional timezone conversion"""
+    snowflake = int(snowflake)
+    if timezone:
+        time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000).astimezone()
+        time_obj = time_obj.astimezone()
+        return time_obj.day
+    # faster than datetime, but no timezone conversion
+    return ((snowflake >> 22) + DISCORD_EPOCH_MS) / DAY_MS
+
 
 
 def clean_emojis(line):
@@ -194,7 +207,7 @@ def clean_type(embed_type):
     return re.sub(match_after_slash, "", embed_type)
 
 
-def generate_chat(messages, roles, channels, format_message, format_newline, format_reply, format_reactions, format_one_reaction, format_timestamp, edited_string, reactions_separator, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, limit_username=15, limit_global_name=15, use_nick=True, convert_timezone=True, blocked_mode=1, keep_deleted=False):
+def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, config):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -232,15 +245,36 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
     Returned indexes correspond to each message as how many lines it is covering.
     use_nick will make it use nick instead global_name whenever possible.
     """
+
+    # load from config
+    format_message = config["format_message"]
+    format_newline = config["format_newline"]
+    format_reply = config["format_reply"]
+    format_reactions = config["format_reactions"]
+    format_one_reaction = config["format_one_reaction"]
+    format_timestamp = config["format_timestamp"]
+    edited_string = config["edited_string"]
+    reactions_separator = config["reactions_separator"]
+    limit_username = config["limit_username"]
+    limit_global_name = config["limit_global_name"]
+    use_nick = config["use_nick_when_available"]
+    convert_timezone = config["convert_timezone"]
+    blocked_mode = config["blocked_mode"]
+    keep_deleted = config["keep_deleted"]
+    date_separator = config["chat_date_separator"]
+    format_date = config["format_date"]
+
     chat = []
     chat_format = []
     indexes = []
     len_edited = len(edited_string)
+    enable_separator = format_date and date_separator
 
     # load colors
     color_default = [colors[0]]
     color_blocked = [colors[2]]
     color_deleted = [colors[3]]
+    color_separator = [colors[4]]
     color_chat_edited = colors_formatted[4][0]
     color_mention_chat_edited = colors_formatted[10][0]
     color_chat_url = colors_formatted[5][0][0]
@@ -279,7 +313,7 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
     else:
         end_name = pre_name_len + limit_global_name + 1
 
-    for message in messages:
+    for num, message in enumerate(messages):
         temp_chat = []   # stores only one multiline message
         temp_format = []
         mentioned = False
@@ -329,6 +363,20 @@ def generate_chat(messages, roles, channels, format_message, format_newline, for
             else:
                 indexes.append(0)
                 continue   # to not break message-to-chat conversion
+
+        # date separator
+        try:
+            if enable_separator and day_from_snowflake(message["id"]) != day_from_snowflake(messages[num+1]["id"]):
+                # if this message is 1 day older than next message (up - past message)
+                date = generate_timestamp(message["timestamp"], format_date, convert_timezone)
+                # keep text always in center
+                filler = max_length - len(date)
+                filler_l = filler // 2
+                filler_r = filler - filler_l
+                temp_chat.append(f"{date_separator * filler_l}{date}{date_separator * filler_r}")
+                temp_format.append([color_separator])
+        except IndexError:
+            pass
 
         # replied message line
         if message["referenced_message"]:
