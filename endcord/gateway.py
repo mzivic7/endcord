@@ -11,6 +11,8 @@ from http.client import HTTPSConnection
 
 import websocket
 
+from endcord import debug
+
 CLIENT_NAME = "endcord"
 LOCAL_MEMBER_COUNT = 50   # CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
@@ -302,6 +304,13 @@ class Gateway():
                                     "message_notifications": dm["message_notifications"],
                                     "muted": dm["muted"],
                                 })
+                    # write debug data
+                    if logger.getEffectiveLevel() == logging.DEBUG:
+                        debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
+                        debug.save_json(debug.anonymize_guilds_settings(self.guilds_settings), "guilds_settings.json")
+                    # debug_guilds_tree
+                    # debug.save_json(self.guilds, "guilds.json", False)
+                    # debug.save_json(self.guilds_settings, "guilds_settings.json", False)
                     # blocked users
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
@@ -709,10 +718,9 @@ class Gateway():
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
                 break
-            # debug
+            # debug_events
             # if "t" in response and response["t"]:
-            #     with open(f"{response["t"]}.json", "w") as f:
-            #         json.dump(response, f, indent=2)
+                  # debug.save_json(response, f"{response["t"]}.json", False)
         self.state = 0
         logger.info("Receiver stopped")
         self.reconnect_requested = True

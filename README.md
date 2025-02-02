@@ -64,7 +64,7 @@ There can be missing entries in config, they will be filled with defaults.
 ### Debug mode
 Debug mode can be enabled with `-d` flag.  
 It will cause extra messages to be written to log file.  
-Endcord will periodically write to drive and log file quickly grow in size.  
+Endcord will periodically write to drive and log file will quickly grow in size.  
 Log is overwritten on each run.  
 ### Token
 Token is used to access Discord through your account without logging-in.  
@@ -178,7 +178,7 @@ Optional dependencies:
 Never tested. Feedback is welcome.
 
 ## FAQ
-### Obtaining your Discord token:
+### Obtaining your Discord token
 1. Open Discord in browser.
 2. Open developer tools (`F12` or `Ctrl+Shift+I` on Chrome and Firefox).
 3. Go to the `Network` tab then refresh the page.
@@ -186,7 +186,7 @@ Never tested. Feedback is welcome.
 5. Click on any filtered entry. On the right side, switch to `Header` tab search for the `authorization`.
 6. Copy value of `Authorization: ...` found under `Request Headers` (right click -> Copy Value)
 7. This is your discord token. Do not share it!
-### To further decrease probability of getting banned:
+### To further decrease probability of getting banned
 - MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
 - Discord REST API is called each time client is started, when channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background
@@ -195,6 +195,9 @@ Never tested. Feedback is welcome.
 ### What if you get banned?
 You can write to Discord TNS team: https://dis.gd/request.  
 If you did something particular with endcord that caused the ban, open an issue describing what that is. Maybe that can be prevented or other users can be warned.  
+### Debug files
+Anonymized data that might help in debugging is saved in `Debug` directory, at the same place where log file is.  
+All channel and server names, topics, descriptions are replaced. All channel and server IDs are added to random number and hashed, so they are irreversible changed, and will be different on each run.
 
 ## Planned features
 Go to [TODO](todo.txt).

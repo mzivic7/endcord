@@ -72,7 +72,6 @@ def day_from_snowflake(snowflake, timezone=True):
     return ((snowflake >> 22) + DISCORD_EPOCH_MS) / DAY_MS
 
 
-
 def clean_emojis(line):
     """
     Transform emoji strings into nicer looking ones:

@@ -56,7 +56,7 @@ def main():
         print(f"New version: {version}")
     else:
         print("Version in all files is already the latest.")
-
+    sys.exit()
 
 if __name__ == "__main__":
     main()

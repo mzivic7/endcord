@@ -16,6 +16,7 @@ from endcord import (
     peripherals,
     rpc,
     tui,
+    debug,
 )
 
 logger = logging.getLogger(__name__)
@@ -105,8 +106,15 @@ class Endcord:
         self.tree_metadata = []
         self.my_roles = []
         self.deleted_cache = []
+        # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.reset_actions()
         self.main()
+
+
+    def profiling_auto_exit(self):
+        """Thread that waits then exits cleanly, so profiler (vprof) can process data"""
+        time.sleep(20)
+        self.run = False
 
 
     def reset(self):
@@ -1089,6 +1097,10 @@ class Endcord:
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
         )
+        # debug_guilds_tree
+        # debug.save_json(self.tree, "tree.json", False)
+        # debug.save_json(self.tree_format, "tree_format.json", False)
+        # debug.save_json(self.tree_metadata, "tree_metadata.json", False)
         self.tui.update_tree(self.tree, self.tree_format)
 
 
@@ -1172,6 +1184,10 @@ class Endcord:
         self.guild_positions = []
         for folder in self.discord_settings["guildFolders"]["folders"]:
             self.guild_positions += folder["guildIds"]
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            debug.save_json(debug.anonymize_guild_positions(self.guild_positions), "guild_positions.json")
+        # debug_guilds_tree
+        # debug.save_json(self.guild_positions, "guild_positions.json", False)
         custom_status_emoji = None
         custom_status = None
         if "customStatus" in self.discord_settings["status"]:

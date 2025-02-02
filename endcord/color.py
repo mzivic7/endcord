@@ -1,5 +1,3 @@
-from math import sqrt
-
 from endcord import xterm256
 
 pallete = xterm256.palette
@@ -20,7 +18,7 @@ def closest_color(rgb):
     distances = []
     for color in colors:
         r_i, g_i, b_i = color
-        distance = sqrt((r - r_i)**2 + (g - g_i)**2 + (b - b_i)**2)   # euclidean distance
+        distance = (r - r_i)**2 + (g - g_i)**2 + (b - b_i)**2
         distances.append((distance, color))
     index = argmin(distances)
     return index, distances[index][1]
