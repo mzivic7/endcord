@@ -325,8 +325,7 @@ class Discord():
                         content = content.strip("\n")
                     else:
                         content = None
-                    # checking url path because query can be changed by discord
-                    if content and urllib.parse.urlparse(content).path not in message["content"]:
+                    if content and content not in message["content"]:
                         embeds.append({
                             "type": embed["type"],
                             "name": None,

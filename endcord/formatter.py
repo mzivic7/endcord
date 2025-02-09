@@ -10,7 +10,6 @@ DISCORD_EPOCH_MS = 1420070400000
 match_emoji_string = re.compile(r"<.*?:.*?:\d*?>")
 match_emoji_name = re.compile(r"(?<=<:).*?(?=:)")
 match_a_emoji_name = re.compile(r"(?<=<a:).*?(?=:)")
-match_after_slash = re.compile(r"//?(.*)")
 match_mention_string = re.compile(r"<@\d*?>")
 match_mention_id = re.compile(r"(?<=<@)\d*?(?=>)")
 match_role_string = re.compile(r"<@&\d*?>")
@@ -203,7 +202,7 @@ def clean_type(embed_type):
     Clean embed type string from excessive information
     eg. `image\png` ---> `image`
     """
-    return re.sub(match_after_slash, "", embed_type)
+    return embed_type.split("/")[0]
 
 
 def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, config):
@@ -693,9 +692,11 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = "Select link to open in browser (type a number)"
     elif action["type"] == 5:   # select from multiple attachments
         action_string = "Select attachment link to download (type a number)"
-    elif action["type"] == 6:   # cancel all downloads
+    elif action["type"] == 6:   # select attachment media to play
+        action_string = "Select attachment link to play (type a number)"
+    elif action["type"] == 7:   # cancel all downloads
         action_string = "Really cancel all downloads/attachments? [Y/n]"
-    elif action["type"] == 7:   # ask for upload path
+    elif action["type"] == 8:   # ask for upload path
         action_string = "Type file path to upload"
 
     if my_status["custom_status_emoji"]:

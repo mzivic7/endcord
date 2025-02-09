@@ -24,6 +24,7 @@ class TUI():
         curses.curs_set(0)   # using custom cursor
         print("\x1b[?2004h")   # enable bracketed paste mode
         self.last_free_id = 1   # last free color pair id
+        self.color_cache = []   # for restoring colors
         self.attrib_map = [0]   # has 0 so its index starts from 1 to be matched with color pairs
         self.init_pair((255, -1))   # white on default
         self.init_pair((233, 255))   # black on white
@@ -54,6 +55,7 @@ class TUI():
             self.enable_blink_cursor = False
         else:
             self.enable_blink_cursor = True
+        self.disable_drawing = False
         self.prompt = "> "
         self.input_buffer = ""
         self.status_txt_l = ""
@@ -167,6 +169,16 @@ class TUI():
         return None
 
 
+    def get_last_free_color_id(self):
+        """Return last free color id. Should be run at the end of al color initializations in endcord.tui."""
+        return self.last_free_id
+
+
+    def get_color_cache(self):
+        """Return first 255 cached colors"""
+        return self.color_cache[:255]
+
+
     def set_selected(self, selected, change_amount=0):
         """Set selected line and text scrolling"""
         if self.chat_selected >= selected:
@@ -225,8 +237,9 @@ class TUI():
         """Redraw entire ui"""
         self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
         if self.have_title and self.have_title_tree:
-            # fill gab between titles
+            # fill gap between titles
             self.screen.insch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
+        self.screen.refresh()
         self.draw_status_line()
         self.draw_chat()
         self.update_prompt(self.prompt)   # draw_input_line() is called in here
@@ -364,7 +377,8 @@ class TUI():
             self.win_chat.refresh()
         except curses.error:
             # exception will happen when window is resized to smaller w dimensions
-            self.resize()
+            if not self.disable_drawing:
+                self.resize()
 
 
     def draw_tree(self):
@@ -441,7 +455,7 @@ class TUI():
     def draw_extra_line(self, text=None):
         """Draw extra line above status line and resize chat if needed"""
         self.extra_line_text = text
-        if text:
+        if text and not self.disable_drawing:
             h, w = self.screen.getmaxyx()
             if not self.win_extra_line:
                 del self.win_chat
@@ -510,6 +524,16 @@ class TUI():
             self.hibernate_cursor = 0
 
 
+    def lock_ui(self, lock):
+        """Turn ON/OFF main TUI drawing"""
+        self.disable_drawing = lock
+        if lock:
+            self.hibernate_cursor = 10
+        else:
+            self.screen.clear()
+            self.redraw_ui()
+
+
     def update_status_line(self, text_l, text_r=None):
         """Update status text"""
         redraw = False
@@ -519,7 +543,7 @@ class TUI():
         if text_r != self.status_txt_r:
             self.status_txt_r = text_r
             redraw = True
-        if redraw:
+        if redraw and not self.disable_drawing:
             self.draw_status_line()
 
 
@@ -533,7 +557,7 @@ class TUI():
             if text_r != self.title_txt_r:
                 self.title_txt_r = text_r
                 redraw = True
-            if redraw:
+            if redraw and not self.disable_drawing:
                 self.draw_title_line()
 
 
@@ -541,11 +565,45 @@ class TUI():
         """Update status text"""
         if self.have_title_tree and text != self.title_tree_txt:
             self.title_tree_txt = text
-            self.draw_title_tree()
+            if not self.disable_drawing:
+                self.draw_title_tree()
+
+
+    def update_chat(self, chat_text, chat_format):
+        """Update text buffer"""
+        self.chat_buffer = chat_text
+        self.chat_format = chat_format
+        if not self.disable_drawing:
+            self.draw_chat()
+
+
+    def update_tree(self, tree_text, tree_format):
+        """Update channel tree"""
+        self.tree = tree_text
+        self.tree_format = tree_format
+        if not self.disable_drawing:
+            self.draw_tree()
+
+
+    def update_prompt(self, prompt):
+        """Draw prompt line and resize input line"""
+        self.prompt = prompt
+        if not self.disable_drawing:
+            h, w = self.screen.getmaxyx()
+            del (self.win_prompt, self.win_input_line)
+            input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
+            self.win_input_line = self.screen.derwin(*input_line_hwyx)
+            self.input_hw = self.win_input_line.getmaxyx()
+            self.spellcheck()
+            self.draw_input_line()
+            prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+            self.win_prompt = self.screen.derwin(*prompt_hwyx)
+            self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
+            self.win_prompt.refresh()
 
 
     def init_pair(self, color):
-        """Initialize color pair while keeping track of last unuused id, and store its attribute in attr_map"""
+        """Initialize color pair while keeping track of last unused id, and store its attribute in attr_map"""
         if len(color) == 2:
             fg, bg = color
             attribute = 0
@@ -561,6 +619,7 @@ class TUI():
             else:
                 attribute = 0
         curses.init_pair(self.last_free_id, fg, bg)
+        self.color_cache.append((fg, bg))
         self.attrib_map.append(attribute)
         self.last_free_id += 1
         return self.last_free_id - 1
@@ -624,34 +683,10 @@ class TUI():
         return all_roles
 
 
-    def update_chat(self, chat_text, chat_format):
-        """Update text buffer"""
-        self.chat_buffer = chat_text
-        self.chat_format = chat_format
-        self.draw_chat()
-
-
-    def update_tree(self, tree_text, tree_format):
-        """Update channel tree"""
-        self.tree = tree_text
-        self.tree_format = tree_format
-        self.draw_tree()
-
-
-    def update_prompt(self, prompt):
-        """Draw prompt line and resize input line"""
-        h, w = self.screen.getmaxyx()
-        self.prompt = prompt
-        del (self.win_prompt, self.win_input_line)
-        input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
-        self.win_input_line = self.screen.derwin(*input_line_hwyx)
-        self.input_hw = self.win_input_line.getmaxyx()
-        self.spellcheck()
-        self.draw_input_line()
-        prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
-        self.win_prompt = self.screen.derwin(*prompt_hwyx)
-        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
-        self.win_prompt.refresh()
+    def restore_colors(self):
+        """Re-initialize cached colors"""
+        for num, color in enumerate(self.color_cache):
+            curses.init_pair(num + 1, *color)
 
 
     def spellcheck(self):
@@ -711,8 +746,9 @@ class TUI():
             self.chat_selected = -1
             self.chat_index = 0
             self.draw_chat()
-        self.spellcheck()
-        self.update_prompt(prompt)   # draw_input_line() is called in heren
+        if not self.disable_drawing:
+            self.spellcheck()
+            self.update_prompt(prompt)   # draw_input_line() is called in heren
         bracket_paste = False
         sequence = []   # for detecting bracket paste sequences
         selected_completion = 0
@@ -721,6 +757,18 @@ class TUI():
             key = self.screen.getch()
             h = self.screen_hw[0]
             w = self.input_hw[1]
+            if self.disable_drawing:
+                if key == 27:   # ESCAPE
+                    self.screen.nodelay(True)
+                    key = self.screen.getch()
+                    if key == -1:
+                        self.input_buffer = ""
+                        self.screen.nodelay(False)
+                        return None, 0, 0, 101
+                    self.screen.nodelay(False)
+                elif key == curses.KEY_RESIZE:
+                    pass
+                continue   # disable all inputs from main UI
 
             if key == 10:   # ENTER
                 # wehen pasting, dont return, but insert newline character
@@ -968,19 +1016,26 @@ class TUI():
 
             elif key == ctrl(108):   # CTRL+L
                 self.screen.clear()
-                self.redraw_ui()
+                self.resize()
 
             elif key == ctrl(107):   # CTRL+K
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 16
 
+            elif key == ctrl(118):   # CTRL+V
+                if self.chat_selected != -1:
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
+                    self.asking_num = True
+                    return tmp, self.chat_selected, self.tree_selected_abs, 17
+
             elif key == curses.KEY_RESIZE:
                 self.resize()
                 h, _ = self.screen_hw
                 _, w = self.input_hw
 
-            # terminal reserved keys: CTRL+ C, M, Q, S, Z
+            # terminal reserved keys: CTRL+ C, I, J, M, Q, S, Z
 
             # keep index inside screen
             self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
@@ -988,5 +1043,6 @@ class TUI():
             self.cursor_pos = min(w - 1, self.cursor_pos)
             if not self.enable_autocomplete:
                 self.spellcheck()
-            self.draw_input_line()
+            if not self.disable_drawing:
+                self.draw_input_line()
         return None, None, None, None

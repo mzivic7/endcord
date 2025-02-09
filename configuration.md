@@ -63,6 +63,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Language dictionary for aspell.  
     To list all installed languages, run `aspell dump dicts`.
     Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
+- `mute_video = False`  
+    Wether to mute video or not. If tru, will not initialize audio at all.
 
 ### Theme
 - `tree_width = 32`  
@@ -121,9 +123,17 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
+- `ascii_palette = "  ..',;:c*loexkO0XNW#%"`  
+    Characters used to draw in terminal. From darkest to brightest. Same character can be repeated. Number of characters is not fixed.
+- `saturation = 1.2`  
+    Saturation correction applied to image in order to make colors more visible. Adjust if changing `ascii_palette` or color_media_bg.
+- `target_fps = 30`  
+    Target framerate when playing videos, high values may result in AV-desyncing and higher CPU usage.
+- `font_scale = 2.25`  
+    Font height/width ratio. Change if picture dimensions ratio is wrong in terminal.
 
 ### Colors and attributes
-Colors are configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
+Colors are part of the theme, configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
 Foreground and background are ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). -1 is terminal default color.  
 Set to None to use terminal default colors.  
 Attribute is optional string: `"b"/"bold"`, `"u"/"underline"`, `"i"/"italic"`
@@ -178,6 +188,8 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for `edited_string`.
 - `color_chat_url = [153, -1, "u"]`  
     Color for urls in message content and embeds.
+- `color_media_bg = -1`  
+    single color value for background color when showing media.
 
 ## format_message
 - `%content` - message text

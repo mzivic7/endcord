@@ -24,6 +24,7 @@ settings = {
     "tenor_gif_type": 1,
     "aspell_mode": "normal",
     "aspell_lang": "en_US",
+    "mute_video": False,
 }
 theme = {
     "tree_width": 32,
@@ -80,4 +81,9 @@ theme = {
     "color_format_reactions": [[245, -1], [131, -2, 0, 0, 7], [-1, -2, 0, 23, 27]],
     "color_chat_edited": [241, -1],
     "color_chat_url": [153, -1, "u"],
+    "ascii_palette": "  ..',;:c*loexkO0XNW#%",
+    "saturation": 1.2,
+    "target_fps": 30,
+    "font_scale": 2.25,
+    "color_media_bg": -1,
 }

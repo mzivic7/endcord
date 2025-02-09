@@ -9,9 +9,13 @@ websocket-client = "*"
 urllib3 = "*"
 pexpect = "*"
 python-magic = "*"
+pyinstaller = ">=6"
 
 [dev-packages]
-pyinstaller = ">=6"
+pillow = "*"
+pyav = "*"
+pyaudio = "*"
+numpy = "*"
 
 [requires]
 python_version = "3.13"

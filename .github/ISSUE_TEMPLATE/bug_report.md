@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-<!-- Before submitting an issue, make sure that it is present in the latest version, and that issue is not already open. Windows (cmd) support is currently low priority.-->
+<!-- Before submitting an issue, make sure that it is present in the latest version, and that issue is not already open. Windows (cmd) support is currently in low priority.-->
 
 **Describe the bug**
 A clear and concise description of what the bug is.
@@ -16,13 +16,13 @@ A clear and concise description of what the bug is.
  - Platform: [e.g. Linux x86_64]
  - OS: [e.g. Arch 6.12.7]
  - Terminal: [e.g. Alacritty]
- - Version [e.g. 0.1.0]
+ - Version [e.g. 0.6.0]
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.

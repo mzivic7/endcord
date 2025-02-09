@@ -1,3 +1,4 @@
+import importlib.util
 import logging
 import os
 import re
@@ -9,6 +10,7 @@ import webbrowser
 
 from endcord import (
     color,
+    debug,
     discord,
     downloader,
     formatter,
@@ -16,15 +18,23 @@ from endcord import (
     peripherals,
     rpc,
     tui,
-    debug,
 )
+
+support_media = (
+    importlib.util.find_spec("PIL") is not None and
+    importlib.util.find_spec("av") is not None and
+    importlib.util.find_spec("pyaudio") is not None
+)
+if support_media:
+    from endcord import media
 
 logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
+MEDIA_EMBEDS = ("image", "gifv", "video", "rich")
 
 download = downloader.Downloader()
-match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
+match_url = re.compile(r"(https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*)")
 
 
 class Endcord:
@@ -63,6 +73,8 @@ class Endcord:
         self.colors_formatted = peripherals.extract_colors_formatted(config)
         self.default_msg_color = self.colors_formatted[0][0][:]
         self.default_msg_alt_color = self.colors[1]
+        self.cached_downloads = []
+        self.color_cache = []
 
         # variables
         self.run = False
@@ -106,8 +118,8 @@ class Endcord:
         self.tree_metadata = []
         self.my_roles = []
         self.deleted_cache = []
-        # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.reset_actions()
+        # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
 
 
@@ -136,7 +148,7 @@ class Endcord:
         self.my_rpc = []
         self.chat_end = False
         download.cancel()
-        self.downlaod_threads = []
+        self.download_threads = []
         self.upload_threads = []
         self.ready_attachments = []
         self.selected_attachment = 0
@@ -150,9 +162,7 @@ class Endcord:
         self.reset()
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
-        self.all_roles = self.gateway.get_roles()
-        self.all_roles = color.convert_role_colors(self.all_roles)
-        self.all_roles = self.tui.init_role_colors(self.all_roles, self.default_msg_color[1], self.default_msg_alt_color[1])
+        # not initializing role colors again to avoid issues with media colors
         self.dms, self.dms_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
@@ -335,6 +345,7 @@ class Endcord:
             "content": None,
             "urls": None,
             "web": False,
+            "open": False,
         }
         self.cancel_download = None
         self.uploading = False
@@ -475,7 +486,7 @@ class Endcord:
                     if reference_id:
                         self.go_to_message(reference_id)
 
-            # download file
+            # download file / open media
             elif action == 9:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 urls = []
@@ -487,15 +498,17 @@ class Endcord:
                         "content": input_text,
                         "urls": urls,
                         "web": False,
+                        "open": False,
                     }
-                    self.downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[0], )))
-                    self.downlaod_threads[-1].start()
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], )))
+                    self.download_threads[-1].start()
                 elif len(urls) > 1:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.downloading_file = {
                         "content": input_text,
                         "urls": urls,
                         "web": False,
+                        "open": False,
                     }
                     self.update_status_line()
 
@@ -504,7 +517,7 @@ class Endcord:
                 msg_index = self.lines_to_msg(chat_sel + 1)
                 urls = []
                 for url in re.findall(match_url, self.messages[msg_index]["content"]):
-                    urls.append(url)
+                    urls.append(url[0])
                 for embed in self.messages[msg_index]["embeds"]:
                     if embed["url"]:
                         urls.append(embed["url"])
@@ -513,6 +526,7 @@ class Endcord:
                         "content": input_text,
                         "urls": urls,
                         "web": False,
+                        "open": False,
                     }
                     webbrowser.open(urls[0], new=0, autoraise=True)
                 elif len(urls) > 1:
@@ -521,8 +535,38 @@ class Endcord:
                         "content": input_text,
                         "urls": urls,
                         "web": True,
+                        "open": False,
                     }
                     self.update_status_line()
+
+            # download and open media attachment
+            elif action == 17 and support_media:
+                msg_index = self.lines_to_msg(chat_sel + 1)
+                urls = []
+                for embed in self.messages[msg_index]["embeds"]:
+                    embed_type = embed["type"].split("/")[0]
+                    if embed["url"] and embed_type in MEDIA_EMBEDS:
+                        urls.append(embed["url"])
+                if len(urls) == 1:
+                    logger.debug(f"Trying to play attachment with type: {embed["type"]}")
+                    self.downloading_file = {
+                        "content": input_text,
+                        "urls": urls,
+                        "web": False,
+                        "open": True,
+                    }
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], False, True)))
+                    self.download_threads[-1].start()
+                elif len(urls) > 1:
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.downloading_file = {
+                        "content": input_text,
+                        "urls": urls,
+                        "web": False,
+                        "open": True,
+                    }
+                    self.update_status_line()
+
 
             # cancel all downloads and uploads
             elif action == 11:
@@ -565,7 +609,7 @@ class Endcord:
                 self.cancel_attachment()
                 self.update_extra_line()
 
-            # escape key
+            # escape key in main UI
             elif action == 5:
                 if self.replying["id"]:
                     self.reset_actions()
@@ -573,6 +617,10 @@ class Endcord:
                 else:
                     self.reset_actions()
                 self.update_status_line()
+
+            # escape key in media viewer
+            elif action == 101:
+                self.curses_media.stop()
 
             # enter
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
@@ -596,12 +644,21 @@ class Endcord:
                                 webbrowser.open(urls[num], new=0, autoraise=True)
                         except ValueError:
                             pass
+                    elif self.downloading_file["open"]:
+                        try:
+                            logger.debug("Trying to play attachment from seletion")
+                            num = max(int(input_text) - 1, 0)
+                            if num <= len(self.downloading_file["urls"]):
+                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[num], False, True)))
+                                self.download_threads[-1].start()
+                        except ValueError:
+                            pass
                     else:
                         try:
                             num = max(int(input_text) - 1, 0)
                             if num <= len(self.downloading_file["urls"]):
-                                self.downlaod_threads.append(threading.Thread(target=self.download_and_move, daemon=True, args=(urls[num], )))
-                                self.downlaod_threads[-1].start()
+                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[num], )))
+                                self.download_threads[-1].start()
                         except ValueError:
                             pass
                 elif self.cancel_download and input_text.lower() == "y":
@@ -662,22 +719,44 @@ class Endcord:
                 self.update_status_line()
 
 
-    def download_and_move(self, url):
+    def download_file(self, url, move=True, open_media=False):
         """Thread that downloads and moves file to downloads dir"""
-        self.add_running_task("Downloading file", 2)
         if "https://media.tenor.com/" in url:
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
+        destination = None
+        from_cache = False
 
-        try:
-            path = download.download(url)
-            if path:
-                if not os.path.exists(self.downloads_path):
-                    os.makedirs(os.path.expanduser(os.path.dirname(self.downloads_path)), exist_ok=True)
-                shutil.move(path, os.path.join(self.downloads_path, os.path.basename(path)))
-        except Exception as e:
-            logger.error(f"Failed downloading file: {e}")
+        # check if file is already downloaded
+        if open_media:
+            for file in self.cached_downloads:
+                if url == file[0] and os.path.exists(file[1]):
+                    destination = file[1]
+                    break
 
-        self.remove_running_task("Downloading file", 3)
+        # downlaod
+        if not open_media or not destination:
+            self.add_running_task("Downloading file", 2)
+            try:
+                path = download.download(url)
+                if path:
+                    if move:
+                        if not os.path.exists(self.downloads_path):
+                            os.makedirs(os.path.expanduser(os.path.dirname(self.downloads_path)), exist_ok=True)
+                        destination = os.path.join(self.downloads_path, os.path.basename(path))
+                        shutil.move(path, destination)
+                    else:
+                        destination = path
+            except Exception as e:
+                logger.error(f"Failed downloading file: {e}")
+
+        self.remove_running_task("Downloading file", 2)
+
+        # open media
+        if open_media:
+            self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(destination, ))
+            self.media_thread.start()
+            if not from_cache and destination:
+                self.cached_downloads.append([url, destination])
 
 
     def upload(self, path):
@@ -920,6 +999,16 @@ class Endcord:
         return messages
 
 
+    def open_media(self, path):
+        """Prevent other UI updates, draw media and wait for input, after quitting - update UI"""
+        if support_media:
+            self.tui.lock_ui(True)
+            self.curses_media.play(path)
+            # restore first 255 colors, attributes were not modified
+            self.tui.restore_colors()
+            self.tui.lock_ui(False)
+
+
     def update_chat(self, keep_selected=True, change_amount=0):
         """Generate chat and update it in TUI"""
         if keep_selected:
@@ -968,12 +1057,14 @@ class Endcord:
         elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
             if self.downloading_file["web"]:
                 action_type = 4
+            elif self.download_file["open"]:
+                action_type = 6
             else:
                 action_type = 5
         elif self.cancel_download:
-            action_type = 6
-        elif self.uploading:
             action_type = 7
+        elif self.uploading:
+            action_type = 8
         action = {
             "type": action_type,
             "username": self.replying["username"],
@@ -1215,6 +1306,15 @@ class Endcord:
         self.all_roles = self.gateway.get_roles()
         self.all_roles = color.convert_role_colors(self.all_roles)
         self.all_roles = self.tui.init_role_colors(self.all_roles, self.default_msg_color[1], self.default_msg_alt_color[1])
+        self.color_cache = self.tui.get_color_cache()
+        last_free_color_id = self.tui.get_last_free_color_id()
+        if support_media:
+            # must be run after all colors are initialized in endcord.tui
+            logger.info("Media is supported")
+            self.curses_media = media.CursesMedia(self.screen, self.config, last_free_color_id)
+        else:
+            self.curses_media = None
+            logger.info("Media is not supported")
         self.dms, self.dms_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:

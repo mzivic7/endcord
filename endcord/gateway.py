@@ -5,7 +5,6 @@ import socket
 import sys
 import threading
 import time
-import urllib.parse
 import zlib
 from http.client import HTTPSConnection
 
@@ -309,8 +308,8 @@ class Gateway():
                         debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
                         debug.save_json(debug.anonymize_guilds_settings(self.guilds_settings), "guilds_settings.json")
                     # debug_guilds_tree
-                    # debug.save_json(self.guilds, "guilds.json", False)
-                    # debug.save_json(self.guilds_settings, "guilds_settings.json", False)
+                    # with open("guilds.json", "r") as f: self.guilds = json.load(f)
+                    # with open("guilds_settings.json", "r") as f: self.guilds_settings = json.load(f)
                     # blocked users
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
@@ -538,8 +537,7 @@ class Gateway():
                                 content = content.strip("\n")
                             else:
                                 content = None
-                            # checking url path because query can be changed by discord
-                            if content and urllib.parse.urlparse(content).path not in response["d"]["content"]:
+                            if content and content not in response["d"]["content"]:
                                 embeds.append({
                                     "type": embed["type"],
                                     "name": None,
@@ -604,7 +602,7 @@ class Gateway():
                             content = content.strip("\n")
                         else:
                             content = None
-                        if content and urllib.parse.urlparse(content).path not in response["d"]["content"]:
+                        if content and content not in response["d"]["content"]:
                             embeds.append({
                                 "type": embed["type"],
                                 "name": None,

@@ -1,5 +1,6 @@
 # xterm256 color palette
-# pallete is a tuple of rgb values that can be used in pillow's putpalette
+# pallete is a tuple of rgb values
+# palette_short is pallete without first 16 colors, used in pillow's putpalette
 # colors is a tuple of tuples each containing rgb values, where index is 8bit ANSI color code
 
 palette = (
@@ -237,4 +238,5 @@ palette = (
     255, 255, 255,
 )
 
+palette_short = palette[16*3:]
 colors = tuple(palette[i:i+3] for i in range(0, len(palette), 3))

@@ -6,16 +6,17 @@
 endcord is a third-party feature rich Discord client, running entirely in terminal.  
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](##token).  
-[Alternate theme](./.github/screenshots/02.png) with continuous lines.  
+[Alternate theme](./.github/screenshots/02.png), [media with ASCII art](./.github/screenshots/03.png)  
 
 ## Features
 - Extremely low CPU and and RAM usage (~30MB)
 - Live chat, send message
+- View images, gifs, videos in terminal with ASCII art (`Ctrl+V`)
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
-- Download attachments (`Ctrl+W`)
+- Download/upload attachments (`Ctrl+W/U`)
 - Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
-- When replying: toggle reply ping (`Ctrl+P`)
+- Toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Hidden channels
@@ -43,7 +44,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
-- Customizable colors
+- Customizable colors, ASCII art
 - Automatic recovery on network failure
 - Remember last open channel and tree state
 - Resizable (unstable)
@@ -92,11 +93,13 @@ Go to replied message - `Ctrl+G`
 Copy message to clipboard - `Ctrl+B`  
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
+View attached media (image, gif, video) - `Ctrl+V`  
 Upload attachments - `Ctrl+U`  
 Cancel all downloads/uploads - `Ctrl+X`  
 Cancel selected attachment - `Ctrl+K`  
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
+Cancel action, leave media viewer - `Escape`
 Quit - `Ctrl+C`  
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  
@@ -135,14 +138,21 @@ Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.i
 `[theme]` section in `config.ini` is default theme. If custom theme is provided eiter with argument or in `[main]` section, those values wil be used.  
 Same format and entries as in `config.ini` are used in custom themes (as separate file). If any value is missing, it will be loaded from `config.ini`, and if its missing there too, default value will be used.  
 If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, in the same location where config is.
+### Media support
+Very large number of image and video formats are supported thanks to pillow and PyAV.  
+All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
+Audio is also played along with the video.  
+"endcord-lite", without media support, can be built by not specifying `--dev` flag when installing dependencies. Lite version is significantly smaller in size.  
 
 ## Installing
 ### Linux
-- From AUR: `yay -S endcord`  
+- From AUR:
+    - `yay -S endcord` - full version with media support, larger executable
+    - `yay -S endcord-lite` - lite version without media support
 - Build, then copy built executable to system:  
     `sudo cp dist/endcord /usr/local/sbin/`
 Optional dependencies:  
-- `xcopy` - Clipboard support on X11  
+- `xclip` - Clipboard support on X11  
 - `wl-clipboard` - Clipboard support on Wayland  
 - `aspell` - Spellchecking
 
@@ -155,16 +165,19 @@ Optional dependencies:
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
 2. Install [pipenv](https://docs.pipenv.org/install/)
 3. `cd endcord`
-4. Install requirements: `pipenv install --dev`
+4. Install requirements:
+    - to build full endcord: `pipenv install --dev`
+    - to build endcord-lite `pipenv install`
 5. run build script: `pipenv run python build.py`
-
 ### Windows
 1. Install [Python](https://www.python.org/) 3.12 or later
 2. Install [pipenv](https://docs.pipenv.org/install/) (optional)
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
-5. Install requirements: `pipenv install --dev`  
-    - Additional requirements: `pipenv install win10toast win11toast windows-curses`
+5. Install requirements:
+    - to build full endcord: `pipenv install --dev`
+    - to build endcord-lite `pipenv install`
+    - Additional requirements for Windows: `pipenv install win10toast win11toast windows-curses`
 6. Run build script: `pipenv run python build.py`
 #### Without pipenv:  
 5. Open `Pipfile` with text editor and install all packages and dev-packages with pip.
@@ -198,6 +211,11 @@ If you did something particular with endcord that caused the ban, open an issue 
 ### Debug files
 Anonymized data that might help in debugging is saved in `Debug` directory, at the same place where log file is.  
 All channel and server names, topics, descriptions are replaced. All channel and server IDs are added to random number and hashed, so they are irreversible changed, and will be different on each run.
+### Some role colors are wrong
+This is an [issue](https://github.com/python/cpython/issues/119138) with cpython ncurses API. It is ignoring color prirs with ID larger than 255. This means only 255 color pairs can actually be used.  
+This will be updated in endcord when cpython issue is resolved.
+All custom color pairs are initialized first, so only role colors can pass this limit.  
+For each role with color, 2 pairs are initialized. Role colors are dynamically loaded (WIP), so this can now happen only when guild has really much roles.
 
 ## Planned features
 Go to [TODO](todo.txt).

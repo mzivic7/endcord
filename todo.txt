@@ -1,7 +1,8 @@
 HIGH PRIORITY:
-optional media with ascii art (Ctrl+I, escape)
+dynamic role colors loading
 
 TO FIX:
+fix rpc with custom images
 fix some servers not in tree
 fix not getting events from large servers
 
