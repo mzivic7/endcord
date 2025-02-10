@@ -64,7 +64,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     To list all installed languages, run `aspell dump dicts`.
     Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
 - `mute_video = False`  
-    Wether to mute video or not. If tru, will not initialize audio at all.
+    Wether to mute video or not. If true, will not initialize audio at all.
+- `rpc_external = True`  
+    Wether to use external resources for Rich Presence (like custom pictures).
 
 ### Theme
 - `tree_width = 32`  
@@ -123,7 +125,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
-- `ascii_palette = "  ..',;:c*loexkO0XNW#%"`  
+- `ascii_palette = "  ..',;:c*loexk#O0XNW"`  
     Characters used to draw in terminal. From darkest to brightest. Same character can be repeated. Number of characters is not fixed.
 - `saturation = 1.2`  
     Saturation correction applied to image in order to make colors more visible. Adjust if changing `ascii_palette` or color_media_bg.

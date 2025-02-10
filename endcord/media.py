@@ -20,7 +20,7 @@ class CursesMedia():
         logging.getLogger("libav").setLevel(logging.ERROR)
         self.screen = screen
         self.font_scale = config["font_scale"]   # 2.25
-        self.ascii_palette = config["ascii_palette"]   # "  ..',;:c*loexkO0XNW#%"
+        self.ascii_palette = config["ascii_palette"]   # "  ..',;:c*loexk#O0XNW"
         self.saturation = config["saturation"]   # 1.2
         self.target_fps = config["target_fps"]   # 30
         self.color_media_bg = config["color_media_bg"]   # -1
@@ -98,7 +98,7 @@ class CursesMedia():
                 self.screen.insstr(y + filler_h, 0, " " * filler_w, curses.color_pair(self.start_color_id+1))
             for x in range(width):
                 character = self.ascii_palette[round(pixels_gray[x, y] * self.ascii_palette_len / 255)]
-                color = self.start_color_id + pixels[x, y] + 17
+                color = self.start_color_id + pixels[x, y] + 16
                 self.screen.insch(y + filler_h, x + filler_w, character, curses.color_pair(color))
             if x + filler_w + 1 < screen_width:
                 self.screen.insstr(y + filler_h, x + filler_w + 1, " " * (screen_width - (x + filler_w + 1)) + "/n", curses.color_pair(self.start_color_id+1))

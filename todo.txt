@@ -1,8 +1,5 @@
 HIGH PRIORITY:
 dynamic role colors loading
-
-TO FIX:
-fix rpc with custom images
 fix some servers not in tree
 fix not getting events from large servers
 

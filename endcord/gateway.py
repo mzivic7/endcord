@@ -376,7 +376,7 @@ class Gateway():
                                 "name": activity["emoji"].get("name"),
                                 "animated": activity["emoji"].get("animated", False),
                             }
-                        elif activity["type"] == 0:
+                        elif activity["type"] in (0, 2):
                             if "assets" in activity:
                                 small_text = activity["assets"].get("small_text")
                                 large_text = activity["assets"].get("large_text")

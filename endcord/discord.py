@@ -66,9 +66,10 @@ class Discord():
     def get_user(self, user_id, extra=False):
         """Get relevant informations about specified user"""
         message_data = None
+        url = f"/api/v9/users/{user_id}/profile"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v9/users/{user_id}/profile", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -105,9 +106,10 @@ class Discord():
     def get_user_guild(self, user_id, guild_id):
         """Get relevant informations about specified user in a guild"""
         message_data = None
+        url = f"/api/v9/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v9/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -141,8 +143,9 @@ class Discord():
         3 - group DM (name is not None)
         """
         message_data = None
+        url = f"/api/v9/users/{self.my_id}/channels"
         connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-        connection.request("GET", f"/api/v9/users/{self.my_id}/channels", message_data, self.header)
+        connection.request("GET", url, message_data, self.header)
         response = connection.getresponse()
         if response.status == 200:
             data = json.loads(response.read())
@@ -184,9 +187,10 @@ class Discord():
         15 - forum (contains only threads)
         """
         message_data = None
+        url = f"/api/v9/guilds/{guild_id}/channels"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v9/guilds/{guild_id}/channels", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -435,9 +439,10 @@ class Discord():
         if num == 2 and self.cache_proto_1:
             return self.cache_proto_2
         message_data = None
+        url = f"/api/v9/users/@me/settings-proto/{num}"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v9/users/@me/settings-proto/{num}", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -454,12 +459,13 @@ class Discord():
         return None
 
 
-    def get_application_rpc(self, app_id):
+    def get_rpc_app(self, app_id):
         """Get data about Discord RPC application"""
         message_data = None
+        url = f"/api/v9/oauth2/applications/{app_id}/rpc"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v9/oauth2/applications/{app_id}/rpc", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -474,12 +480,13 @@ class Discord():
         return None
 
 
-    def get_application_assets(self, app_id):
+    def get_rpc_app_assets(self, app_id):
         """Get Discord application assets list"""
         message_data = None
+        url = f"/api/v9/oauth2/applications/{app_id}/assets"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("GET", f"/api/v9/oauth2/applications/{app_id}/assets", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -493,6 +500,23 @@ class Discord():
                 })
             return assets
         logger.error(f"Failed to fetch application assets. Response code: {response.status}")
+        return None
+
+
+    def get_rpc_app_external(self, app_id, asset_url):
+        """Get Discord application external assets"""
+        url = f"/api/v9/applications/{app_id}/external-assets"
+        message_data = json.dumps({"urls": [asset_url]})
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            # no oauth2 here
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status == 200:
+            return json.loads(response.read())
+        logger.error(f"Failed to fetch application external assets. Response code: {response.status}")
         return None
 
 
@@ -552,9 +576,10 @@ class Discord():
                         "uploaded_filename": attachment["upload_filename"],
                     })
         message_data = json.dumps(message_dict)
+        url = f"/api/v9/channels/{channel_id}/messages"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v9/channels/{channel_id}/messages", message_data, self.header)
+            connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -595,9 +620,10 @@ class Discord():
     def send_update_message(self, channel_id, message_id, message_content):
         """Update the message in the channel"""
         message_data = json.dumps({"content": message_content})
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("PATCH", f"/api/v9/channels/{channel_id}/messages/{message_id}", message_data, self.header)
+            connection.request("PATCH", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -629,9 +655,10 @@ class Discord():
     def send_delete_message(self, channel_id, message_id):
         """Delete the message from the channel"""
         message_data = None
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("DELETE", f"/api/v9/channels/{channel_id}/messages/{message_id}", message_data, self.header)
+            connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -648,10 +675,11 @@ class Discord():
             "last_viewed": last_viewed,
             "token": None,
         })
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}/ack"
         logger.debug("Sending message ack")
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v9/channels/{channel_id}/messages/{message_id}/ack", message_data, self.header)
+            connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -664,9 +692,10 @@ class Discord():
     def send_typing(self, channel_id):
         """Set '[username] is typing...' status on specified channel"""
         message_data = None
+        url = f"/api/v9/channels/{channel_id}/typing"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v9/channels/{channel_id}/typing", message_data, self.header)
+            connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None
@@ -693,9 +722,10 @@ class Discord():
                 "is_clip": peripherals.get_is_clip(path),
             }],
         })
+        url = f"/api/v9/channels/{channel_id}/attachments"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("POST", f"/api/v9/channels/{channel_id}/attachments", message_data, self.header)
+            connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None, 1
@@ -761,9 +791,10 @@ class Discord():
         """Cancel uploaded attachments"""
         attachment_name = urllib.parse.quote(attachment_name, safe="")
         message_data = None
+        url = f"/api/v9/attachments/{attachment_name}"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
-            connection.request("DELETE", f"/api/v9/attachments/{attachment_name}", message_data, self.header)
+            connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             return None

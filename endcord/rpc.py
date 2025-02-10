@@ -7,9 +7,11 @@ import threading
 
 logger = logging.getLogger(__name__)
 DISCORD_SOCKET = "/run/user/1000/discord-ipc-0"
-DISCORD_ASSETS_WHITELIST = (
+DISCORD_ASSETS_WHITELIST = (   # assets passed from RPC app to discord as text
     "large_text",
     "small_text",
+    "large_image",   # external images are text
+    "small_image",
 )
 
 def receive_data(connection):
@@ -40,7 +42,7 @@ def send_data(connection, op, data):
 class RPC:
     """Main RPC class"""
 
-    def __init__(self, discord, user):
+    def __init__(self, discord, user, config):
         if os.path.exists(DISCORD_SOCKET):
             os.unlink(DISCORD_SOCKET)
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -48,6 +50,7 @@ class RPC:
         self.discord = discord
         self.run = True
         self.changed = False
+        self.external = config["rpc_external"]
         self.presences = []
         self.dispatch = {
             "cmd": "DISPATCH",
@@ -66,7 +69,7 @@ class RPC:
                     "avatar": user["extra"]["avatar"],
                     "avatar_decoration_data": user["extra"]["avatar_decoration_data"],
                     "bot": False,
-                    "flags": user["extra"]["flags"],
+                    "flags": 32,
                     "premium_type": user["extra"]["premium_type"],
                 },
             },
@@ -83,8 +86,8 @@ class RPC:
             op, init_data = receive_data(connection)
             app_id = init_data["client_id"]
             logger.debug(f"RPC app id: {app_id}")
-            rpc_data = self.discord.get_application_rpc(app_id)
-            rpc_assets = self.discord.get_application_assets(app_id)
+            rpc_data = self.discord.get_rpc_app(app_id)
+            rpc_assets = self.discord.get_rpc_app_assets(app_id)
             if rpc_data and rpc_assets:
                 send_data(connection, 1, self.dispatch)
                 while self.run:
@@ -94,25 +97,46 @@ class RPC:
                     logger.debug(f"Received: {json.dumps(data, indent=2)}")
 
                     if data["cmd"] == "SET_ACTIVITY":
-                        # adding everything thats missing
                         activity = data["args"]["activity"]
+                        activity_type = activity.get("type", 0)
+                        # add everything thats missing
                         activity["application_id"] = app_id
                         activity["name"] = rpc_data["name"]
                         assets = {}
                         for asset_client in activity["assets"]:
-                            if asset_client in DISCORD_ASSETS_WHITELIST:
-                                # some assets are just text, copy them over
-                                assets[asset_client] = activity["assets"][asset_client]
-                                continue
+                            found = False
                             # check if asset is an image
-                            for asset_app in rpc_assets:
-                                if activity["assets"][asset_client] == asset_app["name"]:
-                                    assets[asset_client] = asset_app["id"]
-                                    break
+                            if "image" in asset_client:
+                                for asset_app in rpc_assets:
+                                    if activity["assets"][asset_client] == asset_app["name"]:
+                                        assets[asset_client] = asset_app["id"]
+                                        found = True
+                                        break
+                            if not found:
+                                # check if asset is external link
+                                if activity["assets"][asset_client][:8] == "https://":
+                                    if self.external:
+                                        external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
+                                        assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
+                                    else:
+                                        external_asset = activity["assets"][asset_client]
+                                    continue
+                                # if its text, copy whitelisted assets over
+                                if asset_client in DISCORD_ASSETS_WHITELIST:
+                                    assets[asset_client] = activity["assets"][asset_client]
+                                    continue
+                        # multiply timestamps by 1000
+                        if "timestamps" in activity:
+                            if "start" in activity["timestamps"]:
+                                activity["timestamps"]["start"] *= 1000
+                            if "end" in activity["timestamps"]:
+                                activity["timestamps"]["end"] *= 1000
                         activity["assets"] = assets
+                        if activity_type == 2:
+                            activity.pop("flags", None)
                         activity["flags"] = 1
-                        activity["type"] = 0
-                        activity.pop("instance")
+                        activity["type"] = activity_type
+                        activity.pop("instance", None)
 
                         # self.changed will be true only when presence data has been updated
                         found = False
@@ -176,5 +200,6 @@ class RPC:
         """Get RPC events for all connected apps, only when presence has changed."""
         if self.changed:
             self.changed = False
+            logger.debug(f"Sending: {json.dumps(self.presences, indent=2)}")
             return self.presences
         return None

@@ -1379,7 +1379,7 @@ class Endcord:
         self.send_message_thread.start()
 
         if self.enable_rpc:
-            self.rpc = rpc.RPC(self.discord, self.my_user_data)
+            self.rpc = rpc.RPC(self.discord, self.my_user_data, self.config)
             self.rpc_thread = threading.Thread(target=self.rpc.server_thread, daemon=True, args=())
             self.rpc_thread.start()
 
