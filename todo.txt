@@ -1,14 +1,13 @@
 HIGH PRIORITY:
 dynamic role colors loading
+spoilers
+code-blocks, dont format code blocks
+keybinding
+dont regenerate whole chat, only changed part
 fix some servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
-spoilers and code-blocks, dont format code blocks
-keybinding
-dont regenerate whole chat, only changed part
-
-LOW PRIORITY:
 forums and threads
 show summaries and channel topic
 search and go to messages (Ctrl+F)
@@ -17,8 +16,8 @@ member list
 show user info
 vi-mode?
 
-VERY LOW PRIORITY:
-media player: zoom, seek, pause
+LOW PRIORITY:
+media player: zoom, seek, pause, play audio
 tabs
 dangerous features (sending friend request, starting DM)
 better windows support (building, ctrl+key, emoji character, rpc)
@@ -26,5 +25,6 @@ better mac-os support (building, testing, spellchecking)
 
 MAYBE:
 mouse controls
-voice messages
-voice and video calls (normal/ascii)
+recording voice messages
+voice and video calls
+non-ascii araphics

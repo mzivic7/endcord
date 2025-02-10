@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import sys
+import traceback
 
 from endcord import app, arg, peripherals
 
@@ -28,6 +29,12 @@ logging.basicConfig(
 
 def sigint_handler(_signum, _frame):
     """Handling Ctrl-C event"""
+    try:
+        curses.nocbreak()   # in case curses.wrapper doesnt restore terminal
+        curses.echo()
+        curses.endwin()
+    except curses.error:
+        pass
     sys.exit(0)
 
 
@@ -46,7 +53,13 @@ def main(args):
         config["token"] = token
     if args.debug or config["debug"]:
         logging.getLogger().setLevel(logging.DEBUG)
-    curses.wrapper(app.Endcord, config)
+    try:
+        curses.wrapper(app.Endcord, config)
+    except curses.error as e:
+        if str(e) != "endwin() returned ERR":
+            logger.error(traceback.format_exc())
+            sys.exit("Curses error, see logs for more info")
+    sys.exit(0)
 
 if __name__ == "__main__":
     args = arg.parser(APP_NAME, VERSION, default_config_path, log_path)
