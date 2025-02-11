@@ -223,15 +223,14 @@ class Gateway():
                                 "id": role["id"],
                                 "name": role["name"],
                                 "color": role["color"],
-                                "position": role["position"],   # for sorting only
-                                "hoist": role["hoist"],   # for sorting only
+                                "position": role["position"],   # for sorting
+                                "hoist": role["hoist"],   # separated from online members
                                 # "flags": role["flags"],   # flags=1 - self-assign
                                 # "managed": role["managed"],   # for bots
                             })
                         # sort roles
                         guild_roles = sorted(guild_roles, key=lambda x: x.get("position"), reverse=True)
-                        guild_roles = sorted(guild_roles, key=lambda x: x.get("hoist", False), reverse=True)
-                        guild_roles = sorted(guild_roles, key=lambda x: bool(x.get("color")), reverse=True)
+                        guild_roles = sorted(guild_roles, key=lambda x: not bool(x.get("color")))
                         self.roles.append({"guild_id": guild_id, "roles": guild_roles})
                     # DM channels
                     for dm in response["d"]["private_channels"]:

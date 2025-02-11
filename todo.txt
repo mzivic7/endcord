@@ -1,6 +1,4 @@
 HIGH PRIORITY:
-Add toggle emoji font
-Fix role sorting
 spoilers
 code-blocks, dont format code blocks
 keybinding
