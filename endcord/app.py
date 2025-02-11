@@ -224,12 +224,14 @@ class Endcord:
         if self.keep_deleted:
             self.cache_deleted()
 
+        # update active channel
         self.active_channel["guild_id"] = guild_id
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
         self.active_channel["channel_name"] = channel_name
         self.add_running_task("Switching channel", 1)
 
+        # get my guild roles
         if self.active_channel["guild_id"]:
             my_user = self.discord.get_user_guild(self.my_id, self.active_channel["guild_id"])   # using this as ping
             if my_user:
@@ -247,27 +249,40 @@ class Endcord:
                 return
             self.my_rolse = []
 
-        self.current_roles = []
-        for roles in self.all_roles:
-            if roles["guild_id"] == self.active_channel["guild_id"]:
-                self.current_roles = roles["roles"]
-                break
-        self.select_current_member_roles()
+        # update list of this server channels
         self.current_channels = []
         for guild_channels in self.guilds:
             if guild_channels["guild_id"] == self.active_channel["guild_id"]:
                 self.current_channels = guild_channels["channels"]
                 break
+
+        # fetch messages
         self.messages = self.get_messages_with_members()
         if self.messages:
             self.last_message_id = self.messages[0]["id"]
 
+        # misc
         self.typing = []
         self.chat_end = False
         self.selected_attachment = 0
         self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
         self.set_seen(self.active_channel["channel_id"])
 
+        # manage roles
+        self.all_roles = self.tui.init_role_colors(
+            self.all_roles,
+            self.default_msg_color[1],
+            self.default_msg_alt_color[1],
+            guild_id=self.active_channel["guild_id"],
+        )
+        self.current_roles = []
+        for roles in self.all_roles:
+            if roles["guild_id"] == self.active_channel["guild_id"]:
+                self.current_roles = roles["roles"]
+                break
+        self.select_current_member_roles()
+
+        # update UI
         self.update_chat(keep_selected=False)
         self.update_extra_line()
         self.update_prompt()
@@ -1305,7 +1320,6 @@ class Endcord:
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
         self.all_roles = color.convert_role_colors(self.all_roles)
-        self.all_roles = self.tui.init_role_colors(self.all_roles, self.default_msg_color[1], self.default_msg_alt_color[1])
         self.color_cache = self.tui.get_color_cache()
         last_free_color_id = self.tui.get_last_free_color_id()
         if support_media:

@@ -18,6 +18,9 @@ else:
     print("Media support is disabled")
 
 if sys.platform == "win32":
+    print("Installing additional dependencies")
+    command = "pipenv install win10toast win11toast windows-curses"
+    os.system(command)
     command = f'pipenv run python -m PyInstaller {hidden_imports}--noconfirm --onefile --windowed --clean --name {pkgname} "main.py"'
     os.system(command)
 elif sys.platform == "linux":

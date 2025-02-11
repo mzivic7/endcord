@@ -229,8 +229,8 @@ class Gateway():
                                 # "managed": role["managed"],   # for bots
                             })
                         # sort roles
-                        guild_roles = sorted(guild_roles, key=lambda x: x.pop("position"), reverse=True)
-                        guild_roles = sorted(guild_roles, key=lambda x: x.pop("hoist", False), reverse=True)
+                        guild_roles = sorted(guild_roles, key=lambda x: x.get("position"), reverse=True)
+                        guild_roles = sorted(guild_roles, key=lambda x: x.get("hoist", False), reverse=True)
                         guild_roles = sorted(guild_roles, key=lambda x: bool(x.get("color")), reverse=True)
                         self.roles.append({"guild_id": guild_id, "roles": guild_roles})
                     # DM channels

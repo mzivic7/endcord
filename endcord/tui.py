@@ -14,6 +14,15 @@ def ctrl(x):
     return x - 96
 
 
+def set_list_item(input_list, item, index):
+    """Replace existing item or append to list if it doesnt exist"""
+    try:
+        input_list[index] = item
+    except IndexError:
+        input_list.append(item)
+    return input_list
+
+
 class TUI():
     """Methods used to draw terminal user interface"""
 
@@ -43,6 +52,8 @@ class TUI():
         self.init_pair(config["color_cursor"])   # 15
         self.init_pair(config["color_chat_selected"])
         self.init_pair(config["color_status_line"])
+        self.color_default = 1
+        self.role_color_start_id = 1   # starting id for role colors
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -356,6 +367,8 @@ class TUI():
                                     for attribute in color:
                                         color_ready |= attribute
                                 else:
+                                    if color > 255:   # set all colors after 255 to default color
+                                        color = self.color_default
                                     color_ready = curses.color_pair(color) | self.attrib_map[color]
                                 try:
                                     # cant insch weird characters, but this is faster than always calling insstr
@@ -602,7 +615,7 @@ class TUI():
             self.win_prompt.refresh()
 
 
-    def init_pair(self, color):
+    def init_pair(self, color, force_id=None):
         """Initialize color pair while keeping track of last unused id, and store its attribute in attr_map"""
         if len(color) == 2:
             fg, bg = color
@@ -618,19 +631,26 @@ class TUI():
                 attribute = curses.A_ITALIC
             else:
                 attribute = 0
-        curses.init_pair(self.last_free_id, fg, bg)
-        self.color_cache.append((fg, bg))
-        self.attrib_map.append(attribute)
+        if force_id:
+            curses.init_pair(force_id, fg, bg)
+            self.color_cache = set_list_item(self.color_cache, (fg, bg), force_id)
+            self.attrib_map = set_list_item(self.attrib_map, attribute, force_id)
+        else:
+            curses.init_pair(self.last_free_id, fg, bg)
+            self.color_cache.append((fg, bg))
+            self.attrib_map.append(attribute)
         self.last_free_id += 1
         return self.last_free_id - 1
 
 
     def init_colors(self, colors):
-        """Initializes multiple color pairs"""
+        """Initialize multiple color pairs"""
         color_codes = []
         for color in colors:
             pair_id = self.init_pair(color)
             color_codes.append(pair_id)
+        self.color_default = color_codes[0]
+        self.role_color_start_id = self.last_free_id
         return color_codes
 
 
@@ -655,12 +675,20 @@ class TUI():
                 pair_id = self.init_pair(color[:3])
                 format_codes.append([pair_id, *color[3:]])
             color_codes.append(format_codes)
+        self.role_color_start_id = self.last_free_id
         return color_codes
 
 
-    def init_role_colors(self, all_roles, bg, alt_bg):
-        """Initialize 2 pairs of role colors: 2 different backgrounds"""
+    def init_role_colors(self, all_roles, bg, alt_bg, guild_id=None):
+        """Initialize 2 pairs of role colors for different backgrounds, for all or specific guild"""
+        if guild_id:
+            selected_id = self.role_color_start_id
+        else:
+            selected_id = None
         for guild in all_roles:
+            if guild_id:
+                if guild["guild_id"] != guild_id:
+                    continue
             for role in guild["roles"]:
                 color = role["ansi"]
                 found = False
@@ -676,10 +704,14 @@ class TUI():
                     if found:
                         break
                 if not found:
-                    pair_id = self.init_pair((color, bg))
+                    pair_id = self.init_pair((color, bg, selected_id))
                     role["color_id"] = pair_id
-                    pair_id = self.init_pair((color, alt_bg))
+                    pair_id = self.init_pair((color, alt_bg, selected_id))
                     role["alt_color_id"] = pair_id
+                    if guild_id:
+                        selected_id += 1
+            if guild_id:
+                break
         return all_roles
 
 
