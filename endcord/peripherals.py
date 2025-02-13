@@ -239,6 +239,7 @@ def extract_colors_formatted(config):
         # not complex but is here so it can be initialized for alt bg color
         [check_color(config["color_chat_edited"])],
         [check_color(config["color_chat_url"])],
+        [check_color(config["color_chat_spoiler"])],
     )
 
 

@@ -190,6 +190,8 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for `edited_string`.
 - `color_chat_url = [153, -1, "u"]`  
     Color for urls in message content and embeds.
+- `color_chat_spoiler = [245, -1]`  
+    Color for spoilers in message.
 - `color_media_bg = -1`  
     single color value for background color when showing media.
 

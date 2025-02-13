@@ -32,8 +32,8 @@ Discord token is required in order to run endcord! see [Token](##token).
 - Open link in browser (`Ctrl+O`)
 - Infinite chat scrolling
 - Keep deleted messages (OFF by default)
-- Show who is typing
 - Highlight messages with mentions
+- Show who is typing
 - Send 'typing' (ON by default)
 - Insertable newline in input line (`Ctr+N`)
 - Copy message text to clipboard (`Ctrl+H`)
@@ -41,6 +41,7 @@ Discord token is required in order to run endcord! see [Token](##token).
 - No ghost pings (hopefully)
 - Role colors in chat
 - Date separtors in chat
+- Partial markdown support (underline, bold, italic, spoiler)
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
@@ -97,9 +98,10 @@ View attached media (image, gif, video) - `Ctrl+V`
 Upload attachments - `Ctrl+U`  
 Cancel all downloads/uploads - `Ctrl+X`  
 Cancel selected attachment - `Ctrl+K`  
+Reveal one spoiler in selected messages - `Ctrl+T`  
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
-Cancel action, leave media viewer - `Escape`
+Cancel action, leave media viewer - `Escape`  
 Quit - `Ctrl+C`  
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  

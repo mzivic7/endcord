@@ -436,7 +436,7 @@ class Endcord:
             # set reply
             elif action == 1 and self.messages:
                 self.reset_actions()
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 if "deleted" not in self.messages[msg_index]:
                     if self.messages[msg_index]["user_id"] == self.my_id:
                         mention = None
@@ -453,7 +453,7 @@ class Endcord:
 
             # set edit
             elif action == 2 and self.messages:
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
                         self.reset_actions()
@@ -465,7 +465,7 @@ class Endcord:
 
             # set delete
             elif action == 3 and self.messages:
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
                         self.add_to_store(self.active_channel["channel_id"], input_text)
@@ -495,7 +495,7 @@ class Endcord:
             # go to replied message
             elif action == 8 and self.messages:
                 self.going_to = input_text
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["referenced_message"]:
                     reference_id = self.messages[msg_index]["referenced_message"]["id"]
                     if reference_id:
@@ -503,7 +503,7 @@ class Endcord:
 
             # download file / open media
             elif action == 9:
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 urls = []
                 for embed in self.messages[msg_index]["embeds"]:
                     if embed["url"]:
@@ -529,7 +529,7 @@ class Endcord:
 
             # open link in browser
             elif action == 10:
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 urls = []
                 for url in re.findall(match_url, self.messages[msg_index]["content"]):
                     urls.append(url[0])
@@ -556,7 +556,7 @@ class Endcord:
 
             # download and open media attachment
             elif action == 17 and support_media:
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 urls = []
                 for embed in self.messages[msg_index]["embeds"]:
                     embed_type = embed["type"].split("/")[0]
@@ -592,7 +592,7 @@ class Endcord:
 
             # copy message to clipboard
             elif action == 12 and self.messages:
-                msg_index = self.lines_to_msg(chat_sel + 1)
+                msg_index = self.lines_to_msg(chat_sel)
                 self.going_to = input_text   # reusing variable
                 peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
 
@@ -623,6 +623,16 @@ class Endcord:
                 self.going_to = input_text   # reusing variable
                 self.cancel_attachment()
                 self.update_extra_line()
+
+            # reveal one-by-one spoiler in a message
+            elif action == 18:
+                msg_index = self.lines_to_msg(chat_sel)
+                self.going_to = input_text   # reusing variable
+                if "spoiled" in self.messages[msg_index]:
+                    self.messages[msg_index]["spoiled"] += 1
+                else:
+                    self.messages[msg_index]["spoiled"] = 1
+                self.update_chat(keep_selected=True)
 
             # escape key in main UI
             elif action == 5:
@@ -938,7 +948,7 @@ class Endcord:
         found = False
         for num, message in enumerate(self.messages):
             if message["id"] == message_id:
-                self.tui.set_selected(self.msg_to_lines(num + 1) - 2)   # idk
+                self.tui.set_selected(self.msg_to_lines(num))
                 found = True
                 break
 
@@ -952,7 +962,7 @@ class Endcord:
             for num, message in enumerate(self.messages):
                 if message["id"] == message_id:
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                    self.tui.set_selected(self.msg_to_lines(num + 1) - 2)
+                    self.tui.set_selected(self.msg_to_lines(num))
                     break
 
 
@@ -1228,14 +1238,14 @@ class Endcord:
         total_len = 0
         for num, msg_len in enumerate(self.chat_indexes):
             total_len += msg_len
-            if total_len >= lines:
+            if total_len >= lines + 1:
                 return num
         return 0
 
 
     def msg_to_lines(self, msg):
         """Convert message index to line index from formatted chat"""
-        return sum(self.chat_indexes[:msg]) + 1
+        return sum(self.chat_indexes[:msg + 1]) - 1
 
 
     def set_seen(self, channel_id, force=False):
@@ -1444,6 +1454,7 @@ class Endcord:
                                     if op == "MESSAGE_UPDATE":
                                         for element in MESSAGE_UPDATE_ELEMENTS:
                                             loaded_message[element] = data[element]
+                                            loaded_message["spoiled"] = 0
                                         self.update_chat()
                                     elif op == "MESSAGE_DELETE":
                                         self.messages[num]["deleted"] = True

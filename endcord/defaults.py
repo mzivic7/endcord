@@ -82,6 +82,7 @@ theme = {
     "color_format_reactions": [[245, -1], [131, -2, 0, 0, 7], [-1, -2, 0, 23, 27]],
     "color_chat_edited": [241, -1],
     "color_chat_url": [153, -1, "u"],
+    "color_chat_spoiler": [245, -1],
     "ascii_palette": "  ..',;:c*loexk#O0XNW",
     "saturation": 1.2,
     "target_fps": 30,

@@ -963,29 +963,26 @@ class TUI():
                 self.input_index += 1
                 self.show_cursor()
 
-            elif key == ctrl(114):   # CTRL+R
-                if self.chat_selected != -1:
-                    self.replying_msg = True
-                    self.deleting_msg = False
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    return tmp, self.chat_selected, self.tree_selected_abs, 1
+            elif key == ctrl(114) and self.chat_selected != -1:   # CTRL+R
+                self.replying_msg = True
+                self.deleting_msg = False
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 1
 
-            elif key == ctrl(101):   # CTRL+E
-                if self.chat_selected != -1:
-                    self.deleting_msg = False
-                    self.replying_msg = False
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    return tmp, self.chat_selected, self.tree_selected_abs, 2
+            elif key == ctrl(101) and self.chat_selected != -1:   # CTRL+E
+                self.deleting_msg = False
+                self.replying_msg = False
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 2
 
-            elif key == ctrl(100):   # CTRL+D
-                if self.chat_selected != -1:
-                    self.replying_msg = False
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    self.deleting_msg = True
-                    return tmp, self.chat_selected, self.tree_selected_abs, 3
+            elif key == ctrl(100) and self.chat_selected != -1:   # CTRL+D
+                self.replying_msg = False
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.deleting_msg = True
+                return tmp, self.chat_selected, self.tree_selected_abs, 3
 
             elif key == ctrl(98):   # CTRL+B
                 tmp = self.input_buffer
@@ -1009,25 +1006,22 @@ class TUI():
                 self.input_buffer = ""
                 return "y", self.chat_selected, self.tree_selected_abs, 0
 
-            elif key == ctrl(103):   # CTRL+G
-                if self.chat_selected != -1:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    return tmp, self.chat_selected, self.tree_selected_abs, 8
+            elif key == ctrl(103) and self.chat_selected != -1:   # CTRL+G
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 8
 
-            elif key == ctrl(119):   # CTRL+W
-                if self.chat_selected != -1:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    self.asking_num = True
-                    return tmp, self.chat_selected, self.tree_selected_abs, 9
+            elif key == ctrl(119) and self.chat_selected != -1:   # CTRL+W
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.asking_num = True
+                return tmp, self.chat_selected, self.tree_selected_abs, 9
 
-            elif key == ctrl(111):   # CTRL+O
-                if self.chat_selected != -1:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    self.asking_num = True
-                    return tmp, self.chat_selected, self.tree_selected_abs, 10
+            elif key == ctrl(111) and self.chat_selected != -1:   # CTRL+O
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.asking_num = True
+                return tmp, self.chat_selected, self.tree_selected_abs, 10
 
             elif key == ctrl(120):   # CTRL+X
                 tmp = self.input_buffer
@@ -1055,12 +1049,17 @@ class TUI():
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 16
 
-            elif key == ctrl(118):   # CTRL+V
-                if self.chat_selected != -1:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    self.asking_num = True
-                    return tmp, self.chat_selected, self.tree_selected_abs, 17
+            elif key == ctrl(118) and self.chat_selected != -1:   # CTRL+V
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.asking_num = True
+                return tmp, self.chat_selected, self.tree_selected_abs, 17
+
+            elif key == ctrl(116) and self.chat_selected != -1:   # CTRL+T
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.asking_num = True
+                return tmp, self.chat_selected, self.tree_selected_abs, 18
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

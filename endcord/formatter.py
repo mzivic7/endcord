@@ -20,6 +20,7 @@ match_escaped_md = re.compile(r"\\(?=[^a-zA-Z\d\s])")
 match_md_underline = re.compile(r"(?<!\\)((?<=_))?__[^_]+__")
 match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
 match_md_strikethrough = re.compile(r"(?<!\\)((?<=~))?~~[^~]+~~")   # unused
+match_md_spoiler = re.compile(r"(?<!\\)((?<=\|))?\|\|[^_]+\|\|")
 match_md_italic = re.compile(r"(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 
@@ -71,7 +72,7 @@ def day_from_snowflake(snowflake, timezone=True):
     return ((snowflake >> 22) + DISCORD_EPOCH_MS) / DAY_MS
 
 
-def clean_emojis(line):
+def replace_emojis(line):
     """
     Transform emoji strings into nicer looking ones:
     `some text <:emoji_name:emoi_id> more text` ---> `some text <emoji_name> more text`
@@ -85,7 +86,7 @@ def clean_emojis(line):
     return line
 
 
-def replace_mention(line, usernames_ids):
+def replace_mentions(line, usernames_ids):
     """
     Transforms mention string into nicer looking one:
     `some text <@user_id> more text` --> `some text @username more text`
@@ -135,6 +136,18 @@ def replace_escaped_md(line):
     return re.sub(match_escaped_md, "", line)
 
 
+def replace_spoilers_oneline(line):
+    """Replace spoiler: ||content|| with ACS_BOARD characters"""
+    for _ in range(10):   # lets have some limits
+        string_match = re.search(match_md_spoiler, line)
+        if not string_match:
+            break
+        start = string_match.start()
+        end = string_match.end()
+        line = line[:start] + "▒" * (end - start) + line[end:]
+    return line
+
+
 def format_md_all(line, content_start):
     """
     Replace all supported formatted markdown strings and return list of their formats.
@@ -179,19 +192,19 @@ def format_md_all(line, content_start):
     return line, line_format
 
 
-def format_url_one_line(urls, line_len, newline_len, color):
-    """Generate format for urls in one line"""
+def format_multiline_one_line(formats_range, line_len, newline_len, color):
+    """Generate format for multiline matches, for one line"""
     line_format = []
-    for url in urls:
-        if url[0] > line_len or url[1] < newline_len:
+    for format_range in formats_range:
+        if format_range[0] > line_len or format_range[1] < newline_len:
             continue
-        if url[0] >= newline_len:
-            if url[1] < line_len:
-                line_format.append([color, url[0], url[1]])
+        if format_range[0] >= newline_len:
+            if format_range[1] < line_len:
+                line_format.append([color, format_range[0], format_range[1]])
             else:
-                line_format.append([color, url[0], line_len])
-        elif url[1] < line_len:
-            line_format.append([color, newline_len, url[1]])
+                line_format.append([color, format_range[0], line_len])
+        elif format_range[1] < line_len:
+            line_format.append([color, newline_len, format_range[1]])
         else:
             line_format.append([color, newline_len, line_len])
     return line_format
@@ -277,15 +290,17 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     color_mention_chat_edited = colors_formatted[10][0]
     color_chat_url = colors_formatted[5][0][0]
     color_mention_chat_url = colors_formatted[11][0][0]
+    color_spoiler = colors_formatted[6][0][0]
+    color_mention_spoiler = colors_formatted[13][0][0]
     # load formatted colors: [[id], [id, start, end]...]
     color_message = colors_formatted[0]
     color_newline = colors_formatted[1]
     color_reply = colors_formatted[2]
     color_reactions = colors_formatted[3]
-    color_mention_message = colors_formatted[6]
-    color_mention_newline = colors_formatted[7]
-    color_mention_reply = colors_formatted[8]
-    color_mention_reactions = colors_formatted[9]
+    color_mention_message = colors_formatted[7]
+    color_mention_newline = colors_formatted[8]
+    color_mention_reply = colors_formatted[9]
+    color_mention_reactions = colors_formatted[10]
 
     placeholder_timestamp = generate_timestamp("2015-01-01T00:00:00.000000+00:00", format_timestamp)
     pre_content_len = len(format_message
@@ -317,16 +332,19 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         mentioned = False
         edited = message["edited"]
         user_id = message["user_id"]
+        selected_color_spoiler = color_spoiler
 
         # select base color
         color_base = color_default
         for mention in message["mentions"]:
             if mention["id"] == my_id:
                 mentioned = True
+                selected_color_spoiler = color_mention_spoiler
                 break
         for role in message["mention_roles"]:
             if bool([i for i in my_roles if i in message["mention_roles"]]):
                 mentioned = True
+                selected_color_spoiler = color_mention_spoiler
                 break
 
         # skip deleted
@@ -335,6 +353,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             if keep_deleted:
                 color_base = color_deleted
                 disable_formatting = True
+                selected_color_spoiler = color_deleted
             else:
                 continue
 
@@ -394,7 +413,12 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 reply_embeds = message["referenced_message"]["embeds"].copy()
                 content = ""
                 if message["referenced_message"]["content"]:
-                    content = replace_channels(replace_roles(replace_mention(clean_emojis(replace_escaped_md(message["referenced_message"]["content"])), message["referenced_message"]["mentions"]), roles), channels)
+                    content = replace_escaped_md(message["referenced_message"]["content"])
+                    content = replace_spoilers_oneline(content)
+                    content = replace_emojis(content)
+                    content = replace_mentions(content, message["referenced_message"]["mentions"])
+                    content = replace_roles(content, roles)
+                    content = replace_channels(content, channels)
                 if reply_embeds:
                     for embed in reply_embeds:
                         if embed["url"] not in content:
@@ -417,7 +441,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     .replace("%content", message["referenced_message"]["content"].replace("\r", "").replace("\n", ""))
                 )
             if len(reply_line) > max_length:
-                reply_line = reply_line[:max_length - 3] + "..."   # -3 to leave room for ""..."
+                reply_line = reply_line[:max_length - 3] + "..."   # -3 to leave room for "..."
             temp_chat.append(reply_line)
             if disable_formatting or reply_color_format == color_blocked:
                 temp_format.append([reply_color_format])
@@ -436,7 +460,11 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         embeds = message["embeds"]
         content = ""
         if message["content"]:
-            content = replace_channels(replace_roles(replace_mention(clean_emojis(message["content"]), message["mentions"]), roles), channels)
+            content = replace_escaped_md(message["content"])
+            content = replace_emojis(content)
+            content = replace_mentions(content, message["mentions"])
+            content = replace_roles(content, roles)
+            content = replace_channels(content, channels)
         if embeds:
             for embed in embeds:
                 if embed["url"] and embed["url"] not in content:
@@ -452,14 +480,19 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             .replace("%content", content)
         )
         message_line, md_format = format_md_all(message_line, pre_content_len)
-        message_line = replace_escaped_md(message_line)
-
 
         # find all urls
         urls = []
         if color_chat_url:
             for match in re.finditer(match_url, message_line):
                 urls.append([match.start(), match.end()])
+
+        # find all spoilers
+        spoilers = []
+        for match in re.finditer(match_md_spoiler, message_line):
+            spoilers.append([match.start(), match.end()])
+        # exclude spoiled messages
+        spoilers = spoilers[message.get("spoiled"):]
 
         # limit message_line and split to multiline
         newline_index = max_length
@@ -482,6 +515,14 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             message_line = message_line[:newline_index]
         else:
             next_line = None
+
+        # replace spoilers
+        format_spoilers = format_multiline_one_line(spoilers, newline_index+1, 0, selected_color_spoiler)
+        for spoiler_range in format_spoilers:
+            start = spoiler_range[1]
+            end = spoiler_range[2]
+            message_line = message_line[:start] + "▒" * (end - start) + message_line[end:]
+
         temp_chat.append(message_line)
 
         # formatting
@@ -491,7 +532,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             format_line = color_mention_message[:]
             format_line += md_format
             if color_chat_url:
-                format_line += format_url_one_line(urls, newline_index+1, 0, color_mention_chat_url)
+                format_line += format_multiline_one_line(urls, newline_index+1, 0, color_mention_chat_url)
+            format_line += format_spoilers
             if alt_role_color:
                 format_line.append([alt_role_color, pre_name_len, end_name])
             if edited and not next_line:
@@ -501,8 +543,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             format_line = color_message[:]
             format_line += md_format
             if color_chat_url:
-                new_format = format_url_one_line(urls, newline_index+1, 0, color_chat_url)
-                format_line += new_format
+                format_line += format_multiline_one_line(urls, newline_index+1, 0, color_chat_url)
+            format_line += format_spoilers
             if role_color:
                 format_line.append([role_color, pre_name_len, end_name])
             if edited and not next_line:
@@ -518,10 +560,15 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 .replace("%content", next_line)
             )
             new_line, md_format = format_md_all(new_line, pre_content_len)
+
+            # correct index for each new line
             content_index_correction = newline_len - 1 - newline_index
             for url in urls:
                 url[0] += content_index_correction
                 url[1] += content_index_correction
+            for spoiler in spoilers:
+                spoiler[0] += content_index_correction
+                spoiler[1] += content_index_correction
 
             # limit new_line and split to next line
             if len(new_line) > max_length:
@@ -538,15 +585,25 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 new_line = new_line[:newline_index]
             else:
                 next_line = None
-            # formatting
+
+            # replace spoilers
+            format_spoilers = format_multiline_one_line(spoilers, newline_index+1, newline_len, selected_color_spoiler)
+            for spoiler_range in format_spoilers:
+                start = spoiler_range[1]
+                end = spoiler_range[2]
+                new_line = new_line[:start] + "▒" * (end - start) + new_line[end:]
+
             temp_chat.append(new_line)
+
+            # formatting
             if disable_formatting:
                 temp_format.append([color_base])
             elif mentioned:
                 format_line = color_mention_newline[:]
                 format_line += md_format
                 if color_chat_url:
-                    format_line += format_url_one_line(urls, newline_index+1, newline_len, color_mention_chat_url)
+                    format_line += format_multiline_one_line(urls, newline_index+1, newline_len, color_mention_chat_url)
+                format_line += format_spoilers
                 if edited and not next_line:
                     format_line.append(color_mention_chat_edited + [len(new_line) - len_edited, len(new_line)])
                 temp_format.append(format_line)
@@ -554,7 +611,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 format_line = color_newline[:]
                 format_line += md_format
                 if color_chat_url:
-                    format_line += format_url_one_line(urls, newline_index+1, newline_len, color_chat_url)
+                    format_line += format_multiline_one_line(urls, newline_index+1, newline_len, color_chat_url)
+                format_line += format_spoilers
                 if edited and not next_line:
                     format_line.append([*color_chat_edited, len(new_line) - len_edited, len(new_line)])
                 temp_format.append(format_line)
