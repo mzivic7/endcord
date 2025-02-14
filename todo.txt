@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-code-blocks, dont format code blocks
 keybinding
 dont regenerate whole chat, only changed part
 fix some servers not in tree

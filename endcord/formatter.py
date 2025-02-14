@@ -21,6 +21,7 @@ match_md_underline = re.compile(r"(?<!\\)((?<=_))?__[^_]+__")
 match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
 match_md_strikethrough = re.compile(r"(?<!\\)((?<=~))?~~[^~]+~~")   # unused
 match_md_spoiler = re.compile(r"(?<!\\)((?<=\|))?\|\|[^_]+\|\|")
+match_md_code = re.compile(r"(?<!\\)`{1,3}[^`]+`{1,3}")
 match_md_italic = re.compile(r"(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 
@@ -128,12 +129,24 @@ def replace_channels(line, chanels_ids):
     return line
 
 
-def replace_escaped_md(line):
+def replace_escaped_md(line, except_ranges=None):
     r"""
     Replace escaped markdown characters.
     eg "\:" --> ":"
     """
-    return re.sub(match_escaped_md, "", line)
+    for match in re.finditer(match_escaped_md, line):
+        start = match.start()
+        end = match.end()
+        skip = False
+        for except_range in except_ranges:
+            start_r = except_range[0]
+            end_r = except_range[1]
+            if start > start_r and start < end_r and end > start_r and end < end_r:
+                skip = True
+                break
+        if not skip:
+            line = line[:start] + line[end:]
+    return line
 
 
 def replace_spoilers_oneline(line):
@@ -148,11 +161,12 @@ def replace_spoilers_oneline(line):
     return line
 
 
-def format_md_all(line, content_start):
+def format_md_all(line, content_start, except_ranges):
     """
     Replace all supported formatted markdown strings and return list of their formats.
     This should be called only after curses has initialized color.
     Strikethrough is apparently not supported by curses.
+    Formatting is not performed inside except_ranges.
     """
     line_format = []
     for _ in range(10):   # lets have some limits
@@ -174,6 +188,16 @@ def format_md_all(line, content_start):
             attribute = curses.A_UNDERLINE
         start = string_match.start() + content_start
         end = string_match.end() + content_start
+        skip = False
+        for except_range in except_ranges:
+            start_r = except_range[0]
+            end_r = except_range[1]
+            # if this match is entirely inside excepted range
+            if start > start_r and start < end_r and end > start_r and end < end_r:
+                skip = True
+                break
+        if skip:
+            continue
         text = string_match.group(0)[format_len:-format_len]
         line = line[:start] + text + line[end:]
         # rearrange formats at indexes after this format index
@@ -460,8 +484,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         embeds = message["embeds"]
         content = ""
         if message["content"]:
-            content = replace_escaped_md(message["content"])
-            content = replace_emojis(content)
+            content = replace_emojis(message["content"])
             content = replace_mentions(content, message["mentions"])
             content = replace_roles(content, roles)
             content = replace_channels(content, channels)
@@ -479,14 +502,29 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             .replace("%edited", edited_string if edited else "")
             .replace("%content", content)
         )
-        message_line, md_format = format_md_all(message_line, pre_content_len)
+
+        # format markdown
+        except_ranges = []
+        for match in re.finditer(match_md_code, message_line):
+            except_ranges.append([match.start(), match.end()])
+        message_line, md_format = format_md_all(message_line, pre_content_len, except_ranges)
+        message_line = replace_escaped_md(message_line, except_ranges)
 
         # find all urls
         urls = []
         if color_chat_url:
             for match in re.finditer(match_url, message_line):
-                urls.append([match.start(), match.end()])
-
+                start = match.start()
+                end = match.end()
+                skip = False
+                for except_range in except_ranges:
+                    start_r = except_range[0]
+                    end_r = except_range[1]
+                    if start > start_r and start < end_r and end > start_r and end <= end_r:
+                        skip = True
+                        break
+                if not skip:
+                    urls.append([start, end])
         # find all spoilers
         spoilers = []
         for match in re.finditer(match_md_spoiler, message_line):
@@ -559,7 +597,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
                 .replace("%content", next_line)
             )
-            new_line, md_format = format_md_all(new_line, pre_content_len)
 
             # correct index for each new line
             content_index_correction = newline_len - 1 - newline_index
@@ -569,6 +606,11 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             for spoiler in spoilers:
                 spoiler[0] += content_index_correction
                 spoiler[1] += content_index_correction
+            for except_range in except_ranges:
+                except_range[0] += content_index_correction
+                except_range[1] += content_index_correction
+
+            new_line, md_format = format_md_all(new_line, pre_content_len, except_ranges)
 
             # limit new_line and split to next line
             if len(new_line) > max_length:
