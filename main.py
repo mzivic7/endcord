@@ -5,7 +5,7 @@ import signal
 import sys
 import traceback
 
-from endcord import app, arg, peripherals
+from endcord import app, arg, defaults, keybinding, peripherals
 
 APP_NAME = "endcord"
 VERSION = "0.7.0"
@@ -30,7 +30,8 @@ logging.basicConfig(
 def sigint_handler(_signum, _frame):
     """Handling Ctrl-C event"""
     try:
-        curses.nocbreak()   # in case curses.wrapper doesnt restore terminal
+        # in case curses.wrapper doesnt restore terminal
+        curses.nocbreak()
         curses.echo()
         curses.endwin()
     except curses.error:
@@ -42,23 +43,33 @@ def main(args):
     """Main function"""
     config_path = args.config
     theme_path = args.theme
+    if args.keybinding:
+        keybinding.picker()
     if config_path:
         config_path = os.path.expanduser(config_path)
     token = args.token
     logger.info(f"Started endcord {VERSION}")
-    config = peripherals.merge_configs(config_path, theme_path)
+    config, gen_config = peripherals.merge_configs(config_path, theme_path)
+    if sys.platform == "win32":
+        defaults.keybindings.update(defaults.windows_override_keybindings)
+    keybindings = peripherals.load_config(
+        config_path,
+        defaults.keybindings,
+        section="keybindings",
+        gen_config=gen_config,
+    )
     if not token and not config["token"]:
-        sys.exit(f"Token not provided in config ({config_path}) nor as argument")
+        sys.exit("Token not provided in config nor as argument")
     if token:
         config["token"] = token
     if args.debug or config["debug"]:
         logging.getLogger().setLevel(logging.DEBUG)
     try:
-        curses.wrapper(app.Endcord, config)
+        curses.wrapper(app.Endcord, config, keybindings)
     except curses.error as e:
         if str(e) != "endwin() returned ERR":
             logger.error(traceback.format_exc())
-            sys.exit("Curses error, see logs for more info")
+            sys.exit("Curses error, see log for more info")
     sys.exit(0)
 
 if __name__ == "__main__":

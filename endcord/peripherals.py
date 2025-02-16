@@ -2,7 +2,6 @@ import glob
 import json
 import logging
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -12,6 +11,7 @@ from configparser import ConfigParser
 
 import magic
 import pexpect
+import pexpect.popen_spawn
 
 from endcord import defaults
 
@@ -20,14 +20,10 @@ match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
 
 
-platform_release = str(platform.release())
 if sys.platform == "win32":
     import win32clipboard
-    if platform_release == "10":
-        from win10toast import ToastNotifier
-        toast = ToastNotifier()
-    elif platform_release == "11":
-        import win11toast
+    from windows_toasts import Toast, WindowsToaster
+    toaster = WindowsToaster(APP_NAME)
 
 
 if sys.platform == "linux":
@@ -50,10 +46,10 @@ if sys.platform == "linux":
     else:
         downloads_path = "~/Downloads"
 elif sys.platform == "win32":
-    config_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
-    log_path = f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"
-    temp_path = f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"
-    downloads_path = f"{os.environ["USERPROFILE"]}/Downloads"
+    config_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
+    log_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
+    temp_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"), "")
+    downloads_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/Downloads"), "")
 elif sys.platform == "mac":
     config_path = f"~/Library/Application Support/{APP_NAME}/"
     log_path = f"~/Library/Application Support/{APP_NAME}/"
@@ -69,6 +65,8 @@ def load_config(path, default, section="main", gen_config=False):
     If some value is missing, it is replaced wih default value
     """
     config = ConfigParser(interpolation=None)
+    if not path:
+        path = config_path + "config.ini"
     path = os.path.expanduser(path)
     config.read(path)
     if not os.path.exists(path) or gen_config:
@@ -137,7 +135,7 @@ def merge_configs(custom_config_path, theme_path):
         theme_path = os.path.expanduser(theme_path)
         theme = load_config(theme_path, theme, section="theme")
     config.update(theme)
-    return config
+    return config, gen_config
 
 
 def notify_send(title, message, sound="message"):
@@ -152,10 +150,9 @@ def notify_send(title, message, sound="message"):
         )
         return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
     if sys.platform == "win32":
-        if platform_release == "10":
-            toast.show_toast(title, message, threaded=True)
-        elif platform_release == "11":
-            win11toast.toast(title, message)
+        notification = Toast()
+        notification.text_fields = [message]
+        toaster.show_toast(notification)
     elif sys.platform == "mac":
         cmd = f"osascript -e 'display notification \"{message}\" with title \"{title}\"'"
         subprocess.Popen(cmd, shell=True)
@@ -302,24 +299,48 @@ def complete_path(path, separator=True):
     return completions
 
 
+def find_aspell():
+    """Find aspell exe path on windows system"""
+    if sys.platform == "linux":
+        if shutil.which("aspell"):
+            return "aspell"
+        return None
+    if sys.platform == "win32":
+        aspell_path = None
+        for name in os.listdir("C:\\Program Files (x86)\\"):
+            if "Aspell" in name:
+                aspell_path = os.path.join("C:\\Program Files (x86)\\", name, "bin\\aspell.exe")
+                if not os.path.exists(aspell_path):
+                    aspell_path = None
+                break
+        return aspell_path
+    logger.info("Spellchecking not supproted on this platform")
+
+
 class SpellCheck(object):
-    """Sentence and word spellchecker. Linux only."""
+    """Sentence and word spellchecker"""
 
     def __init__(self, aspell_mode, aspell_language):
         self.aspell_mode = aspell_mode
         self.aspell_language = aspell_language
-        self.enable = True
+        self.enable = False
         self.command = ["aspell", "-a", f"--sug-mode={aspell_mode}", f"--lang={aspell_language}"]
-        if not aspell_mode or sys.platform != "linux" or not shutil.which("aspell"):
-            self.enable = False
-            logger.info("Spellchecking disabled")
+        if aspell_mode:
+            aspell_path = find_aspell()
+            if aspell_path:
+                self.aspell_path = aspell_path
+                self.enable = True
+                self.start_aspell()
+            else:
+                logger.info("Spellchecking disabled: Aspell not found")
         else:
-            self.start_aspell()
+            logger.info("Spellchecking disabled in config")
 
 
     def start_aspell(self):
         """Start aspell with selected mode and language"""
-        self.proc = pexpect.spawn(f"aspell -a --sug-mode={self.aspell_mode} --lang={self.aspell_language}", encoding="utf-8")
+        # cross platform replacement for pexpect.spawn() because aspell works with it
+        self.proc = pexpect.popen_spawn.PopenSpawn(f"{self.aspell_path} -a --sug-mode={self.aspell_mode} --lang={self.aspell_language}", encoding="utf-8")
         self.proc.delaybeforesend = None
         try:
             self.proc.expect("Ispell", timeout=0.5)
@@ -370,7 +391,6 @@ class SpellCheck(object):
         Spellcheck a sentence with aspell.
         Excluding last word if there is no space after it.
         Return list of bools representing whether each word is misspelled or not.
-        Linux only.
         """
         misspelled = []
         if self.enable:
@@ -386,7 +406,6 @@ class SpellCheck(object):
         """
         Spellcheck a a list of words with aspell.
         Return list of bools representing whether each word is misspelled or not.
-        Linux only.
         """
         misspelled = []
         if self.enable:

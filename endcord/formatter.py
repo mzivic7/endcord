@@ -129,7 +129,7 @@ def replace_channels(line, chanels_ids):
     return line
 
 
-def replace_escaped_md(line, except_ranges=None):
+def replace_escaped_md(line, except_ranges=[]):
     r"""
     Replace escaped markdown characters.
     eg "\:" --> ":"

@@ -26,7 +26,7 @@ def set_list_item(input_list, item, index):
 class TUI():
     """Methods used to draw terminal user interface"""
 
-    def __init__(self, screen, config):
+    def __init__(self, screen, config, keybindings):
         self.spellchecker = peripherals.SpellCheck(config["aspell_mode"], config["aspell_lang"])
         acs_map = acs.get_map()
         curses.use_default_colors()
@@ -54,6 +54,7 @@ class TUI():
         self.init_pair(config["color_status_line"])
         self.color_default = 1
         self.role_color_start_id = 1   # starting id for role colors
+        self.keybindings = keybindings
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
@@ -319,14 +320,14 @@ class TUI():
                         try:
                             # cant insch weird characters, but this is faster than always calling insstr
                             self.win_input_line.insch(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
-                        except OverflowError:
+                        except (OverflowError, UnicodeEncodeError):
                             self.win_input_line.insstr(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
                         bad = True
                         break
                 if not bad:
                     try:
                         self.win_input_line.insch(0, pos, character, curses.color_pair(14) | self.attrib_map[14])
-                    except OverflowError:
+                    except (OverflowError, UnicodeEncodeError):
                         self.win_input_line.insstr(0, pos, character, curses.color_pair(14) | self.attrib_map[14])
         self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
         # cursor at the end of string
@@ -373,14 +374,14 @@ class TUI():
                                 try:
                                     # cant insch weird characters, but this is faster than always calling insstr
                                     self.win_chat.insch(y, pos, character, color_ready)
-                                except OverflowError:
+                                except (OverflowError, UnicodeEncodeError):
                                     self.win_chat.insstr(y, pos, character, color_ready)
                                 found = True
                                 break
                         if not found:
                             try:
                                 self.win_chat.insch(y, pos, character, default_color)
-                            except OverflowError:
+                            except (OverflowError, UnicodeEncodeError):
                                 self.win_chat.insstr(y, pos, character, default_color)
             # fill empty lines with spaces so background is drawn all the way
             y -= 1
@@ -917,14 +918,14 @@ class TUI():
                             selected_completion = 0
 
             # opposite than above, because tree is drawn top down
-            elif key == 575:   # CTRL+UP
+            elif key == self.keybindings["tree_up"]:
                 if self.tree_selected >= 0:
                     if self.tree_index and self.tree_selected <= self.tree_index + 2:
                         self.tree_index -= 1
                     self.tree_selected -= 1
                     self.draw_tree()
 
-            elif key == 534:   # CTRL+DOWN
+            elif key == self.keybindings["tree_down"]:
                 if self.tree_selected + 1 < self.tree_clean_len:
                     top_line = self.tree_index + self.tree_hw[0] - 3
                     if top_line + 3 < self.tree_clean_len and self.tree_selected >= top_line:
@@ -932,17 +933,17 @@ class TUI():
                     self.tree_selected += 1
                     self.draw_tree()
 
-            elif key == 554:   # CTRL+LEFT
+            elif key == self.keybindings["attach_prev"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 14
 
-            elif key == 569:   # CTRL+RIGHT
+            elif key == self.keybindings["attach_next"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 15
 
-            elif key == 0:   # CTRL+SPACE
+            elif key == self.keybindings["tree_select"]:
                 if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
                     # if selected tree entry is channel
                     # stop wait_input and return so new prompt can be loaded
@@ -958,38 +959,38 @@ class TUI():
                     self.draw_tree()
                     self.tree_format_changed = 1
 
-            elif key == ctrl(110):   # CTRL+N
+            elif key == self.keybindings["ins_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.show_cursor()
 
-            elif key == ctrl(114) and self.chat_selected != -1:   # CTRL+R
+            elif key == self.keybindings["reply"] and self.chat_selected != -1:
                 self.replying_msg = True
                 self.deleting_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 1
 
-            elif key == ctrl(101) and self.chat_selected != -1:   # CTRL+E
+            elif key == self.keybindings["edit"] and self.chat_selected != -1:
                 self.deleting_msg = False
                 self.replying_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 2
 
-            elif key == ctrl(100) and self.chat_selected != -1:   # CTRL+D
+            elif key == self.keybindings["delete"] and self.chat_selected != -1:
                 self.replying_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.deleting_msg = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 3
 
-            elif key == ctrl(98):   # CTRL+B
+            elif key == self.keybindings["scroll_bottom"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 7
 
-            elif key == ctrl(112):   # CTRL+P when replying
+            elif key == self.keybindings["toggle_ping"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 6
@@ -1006,56 +1007,56 @@ class TUI():
                 self.input_buffer = ""
                 return "y", self.chat_selected, self.tree_selected_abs, 0
 
-            elif key == ctrl(103) and self.chat_selected != -1:   # CTRL+G
+            elif key == self.keybindings["go_replyed"] and self.chat_selected != -1:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 8
 
-            elif key == ctrl(119) and self.chat_selected != -1:   # CTRL+W
+            elif key == self.keybindings["download"] and self.chat_selected != -1:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.asking_num = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 9
 
-            elif key == ctrl(111) and self.chat_selected != -1:   # CTRL+O
+            elif key == self.keybindings["browser"] and self.chat_selected != -1:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.asking_num = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 10
 
-            elif key == ctrl(120):   # CTRL+X
+            elif key == self.keybindings["cancel"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 11
 
-            elif key == ctrl(104):   # CTRL+H
+            elif key == self.keybindings["copy_msg"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 12
 
-            elif key == ctrl(117):   # CTRL+U
+            elif key == self.keybindings["upload"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.enable_autocomplete = True
                 self.misspelled = []
                 return tmp, self.chat_selected, self.tree_selected_abs, 13
 
-            elif key == ctrl(108):   # CTRL+L
+            elif key == self.keybindings["redraw"]:
                 self.screen.clear()
                 self.resize()
 
-            elif key == ctrl(107):   # CTRL+K
+            elif key == self.keybindings["attach_cancel"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 16
 
-            elif key == ctrl(118) and self.chat_selected != -1:   # CTRL+V
+            elif key == self.keybindings["view_media"] and self.chat_selected != -1:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.asking_num = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 17
 
-            elif key == ctrl(116) and self.chat_selected != -1:   # CTRL+T
+            elif key == self.keybindings["spoil"] and self.chat_selected != -1:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 self.asking_num = True

@@ -1,6 +1,7 @@
 HIGH PRIORITY:
-keybinding
-dont regenerate whole chat, only changed part
+dont format markdown inside links
+handle emoji on windows
+rpc on windows
 fix some servers not in tree
 fix not getting events from large servers
 
@@ -17,8 +18,6 @@ LOW PRIORITY:
 media player: zoom, seek, pause, play audio
 tabs
 dangerous features (sending friend request, starting DM)
-better windows support (building, ctrl+key, emoji, rpc, spellchecking)
-better mac-os support (building, testing, rpc, spellchecking)
 
 MAYBE:
 mouse controls

@@ -23,7 +23,8 @@ from endcord import (
 support_media = (
     importlib.util.find_spec("PIL") is not None and
     importlib.util.find_spec("av") is not None and
-    importlib.util.find_spec("pyaudio") is not None
+    importlib.util.find_spec("pyaudio") is not None and
+    importlib.util.find_spec("numpy") is not None
 )
 if support_media:
     from endcord import media
@@ -40,7 +41,7 @@ match_url = re.compile(r"(https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*)")
 class Endcord:
     """Main app class"""
 
-    def __init__(self, screen, config):
+    def __init__(self, screen, config, keybindings):
         self.screen = screen
         self.config = config
 
@@ -97,7 +98,7 @@ class Endcord:
         # initialize stuff
         self.discord = discord.Discord(config["token"])
         self.gateway = gateway.Gateway(config["token"])
-        self.tui = tui.TUI(self.screen, self.config)
+        self.tui = tui.TUI(self.screen, self.config, keybindings)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
         self.tui.update_chat(["Connecting to Discord"], [[[self.colors[0]]]] * 1)

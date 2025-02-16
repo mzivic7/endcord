@@ -89,3 +89,37 @@ theme = {
     "font_scale": 2.25,
     "color_media_bg": -1,
 }
+
+
+keybindings = {
+    "tree_up": 575,   # Ctrl+Up
+    "tree_down": 534,   # Ctrl+Donw
+    "tree_select": 0,   # Ctrl+Space
+    "attach_prev": 554,   # Ctrl+Left
+    "attach_next": 569,   # Ctrl+Right
+    "attach_cancel": 11,   # Ctrl+K
+    "ins_newline": 14,   # Ctrl+N
+    "reply": 18,   # Ctrl+R
+    "edit": 5,   # Ctrl+E
+    "delete": 4,   # Ctrl+D
+    "toggle_ping": 16,   # Ctrl+P
+    "scroll_bottom": 2,   # Ctrl+B
+    "go_replyed": 7,   # Ctrl+G
+    "download": 23,   # Ctrl+W
+    "upload": 21,   # Ctrl+U
+    "browser": 15,   # Ctrl+O
+    "cancel": 24,   # Ctrl+X
+    "copy_msg": 8,   # Ctrl+H
+    "redraw": 12,   # Ctrl+L
+    "view_media": 22,   # Ctrl+V
+    "spoil": 20,   # Ctrl+T
+}
+
+
+windows_override_keybindings = {
+    "tree_up": 480,
+    "tree_down": 481,
+    "tree_select": 1,   # Ctrl+A
+    "attach_prev": 443,
+    "attach_next": 444,
+}
