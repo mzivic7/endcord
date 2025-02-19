@@ -1,8 +1,8 @@
 HIGH PRIORITY:
-dont format markdown inside links
+Fix unread, ping and mute for never opened guilds
+Fix getting hidden channels
 handle emoji on windows
 rpc on windows
-fix some servers not in tree
 fix not getting events from large servers
 
 MEDIUM PRIORITY:

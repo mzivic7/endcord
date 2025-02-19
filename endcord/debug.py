@@ -23,6 +23,13 @@ def save_json(json_data, name, debug_path=True):
         json.dump(json_data, f, indent=2)
 
 
+def load_json(path):
+    """Load json from any path"""
+    with open(path, "r") as f:
+        return json.load(f)
+    return None
+
+
 def anonymize_guilds(guilds):
     """
     Anonymize all sensitive data in guilds.
@@ -94,3 +101,68 @@ def anonymize_guild_positions(guild_positions):
     for guild in guild_positions:
         anonymized.append(hash_none(guild))
     return anonymized
+
+
+permission_names = [
+    "CREATE_INSTANT_INVITE",
+    "KICK_MEMBERS",
+    "BAN_MEMBERS",
+    "ADMINISTRATOR",
+    "MANAGE_CHANNELS",
+    "MANAGE_GUILD",
+    "ADD_REACTIONS",
+    "VIEW_AUDIT_LOG",
+    "PRIORITY_SPEAKER",
+    "STREAM",
+    "VIEW_CHANNEL",
+    "SEND_MESSAGES",
+    "SEND_TTS_MESSAGES",
+    "MANAGE_MESSAGES",
+    "EMBED_LINKS",
+    "ATTACH_FILES",
+    "READ_MESSAGE_HISTORY",
+    "MENTION_EVERYONE",
+    "USE_EXTERNAL_EMOJIS",
+    "VIEW_GUILD_INSIGHTS",
+    "CONNECT",
+    "SPEAK",
+    "MUTE_MEMBERS",
+    "DEAFEN_MEMBERS",
+    "MOVE_MEMBERS",
+    "USE_VAD",
+    "CHANGE_NICKNAME",
+    "MANAGE_NICKNAMES",
+    "MANAGE_ROLES",
+    "MANAGE_WEBHOOKS",
+    "MANAGE_GUILD_EXPRESSIONS",
+    "USE_APPLICATION_COMMANDS",
+    "REQUEST_TO_SPEAK",
+    "MANAGE_EVENTS",
+    "MANAGE_THREADS",
+    "CREATE_PUBLIC_THREADS",
+    "CREATE_PRIVATE_THREADS",
+    "USE_EXTERNAL_STICKERS",
+    "SEND_MESSAGES_IN_THREADS",
+    "USE_EMBEDDED_ACTIVITIES",
+    "MODERATE_MEMBERS",
+    "VIEW_CREATOR_MONETIZATION_ANALYTICS",
+    "USE_SOUNDBOARD",
+    "CREATE_GUILD_EXPRESSIONS",
+    "CREATE_EVENTS",
+    "USE_EXTERNAL_SOUNDS",
+    "SEND_VOICE_MESSAGES",
+    "",
+    "",
+    "SEND_POLLS",
+    "USE_EXTERNAL_APPS",
+]
+
+def get_perms_allowed_names(permissions):
+    """Return list of allowed permission names"""
+    perms_allowed = []
+    for i in list(range(47)) + [49, 50]:
+        flag = (1 << i)
+        perm = ((permissions & flag) == flag)
+        if perm:
+            perms_allowed.append(permission_names[i])
+    return perms_allowed

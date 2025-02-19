@@ -96,17 +96,13 @@ def parser():
 
 if __name__ == "__main__":
     args = parser()
+    if args.lite:
+        remove_media()
+    else:
+        add_media()
     if args.prepare:
-        if args.lite:
-            remove_media()
-        else:
-            add_media()
         prepare()
     if args.build:
-        if args.lite:
-            remove_media()
-        else:
-            add_media()
         build()
-    if not (args.prepare or args.build):
+    if not (args.prepare or args.build or args.lite):
         sys.exit("No arguments provided")

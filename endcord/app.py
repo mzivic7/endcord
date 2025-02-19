@@ -16,6 +16,7 @@ from endcord import (
     formatter,
     gateway,
     peripherals,
+    perms,
     rpc,
     tui,
 )
@@ -90,6 +91,7 @@ class Endcord:
         self.all_roles = []
         self.current_roles = []
         self.current_channels = []
+        self.current_channel = {}
         self.dms_setting = []
         self.summaries = []
         self.input_store = []
@@ -190,6 +192,11 @@ class Endcord:
             if guild_channels["guild_id"] == self.active_channel["guild_id"]:
                 self.current_channels = guild_channels["channels"]
                 break
+        self.current_channel = {}
+        for channel in self.current_channels:
+            if channel["id"] == self.active_channel["channel_id"]:
+                self.current_channel = channel
+                break
         self.gateway.update_presence(
             self.my_status["status"],
             custom_status=self.my_status["custom_status"],
@@ -256,6 +263,11 @@ class Endcord:
             if guild_channels["guild_id"] == self.active_channel["guild_id"]:
                 self.current_channels = guild_channels["channels"]
                 break
+        self.current_channel = {}
+        for channel in self.current_channels:
+            if channel["id"] == self.active_channel["channel_id"]:
+                self.current_channel = channel
+                break
 
         # fetch messages
         self.messages = self.get_messages_with_members()
@@ -283,6 +295,16 @@ class Endcord:
                 break
         self.select_current_member_roles()
 
+        # get guild settings
+        if self.active_channel["guild_id"]:
+            self.guilds = perms.compute_permissions(
+                self.guilds,
+                self.current_roles,
+                self.active_channel["guild_id"],
+                self.my_roles,
+                self.my_id,
+            )
+
         # update UI
         self.update_chat(keep_selected=False)
         self.update_extra_line()
@@ -300,6 +322,47 @@ class Endcord:
 
         self.remove_running_task("Switching channel", 1)
         logger.debug("Channel switching complete")
+
+
+    def open_guild(self, guild_id, select=False):
+        """When opening guild in tree"""
+        guild = {}
+        for guild_index, guild in enumerate(self.guilds):
+            if guild["guild_id"] == guild_id:
+                break
+        # check if guild is not already parsed
+        if guild and "permitted" not in guild["channels"][0]:
+            # get roles for this server
+            my_user = self.discord.get_user_guild(self.my_id, guild_id)
+            if my_user:
+                my_roles = my_user["roles"] if my_user["roles"] else []
+            else:
+                return
+            # get permissions
+            self.guilds = perms.compute_permissions(
+                self.guilds,
+                self.current_roles,
+                guild_id,
+                my_roles,
+                self.my_id,
+            )
+        # all guilds except one at cursor position and dms
+        self.check_tree_format(save=False)
+        if 0 in self.state["collapsed"]:   # copy over dms
+            collapsed = [0]
+        else:
+            collapsed = []
+        for guild in self.guilds:
+            if guild["guild_id"] != guild_id:
+                collapsed.append(guild["guild_id"])
+        self.init_tree(collapsed)
+
+        # keep this guild selected
+        if select:
+            for tree_pos, obj in enumerate(self.tree_metadata):
+                if obj and obj["id"] == guild_id:
+                    break
+            self.tui.tree_select(tree_pos)
 
 
     def select_current_member_roles(self):
@@ -599,7 +662,8 @@ class Endcord:
 
             # upload attachment
             elif action == 13 and self.messages:
-                self.uploading = True
+                if self.current_channel.get("allow_attach", True):
+                    self.uploading = True
                 self.add_to_store(self.active_channel["channel_id"], input_text)
                 self.update_status_line()
 
@@ -634,6 +698,12 @@ class Endcord:
                 else:
                     self.messages[msg_index]["spoiled"] = 1
                 self.update_chat(keep_selected=True)
+
+            # open guild in tree
+            elif action == 19:
+                self.going_to = input_text   # reusing variable
+                guild_id = self.tree_metadata[tree_sel]["id"]
+                self.open_guild(guild_id, select=True)
 
             # escape key in main UI
             elif action == 5:
@@ -1196,8 +1266,10 @@ class Endcord:
             self.tui.remove_extra_line()
 
 
-    def init_tree(self):
+    def init_tree(self, collapsed=None):
         """Generate initial channel tree"""
+        if collapsed is None:
+            collapsed = self.state["collapsed"]
         self.tree, self.tree_format, self.tree_metadata = formatter.generate_tree(
             self.dms,
             self.guilds,
@@ -1206,7 +1278,7 @@ class Endcord:
             self.unseen,
             [x["channel_id"] for x in self.pings],
             self.guild_positions,
-            self.state["collapsed"],
+            collapsed,
             self.active_channel["channel_id"],
             self.config["tree_drop_down_vline"],
             self.config["tree_drop_down_hline"],
@@ -1268,6 +1340,20 @@ class Endcord:
                         peripherals.notify_remove(notification_id)
                         break
 
+    def check_tree_format(self, save=True):
+        """Check tree format for collapsed guilds and categories and save it"""
+        new_tree_format = self.tui.get_tree_format()
+        if new_tree_format:
+            self.tree_format = new_tree_format
+            # get all collapsed channels/guilds and save them
+            collapsed = []
+            for num, code in enumerate(self.tree_format):
+                if code < 300 and (code % 10) == 0:
+                    collapsed.append(self.tree_metadata[num]["id"])
+            self.state["collapsed"] = collapsed
+            if save:
+                peripherals.save_state(self.state)
+
 
     def send_desktop_notification(self, new_message):
         """
@@ -1297,6 +1383,8 @@ class Endcord:
         logger.info("Waiting for ready signal from gateway")
         while not self.gateway.get_ready():
             time.sleep(0.2)
+
+        # guild positions
         self.discord_settings = self.discord.get_settings_proto(1)
         self.guild_positions = []
         for folder in self.discord_settings["guildFolders"]["folders"]:
@@ -1305,6 +1393,9 @@ class Endcord:
             debug.save_json(debug.anonymize_guild_positions(self.guild_positions), "guild_positions.json")
         # debug_guilds_tree
         # debug.save_json(self.guild_positions, "guild_positions.json", False)
+        # self.guild_positions = debug.load_json("guild_positions.json")
+
+        # custom status
         custom_status_emoji = None
         custom_status = None
         if "customStatus" in self.discord_settings["status"]:
@@ -1325,14 +1416,17 @@ class Endcord:
         }
         self.gateway_state = 1
         logger.info("Gateway is ready")
-
         self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 2)
+
+        # get data from gageway
         self.guilds = self.gateway.get_guilds()
         self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
         self.all_roles = color.convert_role_colors(self.all_roles)
         self.color_cache = self.tui.get_color_cache()
         last_free_color_id = self.tui.get_last_free_color_id()
+
+        # init media
         if support_media:
             # must be run after all colors are initialized in endcord.tui
             logger.info("Media is supported")
@@ -1340,6 +1434,8 @@ class Endcord:
         else:
             self.curses_media = None
             logger.info("Media is not supported")
+
+        # load dms
         self.dms, self.dms_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
@@ -1347,6 +1443,8 @@ class Endcord:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
         self.dms_setting = self.gateway.get_dms_settings()
+
+        # load pings, unseen and blocked
         self.pings = []
         for channel in self.gateway.get_pings():
             self.pings.append({
@@ -1366,6 +1464,13 @@ class Endcord:
                 "last_channel_id": None,
                 "collapsed": [],
             }
+        # load roles for uncollapsed guilds
+        for guild in self.guilds:
+            if guild["guild_id"] not in self.state["collapsed"]:
+                self.open_guild(guild["guild_id"])
+                break   # load only one to not abuse rest api
+
+        # load messages
         if self.state["last_channel_id"]:
             self.tui.update_chat(["Loading messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
             guild_id = self.state["last_guild_id"]
@@ -1388,12 +1493,14 @@ class Endcord:
                         break
             if channel_name:
                 self.switch_channel(channel_id, channel_name, guild_id, guild_name)
-                self.tui.set_tree_select_active()
+                self.tui.tree_select_active()
 
+        # generate and draw tree
         if not self.tree_format:
             self.init_tree()
             self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
 
+        # send new presence and start input thread
         self.gateway.update_presence(
             self.my_status["status"],
             custom_status=self.my_status["custom_status"],
@@ -1403,6 +1510,7 @@ class Endcord:
         self.send_message_thread = threading.Thread(target=self.wait_input, daemon=True, args=())
         self.send_message_thread.start()
 
+        # start RPC server
         if self.enable_rpc:
             self.rpc = rpc.RPC(self.discord, self.my_user_data, self.config)
             self.rpc_thread = threading.Thread(target=self.rpc.server_thread, daemon=True, args=())
@@ -1660,16 +1768,7 @@ class Endcord:
                 self.update_status_line()
 
             # check for tree format changes
-            new_tree_format = self.tui.get_tree_format()
-            if new_tree_format:
-                self.tree_format = new_tree_format
-                # get all collapsed channels/guilds and save them
-                collapsed = []
-                for num, code in enumerate(self.tree_format):
-                    if code < 300 and (code % 10) == 0:
-                        collapsed.append(self.tree_metadata[num]["id"])
-                self.state["collapsed"] = collapsed
-                peripherals.save_state(self.state)
+            self.check_tree_format()
 
             # check if new chat chunks needs to be downloaded in any direction
             if self.messages:

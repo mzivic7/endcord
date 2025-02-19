@@ -216,7 +216,7 @@ class TUI():
         self.dont_hide_chat_selection = not(allow)
 
 
-    def set_tree_select_active(self):
+    def tree_select_active(self):
         """Move tree selection to active channel"""
         skipped = 0
         drop_down_skip_guild = False
@@ -239,6 +239,35 @@ class TUI():
             elif first_digit == 0 and code < 300:
                 drop_down_skip_category = True
             if (code % 100) // 10 in (4, 5):
+                self.tree_selected = num - skipped
+                self.tree_index = max(self.tree_selected - self.tree_hw[0] + 3, 0)
+                break
+        self.draw_tree()
+
+
+    def tree_select(self, tree_pos):
+        """Select specific guild in tree by its index"""
+        skipped = 0
+        drop_down_skip_guild = False
+        drop_down_skip_category = False
+        for num, code in enumerate(self.tree_format):
+            if code == 1100:
+                skipped += 1
+                drop_down_skip_guild = False
+                continue
+            elif code == 1200:
+                skipped += 1
+                drop_down_skip_category = False
+                continue
+            elif drop_down_skip_guild or drop_down_skip_category:
+                skipped += 1
+                continue
+            first_digit = code % 10
+            if first_digit == 0 and code < 200:
+                drop_down_skip_guild = True
+            elif first_digit == 0 and code < 300:
+                drop_down_skip_category = True
+            if num == tree_pos:
                 self.tree_selected = num - skipped
                 self.tree_index = max(self.tree_selected - self.tree_hw[0] + 3, 0)
                 break
@@ -597,6 +626,7 @@ class TUI():
         self.tree_format = tree_format
         if not self.disable_drawing:
             self.draw_tree()
+        self.tree_format_changed = True
 
 
     def update_prompt(self, prompt):
@@ -944,20 +974,32 @@ class TUI():
                 return tmp, self.chat_selected, self.tree_selected_abs, 15
 
             elif key == self.keybindings["tree_select"]:
+                # if selected tree entry is channel
                 if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
-                    # if selected tree entry is channel
                     # stop wait_input and return so new prompt can be loaded
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     return tmp, self.chat_selected, self.tree_selected_abs, 4
-                # if selected tree entry is drop-down and not -1
+                # if selected tree entry is guild drop-down
+                if 100 <= self.tree_format[self.tree_selected_abs] <= 199:
+                    # toggle it in case this guild is already oppened once
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
+                    if (self.tree_format[self.tree_selected_abs] % 10):
+                        self.tree_format[self.tree_selected_abs] -= 1
+                    else:
+                        self.tree_format[self.tree_selected_abs] += 1
+                    self.draw_tree()
+                    # this will trrigger open_guild() in app.py that will update and expand tree
+                    return tmp, self.chat_selected, self.tree_selected_abs, 19
+                # if selected tree entry is category drop-down
                 if self.tree_index >= 0:
                     if (self.tree_format[self.tree_selected_abs] % 10):
                         self.tree_format[self.tree_selected_abs] -= 1
                     else:
                         self.tree_format[self.tree_selected_abs] += 1
                     self.draw_tree()
-                    self.tree_format_changed = 1
+                    self.tree_format_changed = True
 
             elif key == self.keybindings["ins_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]

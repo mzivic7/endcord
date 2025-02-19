@@ -203,6 +203,7 @@ class Gateway():
                                 "topic": channel.get("topic"),
                                 "parent_id": channel.get("parent_id"),
                                 "position": channel["position"],
+                                "permission_overwrites": channel["permission_overwrites"],
                             })
                             # build list of last mesages from each channel
                             if "last_message_id" in channel:
@@ -210,28 +211,36 @@ class Gateway():
                                     "message_id": channel["last_message_id"],   # really last message id
                                     "channel_id": channel["id"],
                                 })
-                        self.guilds.append({
-                            "guild_id": guild_id,
-                            "owned": self.my_id == guild["properties"]["owner_id"],
-                            "name": guild["properties"]["name"],
-                            "description": guild["properties"]["description"],
-                            "channels": guild_channels,
-                        })
                         guild_roles = []
+                        base_permissions = 0
                         for role in guild["roles"]:
+                            if role["id"] == guild_id:
+                                base_permissions = role["permissions"]
                             guild_roles.append({
                                 "id": role["id"],
                                 "name": role["name"],
                                 "color": role["color"],
                                 "position": role["position"],   # for sorting
                                 "hoist": role["hoist"],   # separated from online members
+                                "permissions": role["permissions"],
                                 # "flags": role["flags"],   # flags=1 - self-assign
                                 # "managed": role["managed"],   # for bots
                             })
                         # sort roles
                         guild_roles = sorted(guild_roles, key=lambda x: x.get("position"), reverse=True)
                         guild_roles = sorted(guild_roles, key=lambda x: not bool(x.get("color")))
-                        self.roles.append({"guild_id": guild_id, "roles": guild_roles})
+                        self.roles.append({
+                            "guild_id": guild_id,
+                            "roles": guild_roles,
+                        })
+                        self.guilds.append({
+                            "guild_id": guild_id,
+                            "owned": self.my_id == guild["properties"]["owner_id"],
+                            "name": guild["properties"]["name"],
+                            "description": guild["properties"]["description"],
+                            "channels": guild_channels,
+                            "base_permissions": base_permissions,
+                        })
                     # DM channels
                     for dm in response["d"]["private_channels"]:
                         recipients = []
@@ -279,7 +288,7 @@ class Gateway():
                                 if "flags" in channel:
                                     hidden = not bool(channel["flags"])
                                 else:
-                                    hidden = True
+                                    hidden = False
                                 channels.append({
                                     "id": channel["channel_id"],
                                     "message_notifications": channel["message_notifications"],
@@ -307,8 +316,8 @@ class Gateway():
                         debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
                         debug.save_json(debug.anonymize_guilds_settings(self.guilds_settings), "guilds_settings.json")
                     # debug_guilds_tree
-                    # with open("guilds.json", "r") as f: self.guilds = json.load(f)
-                    # with open("guilds_settings.json", "r") as f: self.guilds_settings = json.load(f)
+                    # self.guilds = debug.load_json("guilds.json")
+                    # self.guilds_settings = debug.load_json("guilds_settings.json")
                     # blocked users
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
@@ -979,13 +988,22 @@ class Gateway():
         """
         Get list of open DMs with their recipient
         DM types:
-        1 - single person text
+        1 - single person DM
         3 - group DM (name is not None)
         """
         return self.dms, self.dms_id
 
     def get_guilds(self):
-        """Get list of guilds with their metadata, updated only when reconnecting"""
+        """
+        Get list of guilds and channels with their metadata, updated only when reconnecting
+        Channel types:
+        0 - text
+        2 - voice
+        4 - category
+        5 - announcements
+        11/12 - thread
+        15 - forum (contains only threads)
+        """
         return self.guilds
 
 

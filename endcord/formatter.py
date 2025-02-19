@@ -503,12 +503,10 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             .replace("%content", content)
         )
 
-        # format markdown
+        # find all ranges where should be no rarkdown formatting
         except_ranges = []
         for match in re.finditer(match_md_code, message_line):
             except_ranges.append([match.start(), match.end()])
-        message_line, md_format = format_md_all(message_line, pre_content_len, except_ranges)
-        message_line = replace_escaped_md(message_line, except_ranges)
 
         # find all urls
         urls = []
@@ -525,6 +523,12 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                         break
                 if not skip:
                     urls.append([start, end])
+        #except_ranges += urls[:]   # no markdown in url too
+
+        # format markdown
+        message_line, md_format = format_md_all(message_line, pre_content_len, except_ranges + urls)
+        message_line = replace_escaped_md(message_line, except_ranges + urls)
+
         # find all spoilers
         spoilers = []
         for match in re.finditer(match_md_spoiler, message_line):
@@ -610,7 +614,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 except_range[0] += content_index_correction
                 except_range[1] += content_index_correction
 
-            new_line, md_format = format_md_all(new_line, pre_content_len, except_ranges)
+            new_line, md_format = format_md_all(new_line, pre_content_len, except_ranges + urls)
 
             # limit new_line and split to next line
             if len(new_line) > max_length:
@@ -961,13 +965,17 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
 
     # sort guilds
     guilds_sorted = []
+    guilds_used_index = []
     for guild_sorted_id in guild_positions:
         for num, guild in enumerate(guilds):
             if guild["guild_id"] == guild_sorted_id:
-                guilds_sorted.append(guilds.pop(num))
+                guilds_sorted.append(guilds[num])
+                guilds_used_index.append(num)
                 break
     # add unsorted guilds
-    guilds_sorted = guilds_sorted + guilds
+    for num, guild in enumerate(guilds):
+        if num not in guilds_used_index:
+            guilds_sorted.append(guild)
 
     for guild in guilds_sorted:
         # prepare data
@@ -975,7 +983,6 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
         unseen_guild = False
         ping_guild = False
         active_guild = False
-        owned = guild["owned"]
 
         # search for guild and channel settings
         found_setings = False
@@ -992,12 +999,17 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
             if channel["type"] == 4:
                 muted = False   # default settings
                 collapsed_ch = False
-                # categories are hidden only if they have no visible channels
+                hidden = 1
+                # categories are also hidden if they have no visible channels
                 if found_setings:
                     for category_set in guild_settings["channels"]:
                         if category_set["id"] == channel["id"]:
                             muted = category_set["muted"]
-                            # using local storage for collapsed
+                            if category_set["hidden"]:
+                                hidden = 2
+                            else:
+                                hidden = 1
+                            # using local storage instead for collapsed
                             # collapsed = category_set["collapsed"]
                             break
                 categories.append({
@@ -1006,7 +1018,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                     "channels": [],
                     "muted": muted,
                     "collapsed": collapsed_ch,
-                    "hidden": True,
+                    "hidden": hidden,
                     "unseen": False,
                     "ping": False,
                 })
@@ -1016,7 +1028,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
         bare_channels = []
         bare_channels_position = []
         for channel in guild["channels"]:
-            if channel["type"] == 0:
+            if channel["type"] in (0, 5):
                 unseen_ch = False
                 mentioned_ch = False
                 if channel["id"] in unseen:
@@ -1027,16 +1039,16 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                 for category in categories:
                     if channel["parent_id"] == category["id"]:
                         muted_ch = False
-                        hidden_ch = True   # channels not in settings are inaccessible
+                        hidden_ch = False
                         if found_setings:
                             for channel_set in guild_settings["channels"]:
                                 if channel_set["id"] == channel["id"]:
                                     muted_ch = channel_set["muted"]
                                     hidden_ch = channel_set["hidden"]
                                     break
-                        if owned or not found_setings:
-                            hidden_ch = False   # if there are no settings - all channels are accessible
-                        if not hidden_ch:
+                        if not channel.get("permitted", False):
+                            hidden_ch = True
+                        if not hidden_ch and category["hidden"] != 2:
                             category["hidden"] = False
                         active = (channel["id"] == active_channel_id)
                         if active:
@@ -1065,15 +1077,15 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                 if not done:
                     # top level channles can be inaccessible
                     muted_ch = False
-                    hidden_ch = True
+                    hidden_ch = False
                     if found_setings:
                         for channel_set in guild_settings["channels"]:
                             if channel_set["id"] == channel["id"]:
                                 muted_ch = channel_set["muted"]
                                 hidden_ch = channel_set["hidden"]
                                 break
-                    if owned or not found_setings:
-                        hidden_ch = False   # if there are no settings - all channels are accessible
+                    if not channel.get("permitted", False):
+                        hidden_ch = True
                     active = channel["id"] == active_channel_id
                     if active:
                         # unwrap top level guild
@@ -1217,7 +1229,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
     return tree, tree_format, tree_metadata
 
 
-def update_tree_parents(tree_format,tree_metadata, num, code, match_conditions):
+def update_tree_parents(tree_format, tree_metadata, num, code, match_conditions):
     """Update parents recursively with specified code and match_conditions"""
     parent_index = tree_metadata[num]["parent_index"]
     for i in range(3):   # avoid infinite loops, there can be max 3 nest levels
@@ -1236,21 +1248,21 @@ def update_tree(tree_format, tree_metadata, unseen, mentioned, active_channel_id
     """Update format of alread generate tree."""
     for num, code in enumerate(tree_format):
         if 300 <= code <= 399:
-            entry_id = tree_metadata[num]["id"]
+            obj_id = tree_metadata[num]["id"]
             second_digit = (code % 100) // 10
             first_digit = code % 10
-            if entry_id in unseen:
+            if obj_id in unseen:
                 if second_digit == 0:
                     tree_format[num] = 330 + first_digit
                     tree_format = update_tree_parents(tree_format, tree_metadata, num, 3, (0, ))
-            if entry_id in mentioned:
+            if obj_id in mentioned:
                 if second_digit in (0, 3):
                     tree_format[num] = 320 + first_digit
                     tree_format = update_tree_parents(tree_format, tree_metadata, num, 2, (0, 3))
                 elif second_digit == 4:
                     tree_format[num] = 350 + first_digit
                     tree_format = update_tree_parents(tree_format, tree_metadata, num, 3, (4, ))
-            if entry_id == active_channel_id:   # set active channel
+            if obj_id == active_channel_id:   # set active channel
                 if second_digit == 2:
                     tree_format[num] = 350 + first_digit
                 else:
@@ -1260,7 +1272,7 @@ def update_tree(tree_format, tree_metadata, unseen, mentioned, active_channel_id
                     tree_format[num] = 310 + first_digit
                 else:
                     tree_format[num] = 300 + first_digit
-            if entry_id == seen_id:   # remove unseen/ping
+            if obj_id == seen_id:   # remove unseen/ping
                 if second_digit in (2, 3):
                     tree_format[num] = 300 + first_digit
                     tree_format = update_tree_parents(tree_format,tree_metadata, num, 0, (2, 3))

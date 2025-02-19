@@ -19,13 +19,25 @@ logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
 
-
+# platform specific code
 if sys.platform == "win32":
     import win32clipboard
     from windows_toasts import Toast, WindowsToaster
     toaster = WindowsToaster(APP_NAME)
+if sys.platform == "linux":
+    try:
+        proc = subprocess.Popen(
+            ["notify-send"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        have_notify_send = True
+    except FileNotFoundError:
+        have_notify_send = False
 
 
+# get platform specific paths
 if sys.platform == "linux":
     path = os.environ.get("XDG_DATA_HOME", "")
     if path.strip():
@@ -142,13 +154,15 @@ def notify_send(title, message, sound="message"):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":
         command = ["notify-send", "-p", "--app-name", APP_NAME, "-h", f"string:sound-name:{sound}", title, message]
-        proc = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-        return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
+        if have_notify_send:
+            proc = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
+        return None
     if sys.platform == "win32":
         notification = Toast()
         notification.text_fields = [message]
