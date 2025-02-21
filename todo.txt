@@ -1,8 +1,7 @@
 HIGH PRIORITY:
-Fix unread, ping and mute for never opened guilds
+Fix updating unread for never opened guilds
 Fix getting hidden channels
 handle emoji on windows
-rpc on windows
 fix not getting events from large servers
 
 MEDIUM PRIORITY:
@@ -15,8 +14,9 @@ show user info
 vi-mode?
 
 LOW PRIORITY:
-media player: zoom, seek, pause, play audio
+media player: zoom, seek, pause, play audio messages
 tabs
+rpc on windows
 dangerous features (sending friend request, starting DM)
 
 MAYBE:

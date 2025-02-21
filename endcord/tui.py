@@ -980,20 +980,21 @@ class TUI():
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     return tmp, self.chat_selected, self.tree_selected_abs, 4
-                # if selected tree entry is guild drop-down
-                if 100 <= self.tree_format[self.tree_selected_abs] <= 199:
-                    # toggle it in case this guild is already oppened once
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
+                # if selected tree entry is dms drop down
+                if self.tree_selected_abs == 0:   # for dms
                     if (self.tree_format[self.tree_selected_abs] % 10):
                         self.tree_format[self.tree_selected_abs] -= 1
                     else:
                         self.tree_format[self.tree_selected_abs] += 1
                     self.draw_tree()
+                # if selected tree entry is guild drop-down
+                elif 100 <= self.tree_format[self.tree_selected_abs] <= 199:
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
                     # this will trrigger open_guild() in app.py that will update and expand tree
                     return tmp, self.chat_selected, self.tree_selected_abs, 19
                 # if selected tree entry is category drop-down
-                if self.tree_index >= 0:
+                elif self.tree_selected_abs >= 0:
                     if (self.tree_format[self.tree_selected_abs] % 10):
                         self.tree_format[self.tree_selected_abs] -= 1
                     else:

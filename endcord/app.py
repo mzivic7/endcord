@@ -330,6 +330,12 @@ class Endcord:
         for guild_index, guild in enumerate(self.guilds):
             if guild["guild_id"] == guild_id:
                 break
+        # check in tree_format if it should be un-/collapsed
+        collapse = False
+        for num, obj in enumerate(self.tree_metadata):
+            if obj and obj["id"] == guild_id:
+                collapse = bool(self.tree_format[num] % 10)   # get first digit
+                break
         # check if guild is not already parsed
         if guild and "permitted" not in guild["channels"][0]:
             # get roles for this server
@@ -353,7 +359,7 @@ class Endcord:
         else:
             collapsed = []
         for guild in self.guilds:
-            if guild["guild_id"] != guild_id:
+            if collapse or guild["guild_id"] != guild_id:
                 collapsed.append(guild["guild_id"])
         self.init_tree(collapsed)
 

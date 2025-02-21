@@ -1046,6 +1046,17 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                                     muted_ch = channel_set["muted"]
                                     hidden_ch = channel_set["hidden"]
                                     break
+                        # this is first so guild can be marked as unseen/ping
+                        # without downloaded permissions
+                        # assuming there is no unseen/ping from restricted channel
+                        if not (category["muted"] or hidden_ch or muted_ch):
+                            if unseen_ch:
+                                category["unseen"] = True
+                                unseen_guild = True
+                            if mentioned_ch:
+                                category["ping"] = True
+                                ping_guild = True
+                        # now hide restricted channels
                         if not channel.get("permitted", False):
                             hidden_ch = True
                         if not hidden_ch and category["hidden"] != 2:
@@ -1064,14 +1075,7 @@ def generate_tree(dms, guilds, dms_settings, guilds_settings, unseen, mentioned,
                             "ping": mentioned_ch,
                             "active": active,
                         })
-                        if not (category["muted"] or hidden_ch or muted_ch):
-                            if unseen_ch:
-                                category["unseen"] = True
-                                unseen_guild = True
 
-                            if mentioned_ch:
-                                category["ping"] = True
-                                ping_guild = True
                         done = True
                         break
                 if not done:
