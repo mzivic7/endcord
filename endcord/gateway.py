@@ -70,8 +70,6 @@ class Gateway():
         self.guilds = []
         self.roles = []
         self.member_roles = []
-        self.guilds_settings = []
-        self.dms_settings = []
         self.msg_unseen = []
         self.msg_ping = []
         self.subscribed = []
@@ -283,41 +281,44 @@ class Gateway():
                     # guild and dm setings
                     for guild in response["d"]["user_guild_settings"]["entries"]:
                         if guild["guild_id"]:
-                            channels = []
+                            # find this guild in self.guilds
+                            for guild_num, guild_g in enumerate(self.guilds):
+                                if guild_g["guild_id"] == guild["guild_id"]:
+                                    break
+                            self.guilds[guild_num].update({
+                                "suppress_everyone": guild["suppress_everyone"],
+                                "suppress_roles": guild["suppress_roles"],
+                                "message_notifications": guild["message_notifications"],
+                                "muted": guild["muted"],
+                            })
                             for channel in guild["channel_overrides"]:
+                                for channel_num, channel_g in enumerate(self.guilds[guild_num]["channels"]):
+                                    if channel_g["id"] == channel["channel_id"]:
+                                        break
                                 if "flags" in channel:
-                                    hidden = not bool(channel["flags"])
+                                    hidden = False   # not bool(channel["flags"])   # TODO
                                 else:
                                     hidden = False
-                                channels.append({
-                                    "id": channel["channel_id"],
+                                self.guilds[guild_num]["channels"][channel_num].update({
                                     "message_notifications": channel["message_notifications"],
                                     "muted": channel["muted"],
                                     "hidden": hidden,
                                     "collapsed": channel["collapsed"],
                                 })
-                            self.guilds_settings.append({
-                                "guild_id": guild["guild_id"],
-                                "suppress_everyone": guild["suppress_everyone"],
-                                "suppress_roles": guild["suppress_roles"],
-                                "message_notifications": guild["message_notifications"],
-                                "muted": guild["muted"],
-                                "channels": channels,
-                            })
                         else:
                             for dm in guild["channel_overrides"]:
-                                self.dms_settings.append({
-                                    "id": dm["channel_id"],
+                                for dm_num, dm_g in enumerate(self.dms):
+                                    if dm_g["id"] == dm["channel_id"]:
+                                        break
+                                self.dms[dm_num].update({
                                     "message_notifications": dm["message_notifications"],
                                     "muted": dm["muted"],
                                 })
                     # write debug data
                     if logger.getEffectiveLevel() == logging.DEBUG:
                         debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
-                        debug.save_json(debug.anonymize_guilds_settings(self.guilds_settings), "guilds_settings.json")
                     # debug_guilds_tree
                     # self.guilds = debug.load_json("guilds.json")
-                    # self.guilds_settings = debug.load_json("guilds_settings.json")
                     # blocked users
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
@@ -1003,6 +1004,11 @@ class Gateway():
         5 - announcements
         11/12 - thread
         15 - forum (contains only threads)
+        message_notifications:
+        0 - all messages
+        1 - only mentions
+        2 - nothing
+        3 - category defaults
         """
         return self.guilds
 
@@ -1011,26 +1017,6 @@ class Gateway():
         """Get list of roles for all guilds with their metadata, updated only when reconnecting"""
         return self.roles
 
-
-    def get_guilds_settings(self):
-        """
-        Get guild setting: guild notification settings and per-channel settings.
-        Channels that are not listed are hidden or inaccessible.
-        message_notifications:
-        0 - all messages
-        1 - only mentions
-        2 - nothing
-        3 - category defaults
-        """
-        return self.guilds_settings
-
-
-    def get_dms_settings(self):
-        """
-        Get private channel (group/DM) setting: notification settings and per-channel settings.
-        Channels that are listed are open.
-        """
-        return self.dms_settings
 
     def get_my_status(self):
         """Get my activity status, including rich presence, updated regularly"""

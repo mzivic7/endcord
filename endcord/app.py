@@ -77,6 +77,7 @@ class Endcord:
         self.default_msg_alt_color = self.colors[1]
         self.cached_downloads = []
         self.color_cache = []
+        self.collapsed_no_data = []
 
         # variables
         self.run = False
@@ -87,12 +88,10 @@ class Endcord:
             "channel_name": None,
         }
         self.guilds = []
-        self.guilds_settings = []
         self.all_roles = []
         self.current_roles = []
         self.current_channels = []
         self.current_channel = {}
-        self.dms_setting = []
         self.summaries = []
         self.input_store = []
         self.running_tasks = []
@@ -164,7 +163,6 @@ class Endcord:
         self.add_running_task("Reconnecting", 1)
         self.reset()
         self.guilds = self.gateway.get_guilds()
-        self.guilds_settings = self.gateway.get_guilds_settings()
         # not initializing role colors again to avoid issues with media colors
         self.dms, self.dms_id = self.gateway.get_dms()
         if self.hide_spam:
@@ -172,14 +170,26 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
-        self.dms_setting = self.gateway.get_dms_settings()
         self.pings = []
-        for channel in self.gateway.get_pings():
+        for channel_id in self.gateway.get_pings():
             self.pings.append({
-                "channel_id": channel,
+                "channel_id": channel_id,
                 "message_id": None,
             })
-        self.unseen = self.gateway.get_unseen()
+
+        self.unseen = []
+        for channel_id in self.gateway.get_unseen():
+            guild_id = None
+            for guild in self.guilds:
+                for channel in guild["channels"]:
+                    if channel["id"] == channel_id:
+                        guild_id = guild["guild_id"]
+                if guild_id:
+                    break
+            self.unseen.append({
+                "channel_id": channel_id,
+                "guild_id": guild_id,
+            })
         self.blocked = self.gateway.get_blocked()
         self.current_roles = []   # dm has no roles
         for roles in self.all_roles:
@@ -330,12 +340,14 @@ class Endcord:
         for guild_index, guild in enumerate(self.guilds):
             if guild["guild_id"] == guild_id:
                 break
+
         # check in tree_format if it should be un-/collapsed
         collapse = False
         for num, obj in enumerate(self.tree_metadata):
             if obj and obj["id"] == guild_id:
                 collapse = bool(self.tree_format[num] % 10)   # get first digit
                 break
+
         # check if guild is not already parsed
         if guild and "permitted" not in guild["channels"][0]:
             # get roles for this server
@@ -352,16 +364,31 @@ class Endcord:
                 my_roles,
                 self.my_id,
             )
-        # all guilds except one at cursor position and dms
+
+        # keep dms, collapsed and all guilds except one at cursor position
         self.check_tree_format(save=False)
-        if 0 in self.state["collapsed"]:   # copy over dms
+        # copy over dms
+        if 0 in self.state["collapsed"]:
             collapsed = [0]
         else:
             collapsed = []
-        for guild in self.guilds:
-            if collapse or guild["guild_id"] != guild_id:
-                collapsed.append(guild["guild_id"])
+        guild_ids = []
+        # collapse all othre guilds
+        for guild_1 in self.guilds:
+            if collapse or guild_1["guild_id"] != guild_id:
+                collapsed.append(guild_1["guild_id"])
+            guild_ids.append(guild_1["guild_id"])
+        # copy over categories
+        for collapsed_id in self.state["collapsed"]:
+            if collapsed_id not in guild_ids:
+                collapsed.append(collapsed_id)
         self.init_tree(collapsed)
+
+        # update channels belonging to never processed guilds
+        # keeping this so it can be saved to state.json
+        for channel in guild["channels"]:
+            if channel["id"] in self.collapsed_no_data:
+                self.collapsed_no_data.remove(channel["id"])
 
         # keep this guild selected
         if select:
@@ -1272,16 +1299,14 @@ class Endcord:
             self.tui.remove_extra_line()
 
 
-    def init_tree(self, collapsed=None):
+    def init_tree(self, collapsed=None, init_uncollapse=False):
         """Generate initial channel tree"""
         if collapsed is None:
             collapsed = self.state["collapsed"]
         self.tree, self.tree_format, self.tree_metadata = formatter.generate_tree(
             self.dms,
             self.guilds,
-            self.dms_setting,
-            self.guilds_settings,
-            self.unseen,
+            [x["channel_id"] for x in self.unseen],
             [x["channel_id"] for x in self.pings],
             self.guild_positions,
             collapsed,
@@ -1291,6 +1316,7 @@ class Endcord:
             self.config["tree_drop_down_intersect"],
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
+            init_uncollapse=init_uncollapse,
         )
         # debug_guilds_tree
         # debug.save_json(self.tree, "tree.json", False)
@@ -1304,6 +1330,7 @@ class Endcord:
         self.tree_format = formatter.update_tree(
             self.tree_format,
             self.tree_metadata,
+            self.guilds,
             self.unseen,
             [x["channel_id"] for x in self.pings],
             self.active_channel["channel_id"],
@@ -1330,21 +1357,24 @@ class Endcord:
     def set_seen(self, channel_id, force=False):
         """Set channel as seen if it is not already seen.
         Force will send even if its not marked as unseen, used for active channel."""
-        if channel_id in self.unseen or force:
-            if not force:
-                self.unseen.remove(channel_id)
-            self.update_tree(set_seen=channel_id)
-            self.discord.send_ack_message(channel_id, self.messages[0]["id"])
-            for num, pinged_channel in enumerate(self.pings):
-                if channel_id == pinged_channel["channel_id"]:
-                    self.pings.pop(num)
-                    break
-            if self.enable_notifications:
-                for num, notification in enumerate(self.notifications):
-                    if notification["channel_id"] == channel_id:
-                        notification_id = self.notifications.pop(num)["notification_id"]
-                        peripherals.notify_remove(notification_id)
+        for num_1, unseen_channel in enumerate(self.unseen):
+            if unseen_channel["channel_id"] == channel_id or force:   # find this unseen chanel
+                if not force:
+                    self.unseen.pop(num_1)
+                self.update_tree(set_seen=channel_id)
+                self.discord.send_ack_message(channel_id, self.messages[0]["id"])
+                for num, pinged_channel in enumerate(self.pings):
+                    if channel_id == pinged_channel["channel_id"]:
+                        self.pings.pop(num)
                         break
+                if self.enable_notifications:
+                    for num, notification in enumerate(self.notifications):
+                        if notification["channel_id"] == channel_id:
+                            notification_id = self.notifications.pop(num)["notification_id"]
+                            peripherals.notify_remove(notification_id)
+                            break
+                break
+
 
     def check_tree_format(self, save=True):
         """Check tree format for collapsed guilds and categories and save it"""
@@ -1356,7 +1386,7 @@ class Endcord:
             for num, code in enumerate(self.tree_format):
                 if code < 300 and (code % 10) == 0:
                     collapsed.append(self.tree_metadata[num]["id"])
-            self.state["collapsed"] = collapsed
+            self.state["collapsed"] = collapsed + self.collapsed_no_data
             if save:
                 peripherals.save_state(self.state)
 
@@ -1426,7 +1456,6 @@ class Endcord:
 
         # get data from gageway
         self.guilds = self.gateway.get_guilds()
-        self.guilds_settings = self.gateway.get_guilds_settings()
         self.all_roles = self.gateway.get_roles()
         self.all_roles = color.convert_role_colors(self.all_roles)
         self.color_cache = self.tui.get_color_cache()
@@ -1448,28 +1477,47 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
-        self.dms_setting = self.gateway.get_dms_settings()
 
         # load pings, unseen and blocked
         self.pings = []
-        for channel in self.gateway.get_pings():
+        for channel_id in self.gateway.get_pings():
             self.pings.append({
-                "channel_id": channel,
+                "channel_id": channel_id,
                 "message_id": None,
             })
-        self.unseen = self.gateway.get_unseen()
+        self.unseen = []
+        for channel_id in self.gateway.get_unseen():
+            guild_id = None
+            for guild in self.guilds:
+                for channel in guild["channels"]:
+                    if channel["id"] == channel_id:
+                        guild_id = guild["guild_id"]
+                if guild_id:
+                    break
+            self.unseen.append({
+                "channel_id": channel_id,
+                "guild_id": guild_id,
+            })
         self.blocked = self.gateway.get_blocked()
         self.run = True
 
         # restore last state
         if self.config["remember_state"]:
             self.state = peripherals.load_state()
+            # save collapsed categories without processed guild
+            guild_ids = []
+            for guild in self.guilds:
+                guild_ids.append(guild["guild_id"])
+            for collapsed_id in self.state["collapsed"]:
+                if collapsed_id not in guild_ids:
+                    self.collapsed_no_data.append(collapsed_id)
         if self.state is None:
             self.state = {
                 "last_guild_id": None,
                 "last_channel_id": None,
                 "collapsed": [],
             }
+
         # load roles for uncollapsed guilds
         for guild in self.guilds:
             if guild["guild_id"] not in self.state["collapsed"]:
@@ -1503,7 +1551,7 @@ class Endcord:
 
         # generate and draw tree
         if not self.tree_format:
-            self.init_tree()
+            self.init_tree(init_uncollapse=True)
             self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
 
         # send new presence and start input thread
@@ -1609,8 +1657,11 @@ class Endcord:
                     if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
                         # ignoring messages sent by other clients
                         if op == "MESSAGE_CREATE" and new_message["d"]["user_id"] != self.my_id:
-                            if new_message_channel_id not in self.unseen:
-                                self.unseen.append(new_message_channel_id)
+                            if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
+                                self.unseen.append({
+                                    "channel_id": new_message_channel_id,
+                                    "guild_id": new_message["d"]["guild_id"],
+                                })
                             mentions = []
                             for mention in new_message["d"]["mentions"]:
                                 mentions.append(mention["id"])
@@ -1684,19 +1735,21 @@ class Endcord:
                 new_message_ack = self.gateway.get_message_ack()
                 if new_message_ack:
                     ack_channel_id = new_message_ack["channel_id"]
-                    if ack_channel_id in self.unseen:
-                        self.unseen.remove(ack_channel_id)
-                        self.update_tree(set_seen=ack_channel_id)
-                        for num, pinged_channel in enumerate(self.pings):
-                            if ack_channel_id == pinged_channel["channel_id"]:
-                                self.pings.pop(num)
-                                break
-                        if self.enable_notifications:
-                            for num, notification in enumerate(self.notifications):
-                                if notification["channel_id"] == ack_channel_id:
-                                    notification_id = self.notifications.pop(num)["notification_id"]
-                                    peripherals.notify_remove(notification_id)
+                    for num_1, unseen_channel in enumerate(self.unseen):
+                        if unseen_channel["channel_id"] == ack_channel_id:   # find this unseen chanel
+                            self.unseen.pop(num_1)
+                            self.update_tree(set_seen=ack_channel_id)
+                            for num, pinged_channel in enumerate(self.pings):
+                                if ack_channel_id == pinged_channel["channel_id"]:
+                                    self.pings.pop(num)
                                     break
+                            if self.enable_notifications:
+                                for num, notification in enumerate(self.notifications):
+                                    if notification["channel_id"] == ack_channel_id:
+                                        notification_id = self.notifications.pop(num)["notification_id"]
+                                        peripherals.notify_remove(notification_id)
+                                        break
+                            break
                 else:
                     break
 

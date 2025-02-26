@@ -20,7 +20,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
-    - Hidden channels
+    - Hidden channels (WIP)
     - Show muted chanels as gray
     - Show unread channels as bold
     - Show channels with mention as red
@@ -39,7 +39,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Insertable newline in input line (`Ctr+N`)
 - Copy message text to clipboard (`Ctrl+H`)
 - Hide or mask blocked/ignored users
-- No ghost pings (hopefully)
+- No ghost pings (when client is running)
 - Role colors in chat
 - Date separtors in chat
 - Partial markdown support (underline, bold, italic, spoiler)
@@ -268,3 +268,8 @@ For each role with color, 2 pairs are initialized. Role colors are dynamically l
 
 ## Planned features
 Go to [TODO](todo.txt).
+
+### Features that will not be added
+Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned.  
+Therefore they will NOT be implemented in endcord.  
+Features: sending friend request, opening new DM.

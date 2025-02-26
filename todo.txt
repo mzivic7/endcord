@@ -1,6 +1,6 @@
 HIGH PRIORITY:
-Fix updating unread for never opened guilds
-Fix getting hidden channels
+get hidden channels
+dont show newly opened DMs
 handle emoji on windows
 fix not getting events from large servers
 
@@ -11,13 +11,13 @@ search and go to messages (Ctrl+F)
 assist with @[username]/@[role]/>channel/:emoji: and reactions
 member list
 show user info
+code blocks highlighting with pygments
 vi-mode?
 
 LOW PRIORITY:
 media player: zoom, seek, pause, play audio messages
 tabs
 rpc on windows
-dangerous features (sending friend request, starting DM)
 
 MAYBE:
 mouse controls
