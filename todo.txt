@@ -1,6 +1,5 @@
 HIGH PRIORITY:
 get hidden channels
-dont show newly opened DMs
 handle emoji on windows
 fix not getting events from large servers
 

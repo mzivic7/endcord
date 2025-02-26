@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "rich")
+MSG_NUM = 50   # number of messages downloaded when switching channel
+MSG_MIN = 3   # minimum number of messages that must be sent in official client
 
 download = downloader.Downloader()
 match_url = re.compile(r"(https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*)")
@@ -156,6 +158,7 @@ class Endcord:
         self.selected_attachment = 0
         self.member_roles = []
         self.current_member_roles = []
+        self.disable_sending = False
 
 
     def reconnect(self):
@@ -280,9 +283,27 @@ class Endcord:
                 break
 
         # fetch messages
-        self.messages = self.get_messages_with_members()
+        self.messages = self.get_messages_with_members(num=MSG_NUM)
         if self.messages:
             self.last_message_id = self.messages[0]["id"]
+
+        # if this is dm, check if user has sent minimum number of messages
+        # this is to prevent triggering discords spam filter
+        if not self.active_channel["guild_id"] and len(self.messages) < MSG_NUM:
+            # if there is less than MSG_NUM messages, this is the start of conversation
+            # so count all messages sent from this user
+            my_messages = 0
+            for message in self.messages:
+                if message["user_id"] == self.my_id:
+                    my_messages += 1
+                    if my_messages >= MSG_MIN:
+                        break
+            if my_messages < MSG_MIN:
+                self.disable_sending = True
+                self.tui.draw_extra_line(f"Cant send a message: please send at least {MSG_MIN} messages with the official client")
+        else:
+            self.disable_sending = False
+            self.tui.draw_extra_line()
 
         # misc
         self.typing = []
@@ -694,7 +715,7 @@ class Endcord:
                 peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
 
             # upload attachment
-            elif action == 13 and self.messages:
+            elif action == 13 and self.messages and not self.disable_sending:
                 if self.current_channel.get("allow_attach", True):
                     self.uploading = True
                 self.add_to_store(self.active_channel["channel_id"], input_text)
@@ -805,15 +826,16 @@ class Endcord:
                             this_attachments = self.ready_attachments.pop(num)["attachments"]
                             self.update_extra_line()
                             break
-                    self.discord.send_message(
-                        self.active_channel["channel_id"],
-                        input_text,
-                        reply_id=self.replying["id"],
-                        reply_channel_id=self.active_channel["channel_id"],
-                        reply_guild_id=self.active_channel["guild_id"],
-                        reply_ping=self.replying["mention"],
-                        attachments=this_attachments,
-                    )
+                    if not self.disable_sending:
+                        self.discord.send_message(
+                            self.active_channel["channel_id"],
+                            input_text,
+                            reply_id=self.replying["id"],
+                            reply_channel_id=self.active_channel["channel_id"],
+                            reply_guild_id=self.active_channel["guild_id"],
+                            reply_ping=self.replying["mention"],
+                            attachments=this_attachments,
+                        )
                 self.reset_actions()
                 self.update_status_line()
 

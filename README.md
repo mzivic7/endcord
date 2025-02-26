@@ -265,6 +265,9 @@ This will be updated in endcord when cpython issue is resolved.
 All custom color pairs are initialized first, so only role colors can pass this limit.  
 For each role with color, 2 pairs are initialized. Role colors are dynamically loaded, so this can happen only when guild has really much roles.
 
+### Must send at least N messages in official client
+The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.
+
 
 ## Planned features
 Go to [TODO](todo.txt).
