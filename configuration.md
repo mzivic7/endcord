@@ -67,6 +67,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to mute video or not. If true, will not initialize audio at all.
 - `rpc_external = True`  
     Wether to use external resources for Rich Presence (like custom pictures).
+- `emoji_as_text = False`  
+    Will convert emoji characters to their names. Enable if emoji are not supported by terminal.
 
 ### Theme
 - `tree_width = 32`  

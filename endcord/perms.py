@@ -1,6 +1,11 @@
+def decode_flag(flags, flag_num):
+    """Return value for specified flag number (int)"""
+    flag = (1 << flag_num)
+    return (flags & flag) == flag
+
 def decode_permission(permission, flag):
     """
-    Return value for specified permission flag
+    Return value for specified permission flag (binary shifted)
     Some useful flags:
     ADMINISTRATOR   0x8
     ADD_REACTIONS   0x40

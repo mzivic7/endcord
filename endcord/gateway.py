@@ -10,7 +10,7 @@ from http.client import HTTPSConnection
 
 import websocket
 
-from endcord import debug
+from endcord import debug, perms
 
 CLIENT_NAME = "endcord"
 LOCAL_MEMBER_COUNT = 50   # CPU-RAM intensive
@@ -194,6 +194,10 @@ class Gateway():
                         guild_id = guild["id"]
                         guild_channels = []
                         for channel in guild["channels"]:
+                            if channel["type"] in (0, 5):
+                                hidden = False   # hidden by default
+                            else:
+                                hidden = False   # categories cant be hidden
                             guild_channels.append({
                                 "id": channel["id"],
                                 "type": channel["type"],
@@ -202,6 +206,7 @@ class Gateway():
                                 "parent_id": channel.get("parent_id"),
                                 "position": channel["position"],
                                 "permission_overwrites": channel["permission_overwrites"],
+                                "hidden": hidden,
                             })
                             # build list of last mesages from each channel
                             if "last_message_id" in channel:
@@ -292,19 +297,24 @@ class Gateway():
                                 "muted": guild["muted"],
                             })
                             for channel in guild["channel_overrides"]:
+                                found = False
                                 for channel_num, channel_g in enumerate(self.guilds[guild_num]["channels"]):
                                     if channel_g["id"] == channel["channel_id"]:
+                                        found = True
                                         break
-                                if "flags" in channel:
-                                    hidden = False   # not bool(channel["flags"])   # TODO
-                                else:
-                                    hidden = False
-                                self.guilds[guild_num]["channels"][channel_num].update({
-                                    "message_notifications": channel["message_notifications"],
-                                    "muted": channel["muted"],
-                                    "hidden": hidden,
-                                    "collapsed": channel["collapsed"],
-                                })
+                                if found:
+                                    if channel_g["type"] in (0, 5):
+                                        flags = int(channel.get("flags", 0))
+                                        hidden = not perms.decode_flag(flags, 12)
+                                        # logger.info(f"{channel["channel_id"]} {channel_g["name"]} {hidden}")
+                                    else:   # categories cant be hidden
+                                        hidden = False
+                                    self.guilds[guild_num]["channels"][channel_num].update({
+                                        "message_notifications": channel["message_notifications"],
+                                        "muted": channel["muted"],
+                                        "hidden": hidden,
+                                        "collapsed": channel["collapsed"],
+                                    })
                         else:
                             for dm in guild["channel_overrides"]:
                                 for dm_num, dm_g in enumerate(self.dms):

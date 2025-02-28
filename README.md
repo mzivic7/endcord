@@ -43,6 +43,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Role colors in chat
 - Date separtors in chat
 - Partial markdown support (underline, bold, italic, spoiler)
+- Emoji support with `:emoji:` (only default)
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
@@ -50,7 +51,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Automatic recovery on network failure
 - Remember last open channel and tree state
 - Resizable (unstable)
-- Show discord emoji as `<emoji_name>`
+- Show discord emoji as `:emoji_name:`
 - Show mentions as `@username`, `@role`, `@>channel_name`
 - Quit on `Ctrl+C`
 
@@ -148,6 +149,12 @@ If file size exceeds discord's limit it will not be added to the sent message.
 Attachments can be navigated with `Ctrl+Left/Right` in extra line (above status line).  
 `Ctrl+X` will cancel ALL downloads and attachments, with a confirmation prompt.  
 `Ctrl+K` will cancel selected attachment (and stop upload) and remove it from attachments list.
+
+### Emoji
+To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  
+For now, there is no emoji assist, but it is planned.  
+Emoji names can be found [here](https://unicode.org/emoji/charts/full-emoji-list.html) and aliases [here](https://www.webfx.com/tools/emoji-cheat-sheet/).  
+
 
 ### RPC
 For now RPC is only implemented for Linux, it is automatically disabled on other platforms.  
@@ -264,6 +271,9 @@ This is an [issue](https://github.com/python/cpython/issues/119138) with cpython
 This will be updated in endcord when cpython issue is resolved.
 All custom color pairs are initialized first, so only role colors can pass this limit.  
 For each role with color, 2 pairs are initialized. Role colors are dynamically loaded, so this can happen only when guild has really much roles.
+
+### No emoji
+If emoji are drawn as empty box or simmilar it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.
 
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.

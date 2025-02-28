@@ -8,6 +8,8 @@ import threading
 import time
 import webbrowser
 
+import emoji
+
 from endcord import (
     color,
     debug,
@@ -827,9 +829,10 @@ class Endcord:
                             self.update_extra_line()
                             break
                     if not self.disable_sending:
+                        text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                         self.discord.send_message(
                             self.active_channel["channel_id"],
-                            input_text,
+                            text_to_send,
                             reply_id=self.replying["id"],
                             reply_channel_id=self.active_channel["channel_id"],
                             reply_guild_id=self.active_channel["guild_id"],
@@ -1339,6 +1342,7 @@ class Endcord:
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
             init_uncollapse=init_uncollapse,
+            safe_emoji=self.config["emoji_as_text"],
         )
         # debug_guilds_tree
         # debug.save_json(self.tree, "tree.json", False)
@@ -1606,7 +1610,6 @@ class Endcord:
                     if this_channel:
                         data = new_message["d"]
                         if op == "MESSAGE_CREATE":
-                            del (data["guild_id"], data["channel_id"])
                             # if latest message is loaded - not viewing old message chunks
                             if self.messages[0]["id"] == self.last_message_id:
                                 self.messages.insert(0, data)

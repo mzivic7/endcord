@@ -1,13 +1,14 @@
 HIGH PRIORITY:
-get hidden channels
-handle emoji on windows
+Fix hidden channels
+fix running in linux tty (test in tty, fbterm, tmux)
 fix not getting events from large servers
+sticker support
 
 MEDIUM PRIORITY:
 forums and threads
 show summaries and channel topic
 search and go to messages (Ctrl+F)
-assist with @[username]/@[role]/>channel/:emoji: and reactions
+assist with @[username]/@[role]/>channel/:emoji:/reactions/stickers
 member list
 show user info
 code blocks highlighting with pygments
@@ -22,4 +23,4 @@ MAYBE:
 mouse controls
 recording voice messages
 voice and video calls
-non-ascii graphics
+non-ascii media

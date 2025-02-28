@@ -141,6 +141,7 @@ permission_names = [
 
 def get_perms_allowed_names(permissions):
     """Return list of allowed permission names"""
+    permissions = int(permissions)
     perms_allowed = []
     for i in list(range(47)) + [49, 50]:
         flag = (1 << i)
@@ -148,3 +149,14 @@ def get_perms_allowed_names(permissions):
         if perm:
             perms_allowed.append(permission_names[i])
     return perms_allowed
+
+
+def decode_flags(flags):
+    """Decode flags without known names"""
+    decoded_allowed = []
+    for i in range(50):
+        flag = (1 << i)
+        decoded = ((flags & flag) == flag)
+        if decoded:
+            decoded_allowed.append(str(i))
+    return decoded_allowed

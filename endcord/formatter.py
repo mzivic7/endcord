@@ -3,13 +3,17 @@ import logging
 import re
 from datetime import datetime
 
+import emoji
+
 logger = logging.getLogger(__name__)
 DAY_MS = 24*60*60*1000
 DISCORD_EPOCH_MS = 1420070400000
+TREE_EMOJI_REPLACE = "▮"
 
-match_emoji_string = re.compile(r"<.*?:.*?:\d*?>")
-match_emoji_name = re.compile(r"(?<=<:).*?(?=:)")
-match_a_emoji_name = re.compile(r"(?<=<a:).*?(?=:)")
+match_emoji_string = re.compile(r"(?<!\\):.+:")
+match_d_emoji_string = re.compile(r"<.*?:.*?:\d*?>")
+match_d_emoji_name = re.compile(r"(?<=<:).*?(?=:)")
+match_d_anim_emoji_name = re.compile(r"(?<=<a:).*?(?=:)")
 match_mention_string = re.compile(r"<@\d*?>")
 match_mention_id = re.compile(r"(?<=<@)\d*?(?=>)")
 match_role_string = re.compile(r"<@&\d*?>")
@@ -22,7 +26,7 @@ match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
 match_md_strikethrough = re.compile(r"(?<!\\)((?<=~))?~~[^~]+~~")   # unused
 match_md_spoiler = re.compile(r"(?<!\\)((?<=\|))?\|\|[^_]+\|\|")
 match_md_code = re.compile(r"(?<!\\)`{1,3}[^`]+`{1,3}")
-match_md_italic = re.compile(r"(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)|(((?<=\*))?\*[^\*]+\*)")
+match_md_italic = re.compile(r"\b(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)\b|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 
 
@@ -73,17 +77,27 @@ def day_from_snowflake(snowflake, timezone=True):
     return ((snowflake >> 22) + DISCORD_EPOCH_MS) / DAY_MS
 
 
-def replace_emojis(line):
+def emoji_name(emoji_char):
+    """Return emoji name from its unicode"""
+    return emoji.demojize(emoji_char).replace(":", "")
+
+
+def replace_emoji_string(line):
+    """Replace emoji string (:emoji:) with single character"""
+    return re.sub(match_emoji_string, TREE_EMOJI_REPLACE, line)
+
+
+def replace_discord_emoji(line):
     """
     Transform emoji strings into nicer looking ones:
-    `some text <:emoji_name:emoi_id> more text` ---> `some text <emoji_name> more text`
+    `some text <:emoji_name:emoji_id> more text` --> `some text :emoji_name: more text`
     """
-    for string_match in re.findall(match_emoji_string, line):
-        text = re.search(match_emoji_name, string_match)
+    for string_match in re.findall(match_d_emoji_string, line):
+        text = re.search(match_d_emoji_name, string_match)
         if not text:
-            text = re.search(match_a_emoji_name, string_match)   # animated
+            text = re.search(match_d_anim_emoji_name, string_match)   # animated
         if text:
-            line = line.replace(string_match, f"<{text.group()}>")
+            line = line.replace(string_match, f":{text.group()}:")
     return line
 
 
@@ -298,6 +312,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     keep_deleted = config["keep_deleted"]
     date_separator = config["chat_date_separator"]
     format_date = config["format_date"]
+    emoji_as_text = config["emoji_as_text"]
 
     chat = []
     chat_format = []
@@ -439,10 +454,12 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 if message["referenced_message"]["content"]:
                     content = replace_escaped_md(message["referenced_message"]["content"])
                     content = replace_spoilers_oneline(content)
-                    content = replace_emojis(content)
+                    content = replace_discord_emoji(content)
                     content = replace_mentions(content, message["referenced_message"]["mentions"])
                     content = replace_roles(content, roles)
                     content = replace_channels(content, channels)
+                    if emoji_as_text:
+                        content = emoji.demojize(content)
                 if reply_embeds:
                     for embed in reply_embeds:
                         if embed["url"] not in content:
@@ -484,10 +501,12 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         embeds = message["embeds"]
         content = ""
         if message["content"]:
-            content = replace_emojis(message["content"])
+            content = replace_discord_emoji(message["content"])
             content = replace_mentions(content, message["mentions"])
             content = replace_roles(content, roles)
             content = replace_channels(content, channels)
+            if emoji_as_text:
+                content = emoji.demojize(content)
         if embeds:
             for embed in embeds:
                 if embed["url"] and embed["url"] not in content:
@@ -668,9 +687,12 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         if message["reactions"]:
             reactions = []
             for reaction in message["reactions"]:
+                emoji_str = reaction["emoji"]
+                if emoji_as_text:
+                    emoji_str = emoji_name(emoji_str)
                 reactions.append(
                     format_one_reaction
-                    .replace("%reaction", reaction["emoji"])
+                    .replace("%reaction", emoji_str)
                     .replace("%count", str(reaction["count"])),
                 )
             reactions = reactions_separator.join(reactions)
@@ -879,7 +901,7 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, init_uncollapse=False):
+def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, init_uncollapse=False, safe_emoji=False):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -930,6 +952,8 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
             mentioned_dm = True
         muted = dm.get("muted", False)
         active = (dm["id"] == active_channel_id)
+        if safe_emoji:
+            name = replace_emoji_string(emoji.demojize(name))
         tree.append(f"{intersection} {name}")
         code = 300
         if muted:
@@ -1081,7 +1105,10 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
         categories = sort_by_indexes(categories, categories_position)
 
         # add guild to the tree
-        tree.append(f"{dd_pointer} {guild["name"]}")
+        name = guild["name"]
+        if safe_emoji:
+            name = replace_emoji_string(emoji.demojize(name))
+        tree.append(f"{dd_pointer} {name}")
         code = 101
         if muted_guild:
             code += 10
@@ -1113,7 +1140,10 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
                     category["channels"] = sort_by_indexes(category["channels"], sorted_indexes(channels_position))
 
                     # add to the tree
-                    tree.append(f"{intersection}{dd_pointer} {category["name"]}")
+                    name = category["name"]
+                    if safe_emoji:
+                        name = replace_emoji_string(emoji.demojize(name))
+                    tree.append(f"{intersection}{dd_pointer} {name}")
                     code = 201
                     if category["muted"]:
                         code += 10
@@ -1135,7 +1165,10 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
                     category_channels = category["channels"]
                     for channel in category_channels:
                         if not channel["hidden"]:
-                            tree.append(f"{pass_by}{intersection} {channel["name"]}")
+                            name = channel["name"]
+                            if safe_emoji:
+                                name = replace_emoji_string(emoji.demojize(name))
+                            tree.append(f"{pass_by}{intersection} {name}")
                             code = 300
                             if channel["muted"] and not channel["active"]:
                                 code += 10
@@ -1161,7 +1194,10 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
                     tree_format.append(1200)
                     tree_metadata.append(None)
                 else:
-                    tree.append(f"{intersection} {category["name"]}")
+                    name = category["name"]
+                    if safe_emoji:
+                        name = replace_emoji_string(emoji.demojize(name))
+                    tree.append(f"{intersection} {name}")
                     code = 300
                     if muted and not channel["active"]:
                         code += 10

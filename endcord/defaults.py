@@ -26,6 +26,7 @@ settings = {
     "aspell_lang": "en_US",
     "mute_video": False,
     "rpc_external": True,
+    "emoji_as_text": False,
 }
 theme = {
     "tree_width": 32,
