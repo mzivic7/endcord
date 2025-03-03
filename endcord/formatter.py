@@ -414,7 +414,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 message["global_name"] = "blocked"
                 message["nick"] = "blocked"
                 message["content"] = "Blocked message"
-                message["embeds"] = None
+                message["embeds"] = []
+                message["stickers"] = []
                 color_base = color_blocked
             else:
                 indexes.append(0)
@@ -498,7 +499,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             global_name_nick = message["global_name"]
         else:
             global_name_nick = message["username"]
-        embeds = message["embeds"]
         content = ""
         if message["content"]:
             content = replace_discord_emoji(message["content"])
@@ -507,12 +507,24 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             content = replace_channels(content, channels)
             if emoji_as_text:
                 content = emoji.demojize(content)
-        if embeds:
-            for embed in embeds:
-                if embed["url"] and embed["url"] not in content:
-                    if content:
-                        content += "\n"
-                    content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
+        for embed in message["embeds"]:
+            if embed["url"] and embed["url"] not in content:
+                if content:
+                    content += "\n"
+                content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
+        for sticker in message["stickers"]:
+            sticker_type = sticker["format_type"]
+            if content:
+                content += "\n"
+            if sticker_type == 1:
+                content += f"[png sticker] (can be opened): {sticker["name"]}"
+            elif sticker_type == 2:
+                content += f"[apng sticker] (can be opened): {sticker["name"]}"
+            elif sticker_type == 3:
+                content += f"[lottie sticker] (cannot be opened): {sticker["name"]}"
+            else:
+                content += f"[gif sticker] (can be opened): {sticker["name"]}"
+
         message_line = (
             format_message
             .replace("%username", normalize_string(message["username"], limit_username))
@@ -1308,7 +1320,8 @@ def update_tree(tree_format, tree_metadata, guilds, unseen, mentioned, active_ch
                             if not muted:
                                 for channel_g in guild["channels"]:
                                     if channel_g["id"] == channel_id:
-                                        muted = channel_g.get("muted", False) or channel_g.get("hidden", False) or channel_g["type"] not in (0, 5)
+                                        # logger.info(f"{channel_g.get("name")} {channel_g.get("parent_id")} {channel_g.get("hidden", "NODATA")}")
+                                        muted = channel_g.get("muted", False) or (channel_g.get("hidden", False) and channel_g["type"] in (0, 5))
                                         parent_id = channel_g.get("parent_id")
                                         break
                             # apply channels parent (category) stats

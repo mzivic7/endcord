@@ -12,7 +12,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 ## Features
 - Extremely low CPU and and RAM usage (~30MB)
 - Live chat, send message
-- View images, gifs, videos in terminal with ASCII art (`Ctrl+V`)
+- View images, gifs, videos and stickers in terminal with ASCII art (`Ctrl+V`)
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
 - Download/upload attachments (`Ctrl+W/U`)
@@ -20,7 +20,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
-    - Hidden channels (WIP)
+    - Hidden channels
     - Show muted chanels as gray
     - Show unread channels as bold
     - Show channels with mention as red
@@ -275,8 +275,17 @@ For each role with color, 2 pairs are initialized. Role colors are dynamically l
 ### No emoji
 If emoji are drawn as empty box or simmilar it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.
 
+### Sticker cannot be opened
+If the message says it "cannot be opened", then this is lottie sticker. These stickers have special vector way of drawing animations and will not be supported.
+
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.
+
+### Running in headless Linux tty
+Linux tty by default supports only 16 colors. Endcord will fail to initialize colors and not start.  
+However endcord can be run inside fbterm [fbterm](https://salsa.debian.org/debian/fbterm), adding support for 256 colors.  
+Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Installation), then set environment variable: `export TERM=fbterm` and run endcord.  
+Note: `Ctrl+Up/Down/Left/Right` have different key codes in tty.
 
 
 ## Planned features

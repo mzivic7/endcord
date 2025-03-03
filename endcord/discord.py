@@ -26,6 +26,18 @@ def ceil(x):
     return -int(-1 * x // 1)
 
 
+def get_sticker_url(sticker):
+    """Generate sticker download url from its type and id, lottie stickers will return None"""
+    sticker_type = sticker["format_type"]
+    if sticker_type == 1:   # png - downloaded as webp
+        return f"https://media.discordapp.net/stickers/{sticker["id"]}.webp"
+    if sticker_type == 2:   # apng
+        return f"https://media.discordapp.net/stickers/{sticker["id"]}.png"
+    if sticker_type == 4:   # gif
+        return f"https://media.discordapp.net/stickers/{sticker["id"]}.gif"
+    return None   # lottie
+
+
 class Discord():
     """Methods for fetching and sending data to Discord using REST API"""
 
@@ -284,6 +296,7 @@ class Discord():
                             "global_name": message["referenced_message"]["author"]["global_name"],
                             "nick": reference_nick,
                             "embeds": reference_embeds,
+                            "stickers": message["referenced_message"].get("sticker_items", []),
                         }
                     else:   # reference message is deleted
                         reference = {
@@ -363,7 +376,9 @@ class Discord():
                     "referenced_message": reference,
                     "reactions": reactions,
                     "embeds": embeds,
+                    "stickers": message.get("sticker_items", []),   # {name, id, format_type}
                 })
+                # sticker types: 1 - png, 2 - apng, 3 - lottie, 4 - gif
             return messages
         logger.error(f"Failed to fetch messages. Response code: {response.status}")
         return None
@@ -611,7 +626,7 @@ class Discord():
                 "global_name": data["author"]["global_name"],
                 "referenced_message": reference,
                 "reactions": [],
-                "embeds": data["embeds"],
+                "stickers": data.get("sticker_items", []),
             }
         logger.error(f"Failed to send message. Response code: {response.status}")
         return None
@@ -645,7 +660,7 @@ class Discord():
                 "mentions": mentions,
                 "mention_roles": data["mention_roles"],
                 "mention_everyone": data["mention_everyone"],
-                "embeds": data["embeds"],
+                "stickers": data.get("sticker_items", []),
             }
 
         logger.error(f"Failed to edit the message. Response code: {response.status}")

@@ -54,12 +54,12 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     0 - gif HD  
     1 - gif UHD  
     2 - mp4 Video  
-- `aspell_mode`  
+- `aspell_mode = "normal"`  
     [Aspell](http://aspell.net/) filter mode.  
     Available options: `ultra` / `fast` / `normal` / `slow` / `bad-spellers`  
     Set to None to disable spell checking.  
     More info [here](http://aspell.net/man-html/Notes-on-the-Different-Suggestion-Modes.html#Notes-on-the-Different-Suggestion-Modes).  
-- `aspell_lang = en_US`  
+- `aspell_lang = "en_US"`  
     Language dictionary for aspell.  
     To list all installed languages, run `aspell dump dicts`.
     Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
@@ -74,31 +74,31 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `tree_width = 32`  
     Width of channel tree in characters.
 - `format_message = "[%timestamp] <%username> | %content %edited"`  
-    Formatting for message base string. See [format_message](##format_message) for more info.
+    Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
-    Formatting for each newline string after message base. See [format_newline](##format_newline) for more info.
+    Formatting for each newline string after message base. See [format_newline](#format_newline) for more info.
 - `format_reply = "[REPLY] <%username> | /--> [%timestamp] %content"`  
-    Formatting for replied message string. It is above message base. See [format_reply](##format_reply) for more info.
+    Formatting for replied message string. It is above message base. See [format_reply](#format_reply) for more info.
 - `format_reactions = "[REACT]                \\--< %reactions"`  
-    Formatting for message reactions string. It is bellow last newline string. See [format_reactions](##format_reactions) for more info.
+    Formatting for message reactions string. It is bellow last newline string. See [format_reactions](#format_reactions) for more info.
 - `format_one_reaction = "%count:%reaction"`  
-    Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](##format_one_reaction) for more info.
+    Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](#format_one_reaction) for more info.
 - `format_timestamp = "%H:%M"`  
     Format for timestamps in messages. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
 - `format_status_line_l = " %global_name (%username) - %status  %unreads %action %typing"`  
-    Formatting for left side of status line. See [format_status](##format_status) for more info. Set to None to disable.
+    Formatting for left side of status line. See [format_status](#format_status) for more info. Set to None to disable.
 - `format_status_line_r = None`  
-    Formatting for right side of status line. See [format_status](##format_status) for more info.
+    Formatting for right side of status line. See [format_status](#format_status) for more info.
 - `format_title_line_l = " %server: %channel"`  
-    Formatting for left side of title line. See [format_status](##format_status) for more info. Set to None to disable.
+    Formatting for left side of title line. See [format_status](#format_status) for more info. Set to None to disable.
 - `format_title_line_r = "%rich"`  
-    Formatting for right side of title line. See [format_status](##format_status) for more info.
+    Formatting for right side of title line. See [format_status](#format_status) for more info.
 - `format_title_tree = " endcord  %task"`  
-    Formatting for channel tree title line. See [format_status](##format_status) for more info. Set to None to disable.
+    Formatting for channel tree title line. See [format_status](#format_status) for more info. Set to None to disable.
 - `format_rich = "playing: %name - %state - %details "`  
-    Formatting for rich presence string used in `format_status`. See [format_rich](##format_rich) for more info.
+    Formatting for rich presence string used in `format_status`. See [format_rich](#format_rich) for more info.
 - `format_prompt = "[%channel] > "`  
-    Formatting for prompt line. See [format_prompt](##format_prompt) for more info.
+    Formatting for prompt line. See [format_prompt](#format_prompt) for more info.
 - `edited_string = "(edited)"`  
     A string added to the end of the message when it is edsited.
 - `reactions_separator = "; "`  

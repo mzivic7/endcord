@@ -621,7 +621,7 @@ class Endcord:
                     if reference_id:
                         self.go_to_message(reference_id)
 
-            # download file / open media
+            # download file
             elif action == 9:
                 msg_index = self.lines_to_msg(chat_sel)
                 urls = []
@@ -678,12 +678,18 @@ class Endcord:
             elif action == 17 and support_media:
                 msg_index = self.lines_to_msg(chat_sel)
                 urls = []
+                media_type = None
                 for embed in self.messages[msg_index]["embeds"]:
-                    embed_type = embed["type"].split("/")[0]
-                    if embed["url"] and embed_type in MEDIA_EMBEDS:
+                    media_type = embed["type"].split("/")[0]
+                    if embed["url"] and media_type in MEDIA_EMBEDS:
                         urls.append(embed["url"])
+                for sticker in self.messages[msg_index]["stickers"]:
+                    media_type = f"sticker_{sticker["format_type"]}"
+                    sticker_url = discord.get_sticker_url(sticker)
+                    if sticker_url:
+                        urls.append(sticker_url)
                 if len(urls) == 1:
-                    logger.debug(f"Trying to play attachment with type: {embed["type"]}")
+                    logger.debug(f"Trying to play attachment with type: {media_type}")
                     self.downloading_file = {
                         "content": input_text,
                         "urls": urls,
@@ -1616,7 +1622,7 @@ class Endcord:
                             self.last_message_id = new_message["d"]["id"]
                             # limit chat size
                             if len(self.messages) > self.limit_chat_buffer:
-                                self.messgaes.pop(-1)
+                                self.messages.pop(-1)
                             self.update_chat(change_amount=1)
                             if not self.unseen_scrolled:
                                 if time.time() - self.sent_ack_time > self.ack_throttling:

@@ -1,8 +1,7 @@
 HIGH PRIORITY:
+Fix category marked as unread but all is read
 Fix hidden channels
-fix running in linux tty (test in tty, fbterm, tmux)
 fix not getting events from large servers
-sticker support
 
 MEDIUM PRIORITY:
 forums and threads

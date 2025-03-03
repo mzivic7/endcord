@@ -108,9 +108,15 @@ class CursesMedia():
 
 
     def play_img(self, img_path):
-        """Convert image to colored ascii art and draw it with curses"""
-        self.init_colrs()
+        """
+        Convert image to colored ascii art and draw it with curses.
+        If image is animated (eg apng) send it to play_anim instead.
+        """
         img = Image.open(img_path)
+        if img.is_animated:
+            self.play_anim(img_path)
+            return
+        self.init_colrs()
         self.pil_img_to_curses(img)
         while self.playing:
             self.screen.refresh()
@@ -121,8 +127,8 @@ class CursesMedia():
             time.sleep(0.1)
 
 
-    def play_gif(self, gif_path):
-        """Convert gif image to colored ascii art and draw it with curses"""
+    def play_anim(self, gif_path):
+        """Convert animated image to colored ascii art and draw it with curses"""
         self.init_colrs()
         gif = Image.open(gif_path)
         frame = 0
@@ -209,7 +215,7 @@ class CursesMedia():
         try:
             if file_type[0] == "image":
                 if file_type[1] == "gif":
-                    self.play_gif(path)
+                    self.play_anim(path)
                 else:
                     self.play_img(path)
             elif file_type[0] == "video":

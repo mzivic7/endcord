@@ -528,6 +528,7 @@ class Gateway():
                                 "global_name": response["d"]["referenced_message"]["author"]["global_name"],
                                 "nick": reference_nick,
                                 "embeds": reference_embeds,
+                                "stickers": response["d"]["referenced_message"].get("sticker_items", []),
                             }
                         else:
                             reference = None
@@ -602,6 +603,7 @@ class Gateway():
                                 "referenced_message": reference,
                                 "reactions": [],
                                 "embeds": embeds,
+                                "stickers": response["d"].get("sticker_items", []),   # {name, id, format_type}
                             },
                         })
                 elif optext == "MESSAGE_UPDATE":
@@ -650,6 +652,7 @@ class Gateway():
                         "mention_roles": response["d"]["mention_roles"],
                         "mention_everyone": response["d"]["mention_everyone"],
                         "embeds": embeds,
+                        "stickers": response["d"].get("sticker_items", []),
                     }
                     self.messages_buffer.append({
                         "op": "MESSAGE_UPDATE",
