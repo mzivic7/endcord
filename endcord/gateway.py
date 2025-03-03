@@ -514,7 +514,7 @@ class Gateway():
                                     })
                             for attachment in response["d"]["referenced_message"]["attachments"]:
                                 reference_embeds.append({
-                                    "type": attachment["content_type"],
+                                    "type": attachment.get("content_type", "unknown"),
                                     "name": attachment["filename"],
                                     "url": attachment["url"],
                                 })   # keep attachments in same place as embeds
@@ -565,7 +565,7 @@ class Gateway():
                                 })
                         for attachment in response["d"]["attachments"]:
                             embeds.append({
-                                "type": attachment["content_type"],
+                                "type": attachment.get("content_type", "unknown"),
                                 "name": attachment["filename"],
                                 "url": attachment["url"],
                             })   # keep attachments in same place as embeds

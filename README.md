@@ -1,5 +1,12 @@
 <div align="center">
 <h1>Endcord</h1>
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#features">Features</a> |
+<a href="https://github.com/mzivic7/endcord/blob/main/screenshots.md">Screenshots</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#configuration">Config</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
 <img src="./.github/screenshots/01.png" alt="Screenshot 1" width="800">
 </div>
 
@@ -280,6 +287,12 @@ If the message says it "cannot be opened", then this is lottie sticker. These st
 
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.
+
+### Guild is marked as unread but all channels are seen
+This happens only for guilds that have never been "opened" in tree in the past.
+It will remain like this, until I figure out how to properly determine which server has unread channels.  
+Why: This is coming from channels that are marked as unread but are also restricted. To get list of restricted channels, permissions must be calculated. To do that, member roles are needed, and those roles are requested per-server through rest API. Normally, roles are fetched only once, when guild is opened for the first time.  
+This can be fixed by requesting member roles for each server, each time endcord is started, but that would abuse discords rest API and increase risk of getting banned, especially when user has lager number of servers.  
 
 ### Running in headless Linux tty
 Linux tty by default supports only 16 colors. Endcord will fail to initialize colors and not start.  

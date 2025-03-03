@@ -1,7 +1,5 @@
 HIGH PRIORITY:
-Fix category marked as unread but all is read
 Fix hidden channels
-fix not getting events from large servers
 
 MEDIUM PRIORITY:
 forums and threads
@@ -11,7 +9,6 @@ assist with @[username]/@[role]/>channel/:emoji:/reactions/stickers
 member list
 show user info
 code blocks highlighting with pygments
-vi-mode?
 
 LOW PRIORITY:
 media player: zoom, seek, pause, play audio messages
@@ -19,6 +16,7 @@ tabs
 rpc on windows
 
 MAYBE:
+vi-mode
 mouse controls
 recording voice messages
 voice and video calls

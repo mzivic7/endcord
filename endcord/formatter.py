@@ -1057,9 +1057,11 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
                     if channel["parent_id"] == category["id"]:
                         muted_ch = channel.get("muted", False)
                         hidden_ch = channel.get("hidden", False)
+                        # hide restricted channels now because they can be marked as unseen/ping
+                        if not channel.get("permitted", False):
+                            hidden_ch = True
                         # this is first so guild can be marked as unseen/ping
                         # without downloaded permissions
-                        # assuming there is no unseen/ping from restricted channel
                         if not (category["muted"] or hidden_ch or muted_ch):
                             if unseen_ch:
                                 category["unseen"] = True
@@ -1067,9 +1069,6 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
                             if mentioned_ch:
                                 category["ping"] = True
                                 ping_guild = True
-                        # now hide restricted channels
-                        if not channel.get("permitted", False):
-                            hidden_ch = True
                         if not hidden_ch and category["hidden"] != 2:
                             category["hidden"] = False
                         active = (channel["id"] == active_channel_id)
@@ -1320,9 +1319,9 @@ def update_tree(tree_format, tree_metadata, guilds, unseen, mentioned, active_ch
                             if not muted:
                                 for channel_g in guild["channels"]:
                                     if channel_g["id"] == channel_id:
-                                        # logger.info(f"{channel_g.get("name")} {channel_g.get("parent_id")} {channel_g.get("hidden", "NODATA")}")
-                                        muted = channel_g.get("muted", False) or (channel_g.get("hidden", False) and channel_g["type"] in (0, 5))
+                                        muted = not channel_g.get("permitted", True) or (channel_g.get("muted", False) or (channel_g.get("hidden", False) and channel_g["type"] in (0, 5)))
                                         parent_id = channel_g.get("parent_id")
+                                        # logger.info(f"{channel_g.get("name")} {channel_g.get("parent_id")} {channel_g.get("hidden", "None")} {channel_g.get("permitted", "None")}   {muted}")
                                         break
                             # apply channels parent (category) stats
                             if not muted:
