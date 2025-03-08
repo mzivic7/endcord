@@ -27,6 +27,7 @@ settings = {
     "mute_video": False,
     "rpc_external": True,
     "emoji_as_text": False,
+    "only_one_open_server": False,
 }
 theme = {
     "tree_width": 32,
@@ -88,7 +89,7 @@ theme = {
     "saturation": 1.2,
     "target_fps": 30,
     "font_scale": 2.25,
-    "color_media_bg": -1,
+    "color_media_bg": 16,
 }
 
 

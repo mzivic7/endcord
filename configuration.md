@@ -69,6 +69,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to use external resources for Rich Presence (like custom pictures).
 - `emoji_as_text = False`  
     Will convert emoji characters to their names. Enable if emoji are not supported by terminal.
+- `only_one_open_server = False`  
+    Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.  
 
 ### Theme
 - `tree_width = 32`  

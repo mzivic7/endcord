@@ -1270,7 +1270,11 @@ def update_tree_parents(tree_format, tree_metadata, num, code, match_conditions)
 
 
 def update_tree(tree_format, tree_metadata, guilds, unseen, mentioned, active_channel_id, seen_id):
-    """Update format for alread generated tree"""
+    """
+    Update format for alread generated tree.
+    Optimised version of init_tree for when tree is already generated.
+    Unused because it marks unseen wrong aand performance gain is insignificant.
+    """
     unseen_channels = [x["channel_id"] for x in unseen]
     for num, code in enumerate(tree_format):
         if 300 <= code <= 399:

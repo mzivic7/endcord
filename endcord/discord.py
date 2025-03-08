@@ -451,7 +451,7 @@ class Discord():
         """
         if num == 1 and self.cache_proto_1:
             return self.cache_proto_1
-        if num == 2 and self.cache_proto_1:
+        if num == 2 and self.cache_proto_2:
             return self.cache_proto_2
         message_data = None
         url = f"/api/v9/users/@me/settings-proto/{num}"

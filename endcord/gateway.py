@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import random
@@ -9,6 +10,8 @@ import zlib
 from http.client import HTTPSConnection
 
 import websocket
+from discord_protos import PreloadedUserSettings
+from google.protobuf.json_format import MessageToJson
 
 from endcord import debug, perms
 
@@ -59,6 +62,7 @@ class Gateway():
         self.reconnect_requested = False
         self.status_changed = False
         self.roles_changed = False
+        self.user_settings_proto = None
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
@@ -76,6 +80,7 @@ class Gateway():
         self.dms = []
         self.dms_id = []
         self.blocked = []
+        self.my_roles = []
 
 
     def thread_guard(self):
@@ -174,12 +179,16 @@ class Gateway():
                 logger.warn(f"Receiver error: {e}")
                 break
             logger.debug(f"Received: opcode={opcode}, optext={response["t"] if (response and "t" in response and response["t"] and "LIST" not in response["t"]) else 'None'}")
+
             if opcode == 11:
                 self.heartbeat_received = True
+
             elif opcode == 10:
                 self.heartbeat_interval = int(response["d"]["heartbeat_interval"])
+
             elif opcode == 1:
                 self.send({"op": 1, "d": self.sequence})
+
             elif opcode == 0:
                 self.sequence = int(response["s"])
                 optext = response["t"]
@@ -306,7 +315,6 @@ class Gateway():
                                     if channel_g["type"] in (0, 5):
                                         flags = int(channel.get("flags", 0))
                                         hidden = not perms.decode_flag(flags, 12)
-                                        # logger.info(f"{channel["channel_id"]} {channel_g["name"]} {hidden}")
                                     else:   # categories cant be hidden
                                         hidden = False
                                     self.guilds[guild_num]["channels"][channel_num].update({
@@ -333,9 +341,25 @@ class Gateway():
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
                             self.blocked.append(user["user_id"])
+                    # get proto
+                    decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["user_settings_proto"]))
+                    self.user_settings_proto = json.loads(MessageToJson(decoded))
+                    # get my roles
+                    for num, guild in enumerate(response["d"]["merged_members"]):
+                        guild_id = self.guilds[num]["guild_id"]
+                        roles = []
+                        for member in guild:
+                            if member["user_id"] == self.my_id:
+                                roles = member["roles"]
+                        self.my_roles.append({
+                            "guild_id": guild_id,
+                            "roles": roles,
+                        })
+
                     # READY is huge so lets save some memory
                     del (guild, guild_channels, role, guild_roles, last_messages)
                     self.ready_level += 1
+
                 elif optext == "READY_SUPPLEMENTAL":
                     for guild in response["d"]["merged_presences"]["guilds"]:
                         for user in guild:
@@ -382,6 +406,7 @@ class Gateway():
                         })
                     del (guild)   # this is large dict so lets save some memory
                     self.ready_level += 1
+
                 elif optext == "SESSIONS_REPLACE":
                     # received when new client is connected
                     custom_status = None
@@ -416,6 +441,7 @@ class Gateway():
                         "activities": activities,
                     }
                     self.status_changed = True
+
                 elif optext == "PRESENCE_UPDATE":
                     # received when friend/DM user changes presence state (online/rich/custom)
                     user_id = response["d"]["user"]["id"]
@@ -456,6 +482,7 @@ class Gateway():
                             "custom_status": custom_status,
                             "activities": activities,
                         })
+
                 elif optext == "TYPING_START":
                     # received when user in currently subscribed guild channel starts typing
                     if "member" in response["d"]:
@@ -474,6 +501,7 @@ class Gateway():
                         "global_name": global_name,
                         "nick": nick,
                     })
+
                 elif optext == "MESSAGE_CREATE":
                     if "content" in response["d"]:
                         if "referenced_message" in response["d"]:
@@ -606,6 +634,7 @@ class Gateway():
                                 "stickers": response["d"].get("sticker_items", []),   # {name, id, format_type}
                             },
                         })
+
                 elif optext == "MESSAGE_UPDATE":
                     embeds = []
                     for embed in response["d"]["embeds"]:
@@ -658,6 +687,7 @@ class Gateway():
                         "op": "MESSAGE_UPDATE",
                         "d": data,
                     })
+
                 elif optext == "MESSAGE_DELETE":
                     data = {
                         "id": response["d"]["id"],
@@ -668,6 +698,7 @@ class Gateway():
                         "op": "MESSAGE_DELETE",
                         "d": data,
                     })
+
                 elif optext == "MESSAGE_REACTION_ADD":
                     if "member" in response["d"]:
                         user_id = response["d"]["member"]["user"]["id"]
@@ -694,6 +725,7 @@ class Gateway():
                         "op": "MESSAGE_REACTION_ADD",
                         "d": data,
                     })
+
                 elif optext == "MESSAGE_REACTION_REMOVE":
                     data = {
                         "id": response["d"]["message_id"],
@@ -707,6 +739,7 @@ class Gateway():
                         "op": "MESSAGE_REACTION_REMOVE",
                         "d": data,
                     })
+
                 elif optext == "CONVERSATION_SUMMARY_UPDATE":
                     # received when new conversation summary is generated
                     for summary in response["d"]["summaries"]:
@@ -717,12 +750,14 @@ class Gateway():
                             "description": summary["summ_short"],
 
                         })
+
                 elif optext == "MESSAGE_ACK":
                     # received when other client ACKs messages
                     self.msg_ack_buffer.append({
                         "message_id": response["d"]["message_id"],
                         "channel_id": response["d"]["channel_id"],
                     })
+
                 elif optext == "GUILD_MEMBERS_CHUNK":
                     # received when requesting members (op 8)
                     guild_id = response["d"]["guild_id"]
@@ -740,7 +775,7 @@ class Gateway():
                 break
             # debug_events
             # if "t" in response and response["t"]:
-                  # debug.save_json(response, f"{response["t"]}.json", False)
+            #     debug.save_json(response, f"{response["t"]}.json", False)
         self.state = 0
         logger.info("Receiver stopped")
         self.reconnect_requested = True
@@ -1054,6 +1089,18 @@ class Gateway():
             self.roles_changed = False
             return self.member_roles
         return None
+
+    def get_settings_proto(self):
+        """Get account settings, only proto 1"""
+        return self.user_settings_proto
+
+    def get_my_roles(self):
+        """Get list of my roles for all servers"""
+        return self.my_roles
+
+    def get_my_id(self):
+        """Get my discord user ID"""
+        return self.my_id
 
 
     # all following "get_*" work like this:
