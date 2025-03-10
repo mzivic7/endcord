@@ -18,6 +18,7 @@ from endcord import defaults
 logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
+ASPELL_TIMEOUT = 0.05   # aspell limit for looking-up one word
 
 # platform specific code
 if sys.platform == "win32":
@@ -368,7 +369,7 @@ class SpellCheck(object):
         """Spellcheck single word with aspell"""
         try:
             self.proc.sendline(word)
-            self.proc.expect(r"\*|\&|\#", timeout=0.01)
+            self.proc.expect(r"\*|\&|\#", timeout=ASPELL_TIMEOUT)
             after = self.proc.after
             if after in ("&", "#"):
                 return True

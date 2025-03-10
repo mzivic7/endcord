@@ -1,6 +1,6 @@
 HIGH PRIORITY:
-fix hidden channels
 undo/redo in input line
+fix hidden channels
 forums and threads
 show summaries
 show channel topic
