@@ -1,6 +1,6 @@
 HIGH PRIORITY:
-Fix hidden channels
-quote support
+fix hidden channels
+undo/redo in input line
 forums and threads
 show summaries
 show channel topic
@@ -11,7 +11,6 @@ assist with @[username]/@[role]/>channel/:emoji:/reactions/stickers
 member list
 show user info
 code blocks highlighting with pygments
-undo/redo input line
 
 LOW PRIORITY:
 media player: zoom, seek, pause, play audio messages

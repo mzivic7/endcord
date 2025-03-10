@@ -49,7 +49,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - No ghost pings (when client is running)
 - Role colors in chat
 - Date separtors in chat
-- Partial markdown support (underline, bold, italic, spoiler)
+- Partial markdown support (underline, bold, italic, spoiler, quote)
 - Emoji support with `:emoji:` (only default)
 - Theming
 - Customizable status, title and prompt lines

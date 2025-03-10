@@ -103,6 +103,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for prompt line. See [format_prompt](#format_prompt) for more info.
 - `edited_string = "(edited)"`  
     A string added to the end of the message when it is edsited.
+- `quote_character = "|"`  
+    A character that is prepended to each line of songle or multiline quote.
 - `reactions_separator = "; "`  
     A string placed between two reactions.
 - `chat_date_separator = "-"`  

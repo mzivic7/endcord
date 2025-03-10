@@ -45,6 +45,7 @@ theme = {
     "format_rich": "playing: %name - %state - %details ",
     "format_prompt": "[%channel] > ",
     "edited_string": "(edited)",
+    "quote_character": "|",
     "reactions_separator": "; ",
     "chat_date_separator": "-",
     "format_date": " %B %d, %Y ",

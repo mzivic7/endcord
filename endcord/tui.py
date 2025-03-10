@@ -987,6 +987,7 @@ class TUI():
                     else:
                         self.tree_format[self.tree_selected_abs] += 1
                     self.draw_tree()
+                    self.tree_format_changed = True
                 # if selected tree entry is guild drop-down
                 elif 100 <= self.tree_format[self.tree_selected_abs] <= 199:
                     tmp = self.input_buffer

@@ -81,7 +81,6 @@ class Endcord:
         self.default_msg_alt_color = self.colors[1]
         self.cached_downloads = []
         self.color_cache = []
-        self.collapsed_no_data = []
 
         # variables
         self.run = False
@@ -386,12 +385,6 @@ class Endcord:
             collapsed.remove(guild_id)
 
         self.update_tree(collapsed=collapsed)
-
-        # update channels belonging to never processed guilds
-        # keeping this so it can be saved to state.json
-        for channel in guild["channels"]:
-            if channel["id"] in self.collapsed_no_data:
-                self.collapsed_no_data.remove(channel["id"])
 
         # keep this guild selected
         if select:
@@ -1407,13 +1400,10 @@ class Endcord:
             for num, code in enumerate(self.tree_format):
                 if code < 300 and (code % 10) == 0:
                     collapsed.append(self.tree_metadata[num]["id"])
-            try:
-                self.collapsed_no_data.remove(0)
-            except ValueError:
-                pass
-            self.state["collapsed"] = collapsed + self.collapsed_no_data
-            if save:
-                peripherals.save_state(self.state)
+            if self.state["collapsed"] != collapsed:
+                self.state["collapsed"] = collapsed
+                if save:
+                    peripherals.save_state(self.state)
 
 
     def send_desktop_notification(self, new_message):
@@ -1544,13 +1534,6 @@ class Endcord:
                     "last_channel_id": None,
                     "collapsed": [],
                 }
-            # save collapsed categories without processed guild
-            guild_ids = []
-            for guild in self.guilds:
-                guild_ids.append(guild["guild_id"])
-            for collapsed_id in self.state["collapsed"]:
-                if collapsed_id not in guild_ids:
-                    self.collapsed_no_data.append(collapsed_id)
 
         # open uncollapsed guilds
         self.open_guild(guild["guild_id"], restore=True)
