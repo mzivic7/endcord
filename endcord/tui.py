@@ -983,6 +983,34 @@ class TUI():
                         self.input_index += 1
                     self.show_cursor()
 
+            elif key == curses.KEY_HOME:   # HOME
+                self.input_index = 0
+
+            elif key == curses.KEY_END:   # END
+                self.input_index = len(self.input_buffer)
+
+            elif key == self.keybindings["word_left"]:
+                left_len = 0
+                for word in self.input_buffer[:self.input_index].split(" ")[::-1]:
+                    if word == "":
+                        left_len += 1
+                    else:
+                        left_len += len(word)
+                        break
+                self.input_index -= left_len
+                self.input_index = max(self.input_index, 0)
+
+            elif key == self.keybindings["word_right"]:
+                left_len = 0
+                for word in self.input_buffer[self.input_index:].split(" "):
+                    if word == "":
+                        left_len += 1
+                    else:
+                        left_len += len(word)
+                        break
+                self.input_index += left_len
+                self.input_index = min(self.input_index, len(self.input_buffer))
+
             elif key == self.keybindings["undo"]:
                 self.add_to_delta_store("UNDO")
                 if self.undo_index is None:

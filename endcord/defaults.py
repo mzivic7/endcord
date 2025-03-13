@@ -97,9 +97,11 @@ theme = {
 keybindings = {
     "tree_up": 575,   # Ctrl+Up
     "tree_down": 534,   # Ctrl+Donw
+    "word_left": 554,   # Ctrl+Left
+    "word_right": 569,   # Ctrl+Right
     "tree_select": 0,   # Ctrl+Space
-    "attach_prev": 554,   # Ctrl+Left
-    "attach_next": 569,   # Ctrl+Right
+    "attach_prev": 552,   # Alt+Left
+    "attach_next": 567,   # Alt+Right
     "attach_cancel": 11,   # Ctrl+K
     "ins_newline": 14,   # Ctrl+N
     "reply": 18,   # Ctrl+R

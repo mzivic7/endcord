@@ -798,7 +798,7 @@ class Discord():
                     connection.sock.shutdown()
                     connection.sock.close()
                 except Exception:
-                    pass
+                    logger.debug("Cancel upload: upload socket already closed.")
                 self.uploading.remove(upload)
 
 

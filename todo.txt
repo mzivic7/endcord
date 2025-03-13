@@ -9,6 +9,7 @@ MEDIUM PRIORITY:
 assist with @[username]/@[role]/>channel/:emoji:/reactions/stickers
 member list
 show user info
+selection in input line
 code blocks highlighting with pygments
 
 LOW PRIORITY:
