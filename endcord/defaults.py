@@ -116,6 +116,8 @@ keybindings = {
     "redraw": 12,   # Ctrl+L
     "view_media": 22,   # Ctrl+V
     "spoil": 20,   # Ctrl+T
+    "undo": "ALT+122",   # Alt+Z
+    "redo": "ALT+90",   # Alt+Shift+Z
 }
 
 

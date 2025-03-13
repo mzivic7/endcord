@@ -473,7 +473,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     .replace("%username", normalize_string(message["referenced_message"]["username"], limit_username))
                     .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
                     .replace("%timestamp", generate_timestamp(message["referenced_message"]["timestamp"], format_timestamp, convert_timezone))
-                    .replace("%content", content.replace("\r", "").replace("\n", ""))
+                    .replace("%content", content.replace("\r", " ").replace("\n", " "))
                 )
             else:
                 reply_line =  (

@@ -7,6 +7,7 @@ from endcord import acs, peripherals
 
 logger = logging.getLogger(__name__)
 INPUT_LINE_JUMP = 20   # jump size when moving input line
+MAX_DELTA_STORE = 50   # limit undo size
 
 
 def ctrl(x):
@@ -97,6 +98,11 @@ class TUI():
         self.enable_autocomplete = False
         self.spelling_range = [0, 0]
         self.misspelled = []
+        self.delta_store = []
+        self.last_action = None
+        self.delta_cache = ""
+        self.delta_index = 0
+        self.undo_index = None
         self.typing = time.time()
         self.extra_line_text = ""
         self.run = True
@@ -345,7 +351,7 @@ class TUI():
             else:
                 bad = False
                 for bad_range in self.misspelled:
-                    if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)):
+                    if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)+1):
                         try:
                             # cant insch weird characters, but this is faster than always calling insstr
                             self.win_input_line.insch(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
@@ -768,7 +774,7 @@ class TUI():
             range_word_end = line_start + w + len(input_buffer[line_start+w:].split(" ")[0])
         else:
             # first space before last word
-            range_word_end = len(input_buffer) - len(input_buffer.split(" ")[-1]) - 1
+            range_word_end = len(input_buffer) - len(input_buffer.split(" ")[-1]) - bool(" " in input_buffer)
         # indexes of words visible on screen
         spelling_range = [range_word_start, range_word_end]
         if spelling_range != self.spelling_range:
@@ -787,7 +793,50 @@ class TUI():
         self.spelling_range = spelling_range
 
 
-    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False, autocomplete=False):
+    def add_to_delta_store(self, key, character=None):
+        """Add input line delta to delta_store"""
+        if key not in ("BACKSPACE", "DELETE", " ", "UNDO", "REDO"):
+            action = "ADD"
+        elif key == " ":
+            action = "SPACE"
+        else:
+            action = key
+
+        # clear future history when undo/redo then edit
+        if self.last_action != action and ((self.last_action == "UNDO" and action != "REDO") or (self.last_action == "REDO" and action != "UNDO")):
+            self.delta_store = self.delta_store[:self.undo_index]
+
+        # add delta_cache to delta_store
+        if self.last_action != action or abs(self.input_index - self.delta_index) >= 2:
+            # checking index change for case when cursor is moved
+            if self.delta_cache and (self.last_action != "SPACE" or (action not in ("ADD", "BACKSPACE", "DELETE"))):
+                if self.last_action == "SPACE":
+                    # space is still adding text
+                    self.delta_store.append([self.delta_index - 1, self.delta_cache, "ADD"])
+                else:
+                    self.delta_store.append([self.delta_index - 1, self.delta_cache, self.last_action])
+                if len(self.delta_store) > MAX_DELTA_STORE:
+                    # limit history size
+                    del self.delta_store[0]
+                self.delta_cache = ""
+            self.last_action = action
+
+        # add to delta_cache
+        if action == "BACKSPACE" and character:
+            self.delta_cache = character + self.delta_cache
+            self.delta_index = self.input_index
+            self.undo_index = None
+        elif action == "DELETE" and character:
+            self.delta_cache += character
+            self.delta_index = self.input_index
+            self.undo_index = None
+        elif action in ("ADD", "SPACE"):
+            self.delta_cache += key
+            self.delta_index = self.input_index
+            self.undo_index = None
+
+
+    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False, autocomplete=False, clear_delta=False):
         """
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and whether channel is changed
@@ -812,6 +861,10 @@ class TUI():
         if not self.disable_drawing:
             self.spellcheck()
             self.update_prompt(prompt)   # draw_input_line() is called in heren
+        if clear_delta:
+            self.delta_store = []
+            self.last_key = None
+            self.delta_cache = ""
         bracket_paste = False
         sequence = []   # for detecting bracket paste sequences
         selected_completion = 0
@@ -833,11 +886,44 @@ class TUI():
                     pass
                 continue   # disable all inputs from main UI
 
+            if key == 27:   # ESCAPE
+                # terminal waits when Esc is pressed, but not when sending escape sequence
+                self.screen.nodelay(True)
+                key = self.screen.getch()
+                if key == -1:
+                    # escape key
+                    self.deleting_msg = False
+                    self.replying_msg = False
+                    self.asking_num = False
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
+                    self.screen.nodelay(False)
+                    return tmp, self.chat_selected, self.tree_selected_abs, 5
+                # sequence (bracketed paste or ALT+KEY)
+                sequence = [27, key]
+                # -1 means no key is pressed, 126 is end of escape sequence
+                while key != -1:
+                    key = self.screen.getch()
+                    sequence.append(key)
+                    if key == 126:
+                        break
+                self.screen.nodelay(False)
+                # match sequences
+                if len(sequence) == 3 and sequence[2] == -1:   # ALT+KEY
+                    key = f"ALT+{sequence[1]}"
+                elif sequence == [27, 91, 50, 48, 48, 126]:
+                    bracket_paste = True
+                    continue
+                elif sequence == [27, 91, 50, 48, 49, 126]:
+                    bracket_paste = False
+                    continue
+
             if key == 10:   # ENTER
                 # wehen pasting, dont return, but insert newline character
                 if bracket_paste:
                     self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                     self.input_index += 1
+                    self.add_to_delta_store("\n")
                     pass
                 else:
                     tmp = self.input_buffer
@@ -851,55 +937,32 @@ class TUI():
                     self.cursor_on = True
                     return tmp, self.chat_selected, self.tree_selected_abs, 0
 
-            elif 32 <= key <= 126:   # all regular characters
+            elif isinstance(key, int) and 32 <= key <= 126:   # all regular characters
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.typing = int(time.time())
                 if self.enable_autocomplete:
                     completion_base = self.input_buffer
                     selected_completion = 0
+                self.add_to_delta_store(chr(key))
                 self.show_cursor()
-
-            elif key == 27:   # ESCAPE
-                # terminal waits when Esc is pressed, but not when sending escape sequence
-                self.screen.nodelay(True)
-                key = self.screen.getch()
-                if key == -1:
-                    # escape key
-                    self.deleting_msg = False
-                    self.replying_msg = False
-                    self.asking_num = False
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    self.screen.nodelay(False)
-                    return tmp, self.chat_selected, self.tree_selected_abs, 5
-                # sequence (bracketed paste or Alt+KEY)
-                sequence = [27, key]
-                # -1 means no key is pressed, 126 is end of escape sequence
-                while key != -1:
-                    key = self.screen.getch()
-                    sequence.append(key)
-                    if key == 126:
-                        break
-                self.screen.nodelay(False)
-                # match sequences
-                if sequence == [27, 91, 50, 48, 48, 126]:
-                    bracket_paste = True
-                elif sequence == [27, 91, 50, 48, 49, 126]:
-                    bracket_paste = False
 
             elif key == curses.KEY_BACKSPACE:   # BACKSPACE
                 if self.input_index > 0:
+                    removed_char = self.input_buffer[self.input_index-1]
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
                     if self.enable_autocomplete:
                         completion_base = self.input_buffer
                         selected_completion = 0
+                    self.add_to_delta_store("BACKSPACE", removed_char)
                     self.show_cursor()
 
             elif key == curses.KEY_DC:   # DEL
                 if self.input_index < len(self.input_buffer):
+                    removed_char = self.input_buffer[self.input_index]
                     self.input_buffer = self.input_buffer[:self.input_index] + self.input_buffer[self.input_index+1:]
+                    self.add_to_delta_store("DELETE", removed_char)
                     self.show_cursor()
 
             elif key == curses.KEY_LEFT:   # LEFT
@@ -919,6 +982,50 @@ class TUI():
                     else:
                         self.input_index += 1
                     self.show_cursor()
+
+            elif key == self.keybindings["undo"]:
+                self.add_to_delta_store("UNDO")
+                if self.undo_index is None:
+                    self.undo_index = len(self.delta_store) - 1
+                    undo = True
+                elif self.undo_index > 0:
+                    self.undo_index -= 1
+                    undo = True   # dont undo if hit history end
+                if undo and self.undo_index >= 0:
+                    # get delta
+                    delta_index, delta_text, delta_code = self.delta_store[self.undo_index]
+                    if delta_code == "ADD":
+                        # remove len(delta_text) before index_pos
+                        self.input_buffer = self.input_buffer[:delta_index - len(delta_text) + 1] + self.input_buffer[delta_index + 1:]
+                        self.input_index = delta_index - len(delta_text) + 1
+                    elif delta_code == "BACKSPACE":
+                        # add text at index pos
+                        self.input_buffer = self.input_buffer[:delta_index+1] + delta_text + self.input_buffer[delta_index+1:]
+                        self.input_index = delta_index + len(delta_text) + 1
+                    elif delta_code == "DELETE":
+                        # add text at index pos
+                        self.input_buffer = self.input_buffer[:delta_index+1] + delta_text + self.input_buffer[delta_index+1:]
+                        self.input_index = delta_index + 1
+
+            elif key == self.keybindings["redo"]:
+                self.add_to_delta_store("REDO")
+                if self.undo_index is not None and self.undo_index < len(self.delta_store):
+                    self.undo_index += 1
+                    # get delta
+                    delta_index, delta_text, delta_code = self.delta_store[self.undo_index - 1]
+                    if delta_code == "ADD":
+                        # add text at index_pos - len(text)
+                        delta_index = delta_index - len(delta_text) + 1
+                        self.input_buffer = self.input_buffer[:delta_index] + delta_text + self.input_buffer[delta_index:]
+                        self.input_index = delta_index + len(delta_text)
+                    elif delta_code == "BACKSPACE":
+                        # remove len(text) after index pos
+                        self.input_buffer = self.input_buffer[:delta_index + 1] + self.input_buffer[delta_index + len(delta_text) + 1:]
+                        self.input_index = delta_index + 1
+                    elif delta_code == "DELETE":
+                        # remove len(text) after index pos
+                        self.input_buffer = self.input_buffer[:delta_index + 1] + self.input_buffer[delta_index + len(delta_text) + 1:]
+                        self.input_index = delta_index + 1
 
             elif key == curses.KEY_UP:   # UP
                 if self.chat_selected + 1 < len(self.chat_buffer):

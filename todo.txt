@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-undo/redo in input line
 fix hidden channels
 forums and threads
 show summaries
@@ -18,6 +17,7 @@ tabs
 rpc on windows
 
 MAYBE:
+emacs-like shortcuts
 vi-mode
 mouse controls
 recording voice messages

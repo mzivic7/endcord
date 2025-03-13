@@ -504,9 +504,9 @@ class Endcord:
                             restore_text = self.input_store.pop(num)["content"]
                             break
                 if restore_text:
-                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, reset=False)
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, reset=False, clear_delta=True)
                 else:
-                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, clear_delta=True)
 
             # switch channel
             if action == 4:
