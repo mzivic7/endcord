@@ -54,10 +54,10 @@ def anonymize_guilds(guilds):
                 "topic": "",
                 "parent_id": parent_id,
                 "position": channel["position"],
-                "message_notifications": channel["message_notifications"],
-                "muted": channel["muted"],
-                "hidden": channel["hidden"],
-                "collapsed": channel["collapsed"],
+                "message_notifications": channel.get("message_notifications", "NO DATA"),
+                "muted": channel.get("muted", "NO DATA"),
+                "hidden": channel.get("hidden", "NO DATA"),
+                "collapsed": channel.get("collapsed", "NO DATA"),
             })
         anonymized.append({
             "guild_id": hash_none(guild["guild_id"]),

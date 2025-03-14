@@ -193,6 +193,7 @@ class Gateway():
                 self.sequence = int(response["s"])
                 optext = response["t"]
                 if optext == "READY":
+                    ready_time_start = time.time()
                     self.resume_gateway_url = response["d"]["resume_gateway_url"]
                     self.session_id = response["d"]["session_id"]
                     self.clear_ready_vars()
@@ -253,6 +254,8 @@ class Gateway():
                             "channels": guild_channels,
                             "base_permissions": base_permissions,
                         })
+                    logger.debug(f"READY event - guilds processed in {round(time.time() - ready_time_start, 3)}s")
+                    ready_time_mid = time.time()
                     # DM channels
                     for dm in response["d"]["private_channels"]:
                         recipients = []
@@ -278,6 +281,8 @@ class Gateway():
                             "is_request": dm.get("is_message_request"),
                         })
                         self.dms_id.append(dm["id"])
+                    logger.debug(f"READY event - DMs processed in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
                     # unread messages and pings
                     for channel in response["d"]["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
@@ -292,6 +297,8 @@ class Gateway():
                                             if channel["last_message_id"] != last_message["message_id"]:
                                                 # channel is unread
                                                 self.msg_unseen.append(channel["id"])
+                    logger.debug(f"READY event - unread processed in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
                     # guild and dm setings
                     for guild in response["d"]["user_guild_settings"]["entries"]:
                         if guild["guild_id"]:
@@ -332,18 +339,18 @@ class Gateway():
                                     "message_notifications": dm["message_notifications"],
                                     "muted": dm["muted"],
                                 })
-                    # write debug data
-                    if logger.getEffectiveLevel() == logging.DEBUG:
-                        debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
-                    # debug_guilds_tree
-                    # self.guilds = debug.load_json("guilds.json")
-                    # blocked users
+                    logger.debug(f"READY event - channel settings processed in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
                             self.blocked.append(user["user_id"])
+                    logger.debug(f"READY event - blocked users processed in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
                     # get proto
                     decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["user_settings_proto"]))
                     self.user_settings_proto = json.loads(MessageToJson(decoded))
+                    logger.debug(f"READY event - protobuf processed in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
                     # get my roles
                     for num, guild in enumerate(response["d"]["merged_members"]):
                         guild_id = self.guilds[num]["guild_id"]
@@ -355,10 +362,20 @@ class Gateway():
                             "guild_id": guild_id,
                             "roles": roles,
                         })
-
+                    logger.debug(f"READY event - roles processed in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
+                    # write debug data
+                    if logger.getEffectiveLevel() == logging.DEBUG:
+                        debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
+                    # debug_guilds_tree
+                    # self.guilds = debug.load_json("guilds.json")
+                    # blocked users
+                    logger.debug(f"READY event - debug data processed and saved in {round(time.time() - ready_time_mid, 3)}s")
+                    ready_time_mid = time.time()
                     # READY is huge so lets save some memory
                     del (guild, guild_channels, role, guild_roles, last_messages)
                     self.ready_level += 1
+                    logger.debug(f"READY event processed in {round(time.time() - ready_time_start, 3)}s")
 
                 elif optext == "READY_SUPPLEMENTAL":
                     for guild in response["d"]["merged_presences"]["guilds"]:
@@ -779,17 +796,25 @@ class Gateway():
         self.state = 0
         logger.info("Receiver stopped")
         self.reconnect_requested = True
-        self.heartbeat_runnin = False
+        self.heartbeat_running = False
 
 
     def send_heartbeat(self):
         """Send heatbeat to gateway, if response is not received, triggers reconnect, should be run in a thread"""
         logger.info(f"Heartbeater started, interval={self.heartbeat_interval/1000}")
-        self.heartbeat_runnin = True
+        self.heartbeat_running = True
         self.heartbeat_received = True
+        # wait for ready event for some time
+        sleep_time = 0
+        while not self.ready_level:
+            if sleep_time >= self.heartbeat_interval / 100:
+                logger.error("Ready event could not be processed in time, probably because of too many servers. Exiting...")
+                raise SystemExit("Ready event could not be processed in time, probably because of too many servers. Exiting...")
+            time.sleep(0.5)
+            sleep_time += 5
         heartbeat_interval_rand = self.heartbeat_interval * (0.8 - 0.6 * random.random()) / 1000
         heartbeat_sent_time = time.time()
-        while self.run and not self.wait and self.heartbeat_runnin:
+        while self.run and not self.wait and self.heartbeat_running:
             if time.time() - heartbeat_sent_time >= heartbeat_interval_rand:
                 self.send({"op": 1, "d": self.sequence})
                 heartbeat_sent_time = time.time()
@@ -867,6 +892,7 @@ class Gateway():
                 self.ws.close(timeout=0)   # this will stop receiver
                 time.sleep(1)   # so receiver ends before opening new socket
                 reset_inflator()   # otherwise decompression wont work
+                self.ready_level = 0   # will receive new ready event
                 self.ws = websocket.WebSocket()
                 self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
                 self.authenticate()

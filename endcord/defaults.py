@@ -95,15 +95,26 @@ theme = {
 
 
 keybindings = {
+    # tree
     "tree_up": 575,   # Ctrl+Up
     "tree_down": 534,   # Ctrl+Donw
+    "tree_select": 0,   # Ctrl+Space
+    # input line
     "word_left": 554,   # Ctrl+Left
     "word_right": 569,   # Ctrl+Right
-    "tree_select": 0,   # Ctrl+Space
+    "ins_newline": 14,   # Ctrl+N
+    "undo": "ALT+122",   # Alt+Z
+    "redo": "ALT+90",   # Alt+Shift+Z
+    "select_left": 393,   # Shift+Left
+    "select_right": 402,   # Shift+Right
+    "select_all": "ALT+97",   # Alt+A
+    "copy_sel": "ALT+99",   # Alt+C
+    "cut_sel": "ALT+120",   # Alt+X
+    # extra line
     "attach_prev": 552,   # Alt+Left
     "attach_next": 567,   # Alt+Right
     "attach_cancel": 11,   # Ctrl+K
-    "ins_newline": 14,   # Ctrl+N
+    # chat
     "reply": 18,   # Ctrl+R
     "edit": 5,   # Ctrl+E
     "delete": 4,   # Ctrl+D
@@ -115,11 +126,10 @@ keybindings = {
     "browser": 15,   # Ctrl+O
     "cancel": 24,   # Ctrl+X
     "copy_msg": 8,   # Ctrl+H
-    "redraw": 12,   # Ctrl+L
     "view_media": 22,   # Ctrl+V
     "spoil": 20,   # Ctrl+T
-    "undo": "ALT+122",   # Alt+Z
-    "redo": "ALT+90",   # Alt+Shift+Z
+    # other
+    "redraw": 12,   # Ctrl+L
 }
 
 

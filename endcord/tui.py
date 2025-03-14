@@ -23,6 +23,18 @@ def set_list_item(input_list, item, index):
         input_list.append(item)
     return input_list
 
+def safe_insch(screen, y, x, character, color):
+    """
+    Safely insert character into line.
+    This is because curses.insch will throw exception for weird chracters.
+    curses.insstr will not, but is slower.
+    """
+    try:
+        # cant insch weird characters, but this is faster than always calling insstr
+        screen.insch(y, x, character, color)
+    except (OverflowError, UnicodeEncodeError):
+        screen.insstr(y, x, character, color)
+
 
 class TUI():
     """Methods used to draw terminal user interface"""
@@ -103,6 +115,9 @@ class TUI():
         self.delta_cache = ""
         self.delta_index = 0
         self.undo_index = None
+        self.input_select_start = None
+        self.input_select_end = None
+        self.input_select_text = ""
         self.typing = time.time()
         self.extra_line_text = ""
         self.run = True
@@ -216,6 +231,22 @@ class TUI():
                 self.chat_index = max(selected - 3, 0)
         self.draw_chat()
 
+
+    def store_input_selected(self):
+        """Get selected text from imput line"""
+        input_select_start = self.input_select_start
+        input_select_end = self.input_select_end
+        if input_select_start > input_select_end:
+            # swap so start is always left side
+            input_select_start, input_select_end = input_select_end, input_select_start
+        self.input_select_start = None   # stop selection
+        self.input_select_text = self.input_buffer[input_select_start:input_select_end]
+        return input_select_start, input_select_end
+
+
+    def get_input_selected(self):
+        """Get selected text from imput line"""
+        return self.input_select_text
 
     def allow_chat_selected_hide(self, allow):
         """Allow selected line in chat to be none, position -1"""
@@ -332,7 +363,6 @@ class TUI():
         self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
         self.win_title_tree.refresh()
 
-
     def draw_input_line(self):
         """Draw text input line and prompt"""
         w = self.input_hw[1]
@@ -340,30 +370,36 @@ class TUI():
         start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
         end = start + w - 1
         line_text = self.input_buffer[start:end].replace("\n", "␤")
+
+        # prepare selected range
+        if self.input_select_start is not None:
+            selected_start_screen = self.input_select_start - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+            selected_end_screen = self.input_select_end - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+            if selected_start_screen > selected_end_screen:
+                # swap so start is always left side
+                selected_start_screen, selected_end_screen = selected_end_screen, selected_start_screen
+
+        # draw
         character = " "
         pos = 0
         cursor_drawn = False
         for pos, character in enumerate(line_text):
             # cursor in the string
             if not cursor_drawn and self.cursor_pos == pos:
-                self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(15) | self.attrib_map[15])
+                safe_insch(self.win_input_line, 0, self.cursor_pos, character, curses.color_pair(15) | self.attrib_map[15])
                 cursor_drawn = True
+            # selected part of string
+            elif self.input_select_start is not None and selected_start_screen <= pos < selected_end_screen:
+                safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(15) | self.attrib_map[15])
             else:
                 bad = False
                 for bad_range in self.misspelled:
                     if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)+1):
-                        try:
-                            # cant insch weird characters, but this is faster than always calling insstr
-                            self.win_input_line.insch(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
-                        except (OverflowError, UnicodeEncodeError):
-                            self.win_input_line.insstr(0, pos, character, curses.color_pair(10) | self.attrib_map[10])
+                        safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(10) | self.attrib_map[10])
                         bad = True
                         break
                 if not bad:
-                    try:
-                        self.win_input_line.insch(0, pos, character, curses.color_pair(14) | self.attrib_map[14])
-                    except (OverflowError, UnicodeEncodeError):
-                        self.win_input_line.insstr(0, pos, character, curses.color_pair(14) | self.attrib_map[14])
+                    safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(14) | self.attrib_map[14])
         self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
         # cursor at the end of string
         if not cursor_drawn and self.cursor_pos >= len(line_text):
@@ -406,18 +442,11 @@ class TUI():
                                     if color > 255:   # set all colors after 255 to default color
                                         color = self.color_default
                                     color_ready = curses.color_pair(color) | self.attrib_map[color]
-                                try:
-                                    # cant insch weird characters, but this is faster than always calling insstr
-                                    self.win_chat.insch(y, pos, character, color_ready)
-                                except (OverflowError, UnicodeEncodeError):
-                                    self.win_chat.insstr(y, pos, character, color_ready)
+                                safe_insch(self.win_chat, y, pos, character, color_ready)
                                 found = True
                                 break
                         if not found:
-                            try:
-                                self.win_chat.insch(y, pos, character, default_color)
-                            except (OverflowError, UnicodeEncodeError):
-                                self.win_chat.insstr(y, pos, character, default_color)
+                            safe_insch(self.win_chat, y, pos, character, default_color)
             # fill empty lines with spaces so background is drawn all the way
             y -= 1
             while y >= 0:
@@ -935,6 +964,7 @@ class TUI():
                     self.input_line_index = 0
                     self.set_cursor_color(2)
                     self.cursor_on = True
+                    self.input_select_start = None
                     return tmp, self.chat_selected, self.tree_selected_abs, 0
 
             elif isinstance(key, int) and 32 <= key <= 126:   # all regular characters
@@ -946,6 +976,7 @@ class TUI():
                     selected_completion = 0
                 self.add_to_delta_store(chr(key))
                 self.show_cursor()
+                self.input_select_start = None
 
             elif key == curses.KEY_BACKSPACE:   # BACKSPACE
                 if self.input_index > 0:
@@ -957,6 +988,7 @@ class TUI():
                         selected_completion = 0
                     self.add_to_delta_store("BACKSPACE", removed_char)
                     self.show_cursor()
+                self.input_select_start = None
 
             elif key == curses.KEY_DC:   # DEL
                 if self.input_index < len(self.input_buffer):
@@ -964,6 +996,7 @@ class TUI():
                     self.input_buffer = self.input_buffer[:self.input_index] + self.input_buffer[self.input_index+1:]
                     self.add_to_delta_store("DELETE", removed_char)
                     self.show_cursor()
+                self.input_select_start = None
 
             elif key == curses.KEY_LEFT:   # LEFT
                 if self.input_index > 0:
@@ -973,6 +1006,7 @@ class TUI():
                     else:
                         self.input_index -= 1
                     self.show_cursor()
+                self.input_select_start = None
 
             elif key == curses.KEY_RIGHT:   # RIGHT
                 if self.input_index < len(self.input_buffer):
@@ -982,12 +1016,15 @@ class TUI():
                     else:
                         self.input_index += 1
                     self.show_cursor()
+                self.input_select_start = None
 
             elif key == curses.KEY_HOME:   # HOME
                 self.input_index = 0
+                self.input_select_start = None
 
             elif key == curses.KEY_END:   # END
                 self.input_index = len(self.input_buffer)
+                self.input_select_start = None
 
             elif key == self.keybindings["word_left"]:
                 left_len = 0
@@ -999,6 +1036,7 @@ class TUI():
                         break
                 self.input_index -= left_len
                 self.input_index = max(self.input_index, 0)
+                self.input_select_start = None
 
             elif key == self.keybindings["word_right"]:
                 left_len = 0
@@ -1010,6 +1048,7 @@ class TUI():
                         break
                 self.input_index += left_len
                 self.input_index = min(self.input_index, len(self.input_buffer))
+                self.input_select_start = None
 
             elif key == self.keybindings["undo"]:
                 self.add_to_delta_store("UNDO")
@@ -1034,6 +1073,7 @@ class TUI():
                         # add text at index pos
                         self.input_buffer = self.input_buffer[:delta_index+1] + delta_text + self.input_buffer[delta_index+1:]
                         self.input_index = delta_index + 1
+                self.input_select_start = None
 
             elif key == self.keybindings["redo"]:
                 self.add_to_delta_store("REDO")
@@ -1054,6 +1094,52 @@ class TUI():
                         # remove len(text) after index pos
                         self.input_buffer = self.input_buffer[:delta_index + 1] + self.input_buffer[delta_index + len(delta_text) + 1:]
                         self.input_index = delta_index + 1
+                self.input_select_start = None
+
+            elif key == self.keybindings["select_left"]:
+                if self.input_select_start is None:
+                    self.input_select_start = self.input_index
+                if self.input_index > 0:
+                    # if index hits left screen edge, but there is more text to left, move line right
+                    if self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index) == 0:
+                        self.input_line_index += min(INPUT_LINE_JUMP, w - 3)
+                    else:
+                        self.input_index -= 1
+                self.input_select_end = self.input_index
+
+            elif key == self.keybindings["select_right"]:
+                if self.input_select_start is None:
+                    self.input_select_start = self.input_index
+                if self.input_index < len(self.input_buffer):
+                    # if index hits right screen edge, but there is more text to right, move line right
+                    if self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) == w:
+                        self.input_line_index -= min(INPUT_LINE_JUMP, w - 3)
+                    else:
+                        self.input_index += 1
+                self.input_select_end = self.input_index
+
+            elif key == self.keybindings["select_all"]:
+                self.input_select_start = 0
+                self.input_select_end = len(self.input_buffer)
+
+            elif self.input_select_start and key == self.keybindings["copy_sel"]:
+                self.store_input_selected()
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 20
+
+            elif self.input_select_start and key == self.keybindings["cut_sel"]:
+                input_select_start, input_select_end = self.store_input_selected()
+                # delete selection
+                self.input_buffer = self.input_buffer[:input_select_start] + self.input_buffer[input_select_end:]
+                # add selection to undo history as backspace
+                self.input_index = input_select_end
+                for letter in self.input_select_text[::-1]:
+                    self.input_index -= 1
+                    self.add_to_delta_store("BACKSPACE", letter)
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 20
 
             elif key == curses.KEY_UP:   # UP
                 if self.chat_selected + 1 < len(self.chat_buffer):

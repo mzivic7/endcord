@@ -740,6 +740,11 @@ class Endcord:
                 guild_id = self.tree_metadata[tree_sel]["id"]
                 self.open_guild(guild_id, select=True)
 
+            # copy/cut on input line
+            elif action == 20:
+                self.going_to = input_text   # reusing variable
+                peripherals.copy_to_clipboard(self.tui.get_input_selected())
+
             # escape key in main UI
             elif action == 5:
                 if self.replying["id"]:
