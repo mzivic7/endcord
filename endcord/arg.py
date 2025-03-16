@@ -42,6 +42,12 @@ def parser(app_name, version, default_config_path, log_path):
         help="activate keybinding mode, will print key combination number in terminal",
     )
     parser.add_argument(
+        "-o",
+        "--colors",
+        action="store_true",
+        help="show all available colors and their codes",
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",

@@ -1,3 +1,5 @@
+import curses
+
 from endcord import xterm256
 
 pallete = xterm256.palette
@@ -44,3 +46,23 @@ def convert_role_colors(all_roles):
             role["color"] = rgb
             role["ansi"] = ansi
     return all_roles
+
+
+def show_all_colors(screen):
+    """Show all available colors and their codes, wait for input, then exit"""
+    curses.use_default_colors()
+    for i in range(0, curses.COLORS):
+        curses.init_pair(i, i, -1)
+    screen.addstr(1, 1, "Press any key to close")
+    h, w = screen.getmaxyx()
+    x = 1
+    y = 2
+    for i in range(0, curses.COLORS):
+        screen.addstr(y, x, str(i), curses.color_pair(i))
+        x += 5
+        if x + 3 > w:
+            y += 1
+            x = 1
+        if y >= h:
+            break
+    screen.getch()

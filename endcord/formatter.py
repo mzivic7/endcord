@@ -589,7 +589,12 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 newline_index = message_line.index("\n")
                 quote = False
                 newline_sign = True
-            next_line = message_line[newline_index+1:]   # +1 to remove space and \n
+            if message_line[newline_index] in (" ", "\n"):   # remove space and \n
+                next_line = message_line[newline_index+1:]
+                split_on_space = 1
+            else:
+                next_line = message_line[newline_index:]
+                split_on_space = 0
             message_line = message_line[:newline_index]
         elif "\n" in message_line:
             newline_index = message_line.index("\n")
@@ -659,7 +664,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             )
 
             # correct index for each new line
-            content_index_correction = newline_len + extra_newline_len - 1 - newline_index
+            content_index_correction = newline_len + extra_newline_len - 1 + (not split_on_space) - newline_index
             for url in urls:
                 url[0] += content_index_correction
                 url[1] += content_index_correction
@@ -685,7 +690,16 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     newline_index = new_line.index("\n")
                     quote = False
                     newline_sign = True
-                next_line = new_line[newline_index+1:]
+                try:
+                    if new_line[newline_index] in (" ", "\n"):   # remove space and \n
+                        next_line = new_line[newline_index+1:]
+                        split_on_space = 1
+                    else:
+                        next_line = new_line[newline_index:]
+                        split_on_space = 0
+                except IndexError:
+                    next_line = new_line[newline_index+1:]
+                    split_on_space = 1
                 new_line = new_line[:newline_index]
             elif "\n" in new_line:
                 newline_index = new_line.index("\n")

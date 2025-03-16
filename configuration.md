@@ -147,8 +147,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 
 ### Colors and attributes
 Colors are part of the theme, configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
-Foreground and background are ANSI [codes](https://gist.github.com/ConnerWill/d4b6c776b509add763e17f9f113fd25b#256-colors). -1 is terminal default color.  
-Set to None to use terminal default colors.  
+Foreground and background are ANSI color codes. To print all available colors with codes run: `endcord --colors`.  
+-1 is terminal default color (bg or fg individually). Set entire color pair to `None` to use terminal default fg and bg colors.  
 Attribute is optional string: `"b"/"bold"`, `"u"/"underline"`, `"i"/"italic"`
 Example: `[209, 234, "u"]` - 209 is foreground, 234 is background, "u" is underline.  
 All colors starting with `color_format` are formatted like this:  

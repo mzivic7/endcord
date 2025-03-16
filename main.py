@@ -5,7 +5,7 @@ import signal
 import sys
 import traceback
 
-from endcord import app, arg, defaults, keybinding, peripherals
+from endcord import app, arg, color, defaults, keybinding, peripherals
 
 APP_NAME = "endcord"
 VERSION = "0.8.0"
@@ -45,6 +45,9 @@ def main(args):
     theme_path = args.theme
     if args.keybinding:
         keybinding.picker()
+    elif args.colors:
+        curses.wrapper(color.show_all_colors)
+        sys.exit(0)
     if config_path:
         config_path = os.path.expanduser(config_path)
     token = args.token
