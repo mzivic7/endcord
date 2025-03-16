@@ -33,7 +33,7 @@ Discord token is required in order to run endcord! see [Token](#token).
     - Show channels with mention as red
     - Navigate tree (`Ctrl+Up/Down`)
     - Expand categories and servers, enter channel (`Ctrl+Space`)
-    - DMs in separate drop-down
+    - DMs in separate drop-down, show DM status
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links
 - Spellchecking
@@ -283,6 +283,9 @@ This is an [issue](https://github.com/python/cpython/issues/119138) with cpython
 This will be updated in endcord when cpython issue is resolved.
 All custom color pairs are initialized first, so only role colors can pass this limit.  
 For each role with color, 2 pairs are initialized. Role colors are dynamically loaded, so this can happen only when guild has really much roles.
+
+### Status sign in tree has no color when selected or active
+Same reason as above, trying to save some color pair IDs until curses bug is fixed.  
 
 ### No emoji
 If emoji are drawn as empty box or simmilar it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.

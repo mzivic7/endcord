@@ -174,6 +174,7 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
+        self.activities = self.gatewat.get_activities()
         self.pings = []
         for channel_id in self.gateway.get_pings():
             self.pings.append({
@@ -1320,6 +1321,7 @@ class Endcord:
             [x["channel_id"] for x in self.unseen],
             [x["channel_id"] for x in self.pings],
             self.guild_positions,
+            self.activities,
             collapsed,
             self.active_channel["channel_id"],
             self.config["tree_drop_down_vline"],
@@ -1327,8 +1329,10 @@ class Endcord:
             self.config["tree_drop_down_intersect"],
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
+            self.config["tree_dm_status"],
             init_uncollapse=init_uncollapse,
             safe_emoji=self.config["emoji_as_text"],
+            show_invisible = self.config["tree_show_invisible"],
         )
         # debug_guilds_tree
         # debug.save_json(self.tree, "tree.json", False)
@@ -1443,8 +1447,9 @@ class Endcord:
         # guild positions
         self.discord_settings = self.gateway.get_settings_proto()
         self.guild_positions = []
-        for folder in self.discord_settings["guildFolders"]["folders"]:
-            self.guild_positions += folder["guildIds"]
+        if "guildFolders" in self.discord_settings:
+            for folder in self.discord_settings["guildFolders"]["folders"]:
+                self.guild_positions += folder["guildIds"]
         if logger.getEffectiveLevel() == logging.DEBUG:
             debug.save_json(debug.anonymize_guild_positions(self.guild_positions), "guild_positions.json")
         # debug_guilds_tree
@@ -1470,6 +1475,7 @@ class Endcord:
             "activities": [],
             "client_state": "online",
         }
+
         self.gateway_state = 1
         logger.info("Gateway is ready")
         self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 2)
@@ -1506,6 +1512,7 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
+        self.activities = self.gateway.get_activities()
 
         # load pings, unseen and blocked
         self.pings = []
@@ -1843,6 +1850,12 @@ class Endcord:
                     "client_state": "online",
                 }
                 self.update_status_line()
+
+            # check changes in presences and update tree
+            new_activities = self.gateway.get_activities()
+            if new_activities:
+                self.activities = new_activities
+                self.update_tree()
 
             # check for tree format changes
             self.check_tree_format()

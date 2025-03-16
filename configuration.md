@@ -49,6 +49,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to keep deleted messages in chat, with different color, or remove them.
 - `deleted_cache_limit = 50`  
     Limit lumber of cached deleted messages per channel.
+- `tree_show_invisible = False`  
+    Show "invisible" status in tree when DM user is online but invisible.  
+    Probably a discord bug, might get removed in the future.  
 - `tenor_gif_type = 1`  
     Type of the media when gif is downloaded from tenor:  
     0 - gif HD  
@@ -129,6 +132,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw corners in tree drop down menus.
 - `tree_drop_down_pointer = ">"`  
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
+- `tree_dm_status = "◆"`  
+    A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
 - `ascii_palette = "  ..',;:c*loexk#O0XNW"`  

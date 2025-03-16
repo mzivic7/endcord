@@ -61,6 +61,7 @@ class Gateway():
         self.msg_ack_buffer = []
         self.reconnect_requested = False
         self.status_changed = False
+        self.activities_changed = False
         self.roles_changed = False
         self.user_settings_proto = None
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
@@ -422,6 +423,7 @@ class Gateway():
                             "activities": activities,
                         })
                     del (guild)   # this is large dict so lets save some memory
+                    self.activities_changed = True
                     self.ready_level += 1
 
                 elif optext == "SESSIONS_REPLACE":
@@ -499,6 +501,7 @@ class Gateway():
                             "custom_status": custom_status,
                             "activities": activities,
                         })
+                    self.activities_changed = True
 
                 elif optext == "TYPING_START":
                     # received when user in currently subscribed guild channel starts typing
@@ -1102,7 +1105,10 @@ class Gateway():
 
     def get_activities(self):
         """Get list of friends with their activity status, including rich presence, updated regularly"""
-        return self.activities
+        if self.activities_changed:
+            self.activities_changed = False
+            return self.activities
+        return None
 
 
     def get_blocked(self):

@@ -1,15 +1,15 @@
 HIGH PRIORITY:
-fix hidden channels
+code blocks highlighting with pygments
 forums and threads
 show summaries
 show channel topic
 search and go to messages (Ctrl+F)
+fix hidden channels
 
 MEDIUM PRIORITY:
-assist with @[username]/@[role]/>channel/:emoji:/reactions/stickers
+assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
 member list
 show user info
-code blocks highlighting with pygments
 
 LOW PRIORITY:
 media player: zoom, seek, pause, play audio messages
@@ -17,7 +17,7 @@ tabs
 rpc on windows
 
 MAYBE:
-emacs-like shortcuts
+emacs-like keybinding
 vi-mode
 mouse controls
 recording voice messages

@@ -48,6 +48,7 @@ class TUI():
         self.last_free_id = 1   # last free color pair id
         self.color_cache = []   # for restoring colors
         self.attrib_map = [0]   # has 0 so its index starts from 1 to be matched with color pairs
+        tree_bg = config["color_tree_default"][1]
         self.init_pair((255, -1))   # white on default
         self.init_pair((233, 255))   # black on white
         self.init_pair(config["color_tree_default"])   # 3
@@ -65,6 +66,9 @@ class TUI():
         self.init_pair(config["color_cursor"])   # 15
         self.init_pair(config["color_chat_selected"])
         self.init_pair(config["color_status_line"])
+        self.init_pair((46, tree_bg))    # green   # 18
+        self.init_pair((208, tree_bg))   # orange
+        self.init_pair((196, tree_bg))   # red
         self.color_default = 1
         self.role_color_start_id = 1   # starting id for role colors
         self.keybindings = keybindings
@@ -76,6 +80,7 @@ class TUI():
         self.tree_width = config["tree_width"]
         self.blink_cursor_on = config["cursor_on_time"]
         self.blink_cursor_off = config["cursor_off_time"]
+        self.tree_dm_status = config["tree_dm_status"]
         if not (self.blink_cursor_on and self.blink_cursor_off):
             self.enable_blink_cursor = False
         else:
@@ -500,6 +505,7 @@ class TUI():
                 second_digit = (code % 100) // 10
                 color = curses.color_pair(3)
                 color_line = curses.color_pair(3)
+                selected = False
                 if second_digit == 1:   # muted
                     color = curses.color_pair(5) | self.attrib_map[5]
                 elif second_digit == 2:   # mentioned
@@ -516,10 +522,21 @@ class TUI():
                     color = curses.color_pair(4) | self.attrib_map[4]
                     color_line = curses.color_pair(4)
                     self.tree_selected_abs = self.tree_selected + skipped
+                    selected = True
                 # filled with spaces so background is drawn all the way
                 self.win_tree.insstr(y, 0, " " * w + "\n", color_line)
                 self.win_tree.insstr(y, 0, line[:text_start], color_line)
                 self.win_tree.insstr(y, text_start, line[text_start:], color)
+                # if this is dm, set color for status sign
+                # drawing it only for "normal" DMs, just to save some color pairs until python curses fixes the bug
+                if 300 <= code < 399 and second_digit == 0 and not selected:
+                    if first_digit == 2:   # online
+                        # this character is always at position 4 (set in formatter)
+                        self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(18))
+                    elif first_digit == 3:   # idle
+                        self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(19))
+                    elif first_digit == 4:   # dnd
+                        self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(20))
             y += 1
             while y < h:
                 self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))

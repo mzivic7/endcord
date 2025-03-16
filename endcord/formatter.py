@@ -132,13 +132,13 @@ def replace_roles(line, roles_ids):
 def replace_channels(line, chanels_ids):
     """
     Transforms channels string into nicer looking one:
-    `some text <#channel_id> more text` --> `some text >channel_name more text`
+    `some text <#channel_id> more text` --> `some text #channel_name more text`
     """
     for string_match in re.findall(match_channel_string, line):
         text = re.search(match_channel_id, string_match)
         for channel in chanels_ids:
             if text.group() == channel["id"]:
-                line = line.replace(string_match, f">{channel["name"]}")
+                line = line.replace(string_match, f"#{channel["name"]}")
                 break
     return line
 
@@ -953,7 +953,7 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, init_uncollapse=False, safe_emoji=False):
+def generate_tree(dms, guilds, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -968,6 +968,9 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
         X5X - active and mentioned
         XX0 - collapsed drop-down
         XX1 - uncollapsed drop-down
+        XX2 - online DM
+        XX3 - idle DM
+        XX4 - DnD DM
         1100 - end of top level drop down
         1200 - end of second level drop down
     Voice channels are ignored.
@@ -1006,13 +1009,29 @@ def generate_tree(dms, guilds, unseen, mentioned, guild_positions, collapsed, ac
         active = (dm["id"] == active_channel_id)
         if safe_emoji:
             name = replace_emoji_string(emoji.demojize(name))
-        tree.append(f"{intersection} {name}")
         code = 300
+        # get dm status
+        if len(dm["recipients"]) == 1:
+            for activity in activities:
+                if activity["id"] == dm["recipients"][0]["id"]:
+                    status = activity["status"]
+                    if status == "online":
+                        code += 2
+                    elif status == "idle":
+                        code += 3
+                    elif status == "dnd":
+                        code += 4
+                    elif not show_invisible:
+                        # "offline" means "invisible" but online
+                        break
+                    name = dm_status_char + name
+                    break
+        tree.append(f"{intersection} {name}")
         if muted:
             code += 10
-        elif active and not mentioned:
+        elif active and not mentioned_dm:
             code += 40
-        elif active and mentioned:
+        elif active and mentioned_dm:
             code += 50
         elif mentioned_dm:
             code += 20

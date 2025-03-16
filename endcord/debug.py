@@ -47,6 +47,8 @@ def anonymize_guilds(guilds):
                 name = f"channel_{num_ch}"
             if channel["parent_id"]:
                 parent_id = hash_none(channel["parent_id"])
+            else:
+                parent_id = "NO DATA"
             anonymized_channels.append({
                 "id": hash_none(channel["id"]),
                 "type": channel["type"],
@@ -64,12 +66,11 @@ def anonymize_guilds(guilds):
             "owned": guild["owned"],
             "name": f"guild_{num}",
             "description": "",
-            "suppress_everyone": guild["suppress_everyone"],
-            "suppress_roles": guild["suppress_roles"],
-            "message_notifications": guild["message_notifications"],
-            "muted": guild["muted"],
+            "suppress_everyone": guild.get("suppress_everyone", "NO DATA"),
+            "suppress_roles": guild.get("suppress_roles", "NO DATA"),
+            "message_notifications": guild.get("message_notifications", "NO DATA"),
+            "muted": guild.get("muted", "NO DATA"),
             "channels": anonymized_channels,
-
         })
     return anonymized
 
