@@ -720,6 +720,40 @@ class Discord():
         return True
 
 
+    def join_thread(self, thread_id):
+        """Join a thread"""
+        message_data = None
+        # location is not necesarily "Contect Menu"
+        url = f"api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to join a thread. Response code: {response.status}")
+            return False
+        return True
+
+
+    def leave_thread(self, thread_id):
+        """Leave a thread"""
+        message_data = None
+        # location is not necesarily "Contect Menu"
+        url = f"api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
+        try:
+            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection.request("DELETE", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to leave a thread. Response code: {response.status}")
+            return False
+        return True
+
+
     def request_attachment_link(self, channel_id, path):
         """
         Request attachment upload link.

@@ -967,13 +967,15 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_tree(dms, guilds, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
+def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
         1XX - top level drop down menu (DM/Guild)
         2XX - second level drop down menu (category/forum)
         3XX - channel
+        4XX - thread
+        5XX - forum
         X0X - normal
         X1X - muted
         X2X - mentioned

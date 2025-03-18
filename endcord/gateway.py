@@ -63,17 +63,19 @@ class Gateway():
         self.status_changed = False
         self.activities_changed = False
         self.roles_changed = False
+        self.threads_changed = False
         self.user_settings_proto = None
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
     def clear_ready_vars(self):
         """Clear local variables when new READY event is received"""
-        self.ready_level = 0
+        self.ready = False
         self.my_status = {}
         self.activities = []
         self.guilds = []
         self.roles = []
+        self.threads = []
         self.member_roles = []
         self.msg_unseen = []
         self.msg_ping = []
@@ -198,12 +200,14 @@ class Gateway():
                     self.resume_gateway_url = response["d"]["resume_gateway_url"]
                     self.session_id = response["d"]["session_id"]
                     self.clear_ready_vars()
+                    time_log_string = "READY event time profile:\n"
                     last_messages = []
                     self.my_id = response["d"]["user"]["id"]
                     # guilds and channels
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
                         guild_channels = []
+                        # channels
                         for channel in guild["channels"]:
                             if channel["type"] in (0, 5):
                                 hidden = False   # hidden by default
@@ -227,6 +231,7 @@ class Gateway():
                                 })
                         guild_roles = []
                         base_permissions = 0
+                        # roles
                         for role in guild["roles"]:
                             if role["id"] == guild_id:
                                 base_permissions = role["permissions"]
@@ -255,7 +260,33 @@ class Gateway():
                             "channels": guild_channels,
                             "base_permissions": base_permissions,
                         })
-                    logger.debug(f"READY event - guilds processed in {round(time.time() - ready_time_start, 3)}s")
+                        # threads
+                        threads = []
+                        for thread in guild["threads"]:
+                            if thread["member"]["flags"] == 3:
+                                message_notifications = 0
+                            elif thread["member"]["flags"] == 5:
+                                message_notifications = 1
+                            else:
+                                message_notifications = 2
+                            threads.append({
+                                "id": thread["id"],
+                                "type": thread["type"],
+                                "name": thread["name"],
+                                "open": thread["thread_metadata"]["locked"] or thread["thread_metadata"]["archived"],
+                                "parent_id": thread["parent_id"],
+                                "suppress_everyone": False,   # no config for threads
+                                "suppress_roles": False,
+                                "message_notifications": message_notifications,
+                                "muted": thread["member"]["muted"],
+                            })
+                        self.threads.append({
+                            "guild_id": guild_id,
+                            "threads": threads,
+                        })
+                        self.threads_changed = True
+
+                    time_log_string += f"    guilds - {round(time.time() - ready_time_start, 3)}s\n"
                     ready_time_mid = time.time()
                     # DM channels
                     for dm in response["d"]["private_channels"]:
@@ -282,7 +313,7 @@ class Gateway():
                             "is_request": dm.get("is_message_request"),
                         })
                         self.dms_id.append(dm["id"])
-                    logger.debug(f"READY event - DMs processed in {round(time.time() - ready_time_mid, 3)}s")
+                    time_log_string += f"    DMs - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # unread messages and pings
                     for channel in response["d"]["read_state"]["entries"]:
@@ -298,7 +329,7 @@ class Gateway():
                                             if channel["last_message_id"] != last_message["message_id"]:
                                                 # channel is unread
                                                 self.msg_unseen.append(channel["id"])
-                    logger.debug(f"READY event - unread processed in {round(time.time() - ready_time_mid, 3)}s")
+                    time_log_string += f"    unread and mentions - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # guild and dm setings
                     for guild in response["d"]["user_guild_settings"]["entries"]:
@@ -340,17 +371,17 @@ class Gateway():
                                     "message_notifications": dm["message_notifications"],
                                     "muted": dm["muted"],
                                 })
-                    logger.debug(f"READY event - channel settings processed in {round(time.time() - ready_time_mid, 3)}s")
+                    time_log_string += f"    channel settings - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     for user in response["d"]["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
                             self.blocked.append(user["user_id"])
-                    logger.debug(f"READY event - blocked users processed in {round(time.time() - ready_time_mid, 3)}s")
+                    time_log_string += f"    blocked users - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # get proto
                     decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["user_settings_proto"]))
                     self.user_settings_proto = json.loads(MessageToJson(decoded))
-                    logger.debug(f"READY event - protobuf processed in {round(time.time() - ready_time_mid, 3)}s")
+                    time_log_string += f"    protobuf - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # get my roles
                     for num, guild in enumerate(response["d"]["merged_members"]):
@@ -363,7 +394,7 @@ class Gateway():
                             "guild_id": guild_id,
                             "roles": roles,
                         })
-                    logger.debug(f"READY event - roles processed in {round(time.time() - ready_time_mid, 3)}s")
+                    time_log_string += f"    roles - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # write debug data
                     if logger.getEffectiveLevel() == logging.DEBUG:
@@ -371,12 +402,13 @@ class Gateway():
                     # debug_guilds_tree
                     # self.guilds = debug.load_json("guilds.json")
                     # blocked users
-                    logger.debug(f"READY event - debug data processed and saved in {round(time.time() - ready_time_mid, 3)}s")
-                    ready_time_mid = time.time()
+                    time_log_string += f"    debug data - {round(time.time() - ready_time_mid, 3)}s\n"
                     # READY is huge so lets save some memory
                     del (guild, guild_channels, role, guild_roles, last_messages)
-                    self.ready_level += 1
-                    logger.debug(f"READY event processed in {round(time.time() - ready_time_start, 3)}s")
+                    self.ready = True
+                    time_log_string += f"    total - {round(time.time() - ready_time_start, 3)}s"
+                    logger.debug(time_log_string)
+                    del time_log_string
 
                 elif optext == "READY_SUPPLEMENTAL":
                     for guild in response["d"]["merged_presences"]["guilds"]:
@@ -424,7 +456,6 @@ class Gateway():
                         })
                     del (guild)   # this is large dict so lets save some memory
                     self.activities_changed = True
-                    self.ready_level += 1
 
                 elif optext == "SESSIONS_REPLACE":
                     # received when new client is connected
@@ -809,7 +840,7 @@ class Gateway():
         self.heartbeat_received = True
         # wait for ready event for some time
         sleep_time = 0
-        while not self.ready_level:
+        while not self.ready:
             if sleep_time >= self.heartbeat_interval / 100:
                 logger.error("Ready event could not be processed in time, probably because of too many servers. Exiting...")
                 raise SystemExit("Ready event could not be processed in time, probably because of too many servers. Exiting...")
@@ -895,7 +926,7 @@ class Gateway():
                 self.ws.close(timeout=0)   # this will stop receiver
                 time.sleep(1)   # so receiver ends before opening new socket
                 reset_inflator()   # otherwise decompression wont work
-                self.ready_level = 0   # will receive new ready event
+                self.ready = False   # will receive new ready event
                 self.ws = websocket.WebSocket()
                 self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
                 self.authenticate()
@@ -1046,10 +1077,8 @@ class Gateway():
 
 
     def get_ready(self):
-        """Returns True only when READY, READY_SUPPLEMENTAL and SESSION_REPLACE events are processed"""
-        if self.ready_level >= 2:
-            return True
-        return False
+        """Return wether gateway processed entire READY event"""
+        return self.ready
 
 
     def get_unseen(self):
@@ -1095,6 +1124,26 @@ class Gateway():
         return self.roles
 
 
+    def get_blocked(self):
+        """Get list of blocked user ids"""
+        return self.blocked
+
+
+    def get_settings_proto(self):
+        """Get account settings, only proto 1"""
+        return self.user_settings_proto
+
+
+    def get_my_roles(self):
+        """Get list of my roles for all servers"""
+        return self.my_roles
+
+
+    def get_my_id(self):
+        """Get my discord user ID"""
+        return self.my_id
+
+
     def get_my_status(self):
         """Get my activity status, including rich presence, updated regularly"""
         if self.status_changed:
@@ -1111,10 +1160,6 @@ class Gateway():
         return None
 
 
-    def get_blocked(self):
-        """Get list of blocked user ids"""
-        return self.blocked
-
     def get_member_roles(self):
         """Get member roles, updated regularly."""
         if self.roles_changed:
@@ -1122,17 +1167,13 @@ class Gateway():
             return self.member_roles
         return None
 
-    def get_settings_proto(self):
-        """Get account settings, only proto 1"""
-        return self.user_settings_proto
 
-    def get_my_roles(self):
-        """Get list of my roles for all servers"""
-        return self.my_roles
-
-    def get_my_id(self):
-        """Get my discord user ID"""
-        return self.my_id
+    def get_threads(self):
+        """Get member roles, updated regularly."""
+        if self.threads_changed:
+            self.threads_changed = False
+            return self.threads
+        return None
 
 
     # all following "get_*" work like this:

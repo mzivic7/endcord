@@ -159,6 +159,8 @@ class Endcord:
         self.selected_attachment = 0
         self.member_roles = []
         self.current_member_roles = []
+        self.threads = []
+        self.activities = []
         self.disable_sending = False
 
 
@@ -174,7 +176,10 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
-        self.activities = self.gatewat.get_activities()
+        new_activities = self.gateway.get_activities()
+        if new_activities:
+            self.activities = new_activities
+            self.update_tree()
         self.pings = []
         for channel_id in self.gateway.get_pings():
             self.pings.append({
@@ -1318,6 +1323,7 @@ class Endcord:
         self.tree, self.tree_format, self.tree_metadata = formatter.generate_tree(
             self.dms,
             self.guilds,
+            self.threads,
             [x["channel_id"] for x in self.unseen],
             [x["channel_id"] for x in self.pings],
             self.guild_positions,
@@ -1444,8 +1450,13 @@ class Endcord:
         while not self.gateway.get_ready():
             time.sleep(0.2)
 
-        # guild positions
         self.discord_settings = self.gateway.get_settings_proto()
+
+        # just in case, download proto if its not in gateway
+        if "status" not in self.discord_settings:
+            self.discord_settings = self.discord.get_settings_proto(1)
+
+        # guild position
         self.guild_positions = []
         if "guildFolders" in self.discord_settings:
             for folder in self.discord_settings["guildFolders"]["folders"]:
@@ -1459,17 +1470,23 @@ class Endcord:
         # custom status
         custom_status_emoji = None
         custom_status = None
-        if "customStatus" in self.discord_settings["status"]:
-            custom_status_emoji = {
-                "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
-                "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
-                "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
-            }
-            custom_status = self.discord_settings["status"]["customStatus"]["text"]
-        if custom_status_emoji and not (custom_status_emoji["name"] or custom_status_emoji["id"]):
+        if "status" in self.discord_settings:
+            status = self.discord_settings["status"]["status"]
+            if "customStatus" in self.discord_settings["status"]:
+                custom_status_emoji = {
+                    "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
+                    "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
+                    "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
+                }
+                custom_status = self.discord_settings["status"]["customStatus"]["text"]
+            if custom_status_emoji and not (custom_status_emoji["name"] or custom_status_emoji["id"]):
+                custom_status_emoji = None
+        else:   # just in case
+            status = "online"
+            custom_status = None
             custom_status_emoji = None
         self.my_status = {
-            "status": self.discord_settings["status"]["status"],
+            "status": status,
             "custom_status": custom_status,
             "custom_status_emoji": custom_status_emoji,
             "activities": [],
@@ -1512,7 +1529,15 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
-        self.activities = self.gateway.get_activities()
+        new_activities = self.gateway.get_activities()
+        if new_activities:
+            self.activities = new_activities
+            self.update_tree()
+
+        # load threads, if any
+        threads = self.gateway.get_threads()
+        if threads:
+            self.threads = threads
 
         # load pings, unseen and blocked
         self.pings = []
@@ -1855,6 +1880,12 @@ class Endcord:
             new_activities = self.gateway.get_activities()
             if new_activities:
                 self.activities = new_activities
+                self.update_tree()
+
+            # check for new threads
+            threads = self.gateway.get_threads()
+            if threads:
+                self.threads = threads
                 self.update_tree()
 
             # check for tree format changes
