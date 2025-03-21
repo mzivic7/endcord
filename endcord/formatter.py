@@ -589,6 +589,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 newline_index = message_line.index("\n")
                 quote = False
                 newline_sign = True
+                split_on_space = 0
             if message_line[newline_index] in (" ", "\n"):   # remove space and \n
                 next_line = message_line[newline_index+1:]
                 split_on_space = 1
@@ -602,6 +603,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             message_line = message_line[:newline_index]
             quote = False
             newline_sign = True
+            split_on_space = 0
         else:
             next_line = None
 
@@ -690,6 +692,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     newline_index = new_line.index("\n")
                     quote = False
                     newline_sign = True
+                    split_on_space = 0
                 try:
                     if new_line[newline_index] in (" ", "\n"):   # remove space and \n
                         next_line = new_line[newline_index+1:]
@@ -707,6 +710,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 new_line = new_line[:newline_index]
                 quote = False
                 newline_sign = True
+                split_on_space = 0
             else:
                 next_line = None
 
@@ -896,7 +900,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         custom_status_emoji = ""
 
     # running long tasks
-    tasks = sorted(tasks, key=lambda x:x[1], reverse=False)
+    tasks = sorted(tasks, key=lambda x:x[1])
     if len(tasks) == 0:
         task = ""
     elif len(tasks) == 1:
@@ -967,15 +971,16 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
+def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
-        1XX - top level drop down menu (DM/Guild)
-        2XX - second level drop down menu (category/forum)
-        3XX - channel
+        1XX - DM/Guild (top level drop down menu)
+        2XX - category (second level drop down menu)
+        3XX - channel (not drop-down)
         4XX - thread
-        5XX - forum
+        5XX - channel (third level drop down menu)
+        6XX - forum (third level drop down menu)
         X0X - normal
         X1X - muted
         X2X - mentioned
@@ -989,12 +994,15 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         XX4 - DnD DM
         1100 - end of top level drop down
         1200 - end of second level drop down
+        1300 - end of third level drop down
     Voice channels are ignored.
     """
     intersection = f"{dd_intersect}{dd_hline*2}"   # default: "|--"
     pass_by = f"{dd_vline}  "   # default: "|  "
     intersection_end = f"{dd_corner}{dd_hline*2}"   # default: "\\--"
     pass_by_end = f"{pass_by}{intersection_end}"   # default: "|  \\--"
+    intersection_thread = f"{dd_intersect}{dd_hline}{dd_thread}"   # default: "|-<"
+    end_thread = f"{dd_corner}{dd_hline}{dd_thread}"   # default: "\\-<"
     tree = []
     tree_format = []
     tree_metadata = []
@@ -1089,6 +1097,12 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         unseen_guild = False
         ping_guild = False
         active_guild = False
+        for guild_th in threads:
+            if guild_th["guild_id"] == guild["guild_id"]:
+                threads_guild = guild_th["channels"]
+                break
+        else:
+            threads_guild = []
 
         # sort categories and channels
         categories = []
@@ -1113,6 +1127,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                     "hidden": hidden,
                     "unseen": False,
                     "ping": False,
+
                 })
                 categories_position.append(channel["position"])
 
@@ -1121,13 +1136,19 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         bare_channels_position = []
         for channel in guild["channels"]:
             if channel["type"] in (0, 5):
+                # find this channel threads, if any
+                for channel_th in threads_guild:
+                    if channel_th["channel_id"] == channel["id"]:
+                        threads_ch = channel_th["threads"]
+                        break
+                else:
+                    threads_ch = []
                 unseen_ch = False
                 mentioned_ch = False
                 if channel["id"] in unseen:
                     unseen_ch = True
                 if channel["id"] in mentioned:
                     mentioned_ch = True
-                done = False
                 for category in categories:
                     if channel["parent_id"] == category["id"]:
                         muted_ch = channel.get("muted", False)
@@ -1159,11 +1180,10 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                             "unseen": unseen_ch,
                             "ping": mentioned_ch,
                             "active": active,
+                            "threads": threads_ch,
                         })
-
-                        done = True
                         break
-                if not done:
+                else:
                     # top level channles can be inaccessible
                     muted_ch = channel.get("muted", False)
                     hidden_ch = channel.get("hidden", False)
@@ -1214,11 +1234,12 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
             "parent_index": None,
         })
 
-        # add channels to the tree
+        # add categories to the tree
         for category in categories:
             if not category["hidden"]:
-                category_index = len(tree_format)
                 if category["channels"]:
+                    category_index = len(tree_format)
+
                     # sort channels by position key
                     channels_position = []
                     for channel in category["channels"]:
@@ -1248,26 +1269,33 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         "parent_index": guild_index,
                     })
 
+                    # add channels to the tree
                     category_channels = category["channels"]
                     for channel in category_channels:
                         if not channel["hidden"]:
                             name = channel["name"]
+                            channel_threads = channel.get("threads", [])
                             if safe_emoji:
                                 name = replace_emoji_string(emoji.demojize(name))
-                            tree.append(f"{pass_by}{intersection} {name}")
-                            code = 300
+                            if channel_threads:
+                                tree.append(f"{pass_by}{intersection}{dd_pointer} {name}")
+                                channel_index = len(tree_format)
+                            else:
+                                tree.append(f"{pass_by}{intersection} {name}")
+                            if channel_threads:
+                                code = 500
+                            else:
+                                code = 300
                             if channel["muted"] and not channel["active"]:
                                 code += 10
-                            elif channel["active"] and not channel["ping"]:
-                                code += 40
                             elif channel["active"] and channel["ping"]:
                                 code += 50
+                            elif channel["active"]:
+                                code += 40
                             elif channel["ping"]:
                                 code += 20
                             elif channel["unseen"]:
                                 code += 30
-                            if channel["active"]:
-                                code += 1
                             tree_format.append(code)
                             tree_metadata.append({
                                 "id": channel["id"],
@@ -1276,6 +1304,39 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                                 "muted": channel["muted"],
                                 "parent_index": category_index,
                             })
+
+                            # add channel threads to the tree
+                            for thread in channel_threads:
+                                name = thread["name"]
+                                thread_id = thread["id"]
+                                active = (thread_id == active_channel_id)
+                                if safe_emoji:
+                                    name = replace_emoji_string(emoji.demojize(name))
+                                tree.append(f"{pass_by}{pass_by}{intersection_thread} {name}")
+                                code = 400
+                                if (thread["muted"] or not thread["joined"]) and not active:
+                                    code += 10
+                                elif thread_id == active_channel_id and thread_id in mentioned:
+                                    code += 50
+                                elif active:
+                                    code += 40
+                                elif thread_id in mentioned:
+                                    code += 20
+                                elif thread_id in unseen:
+                                    code += 30
+                                tree_format.append(code)
+                                tree_metadata.append({
+                                    "id": thread["id"],
+                                    "type": thread["type"],
+                                    "name": thread["name"],
+                                    "muted": thread["muted"],
+                                    "parent_index": channel_index,
+                                })
+                            if channel_threads:
+                                tree.append(f"{pass_by}{pass_by}END-CHANNEL-DROP-DOWN")
+                                tree_format.append(1300)
+                                tree_metadata.append(None)
+
                     tree.append(f"{pass_by}END-CATEGORY-DROP-DOWN")
                     tree_format.append(1200)
                     tree_metadata.append(None)
@@ -1308,19 +1369,27 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
     # add drop-down corners
     for num, code in enumerate(tree_format):
         if code >= 1000:
-            if tree[num - 1][:4] != f"{intersection}{dd_pointer}":
+            if code == 1300:   # thread end
+                tree[num - 1] = f"{pass_by}{pass_by}{end_thread}{tree[num - 1][9:]}"
+            elif tree[num - 1][:4] != f"{intersection}{dd_pointer}":
                 if tree[num][:3] == pass_by:
                     tree[num - 1] = pass_by_end + tree[num - 1][6:]
                 elif tree[num - 1][:3] == intersection:
                     tree[num - 1] = intersection_end + tree[num - 1][3:]
-            if tree_format[num - 1] >= 1000:
+            if code == 1100 and tree_format[num - 1] == 1200:
                 for back, _ in enumerate(tree_format):
                     if tree[num - back - 1][:3] == pass_by:
                         tree[num - back - 1] = "   " + tree[num - back - 1][3:]
                     else:
                         tree[num - back - 1] = intersection_end + tree[num - back - 1][3:]
                         break
-
+            if code == 1200 and tree_format[num - 1] == 1300:
+                for back, _ in enumerate(tree_format):
+                    if tree[num - back - 2][3:6] == pass_by:
+                        tree[num - back - 2] = f"{pass_by}   {tree[num - back - 2][6:]}"
+                    else:
+                        tree[num - back - 2] = pass_by_end + tree[num - back - 2][6:]
+                        break
     return tree, tree_format, tree_metadata
 
 
@@ -1349,6 +1418,7 @@ def update_tree(tree_format, tree_metadata, guilds, unseen, mentioned, active_ch
     Update format for alread generated tree.
     Optimised version of init_tree for when tree is already generated.
     Unused because it marks unseen wrong aand performance gain is insignificant.
+    Threads not implemented.
     """
     unseen_channels = [x["channel_id"] for x in unseen]
     for num, code in enumerate(tree_format):

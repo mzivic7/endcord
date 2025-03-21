@@ -1,15 +1,16 @@
 HIGH PRIORITY:
+forums
 code blocks highlighting with pygments
-forums and threads
 show summaries
 show channel topic
 search and go to messages (Ctrl+F)
 fix hidden channels
 
 MEDIUM PRIORITY:
-assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
-member list
+spacebar support
 show user info
+member list
+assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
 
 LOW PRIORITY:
 media player: zoom, seek, pause, play audio messages

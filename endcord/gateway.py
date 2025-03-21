@@ -59,11 +59,11 @@ class Gateway():
         self.typing_buffer = []
         self.summaries_buffer = []
         self.msg_ack_buffer = []
+        self.threads_buffer = []
         self.reconnect_requested = False
         self.status_changed = False
         self.activities_changed = False
         self.roles_changed = False
-        self.threads_changed = False
         self.user_settings_proto = None
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
@@ -75,7 +75,6 @@ class Gateway():
         self.activities = []
         self.guilds = []
         self.roles = []
-        self.threads = []
         self.member_roles = []
         self.msg_unseen = []
         self.msg_ping = []
@@ -138,13 +137,11 @@ class Gateway():
 
     def add_member_roles(self, guild_id, user_id, roles):
         """Add member-role pair to corresponding guild, number of users per guild is limited"""
-        found = False
         num = -1
         for num, guild in enumerate(self.member_roles):
             if guild["guild_id"] == guild_id:
-                found = True
                 break
-        if not found:
+        else:
             self.member_roles.append({
                 "guild_id": guild_id,
                 "members": [],
@@ -204,6 +201,7 @@ class Gateway():
                     last_messages = []
                     self.my_id = response["d"]["user"]["id"]
                     # guilds and channels
+                    threads_all = []
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
                         guild_channels = []
@@ -272,6 +270,7 @@ class Gateway():
                             threads.append({
                                 "id": thread["id"],
                                 "type": thread["type"],
+                                "owner_id": thread["owner_id"],
                                 "name": thread["name"],
                                 "open": thread["thread_metadata"]["locked"] or thread["thread_metadata"]["archived"],
                                 "parent_id": thread["parent_id"],
@@ -279,13 +278,19 @@ class Gateway():
                                 "suppress_roles": False,
                                 "message_notifications": message_notifications,
                                 "muted": thread["member"]["muted"],
+                                "joined": True,
                             })
-                        self.threads.append({
+                            # add thread to list of last mesages from channes
+                            if "last_message_id" in channel:
+                                last_messages.append({
+                                    "message_id": thread["last_message_id"],   # really last message id
+                                    "channel_id": thread["id"],
+                                })
+                        threads_all.append({
                             "guild_id": guild_id,
                             "threads": threads,
                         })
-                        self.threads_changed = True
-
+                    self.threads_buffer.append(threads_all)
                     time_log_string += f"    guilds - {round(time.time() - ready_time_start, 3)}s\n"
                     ready_time_mid = time.time()
                     # DM channels
@@ -318,17 +323,18 @@ class Gateway():
                     # unread messages and pings
                     for channel in response["d"]["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
-                        if "last_message_id" in channel:
-                            if "mention_count" in channel:
-                                if channel["mention_count"] != 0:
-                                    self.msg_unseen.append(channel["id"])
-                                    self.msg_ping.append(channel["id"])
-                                else:
-                                    for last_message in last_messages:
-                                        if channel["id"] == last_message["channel_id"]:
-                                            if channel["last_message_id"] != last_message["message_id"]:
-                                                # channel is unread
-                                                self.msg_unseen.append(channel["id"])
+                        if "last_message_id" in channel and "mention_count" in channel:
+                            if channel["mention_count"] != 0:
+                                self.msg_unseen.append(channel["id"])
+                                self.msg_ping.append(channel["id"])
+                            else:
+                                for last_message in last_messages:
+                                    if (
+                                        channel["id"] == last_message["channel_id"] and
+                                        channel["last_message_id"] != last_message["message_id"]
+                                    ):
+                                        # channel is unread
+                                        self.msg_unseen.append(channel["id"])
                     time_log_string += f"    unread and mentions - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # guild and dm setings
@@ -495,7 +501,6 @@ class Gateway():
                 elif optext == "PRESENCE_UPDATE":
                     # received when friend/DM user changes presence state (online/rich/custom)
                     user_id = response["d"]["user"]["id"]
-                    done = False
                     custom_status = None
                     activities = []
                     for activity in response["d"]["activities"]:
@@ -523,9 +528,8 @@ class Gateway():
                                 "custom_status": custom_status,
                                 "activities": activities,
                             }
-                            done = True
                             break
-                    if not done:
+                    else:
                         self.activities.append({
                             "id": response["d"]["user"]["id"],
                             "status": response["d"]["status"],
@@ -777,6 +781,28 @@ class Gateway():
                         "d": data,
                     })
 
+                elif optext == "MESSAGE_REACTION_ADD_MANY":
+                    channel_id = response["d"]["channel_id"]
+                    guild_id = response["d"].get("guild_id")
+                    message_id = response["d"]["message_id"]
+                    for reaction in response["d"]["reactions"]:
+                        for user_id in reaction["users"]:
+                            data = {
+                                "id": message_id,
+                                "channel_id": channel_id,
+                                "guild_id": guild_id,
+                                "emoji": reaction["emoji"]["name"],
+                                "emoji_id": reaction["emoji"]["id"],
+                                "user_id": user_id,
+                                "username": None,
+                                "global_name": None,
+                                "nick": None,
+                            }
+                            self.messages_buffer.append({
+                                "op": "MESSAGE_REACTION_ADD",
+                                "d": data,
+                            })
+
                 elif optext == "MESSAGE_REACTION_REMOVE":
                     data = {
                         "id": response["d"]["message_id"],
@@ -821,6 +847,46 @@ class Gateway():
                                 member["user"]["id"],
                                 member["roles"],
                             )
+
+                elif optext == "THREAD_LIST_SYNC":
+                    threads = []
+                    for thread in response["d"]["threads"]:
+                        threads.append({
+                            "id": thread["id"],
+                            "type": thread["type"],
+                            "owner_id": thread["owner_id"],
+                            "name": thread["name"],
+                            "open": thread["thread_metadata"]["locked"] or thread["thread_metadata"]["archived"],
+                            "parent_id": thread["parent_id"],
+                            "suppress_everyone": False,   # no config for threads
+                            "suppress_roles": False,
+                            "message_notifications": message_notifications,
+                            "muted": False,
+                            "joined": False,
+                        })
+                    self.threads_buffer.append({
+                        "guild_id": guild_id,
+                        "threads": threads,
+                    })
+
+                elif optext == "THREAD_UPDATE":
+                    self.threads_buffer.append({
+                        "guild_id": guild_id,
+                        "threads": {
+                            "id": response["d"]["id"],
+                            "type": response["d"]["type"],
+                            "owner_id": response["d"]["owner_id"],
+                            "name": response["d"]["name"],
+                            "open": response["d"]["thread_metadata"]["locked"] or response["d"]["thread_metadata"]["archived"],
+                            "parent_id": response["d"]["parent_id"],
+                            "suppress_everyone": False,   # no config for threads
+                            "suppress_roles": False,
+                            "message_notifications": message_notifications,
+                            "muted": False,
+                            "joined": False,
+                        },
+                    })
+
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
                 break
@@ -999,7 +1065,7 @@ class Gateway():
             # when subscribing, add channel to list of subscribed channels
             # then send whole list
             # if channel is already in list send nothing
-            # when subscribing to guild for the firs time send extra config
+            # when subscribing to guild for the first time, send extra config
             done = False
             for num, guild in enumerate(self.subscribed):
                 if guild["guild_id"] == guild_id:
@@ -1036,7 +1102,7 @@ class Gateway():
                             guild_id: {
                                 "typing": True,
                                 "activities": False,
-                                "threads": False,
+                                "threads": True,
                                 "channels": {
                                     channel_id: [[0, 99]],
                                 },
@@ -1168,14 +1234,6 @@ class Gateway():
         return None
 
 
-    def get_threads(self):
-        """Get member roles, updated regularly."""
-        if self.threads_changed:
-            self.threads_changed = False
-            return self.threads
-        return None
-
-
     # all following "get_*" work like this:
     # internally:
     #    get events and append them to list
@@ -1224,8 +1282,18 @@ class Gateway():
     def get_message_ack(self):
         """
         Get messages seen by other clients.
-        Returns 1 by 1 event as an update for list of summaries.
+        Returns 1 by 1 ack event.
         """
         if len(self.msg_ack_buffer) == 0:
             return None
         return self.msg_ack_buffer.pop(0)
+
+
+    def get_threads(self):
+        """
+        Get threads.
+        Returns 1 by 1 update for list of threads.
+        """
+        if len(self.threads_buffer) == 0:
+            return None
+        return self.threads_buffer.pop(0)

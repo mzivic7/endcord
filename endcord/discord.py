@@ -724,7 +724,7 @@ class Discord():
         """Join a thread"""
         message_data = None
         # location is not necesarily "Contect Menu"
-        url = f"api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
+        url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("POST", url, message_data, self.header)
@@ -741,7 +741,7 @@ class Discord():
         """Leave a thread"""
         message_data = None
         # location is not necesarily "Contect Menu"
-        url = f"api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
+        url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
         try:
             connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
             connection.request("DELETE", url, message_data, self.header)

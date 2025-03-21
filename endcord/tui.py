@@ -127,6 +127,7 @@ class TUI():
         self.extra_line_text = ""
         self.run = True
         self.win_extra_line = None
+        self.win_prompt = None
         self.resize()
         if self.enable_blink_cursor:
             self.blink_cursor_thread = threading.Thread(target=self.blink_cursor, daemon=True, args=())
@@ -263,6 +264,7 @@ class TUI():
         skipped = 0
         drop_down_skip_guild = False
         drop_down_skip_category = False
+        drop_down_skip_channel = False
         for num, code in enumerate(self.tree_format):
             if code == 1100:
                 skipped += 1
@@ -272,7 +274,11 @@ class TUI():
                 skipped += 1
                 drop_down_skip_category = False
                 continue
-            elif drop_down_skip_guild or drop_down_skip_category:
+            elif code == 1300:
+                skipped += 1
+                drop_down_skip_channel = False
+                continue
+            elif drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
                 skipped += 1
                 continue
             first_digit = code % 10
@@ -280,6 +286,8 @@ class TUI():
                 drop_down_skip_guild = True
             elif first_digit == 0 and code < 300:
                 drop_down_skip_category = True
+            elif first_digit == 0 and 500 <= code <= 599:
+                drop_down_skip_channel = True
             if (code % 100) // 10 in (4, 5):
                 self.tree_selected = num - skipped
                 self.tree_index = max(self.tree_selected - self.tree_hw[0] + 3, 0)
@@ -397,13 +405,11 @@ class TUI():
             elif self.input_select_start is not None and selected_start_screen <= pos < selected_end_screen:
                 safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(15) | self.attrib_map[15])
             else:
-                bad = False
                 for bad_range in self.misspelled:
                     if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)+1):
                         safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(10) | self.attrib_map[10])
-                        bad = True
                         break
-                if not bad:
+                else:
                     safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(14) | self.attrib_map[14])
         self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
         # cursor at the end of string
@@ -434,7 +440,6 @@ class TUI():
                     for pos, character in enumerate(line):
                         if pos >= w:
                             break
-                        found = False
                         for format_part in line_format[1:]:
                             if format_part[1] <= pos < format_part[2]:
                                 color = format_part[0]
@@ -448,9 +453,8 @@ class TUI():
                                         color = self.color_default
                                     color_ready = curses.color_pair(color) | self.attrib_map[color]
                                 safe_insch(self.win_chat, y, pos, character, color_ready)
-                                found = True
                                 break
-                        if not found:
+                        else:
                             safe_insch(self.win_chat, y, pos, character, default_color)
             # fill empty lines with spaces so background is drawn all the way
             y -= 1
@@ -470,8 +474,9 @@ class TUI():
             h, w = self.tree_hw
             # drawinf from top to down
             skipped = 0   # skipping drop-down ends (code 1000)
-            drop_down_skip_category = False
             drop_down_skip_guild = False
+            drop_down_skip_category = False
+            drop_down_skip_channel = False
             drop_down_level = 0
             self.tree_clean_len = 0
             y = 0
@@ -488,10 +493,15 @@ class TUI():
                     drop_down_level -= 1
                     drop_down_skip_category = False
                     continue
+                elif code == 1300:
+                    skipped += 1
+                    drop_down_level -= 1
+                    drop_down_skip_channel = False
+                    continue
                 text_start = drop_down_level * 3 + 1
-                if code < 300:   # must be befre "if drop_down_skip..." and after "text_start = "
+                if code < 300 or 500 <= code <= 599:
                     drop_down_level += 1
-                if drop_down_skip_guild or drop_down_skip_category:
+                if drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
                     skipped += 1
                     continue
                 self.tree_clean_len += 1
@@ -499,6 +509,8 @@ class TUI():
                     drop_down_skip_guild = True
                 elif first_digit == 0 and code < 300:
                     drop_down_skip_category = True
+                elif first_digit == 0 and 500 <= code <= 599:
+                    drop_down_skip_channel = True
                 y = max(num - skipped - self.tree_index, 0)
                 if y >= h:
                     break
@@ -786,7 +798,7 @@ class TUI():
                             break
                     if found:
                         break
-                if not found:
+                else:
                     pair_id = self.init_pair((color, bg, selected_id))
                     role["color_id"] = pair_id
                     pair_id = self.init_pair((color, alt_bg, selected_id))
@@ -1225,13 +1237,18 @@ class TUI():
                     else:
                         self.tree_format[self.tree_selected_abs] += 1
                     self.draw_tree()
-                    self.tree_format_changed = True
                 # if selected tree entry is guild drop-down
                 elif 100 <= self.tree_format[self.tree_selected_abs] <= 199:
                     tmp = self.input_buffer
                     self.input_buffer = ""
                     # this will trrigger open_guild() in app.py that will update and expand tree
                     return tmp, self.chat_selected, self.tree_selected_abs, 19
+                # if selected tree entry is threads drop-down
+                elif 400 <= self.tree_format[self.tree_selected_abs] <= 599:
+                    # stop wait_input and return so new prompt can be loaded
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
+                    return tmp, self.chat_selected, self.tree_selected_abs, 4
                 # if selected tree entry is category drop-down
                 elif self.tree_selected_abs >= 0:
                     if (self.tree_format[self.tree_selected_abs] % 10):
@@ -1239,7 +1256,7 @@ class TUI():
                     else:
                         self.tree_format[self.tree_selected_abs] += 1
                     self.draw_tree()
-                    self.tree_format_changed = True
+                self.tree_format_changed = True
 
             elif key == self.keybindings["ins_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
@@ -1343,6 +1360,19 @@ class TUI():
                 self.input_buffer = ""
                 self.asking_num = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 18
+
+            elif key == self.keybindings["tree_collapse_threads"]:
+                if (self.tree_format[self.tree_selected_abs] % 10):
+                    self.tree_format[self.tree_selected_abs] -= 1
+                else:
+                    self.tree_format[self.tree_selected_abs] += 1
+                self.draw_tree()
+
+            elif key == self.keybindings["tree_join_thread"]:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.asking_num = True
+                return tmp, self.chat_selected, self.tree_selected_abs, 21
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

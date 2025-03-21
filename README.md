@@ -27,13 +27,14 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Toggle reply ping (`Ctrl+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
-    - Hidden channels
+    - Dont show hidden channels
     - Show muted chanels as gray
     - Show unread channels as bold
     - Show channels with mention as red
     - Navigate tree (`Ctrl+Up/Down`)
     - Expand categories and servers, enter channel (`Ctrl+Space`)
     - DMs in separate drop-down, show DM status
+    - Channel threads
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links
 - Spellchecking
@@ -128,9 +129,17 @@ Reveal one spoiler in selected messages - `Ctrl+T`
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 Undo input line - `Alt+Z`  
 Redo input line - `Alt+Shift+Z`  
+Un/collapse channel with threads in tree - `Alt+T`
+Join/leave selected thread in tree - `Alt+J`
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Cancel action, leave media viewer - `Escape`  
 Quit - `Ctrl+C`  
+
+### Channel Tree
+If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
+Objects are un/collapsed with `Ctrl+Space`. Channels with threads are un/collapsed on `Alt+T`.
+Channel with threads are collapsed by default.  
+Thread can be joined or leaved (toggle) on `Alt+J`.  
 
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  
@@ -166,7 +175,6 @@ Attachments can be navigated with `Ctrl+Left/Right` in extra line (above status 
 To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  
 For now, there is no emoji assist, but it is planned.  
 Emoji names can be found [here](https://unicode.org/emoji/charts/full-emoji-list.html) and aliases [here](https://www.webfx.com/tools/emoji-cheat-sheet/).  
-
 
 ### RPC
 For now RPC is only implemented for Linux, it is automatically disabled on other platforms.  
@@ -226,8 +234,8 @@ Never tested on macOS. Feedback is welcome.
 3. `cd endcord`
 4. Setup virtual environment: `pipenv install`
 5. run build script
-    - to build endcord-lite `pipenv run python build.py --build`
-    - to build endcord-lite `pipenv run python build.py --build --lite`
+    - to build endcord: `pipenv run python build.py --build`
+    - to build endcord-lite: `pipenv run python build.py --build --lite`
 
 ### Windows
 1. Install [Python](https://www.python.org/) 3.13 or later
@@ -237,8 +245,8 @@ Never tested on macOS. Feedback is welcome.
 4. Open terminal, cd to unzipped folder
 4. Setup virtual environment: `pipenv install`
 5. run build script
-    - to build endcord-lite `pipenv run python build.py --prepare --build`
-    - to build endcord-lite `pipenv run python build.py --prepare --build --lite`
+    - to build endcord: `pipenv run python build.py --prepare --build`
+    - to build endcord-lite: `pipenv run python build.py --prepare --build --lite`
 
 ### macOS
 1. Install [Python](https://www.python.org/) 3.13 or later
@@ -248,8 +256,8 @@ Never tested on macOS. Feedback is welcome.
 4. Open terminal, cd to unzipped folder
 4. Setup virtual environment: `pipenv install`
 5. run build script
-    - to build endcord-lite `pipenv run python build.py --build`
-    - to build endcord-lite `pipenv run python build.py --build --lite`
+    - to build endcord: `pipenv run python build.py --build`
+    - to build endcord-lite: `pipenv run python build.py --build --lite`
 
 
 ## FAQ

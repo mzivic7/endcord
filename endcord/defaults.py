@@ -59,6 +59,7 @@ theme = {
     "tree_drop_down_intersect": "|",
     "tree_drop_down_corner": "\\",
     "tree_drop_down_pointer": ">",
+    "tree_drop_down_thread": "<",
     "tree_dm_status": "◆",
     "username_role_colors": True,
     "color_default": [-1, -1],
@@ -101,6 +102,8 @@ keybindings = {
     "tree_up": 575,   # Ctrl+Up
     "tree_down": 534,   # Ctrl+Donw
     "tree_select": 0,   # Ctrl+Space
+    "tree_collapse_threads": "ALT+116",   # Alt+T
+    "tree_join_thread": "ALT+106",   # Alt+J
     # input line
     "word_left": 554,   # Ctrl+Left
     "word_right": 569,   # Ctrl+Right
@@ -136,9 +139,9 @@ keybindings = {
 
 
 windows_override_keybindings = {
-    "tree_up": 480,
-    "tree_down": 481,
+    "tree_up": 480,   # Ctrl+Up
+    "tree_down": 481,   # Ctrl+Donw
     "tree_select": 1,   # Ctrl+A
-    "attach_prev": 443,
-    "attach_next": 444,
+    "word_left": 443,   # Ctrl+Left
+    "word_right": 444,   # Ctrl+Right
 }

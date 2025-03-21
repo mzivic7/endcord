@@ -132,6 +132,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw corners in tree drop down menus.
 - `tree_drop_down_pointer = ">"`  
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
+- `tree_drop_down_thread = "<"`  
+    A single character used to draw thread pointer in tree drop down menus.
 - `tree_dm_status = "◆"`  
     A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd.
 - `username_role_colors = True`  

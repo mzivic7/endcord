@@ -104,15 +104,13 @@ class RPC:
                         activity["name"] = rpc_data["name"]
                         assets = {}
                         for asset_client in activity["assets"]:
-                            found = False
                             # check if asset is an image
                             if "image" in asset_client:
                                 for asset_app in rpc_assets:
                                     if activity["assets"][asset_client] == asset_app["name"]:
                                         assets[asset_client] = asset_app["id"]
-                                        found = True
                                         break
-                            if not found:
+                            else:
                                 # check if asset is external link
                                 if activity["assets"][asset_client][:8] == "https://":
                                     if self.external:
@@ -139,15 +137,13 @@ class RPC:
                         activity.pop("instance", None)
 
                         # self.changed will be true only when presence data has been updated
-                        found = False
                         for num, app in enumerate(self.presences):
                             if app["application_id"] == app_id:
                                 if activity != self.presences[num]:
                                     self.presences[num] = activity
                                     self.changed = True
-                                found = True
                                 break
-                        if not found:
+                        else:
                             self.presences.append(activity)
                             self.changed = True
 

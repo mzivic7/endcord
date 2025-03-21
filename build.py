@@ -62,12 +62,13 @@ def prepare():
             os.system(uninstall_magic)
         except importlib.metadata.PackageNotFoundError:
             pass
-        install_windows_dependencies = "pipenv install pywin32 windows-toasts windows-curses windows-curses python-magic-bin"
+        install_windows_dependencies = "pipenv install pywin32 windows-toasts windows-curses python-magic-bin"
         os.system(install_windows_dependencies)
     elif sys.platform == "mac":
         pass
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
+
 
 def build():
     """Build"""
@@ -94,6 +95,7 @@ def build():
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
 
+
 def parser():
     """Setup argument parser for CLI"""
     parser = argparse.ArgumentParser(
@@ -117,6 +119,7 @@ def parser():
         help="Change environment to build or run endcord-lite, by deleting media support depenencies",
     )
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     args = parser()

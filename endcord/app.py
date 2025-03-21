@@ -245,11 +245,15 @@ class Endcord:
         logger.info("Reconnect complete")
 
 
-    def switch_channel(self, channel_id, channel_name, guild_id, guild_name):
+    def switch_channel(self, channel_id, channel_name, guild_id, guild_name, parent_hint=None):
         """
         All that should be done when switching channel.
         If it is DM, guild_id and guild_name should be None.
         """
+
+        # dont switch to same channel
+        if channel_id == self.active_channel["channel_id"]:
+            return
 
         # dont switch when offline
         if self.my_status["client_state"] in ("OFFLINE", "connecting"):
@@ -285,6 +289,19 @@ class Endcord:
             if channel["id"] == self.active_channel["channel_id"]:
                 self.current_channel = channel
                 break
+        else:
+            # check threads if no channel
+            if parent_hint:   # thread will have parent_hint
+                for guild in self.threads:
+                    if guild["guild_id"] == guild_id:
+                        for channel in guild["channels"]:
+                            if channel["channel_id"] == parent_hint:
+                                for thread in channel["threads"]:
+                                    if thread["id"] == channel_id:
+                                        self.current_channel = thread
+                                        break
+                                break
+                        break
 
         # if this is dm, check if user has sent minimum number of messages
         # this is to prevent triggering discords spam filter
@@ -300,6 +317,12 @@ class Endcord:
             if my_messages < MSG_MIN:
                 self.disable_sending = True
                 self.tui.draw_extra_line(f"Cant send a message: please send at least {MSG_MIN} messages with the official client")
+
+        # if this is thread and is locked or archived, prevent sending messages
+        elif self.current_channel["type"] in (11, 12) and not self.current_channel["open"]:
+            self.disable_sending = True
+            self.tui.draw_extra_line("Cant send a message: this thread is locked")
+
         else:
             self.disable_sending = False
             self.tui.draw_extra_line()
@@ -336,8 +359,8 @@ class Endcord:
         self.update_prompt()
         self.update_tree()
 
-        # save state
-        if self.config["remember_state"]:
+        # save state (exclude threads)
+        if self.config["remember_state"] and self.current_channel["type"] not in (11, 12):
             self.state["last_guild_id"] = guild_id
             self.state["last_channel_id"] = channel_id
             peripherals.save_state(self.state)
@@ -361,14 +384,12 @@ class Endcord:
                 break
 
         # keep dms, collapsed and all guilds except one at cursor position
-        self.check_tree_format(save=False)
         # copy over dms
         if 0 in self.state["collapsed"]:
             collapsed = [0]
         else:
             collapsed = []
         guild_ids = []
-
         if self.config["only_one_open_server"]:
             # collapse all othre guilds
             for guild_1 in self.guilds:
@@ -423,13 +444,11 @@ class Endcord:
     def add_to_store(self, channel_id, text):
         """Adds entry to input line store"""
         if self.cache_typed:
-            done = False
             for num, channel in enumerate(self.input_store):
                 if channel["id"] == channel_id:
                     self.input_store[num]["content"] = text
-                    done = True
                     break
-            if not done:
+            else:
                 self.input_store.append({
                     "id": channel_id,
                     "content": text,
@@ -519,16 +538,8 @@ class Endcord:
                 if input_text and input_text != "\n":
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                 sel_channel = self.tree_metadata[tree_sel]
-                guild_id = None
-                guild_name = None
-                parent_index = self.tree_metadata[tree_sel]["parent_index"]
-                for i in range(3):   # avoid infinite loops, there can be max 3 nest levels
-                    if parent_index is None:
-                        break
-                    guild_id = self.tree_metadata[parent_index]["id"]
-                    guild_name = self.tree_metadata[parent_index]["name"]
-                    parent_index = self.tree_metadata[parent_index]["parent_index"]
-                self.switch_channel(sel_channel["id"], sel_channel["name"], guild_id, guild_name)
+                guild_id, parent_id, guild_name = self.find_parents(tree_sel)
+                self.switch_channel(sel_channel["id"], sel_channel["name"], guild_id, guild_name, parent_hint=parent_id)
                 self.reset_actions()
                 self.update_status_line()
 
@@ -751,6 +762,21 @@ class Endcord:
                 self.going_to = input_text   # reusing variable
                 peripherals.copy_to_clipboard(self.tui.get_input_selected())
 
+            # join/leave selected thread in tree
+            elif action == 21:
+                self.going_to = input_text   # reusing variable
+                if self.tree_metadata[tree_sel]["type"] in (11, 12):
+                    # find threads parent channel and guild
+                    thread_id = self.tree_metadata[tree_sel]["id"]
+                    guild_id, channel_id, _ = self.find_parents(tree_sel)
+                    # toggle joined
+                    joined = self.thread_togle_join(guild_id, channel_id, thread_id)
+                    if joined is not None:
+                        if joined:
+                            self.discord.join_thread(thread_id)
+                        else:
+                            self.discord.leave_thread(thread_id)
+
             # escape key in main UI
             elif action == 5:
                 if self.replying["id"]:
@@ -819,6 +845,9 @@ class Endcord:
                             self.update_extra_line()
                             break
                     if not self.disable_sending:
+                        # if this is unjoined thread, join it (locally only)
+                        if self.current_channel["type"] in (11, 12) and not self.current_channel["joined"]:
+                            self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
                         text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                         self.discord.send_message(
                             self.active_channel["channel_id"],
@@ -861,6 +890,23 @@ class Endcord:
                     )
                 self.reset_actions()
                 self.update_status_line()
+
+
+    def find_parents(self, tree_sel):
+        """Find object parents from its tree index"""
+        guild_id = None
+        guild_name = None
+        parent_id = None
+        parent_index = self.tree_metadata[tree_sel]["parent_index"]
+        for i in range(3):   # avoid infinite loops, there can be max 3 nest levels
+            if parent_index is None:
+                break
+            guild_id = self.tree_metadata[parent_index]["id"]
+            guild_name = self.tree_metadata[parent_index]["name"]
+            parent_index = self.tree_metadata[parent_index]["parent_index"]
+            if i == 0 and self.tree_metadata[tree_sel]["type"] in (11, 12):
+                parent_id = guild_id
+        return guild_id, parent_id, guild_name
 
 
     def download_file(self, url, move=True, open_media=False):
@@ -909,12 +955,10 @@ class Endcord:
         if os.path.exists(path) and not os.path.isdir(path):
 
             # add attachment to list
-            found = False
             for ch_index, channel in enumerate(self.ready_attachments):
                 if channel["channel_id"] == self.active_channel["channel_id"]:
-                    found = True
                     break
-            if not found:
+            else:
                 self.ready_attachments.append({
                     "channel_id": self.active_channel["channel_id"],
                     "attachments": [],
@@ -997,15 +1041,13 @@ class Endcord:
             return messages
         # find missing members
         for message in messages:
-            found = False
             message_user_id = message["user_id"]
             if message_user_id in missing_members:
                 continue
             for member in self.current_member_roles:
                 if member["user_id"] == message_user_id:
-                    found = True
                     break
-            if not found:
+            else:
                 missing_members.append(message_user_id)
         # request missing members
         if missing_members:
@@ -1066,14 +1108,12 @@ class Endcord:
 
     def go_to_message(self, message_id):
         """Check if message is in current chat buffer, if not: load chunk around specified message id and select message"""
-        found = False
         for num, message in enumerate(self.messages):
             if message["id"] == message_id:
                 self.tui.set_selected(self.msg_to_lines(num))
-                found = True
                 break
 
-        if not found:
+        else:
             logger.debug(f"Requesting chat chunk around {message_id}")
             new_messages = self.get_messages_with_members(around=message_id)
             if new_messages:
@@ -1091,13 +1131,11 @@ class Endcord:
         """Cache all deleted messages from current channel"""
         if not self.active_channel["channel_id"]:
             return
-        found = False
         for channel in self.deleted_cache:
             if channel["channel_id"] == self.active_channel["channel_id"]:
                 this_channel_cache = channel["messages"]
-                found = True
                 break
-        if not found:
+        else:
             self.deleted_cache.append({
                 "channel_id": self.active_channel["channel_id"],
                 "messages": [],
@@ -1105,11 +1143,10 @@ class Endcord:
             this_channel_cache = self.deleted_cache[-1]["messages"]
         for message in self.messages:
             if message.get("deleted"):
-                found = False
                 for message_c in this_channel_cache:
                     if message_c["id"] == message["id"]:
-                        found = True
-                if not found:
+                        break
+                else:
                     this_channel_cache.append(message)
                     if len(this_channel_cache) > self.deleted_cache_limit:
                         this_channel_cache.pop(0)
@@ -1117,13 +1154,11 @@ class Endcord:
 
     def restore_deleted(self, messages):
         """Restore all cached deleted messages for this channels in the correct position"""
-        found = False
         for channel in self.deleted_cache:
             if channel["channel_id"] == self.active_channel["channel_id"]:
                 this_channel_cache = channel["messages"]
-                found = True
                 break
-        if not found:
+        else:
             return messages
         for message_c in this_channel_cache:
             message_c_id = message_c["id"]
@@ -1335,6 +1370,7 @@ class Endcord:
             self.config["tree_drop_down_intersect"],
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
+            self.config["tree_drop_down_thread"],
             self.config["tree_dm_status"],
             init_uncollapse=init_uncollapse,
             safe_emoji=self.config["emoji_as_text"],
@@ -1405,7 +1441,74 @@ class Endcord:
             )
 
 
-    def check_tree_format(self, save=True):
+    def load_threads(self, new_threads):
+        """
+        Add new threads to sorted list of threads by guild and channel.
+        new_threads is list of threads that belong to same server.
+        Threads are sorted by creation date.
+        """
+        to_sort = False
+        guild_id = new_threads["guild_id"]
+        new_threads = new_threads["threads"]
+        for num, guild in enumerate(self.threads):
+            if guild["guild_id"] == guild_id:
+                break
+        else:
+            num = len(self.threads)
+            self.threads.append({
+                "guild_id": guild_id,
+                "channels": [],
+            })
+        for new_thread in new_threads:
+            parent_id = new_thread["parent_id"]
+            for channel in self.threads[num]["channels"]:
+                if channel["channel_id"] == parent_id:
+                    for thread in channel["threads"]:
+                        if thread["id"] == new_thread["id"]:
+                            muted = thread["muted"]   # dont overwrite muted and joined
+                            joined = thread.get("joined", False)
+                            thread.update(new_thread)
+                            thread["muted"] = muted
+                            thread["joined"] = joined
+                            # no need to sort if its only update
+                            break
+                    else:
+                        to_sort = True
+                        channel["threads"].append(new_thread)
+            else:
+                new_thread.pop("parent_id")
+                self.threads[num]["channels"].append({
+                    "channel_id": parent_id,
+                    "threads": [new_thread],
+                })
+        if to_sort:
+            for guild in self.threads:
+                if guild["guild_id"] == guild_id or guild_id is None:
+                    for channel in guild["channels"]:
+                        channel["threads"] = sorted(channel["threads"], key=lambda x: x["id"], reverse=True)
+                break
+        self.update_tree()
+
+
+    def thread_togle_join(self, guild_id, channel_id, thread_id, join=None):
+        """Toggle, or set a custom value for 'joined' state of a thread and return new state"""
+        for guild in self.threads:
+            if guild["guild_id"] == guild_id:
+                for channel in guild["channels"]:
+                    if channel["channel_id"] == channel_id:
+                        for thread in channel["threads"]:
+                            if thread["id"] == thread_id:
+                                if join is None:
+                                    thread["joined"] = not thread["joined"]
+                                else:
+                                    thread["joined"] = join
+                                return thread["joined"]
+                        break
+                break
+        return None
+
+
+    def check_tree_format(self):
         """Check tree format for collapsed guilds and categories and save it"""
         new_tree_format = self.tui.get_tree_format()
         if new_tree_format:
@@ -1417,8 +1520,7 @@ class Endcord:
                     collapsed.append(self.tree_metadata[num]["id"])
             if self.state["collapsed"] != collapsed:
                 self.state["collapsed"] = collapsed
-                if save:
-                    peripherals.save_state(self.state)
+                peripherals.save_state(self.state)
 
 
     def send_desktop_notification(self, new_message):
@@ -1535,9 +1637,11 @@ class Endcord:
             self.update_tree()
 
         # load threads, if any
-        threads = self.gateway.get_threads()
-        if threads:
-            self.threads = threads
+        new_threads = self.gateway.get_threads()
+        if new_threads:
+            # these threads are all together
+            for new_threads_guild in new_threads:
+                self.load_threads(new_threads_guild)
 
         # load pings, unseen and blocked
         self.pings = []
@@ -1676,13 +1780,11 @@ class Endcord:
                                         else:
                                             self.update_chat()
                                     elif op == "MESSAGE_REACTION_ADD":
-                                        found = False
                                         for num2, reaction in enumerate(loaded_message["reactions"]):
                                             if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
                                                 loaded_message["reactions"][num2]["count"] += 1
-                                                found = True
                                                 break
-                                        if not found:
+                                        else:
                                             loaded_message["reactions"].append({
                                                 "emoji": data["emoji"],
                                                 "emoji_id": data["emoji_id"],
@@ -1757,12 +1859,11 @@ class Endcord:
                                     new_typing["global_name"] = dm["global_name"]
                                     # no nick in DMs
                                     break
-                        done = False
                         for num, user in enumerate(self.typing):
                             if user["user_id"] == new_typing["user_id"]:
                                 self.typing[num]["timestamp"] = new_typing["timestamp"]
-                                done = True
-                        if not done:
+                                break
+                        else:
                             self.typing.append(new_typing)
                         self.update_status_line()
                 else:
@@ -1883,10 +1984,12 @@ class Endcord:
                 self.update_tree()
 
             # check for new threads
-            threads = self.gateway.get_threads()
-            if threads:
-                self.threads = threads
-                self.update_tree()
+            while self.run:
+                new_threads = self.gateway.get_threads()
+                if new_threads:
+                    self.load_threads(new_threads)
+                else:
+                    break
 
             # check for tree format changes
             self.check_tree_format()
