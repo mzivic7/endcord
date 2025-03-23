@@ -74,6 +74,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Will convert emoji characters to their names. Enable if emoji are not supported by terminal.
 - `only_one_open_server = False`  
     Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.  
+- `custom_host = None`  
+    Custom host to connect to, like `spacebar.chat`. Set to none to use default host (`discord.com`).  
+- `"disable_easter_eggs = False`  
+    In case some easter egg is annoying.
 
 ### Theme
 - `tree_width = 32`  
@@ -104,6 +108,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for rich presence string used in `format_status`. See [format_rich](#format_rich) for more info.
 - `format_prompt = "[%channel] > "`  
     Formatting for prompt line. See [format_prompt](#format_prompt) for more info.
+- `format_forum = "[%timestamp] - <%msg_count> - %thread_name"`  
+    Formatting for each thread in forum. One line per thread. See [format_forum](#format_status) for more info.
+- `format_forum_timestamp = "%Y-%m-%d"`  
+    Format for timestamps in forum. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
 - `edited_string = "(edited)"`  
     A string added to the end of the message when it is edsited.
 - `quote_character = "|"`  
@@ -119,7 +127,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_global_name = 15`  
     Limit to the global name string length.
 - `limit_typing_string = 32`  
-    Limit to the typing string length. Also limits `%details` and `%state` in `format_rich`
+    Limit to the typing string length. Also limits `%details` and `%state` in `format_rich`.
+- `limit_prompt = 15`  
+    Limit to the thread name string length.
+- `limit_thread_name = 0`  
+    Limit to `%username`, `%global_name`, `%server` and ``%channel` length in `format_prompt`.
 - `tree_vert_line = "|"`  
     A single character used to draw vertical line separating channel tree and the chat.
 - `tree_drop_down_vline = "|"`  
@@ -134,6 +146,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
 - `tree_drop_down_thread = "<"`  
     A single character used to draw thread pointer in tree drop down menus.
+- `tree_drop_down_forum = "◆"`  
+    A single character used to draw forum pointer in tree drop down menus.
 - `tree_dm_status = "◆"`  
     A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd.
 - `username_role_colors = True`  
@@ -145,7 +159,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `target_fps = 30`  
     Target framerate when playing videos, high values may result in AV-desyncing and higher CPU usage.
 - `font_scale = 2.25`  
-    Font height/width ratio. Change if picture dimensions ratio is wrong in terminal.
+    Font height/width ratio. Change only if picture dimensions ratio is wrong in terminal.
 
 ### Colors and attributes
 Colors are part of the theme, configured as 2 or 3 values in a list: `[foreground, background, attribute]`  
@@ -199,6 +213,8 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color format for replied message string. Corresponding to `format_reply`.
 - `color_format_reactions = [[245, -1], [131, -2, 0, 0, 7], [-1, -2, 0, 23, 27]]`  
     Color format for message reactions string. Corresponding to `format_reactions`.
+- `color_format_forum = [[-1, -1], [242, -2, 0, 0, 12], [25, -2, 0, 15, 20]]`  
+    Color format for threads in forum. Corresponding to `format_forum`.
 - `color_chat_edited = [241, -1]`  
     Color for `edited_string`.
 - `color_chat_url = [153, -1, "u"]`  
@@ -261,3 +277,8 @@ Note: everything after `%content` may be pushed to newline.
 - `%username` - my username
 - `%server` - currently viewed server
 - `%channel` - currently viewed channel
+
+## format_forum
+- `%thread_name` - name of a thread
+- `%timestamp` - date a thread is created, formatted with `format_forum_timestamp`
+- `%msg_count` - number of messages send in a thread

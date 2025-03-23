@@ -55,6 +55,14 @@ def normalize_string(input_string, max_length):
     return input_string
 
 
+def normalize_int_str(input_int, digits_limit):
+    """Convert integer to string and limit its value to preferred number of digits"""
+    int_str = str(min(input_int, 10**digits_limit - 1))
+    while len(int_str) < digits_limit:
+        int_str = f" {int_str}"
+    return int_str
+
+
 def generate_timestamp(discord_time, format_string, timezone=True):
     """Converts discord timestamp string to formatted string and optionally converts to current timezone"""
     try:
@@ -327,20 +335,20 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     color_deleted = [colors[3]]
     color_separator = [colors[4]]
     color_chat_edited = colors_formatted[4][0]
-    color_mention_chat_edited = colors_formatted[10][0]
+    color_mention_chat_edited = colors_formatted[12][0]
     color_chat_url = colors_formatted[5][0][0]
-    color_mention_chat_url = colors_formatted[11][0][0]
+    color_mention_chat_url = colors_formatted[13][0][0]
     color_spoiler = colors_formatted[6][0][0]
-    color_mention_spoiler = colors_formatted[13][0][0]
+    color_mention_spoiler = colors_formatted[14][0][0]
     # load formatted colors: [[id], [id, start, end]...]
     color_message = colors_formatted[0]
     color_newline = colors_formatted[1]
     color_reply = colors_formatted[2]
     color_reactions = colors_formatted[3]
-    color_mention_message = colors_formatted[7]
-    color_mention_newline = colors_formatted[8]
-    color_mention_reply = colors_formatted[9]
-    color_mention_reactions = colors_formatted[10]
+    color_mention_message = colors_formatted[8]
+    color_mention_newline = colors_formatted[9]
+    color_mention_reply = colors_formatted[10]
+    color_mention_reactions = colors_formatted[11]
 
     placeholder_timestamp = generate_timestamp("2015-01-01T00:00:00.000000+00:00", format_timestamp)
     pre_content_len = len(format_message
@@ -789,7 +797,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     return chat, chat_format, indexes
 
 
-def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, format_status_line, format_rich, limit_typing=30, use_nick=True):
+def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, format_status_line, format_rich, limit_typing=30, use_nick=True, fun=True):
     """
     Generate status line according to provided formatting.
     Possible options for format_status_line:
@@ -860,6 +868,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
             .replace("%small_text", sm_txt if sm_txt else "")
             .replace("%large_text", lg_txt if lg_txt else "")
         )
+        if fun:
+            rich = rich.replace("Metal", "🤘 Metal").replace("metal", "🤘 metal")
     else:
         rich = "No rich presence"
     if my_status["client_state"] == "online":
@@ -926,7 +936,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
     )
 
 
-def generate_prompt(my_user_data, active_channel, format_prompt):
+def generate_prompt(my_user_data, active_channel, format_prompt, limit_prompt=15):
     """
     Generate status line according to provided formatting.
     Possible options for format_status_line:
@@ -938,10 +948,10 @@ def generate_prompt(my_user_data, active_channel, format_prompt):
     guild = active_channel["guild_name"]
     return (
         format_prompt
-        .replace("%global_name", str(my_user_data["global_name"]))
-        .replace("%username", my_user_data["username"])
-        .replace("%server", guild if guild else "DM")
-        .replace("%channel", str(active_channel["channel_name"]))
+        .replace("%global_name", str(my_user_data["global_name"])[:limit_prompt])
+        .replace("%username", my_user_data["username"][:limit_prompt])
+        .replace("%server", guild[:limit_prompt] if guild else "DM")
+        .replace("%channel", str(active_channel["channel_name"])[:limit_prompt])
     )
 
 
@@ -971,7 +981,64 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
+def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):
+    """
+    Generate chat according to provided formatting.
+    Possible options for forum_format:
+        %thread_name
+        %timestamp
+        %msg_num
+    Possible options for format_one_reaction:
+        %reaction
+        %count
+    Possible options for format_timestamp:
+        same as format codes for datetime package
+    Possoble options for blocked_mode:
+        0 - no blocking
+        1 - mask blocked messages
+        2 - hide blocked messages
+    limit_thread_name normalizes length of thread name, by cropping them or appending spaces. Set to None to disable.
+    use_nick will make it use nick instead global_name whenever possible.
+    """
+    forum_thread_format = config["format_forum"]
+    forum_format_timestamp = config["format_forum_timestamp"]
+    color_blocked = [colors[2]]
+    color_format_forum = colors_formatted[7]   # 15 is unused
+    blocked_mode = config["blocked_mode"]
+    limit_thread_name = config["limit_thread_name"]
+    convert_timezone = config["convert_timezone"]
+
+    forum = []
+    forum_format = []
+    for thread in threads:
+        owner_id = thread["owner_id"]
+
+        # handle blocked messages
+        if blocked_mode and owner_id in blocked:
+            if blocked_mode == 1:
+                thread["username"] = "blocked"
+                thread["global_name"] = "blocked"
+                thread["nick"] = "blocked"
+
+        thread_line = (
+            forum_thread_format
+            .replace("%thread_name", normalize_string(thread["name"], limit_thread_name))
+            .replace("%timestamp", generate_timestamp(thread["timestamp"], forum_format_timestamp, convert_timezone))
+            .replace("%msg_count", normalize_int_str(thread["message_count"], 3))
+        )
+        if len(thread_line) > max_length:
+            thread_line = thread_line[:max_length - 3] + "..."   # -3 to leave room for "..."
+        forum.append(thread_line)
+
+        if thread["owner_id"] in blocked:
+            forum_format.append([color_blocked])
+        else:
+            forum_format.append(color_format_forum)
+
+    return forum, forum_format
+
+
+def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -1127,7 +1194,6 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                     "hidden": hidden,
                     "unseen": False,
                     "ping": False,
-
                 })
                 categories_position.append(channel["position"])
 
@@ -1135,7 +1201,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         bare_channels = []
         bare_channels_position = []
         for channel in guild["channels"]:
-            if channel["type"] in (0, 5):
+            if channel["type"] in (0, 5, 15):
                 # find this channel threads, if any
                 for channel_th in threads_guild:
                     if channel_th["channel_id"] == channel["id"]:
@@ -1181,6 +1247,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                             "ping": mentioned_ch,
                             "active": active,
                             "threads": threads_ch,
+                            "forum": channel["type"] == 15,
                         })
                         break
                 else:
@@ -1274,12 +1341,15 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                     for channel in category_channels:
                         if not channel["hidden"]:
                             name = channel["name"]
+                            forum = channel["forum"]
                             channel_threads = channel.get("threads", [])
+                            channel_index = len(tree_format)
                             if safe_emoji:
                                 name = replace_emoji_string(emoji.demojize(name))
-                            if channel_threads:
+                            if forum:
+                                tree.append(f"{pass_by}{intersection}{dd_forum} {name}")
+                            elif channel_threads:
                                 tree.append(f"{pass_by}{intersection}{dd_pointer} {name}")
-                                channel_index = len(tree_format)
                             else:
                                 tree.append(f"{pass_by}{intersection} {name}")
                             if channel_threads:
@@ -1299,7 +1369,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                             tree_format.append(code)
                             tree_metadata.append({
                                 "id": channel["id"],
-                                "type": 0,
+                                "type": 15 if forum else 0,
                                 "name": channel["name"],
                                 "muted": channel["muted"],
                                 "parent_index": category_index,
@@ -1307,6 +1377,10 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
 
                             # add channel threads to the tree
                             for thread in channel_threads:
+                                joined = thread["joined"]
+                                if not joined and forum:
+                                    # skip non-joined threads for forum
+                                    continue
                                 name = thread["name"]
                                 thread_id = thread["id"]
                                 active = (thread_id == active_channel_id)
@@ -1314,7 +1388,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                                     name = replace_emoji_string(emoji.demojize(name))
                                 tree.append(f"{pass_by}{pass_by}{intersection_thread} {name}")
                                 code = 400
-                                if (thread["muted"] or not thread["joined"]) and not active:
+                                if (thread["muted"] or not joined) and not active:
                                     code += 10
                                 elif thread_id == active_channel_id and thread_id in mentioned:
                                     code += 50
@@ -1369,7 +1443,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
     # add drop-down corners
     for num, code in enumerate(tree_format):
         if code >= 1000:
-            if code == 1300:   # thread end
+            if code == 1300 and (tree_format[num - 1] // 100) % 10 == 4:   # thread end if there are threads
                 tree[num - 1] = f"{pass_by}{pass_by}{end_thread}{tree[num - 1][9:]}"
             elif tree[num - 1][:4] != f"{intersection}{dd_pointer}":
                 if tree[num][:3] == pass_by:
@@ -1418,7 +1492,7 @@ def update_tree(tree_format, tree_metadata, guilds, unseen, mentioned, active_ch
     Update format for alread generated tree.
     Optimised version of init_tree for when tree is already generated.
     Unused because it marks unseen wrong aand performance gain is insignificant.
-    Threads not implemented.
+    Threads and forums not implemented.
     """
     unseen_channels = [x["channel_id"] for x in unseen]
     for num, code in enumerate(tree_format):

@@ -48,6 +48,56 @@ def convert_role_colors(all_roles):
     return all_roles
 
 
+def check_color(color):
+    """Check if color format is valid and repair it"""
+    if color is None:
+        return [-1, -1]
+    if color[0] is None:
+        color[0] = -1
+    elif color[1] is None:
+        color[1] = -1
+    return color
+
+
+def check_color_formatted(color_format):
+    """
+    Check if color format is valid and repair it.
+    Replace -2 values for non-default colors with default for this format.
+    """
+    if color_format is None:
+        return [[-1, -1]]
+    for color in color_format[1:]:
+        if color[0] == -2:
+            color[0] = color_format[0][0]
+    return color_format
+
+
+def extract_colors(config):
+    """Extract simple colors from config if any value is None, default is used"""
+    return (
+        check_color(config["color_default"]),
+        check_color(config["color_chat_mention"]),
+        check_color(config["color_chat_blocked"]),
+        check_color(config["color_chat_deleted"]),
+        check_color(config["color_chat_separator"]),
+    )
+
+
+def extract_colors_formatted(config):
+    """Extract complex formatted colors from config"""
+    return (
+        check_color_formatted(config["color_format_message"]),
+        check_color_formatted(config["color_format_newline"]),
+        check_color_formatted(config["color_format_reply"]),
+        check_color_formatted(config["color_format_reactions"]),
+        # not complex but is here so it can be initialized for alt bg color
+        [check_color(config["color_chat_edited"])],
+        [check_color(config["color_chat_url"])],
+        [check_color(config["color_chat_spoiler"])],
+        check_color_formatted(config["color_format_forum"]),
+    )
+
+
 def show_all_colors(screen):
     """Show all available colors and their codes, wait for input, then exit"""
     curses.use_default_colors()

@@ -6,6 +6,7 @@ import socket
 import sys
 import threading
 import time
+import urllib
 import zlib
 from http.client import HTTPSConnection
 
@@ -16,6 +17,7 @@ from google.protobuf.json_format import MessageToJson
 from endcord import debug, perms
 
 CLIENT_NAME = "endcord"
+DISCORD_HOST = "discord.com"
 LOCAL_MEMBER_COUNT = 50   # CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
 inflator = zlib.decompressobj()
@@ -45,7 +47,11 @@ def reset_inflator():
 class Gateway():
     """Methods for fetching and sending data to Discord using Discord's gateway through websocket"""
 
-    def __init__(self, token):
+    def __init__(self, host, token):
+        if host:
+            self.host = urllib.parse.urlparse(host).netloc
+        else:
+            self.host = DISCORD_HOST
         self.token = token
         self.run = True
         self.wait = False
@@ -102,7 +108,7 @@ class Gateway():
 
     def connect(self):
         """Create initial connection to Discord gateway"""
-        connection = HTTPSConnection("discord.com", 443)
+        connection = HTTPSConnection(self.host, 443)
         try:
             # subscribe works differently in v10
             connection.request("GET", "/api/v9/gateway")
@@ -272,7 +278,9 @@ class Gateway():
                                 "type": thread["type"],
                                 "owner_id": thread["owner_id"],
                                 "name": thread["name"],
-                                "open": thread["thread_metadata"]["locked"] or thread["thread_metadata"]["archived"],
+                                "locked": thread["thread_metadata"]["locked"],
+                                "message_count": thread["message_count"],
+                                "timestamp": thread["thread_metadata"]["create_timestamp"],
                                 "parent_id": thread["parent_id"],
                                 "suppress_everyone": False,   # no config for threads
                                 "suppress_roles": False,
@@ -280,8 +288,8 @@ class Gateway():
                                 "muted": thread["member"]["muted"],
                                 "joined": True,
                             })
-                            # add thread to list of last mesages from channes
-                            if "last_message_id" in channel:
+                            # add threads to list of last mesages from channes
+                            if "last_message_id" in thread:
                                 last_messages.append({
                                     "message_id": thread["last_message_id"],   # really last message id
                                     "channel_id": thread["id"],
@@ -856,7 +864,9 @@ class Gateway():
                             "type": thread["type"],
                             "owner_id": thread["owner_id"],
                             "name": thread["name"],
-                            "open": thread["thread_metadata"]["locked"] or thread["thread_metadata"]["archived"],
+                            "locked": thread["thread_metadata"]["locked"],
+                            "message_count": thread["message_count"],
+                            "timestamp": thread["thread_metadata"]["create_timestamp"],
                             "parent_id": thread["parent_id"],
                             "suppress_everyone": False,   # no config for threads
                             "suppress_roles": False,
@@ -872,19 +882,21 @@ class Gateway():
                 elif optext == "THREAD_UPDATE":
                     self.threads_buffer.append({
                         "guild_id": guild_id,
-                        "threads": {
+                        "threads": [{
                             "id": response["d"]["id"],
                             "type": response["d"]["type"],
                             "owner_id": response["d"]["owner_id"],
                             "name": response["d"]["name"],
-                            "open": response["d"]["thread_metadata"]["locked"] or response["d"]["thread_metadata"]["archived"],
+                            "locked": response["d"]["thread_metadata"]["locked"],
+                            "message_count": response["d"]["message_count"],
+                            "timestamp": response["d"]["thread_metadata"]["create_timestamp"],
                             "parent_id": response["d"]["parent_id"],
                             "suppress_everyone": False,   # no config for threads
                             "suppress_roles": False,
                             "message_notifications": message_notifications,
                             "muted": False,
                             "joined": False,
-                        },
+                        }],
                     })
 
             elif opcode == 7:

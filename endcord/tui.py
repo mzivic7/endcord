@@ -376,8 +376,9 @@ class TUI():
         self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
         self.win_title_tree.refresh()
 
+
     def draw_input_line(self):
-        """Draw text input line and prompt"""
+        """Draw text input line"""
         w = self.input_hw[1]
         # show only part of line when longer than screen
         start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
@@ -559,8 +560,14 @@ class TUI():
             self.resize()
 
 
-    def draw_extra_line(self, text=None):
-        """Draw extra line above status line and resize chat if needed"""
+    def draw_extra_line(self, text=None, toggle=False):
+        """
+        Draw extra line above status line and resize chat if needed.
+        If toggle and same text is repeated then remve extra line.
+        """
+        if toggle and text == self.extra_line_text:
+            self.remove_extra_line()
+            return
         self.extra_line_text = text
         if text and not self.disable_drawing:
             h, w = self.screen.getmaxyx()
@@ -894,6 +901,81 @@ class TUI():
             self.undo_index = None
 
 
+    def common_keybindings(self, key):
+        """Handle keybinding events that are common for all buffers"""
+        if key == curses.KEY_UP:   # UP
+            if self.chat_selected + 1 < len(self.chat_buffer):
+                top_line = self.chat_index + self.chat_hw[0] - 3
+                if top_line + 3 < len(self.chat_buffer) and self.chat_selected >= top_line:
+                    self.chat_index += 1   # move history down
+                self.chat_selected += 1   # move selection up
+                self.draw_chat()
+
+        elif key == curses.KEY_DOWN:   # DOWN
+            if self.chat_selected >= self.dont_hide_chat_selection:   # if it is -1, selection is hidden
+                if self.chat_index and self.chat_selected <= self.chat_index + 2:   # +2 from status and input lines
+                    self.chat_index -= 1   # move history up
+                self.chat_selected -= 1   # move selection down
+                self.draw_chat()
+
+        elif key == self.keybindings["tree_up"]:
+            if self.tree_selected >= 0:
+                if self.tree_index and self.tree_selected <= self.tree_index + 2:
+                    self.tree_index -= 1
+                self.tree_selected -= 1
+                self.draw_tree()
+
+        elif key == self.keybindings["tree_down"]:
+            if self.tree_selected + 1 < self.tree_clean_len:
+                top_line = self.tree_index + self.tree_hw[0] - 3
+                if top_line + 3 < self.tree_clean_len and self.tree_selected >= top_line:
+                    self.tree_index += 1
+                self.tree_selected += 1
+                self.draw_tree()
+
+        elif key == self.keybindings["tree_select"]:
+            # if selected tree entry is channel
+            if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
+                # stop wait_input and return so new prompt can be loaded
+                return 4
+            # if selected tree entry is dms drop down
+            if self.tree_selected_abs == 0:   # for dms
+                if (self.tree_format[self.tree_selected_abs] % 10):
+                    self.tree_format[self.tree_selected_abs] -= 1
+                else:
+                    self.tree_format[self.tree_selected_abs] += 1
+                self.draw_tree()
+            # if selected tree entry is guild drop-down
+            elif 100 <= self.tree_format[self.tree_selected_abs] <= 199:
+                # this will trrigger open_guild() in app.py that will update and expand tree
+                return 19
+            # if selected tree entry is threads drop-down
+            elif 400 <= self.tree_format[self.tree_selected_abs] <= 599:
+                # stop wait_input and return so new prompt can be loaded
+                return 4
+            # if selected tree entry is category drop-down
+            elif self.tree_selected_abs >= 0:
+                if (self.tree_format[self.tree_selected_abs] % 10):
+                    self.tree_format[self.tree_selected_abs] -= 1
+                else:
+                    self.tree_format[self.tree_selected_abs] += 1
+                self.draw_tree()
+            self.tree_format_changed = True
+
+        elif key == self.keybindings["tree_collapse_threads"]:
+            if (self.tree_format[self.tree_selected_abs] % 10):
+                self.tree_format[self.tree_selected_abs] -= 1
+            else:
+                self.tree_format[self.tree_selected_abs] += 1
+            self.draw_tree()
+
+        elif key == self.keybindings["tree_join_thread"]:
+            self.asking_num = True
+            return 21
+
+        return None
+
+
     def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False, autocomplete=False, clear_delta=False):
         """
         Take input from user, and show it on screen
@@ -924,12 +1006,11 @@ class TUI():
             self.last_key = None
             self.delta_cache = ""
         bracket_paste = False
-        sequence = []   # for detecting bracket paste sequences
         selected_completion = 0
         key = -1
         while self.run:
             key = self.screen.getch()
-            h = self.screen_hw[0]
+
             w = self.input_hw[1]
             if self.disable_drawing:
                 if key == 27:   # ESCAPE
@@ -996,7 +1077,13 @@ class TUI():
                     self.input_select_start = None
                     return tmp, self.chat_selected, self.tree_selected_abs, 0
 
-            elif isinstance(key, int) and 32 <= key <= 126:   # all regular characters
+            code = self.common_keybindings(key)
+            if code:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, code
+
+            if isinstance(key, int) and 32 <= key <= 126:   # all regular characters
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.typing = int(time.time())
@@ -1170,21 +1257,6 @@ class TUI():
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 20
 
-            elif key == curses.KEY_UP:   # UP
-                if self.chat_selected + 1 < len(self.chat_buffer):
-                    top_line = self.chat_index + self.chat_hw[0] - 3
-                    if top_line + 3 < len(self.chat_buffer) and self.chat_selected >= top_line:
-                        self.chat_index += 1   # move history down
-                    self.chat_selected += 1   # move selection up
-                    self.draw_chat()
-
-            elif key == curses.KEY_DOWN:   # DOWN
-                if self.chat_selected >= self.dont_hide_chat_selection:   # if it is -1, selection is hidden
-                    if self.chat_index and self.chat_selected <= self.chat_index + 2:   # +2 from status and input lines
-                        self.chat_index -= 1   # move history up
-                    self.chat_selected -= 1   # move selection down
-                    self.draw_chat()
-
             elif self.enable_autocomplete and key == 9:   # TAB - same as CTRL+I
                 if self.input_buffer and self.input_index == len(self.input_buffer):
                     completions = peripherals.complete_path(completion_base, separator=False)
@@ -1197,22 +1269,6 @@ class TUI():
                         if selected_completion > len(completions) - 1:
                             selected_completion = 0
 
-            # opposite than above, because tree is drawn top down
-            elif key == self.keybindings["tree_up"]:
-                if self.tree_selected >= 0:
-                    if self.tree_index and self.tree_selected <= self.tree_index + 2:
-                        self.tree_index -= 1
-                    self.tree_selected -= 1
-                    self.draw_tree()
-
-            elif key == self.keybindings["tree_down"]:
-                if self.tree_selected + 1 < self.tree_clean_len:
-                    top_line = self.tree_index + self.tree_hw[0] - 3
-                    if top_line + 3 < self.tree_clean_len and self.tree_selected >= top_line:
-                        self.tree_index += 1
-                    self.tree_selected += 1
-                    self.draw_tree()
-
             elif key == self.keybindings["attach_prev"]:
                 tmp = self.input_buffer
                 self.input_buffer = ""
@@ -1222,41 +1278,6 @@ class TUI():
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 15
-
-            elif key == self.keybindings["tree_select"]:
-                # if selected tree entry is channel
-                if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
-                    # stop wait_input and return so new prompt can be loaded
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    return tmp, self.chat_selected, self.tree_selected_abs, 4
-                # if selected tree entry is dms drop down
-                if self.tree_selected_abs == 0:   # for dms
-                    if (self.tree_format[self.tree_selected_abs] % 10):
-                        self.tree_format[self.tree_selected_abs] -= 1
-                    else:
-                        self.tree_format[self.tree_selected_abs] += 1
-                    self.draw_tree()
-                # if selected tree entry is guild drop-down
-                elif 100 <= self.tree_format[self.tree_selected_abs] <= 199:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    # this will trrigger open_guild() in app.py that will update and expand tree
-                    return tmp, self.chat_selected, self.tree_selected_abs, 19
-                # if selected tree entry is threads drop-down
-                elif 400 <= self.tree_format[self.tree_selected_abs] <= 599:
-                    # stop wait_input and return so new prompt can be loaded
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
-                    return tmp, self.chat_selected, self.tree_selected_abs, 4
-                # if selected tree entry is category drop-down
-                elif self.tree_selected_abs >= 0:
-                    if (self.tree_format[self.tree_selected_abs] % 10):
-                        self.tree_format[self.tree_selected_abs] -= 1
-                    else:
-                        self.tree_format[self.tree_selected_abs] += 1
-                    self.draw_tree()
-                self.tree_format_changed = True
 
             elif key == self.keybindings["ins_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
@@ -1361,22 +1382,8 @@ class TUI():
                 self.asking_num = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 18
 
-            elif key == self.keybindings["tree_collapse_threads"]:
-                if (self.tree_format[self.tree_selected_abs] % 10):
-                    self.tree_format[self.tree_selected_abs] -= 1
-                else:
-                    self.tree_format[self.tree_selected_abs] += 1
-                self.draw_tree()
-
-            elif key == self.keybindings["tree_join_thread"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                self.asking_num = True
-                return tmp, self.chat_selected, self.tree_selected_abs, 21
-
             elif key == curses.KEY_RESIZE:
                 self.resize()
-                h, _ = self.screen_hw
                 _, w = self.input_hw
 
             # terminal reserved keys: CTRL+ C, I, J, M, Q, S, Z
@@ -1389,4 +1396,98 @@ class TUI():
                 self.spellcheck()
             if not self.disable_drawing:
                 self.draw_input_line()
+        return None, None, None, None
+
+
+    def wait_input_forum(self, prompt=""):
+        """
+        Same as wait_input() but only for forums, does no process any text.
+        Return absolute_tree_position and whether channel is changed
+        """
+        self.input_buffer = ""
+        self.input_index = 0
+        self.cursor_pos = 0
+        self.enable_autocomplete = False
+        self.chat_selected = -1
+        self.chat_index = 0
+        self.draw_chat()
+        self.delta_store = []
+        self.last_key = None
+        self.delta_cache = ""
+        self.update_prompt(prompt)   # draw_input_line() is called in heren
+        key = -1
+        while self.run:
+            key = self.screen.getch()
+
+            if self.disable_drawing:
+                if key == 27:   # ESCAPE
+                    self.screen.nodelay(True)
+                    key = self.screen.getch()
+                    if key == -1:
+                        self.input_buffer = ""
+                        self.screen.nodelay(False)
+                        return None, 0, 0, 101
+                    self.screen.nodelay(False)
+                elif key == curses.KEY_RESIZE:
+                    pass
+                continue   # disable all inputs from main UI
+
+            if key == 27:   # ESCAPE
+                # terminal waits when Esc is pressed, but not when sending escape sequence
+                self.screen.nodelay(True)
+                key = self.screen.getch()
+                if key == -1:
+                    # escape key
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
+                    self.screen.nodelay(False)
+                    return tmp, self.chat_selected, self.tree_selected_abs, 5
+                # sequence (bracketed paste or ALT+KEY)
+                sequence = [27, key]
+                # -1 means no key is pressed, 126 is end of escape sequence
+                while key != -1:
+                    key = self.screen.getch()
+                    sequence.append(key)
+                    if key == 126:
+                        break
+                self.screen.nodelay(False)
+                # match sequences
+                if len(sequence) == 3 and sequence[2] == -1:   # ALT+KEY
+                    key = f"ALT+{sequence[1]}"
+
+            if key == 10:   # ENTER
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                self.input_index = 0
+                self.cursor_pos = 0
+                self.win_input_line.cursyncup()
+                self.input_line_index = 0
+                self.set_cursor_color(2)
+                self.cursor_on = True
+                self.input_select_start = None
+                return tmp, self.chat_selected, self.tree_selected_abs, 22
+
+            code = self.common_keybindings(key)
+            if code:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, code
+
+            if key == self.keybindings["cancel"]:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 11
+
+            if key == self.keybindings["redraw"]:
+                self.screen.clear()
+                self.resize()
+
+            elif key == self.keybindings["forum_join_thread"]:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 23
+
+            elif key == curses.KEY_RESIZE:
+                self.resize()
+
         return None, None, None, None

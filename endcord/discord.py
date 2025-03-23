@@ -13,6 +13,7 @@ from google.protobuf.json_format import MessageToJson
 from endcord import peripherals
 
 CLIENT_NAME = "endcord"
+DISCORD_HOST = "discord.com"
 DISCORD_EPOCH = 1420070400
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,11 @@ def get_sticker_url(sticker):
 class Discord():
     """Methods for fetching and sending data to Discord using REST API"""
 
-    def __init__(self, token):
+    def __init__(self, host, token):
+        if host:
+            self.host = urllib.parse.urlparse(host).netloc
+        else:
+            self.host = DISCORD_HOST
         self.token = token
         self.header = {
             "content-type": "application/json",
@@ -58,7 +63,7 @@ class Discord():
         """Get my discord user ID"""
         message_data = None
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", "/api/v9/users/@me", message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -80,7 +85,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/users/{user_id}/profile"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -120,7 +125,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -156,7 +161,7 @@ class Discord():
         """
         message_data = None
         url = f"/api/v9/users/{self.my_id}/channels"
-        connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+        connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
         connection.request("GET", url, message_data, self.header)
         response = connection.getresponse()
         if response.status == 200:
@@ -201,7 +206,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/guilds/{guild_id}/channels"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -234,7 +239,7 @@ class Discord():
         if around:
             url += f"&around={around}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -392,7 +397,7 @@ class Discord():
         if emoji_id:
             url += f"%3A{emoji_id}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -420,7 +425,7 @@ class Discord():
             url += "&everyone=true"
         message_data = None
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -456,7 +461,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/users/@me/settings-proto/{num}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -479,7 +484,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/oauth2/applications/{app_id}/rpc"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -500,7 +505,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/oauth2/applications/{app_id}/assets"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -523,7 +528,7 @@ class Discord():
         url = f"/api/v9/applications/{app_id}/external-assets"
         message_data = json.dumps({"urls": [asset_url]})
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             # no oauth2 here
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
@@ -593,7 +598,7 @@ class Discord():
         message_data = json.dumps(message_dict)
         url = f"/api/v9/channels/{channel_id}/messages"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -637,7 +642,7 @@ class Discord():
         message_data = json.dumps({"content": message_content})
         url = f"/api/v9/channels/{channel_id}/messages/{message_id}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("PATCH", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -672,7 +677,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/channels/{channel_id}/messages/{message_id}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -693,7 +698,7 @@ class Discord():
         url = f"/api/v9/channels/{channel_id}/messages/{message_id}/ack"
         logger.debug("Sending message ack")
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -709,7 +714,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/channels/{channel_id}/typing"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -723,10 +728,10 @@ class Discord():
     def join_thread(self, thread_id):
         """Join a thread"""
         message_data = None
-        # location is not necesarily "Contect Menu"
-        url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
+        # location is not necesarily "Sidebar Overflow"
+        url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Sidebar%20Overflow"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -740,10 +745,10 @@ class Discord():
     def leave_thread(self, thread_id):
         """Leave a thread"""
         message_data = None
-        # location is not necesarily "Contect Menu"
-        url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Context%20Menu"
+        # location is not necesarily "Sidebar Overflow"
+        url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Sidebar%20Overflow"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -773,7 +778,7 @@ class Discord():
         })
         url = f"/api/v9/channels/{channel_id}/attachments"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -842,7 +847,7 @@ class Discord():
         message_data = None
         url = f"/api/v9/attachments/{attachment_name}"
         try:
-            connection = http.client.HTTPSConnection("discord.com", 443, timeout=5)
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):

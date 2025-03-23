@@ -29,6 +29,8 @@ settings = {
     "rpc_external": True,
     "emoji_as_text": False,
     "only_one_open_server": False,
+    "custom_host": None,
+    "disable_easter_eggs": False,
 }
 theme = {
     "tree_width": 32,
@@ -45,6 +47,8 @@ theme = {
     "format_title_tree": " endcord  %task",
     "format_rich": "playing: %name - %state - %details ",
     "format_prompt": "[%channel] > ",
+    "format_forum": "[%timestamp] - <%msg_count> - %thread_name",
+    "format_forum_timestamp": "%Y-%m-%d",
     "edited_string": "(edited)",
     "quote_character": "|",
     "reactions_separator": "; ",
@@ -53,6 +57,8 @@ theme = {
     "limit_username": 10,
     "limit_global_name": 15,
     "limit_typing_string": 30,
+    "limit_prompt": 15,
+    "limit_thread_name": 0,
     "tree_vert_line": "|",
     "tree_drop_down_vline": "|",
     "tree_drop_down_hline": "-",
@@ -60,6 +66,7 @@ theme = {
     "tree_drop_down_corner": "\\",
     "tree_drop_down_pointer": ">",
     "tree_drop_down_thread": "<",
+    "tree_drop_down_forum": "◆",
     "tree_dm_status": "◆",
     "username_role_colors": True,
     "color_default": [-1, -1],
@@ -86,6 +93,7 @@ theme = {
     "color_format_newline": None,
     "color_format_reply": [[245, -1], [67, -2, 0, 0, 7], [25, -2, 0, 8, 9], [25, -2, 0, 19, 20], [-1, -2, 0, 21, 27]],
     "color_format_reactions": [[245, -1], [131, -2, 0, 0, 7], [-1, -2, 0, 23, 27]],
+    "color_format_forum": [[-1, -1], [242, -2, 0, 0, 12], [25, -2, 0, 15, 20]],
     "color_chat_edited": [241, -1],
     "color_chat_url": [153, -1, "u"],
     "color_chat_spoiler": [245, -1],
@@ -129,12 +137,13 @@ keybindings = {
     "download": 23,   # Ctrl+W
     "upload": 21,   # Ctrl+U
     "browser": 15,   # Ctrl+O
-    "cancel": 24,   # Ctrl+X
     "copy_msg": 8,   # Ctrl+H
     "view_media": 22,   # Ctrl+V
     "spoil": 20,   # Ctrl+T
     # other
     "redraw": 12,   # Ctrl+L
+    "cancel": 24,   # Ctrl+X
+    "forum_join_thread": "ALT+112",   # Alt+P
 }
 
 

@@ -61,6 +61,7 @@ class Endcord:
         self.format_status_line_l = config["format_status_line_l"]
         self.format_status_line_r = config["format_status_line_r"]
         self.format_title_tree = config["format_title_tree"]
+        self.format_rich = config["format_rich"]
         self.reply_mention = config["reply_mention"]
         self.cache_typed = config["cache_typed"]
         self.enable_notifications = config["desktop_notifications"]
@@ -70,13 +71,14 @@ class Endcord:
         self.deleted_cache_limit = config["deleted_cache_limit"]
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
+        self.fun = not config["disable_easter_eggs"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
         self.downloads_path = os.path.expanduser(downloads_path)
         self.tenor_gif_type = config["tenor_gif_type"]
-        self.colors = peripherals.extract_colors(config)
-        self.colors_formatted = peripherals.extract_colors_formatted(config)
+        self.colors = color.extract_colors(config)
+        self.colors_formatted = color.extract_colors_formatted(config)
         self.default_msg_color = self.colors_formatted[0][0][:]
         self.default_msg_alt_color = self.colors[1]
         self.cached_downloads = []
@@ -100,8 +102,8 @@ class Endcord:
         self.running_tasks = []
 
         # initialize stuff
-        self.discord = discord.Discord(config["token"])
-        self.gateway = gateway.Gateway(config["token"])
+        self.discord = discord.Discord(config["custom_host"], config["token"])
+        self.gateway = gateway.Gateway(config["custom_host"], config["token"])
         self.tui = tui.TUI(self.screen, self.config, keybindings)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
@@ -161,7 +163,9 @@ class Endcord:
         self.current_member_roles = []
         self.threads = []
         self.activities = []
+        self.forum = False
         self.disable_sending = False
+        self.extra_line = None
 
 
     def reconnect(self):
@@ -270,27 +274,20 @@ class Endcord:
         self.active_channel["channel_name"] = channel_name
         self.add_running_task("Switching channel", 1)
 
-        # fetch messages
-        self.messages = self.get_messages_with_members(num=MSG_NUM)
-        if self.messages is not None:
-            self.last_message_id = self.messages[0]["id"]
-        else:
-            self.remove_running_task("Switching channel", 1)
-            logger.warn("Channel switching failed")
-            return
         # update list of this guild channels
-        self.current_channels = []
+        current_channels = []
         for guild_channels in self.guilds:
-            if guild_channels["guild_id"] == self.active_channel["guild_id"]:
-                self.current_channels = guild_channels["channels"]
+            if guild_channels["guild_id"] == guild_id:
+                current_channels = guild_channels["channels"]
                 break
-        self.current_channel = {}
-        for channel in self.current_channels:
-            if channel["id"] == self.active_channel["channel_id"]:
-                self.current_channel = channel
+        current_channel = {}
+        for channel in current_channels:
+            if channel["id"] == channel_id:
+                current_channel = channel
                 break
+
+        # check threads if no channel
         else:
-            # check threads if no channel
             if parent_hint:   # thread will have parent_hint
                 for guild in self.threads:
                     if guild["guild_id"] == guild_id:
@@ -298,14 +295,35 @@ class Endcord:
                             if channel["channel_id"] == parent_hint:
                                 for thread in channel["threads"]:
                                     if thread["id"] == channel_id:
-                                        self.current_channel = thread
+                                        current_channel = thread
                                         break
                                 break
                         break
 
+        # generate forum
+        if current_channel.get("type") == 15:
+            self.forum = True
+            self.update_forum(guild_id, channel_id)
+
+        # fetch messages
+        # also used to check network
+        else:
+            self.forum = False
+            self.messages = self.get_messages_with_members(num=MSG_NUM)
+            if self.messages:
+                self.last_message_id = self.messages[0]["id"]
+            elif self.messages is None:
+                self.remove_running_task("Switching channel", 1)
+                logger.warn("Channel switching failed")
+                return
+
+        # if not failed
+        self.current_channels = current_channels
+        self.current_channel = current_channel
+
         # if this is dm, check if user has sent minimum number of messages
         # this is to prevent triggering discords spam filter
-        if not self.active_channel["guild_id"] and len(self.messages) < MSG_NUM:
+        if not guild_id and len(self.messages) < MSG_NUM:
             # if there is less than MSG_NUM messages, this is the start of conversation
             # so count all messages sent from this user
             my_messages = 0
@@ -316,51 +334,55 @@ class Endcord:
                         break
             if my_messages < MSG_MIN:
                 self.disable_sending = True
-                self.tui.draw_extra_line(f"Cant send a message: please send at least {MSG_MIN} messages with the official client")
+                self.update_extra_line(f"Cant send a message: please send at least {MSG_MIN} messages with the official client")
 
         # if this is thread and is locked or archived, prevent sending messages
-        elif self.current_channel["type"] in (11, 12) and not self.current_channel["open"]:
+        elif self.current_channel.get("type") in (11, 12) and self.current_channel["locked"]:
             self.disable_sending = True
-            self.tui.draw_extra_line("Cant send a message: this thread is locked")
+            self.update_extra_line("Cant send a message: this thread is locked")
 
         else:
             self.disable_sending = False
-            self.tui.draw_extra_line()
+            self.tui.remove_extra_line()
 
         # misc
         self.typing = []
         self.chat_end = False
         self.selected_attachment = 0
-        self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
-        self.set_seen(self.active_channel["channel_id"])
+        self.gateway.subscribe(channel_id, guild_id)
+        if not self.forum:
+            self.set_seen(channel_id)
 
         # manage roles
         self.all_roles = self.tui.init_role_colors(
             self.all_roles,
             self.default_msg_color[1],
             self.default_msg_alt_color[1],
-            guild_id=self.active_channel["guild_id"],
+            guild_id=guild_id,
         )
         self.current_roles = []   # dm has no roles
         for roles in self.all_roles:
-            if roles["guild_id"] == self.active_channel["guild_id"]:
+            if roles["guild_id"] == guild_id:
                 self.current_roles = roles["roles"]
                 break
         self.current_my_roles = []   # user has no roles in dm
         for roles in self.my_roles:
-            if roles["guild_id"] == self.active_channel["guild_id"]:
+            if roles["guild_id"] == guild_id:
                 self.current_my_roles = roles["roles"]
                 break
         self.select_current_member_roles()
 
         # update UI
-        self.update_chat(keep_selected=False)
+        if not self.forum:
+            self.update_chat(keep_selected=False)
+        else:
+            self.tui.update_chat(self.chat, self.chat_format)
         self.update_extra_line()
         self.update_prompt()
         self.update_tree()
 
         # save state (exclude threads)
-        if self.config["remember_state"] and self.current_channel["type"] not in (11, 12):
+        if self.config["remember_state"] and self.current_channel.get("type") not in (11, 12, 15):
             self.state["last_guild_id"] = guild_id
             self.state["last_channel_id"] = channel_id
             peripherals.save_state(self.state)
@@ -504,7 +526,10 @@ class Endcord:
         logger.info("Input handler loop started")
 
         while self.run:
-            if self.editing["id"]:
+            if self.forum:
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input_forum(self.prompt)
+                input_text = ""
+            elif self.editing["id"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.editing["content"], reset=False)
             elif self.replying["content"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.replying["content"], reset=False, keep_cursor=True)
@@ -776,6 +801,33 @@ class Endcord:
                             self.discord.join_thread(thread_id)
                         else:
                             self.discord.leave_thread(thread_id)
+                    self.update_tree()
+
+            # open and join thread from forum
+            elif action == 22 and "owner_id" in self.messages[chat_sel]:
+                # failsafe if messages got rewritten
+                self.switch_channel(
+                    self.messages[chat_sel]["id"],
+                    self.messages[chat_sel]["name"],
+                    self.active_channel["guild_id"],
+                    self.active_channel["guild_name"],
+                    parent_hint=self.active_channel["channel_id"],
+                )
+                self.reset_actions()
+                self.update_status_line()
+            elif action == 23 and "owner_id" in self.messages[chat_sel]:
+                # failsafe if messages got rewritten
+                self.switch_channel(
+                    self.messages[chat_sel]["id"],
+                    self.messages[chat_sel]["name"],
+                    self.active_channel["guild_id"],
+                    self.active_channel["guild_name"],
+                    parent_hint=self.active_channel["channel_id"],
+                )
+                self.reset_actions()
+                self.update_status_line()
+                if self.thread_togle_join(guild_id, channel_id, thread_id, join=True):
+                    self.discord.join_thread(thread_id)
 
             # escape key in main UI
             elif action == 5:
@@ -849,6 +901,8 @@ class Endcord:
                         if self.current_channel["type"] in (11, 12) and not self.current_channel["joined"]:
                             self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
                         text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
+                        if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
+                            self.update_extra_line("Nothing happens.")
                         self.discord.send_message(
                             self.active_channel["channel_id"],
                             text_to_send,
@@ -1226,6 +1280,27 @@ class Endcord:
         self.tui.update_chat(self.chat, self.chat_format)
 
 
+    def update_forum(self, guild_id, channel_id):
+        """Generate forum instead chat and update it in TUI"""
+        # using self.messages as forum entries, should not be overwritten while in forum
+        self.messages = []
+        for guild in self.threads:
+            if guild["guild_id"] == guild_id:
+                for channel in guild["channels"]:
+                    if channel["channel_id"] == channel_id:
+                        self.messages = channel["threads"]
+                        break
+                break
+        self.chat, self.chat_format = formatter.generate_forum(
+            self.messages,
+            self.blocked,
+            self.chat_dim[1],
+            self.colors,
+            self.colors_formatted,
+            self.config,
+        )
+
+
     def update_status_line(self):
         """Generate status and title lines and update them in TUI"""
         action_type = 0
@@ -1238,7 +1313,7 @@ class Endcord:
         elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
             if self.downloading_file["web"]:
                 action_type = 4
-            elif self.download_file["open"]:
+            elif self.downloading_file["open"]:
                 action_type = 6
             else:
                 action_type = 5
@@ -1262,8 +1337,9 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.format_status_line_r,
-                self.config["format_rich"],
+                self.format_rich,
                 limit_typing=self.limit_typing,
+                fun=self.fun,
         )
         else:
             status_line_r = None
@@ -1276,8 +1352,9 @@ class Endcord:
             action,
             self.running_tasks,
             self.format_status_line_l,
-            self.config["format_rich"],
+            self.format_rich,
             limit_typing=self.limit_typing,
+            fun=self.fun,
         )
         self.tui.update_status_line(status_line_l, status_line_r)
 
@@ -1291,8 +1368,9 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.format_title_line_r,
-                self.config["format_rich"],
+                self.format_rich,
                 limit_typing=self.limit_typing,
+                fun=self.fun,
             )
         else:
             title_line_r = None
@@ -1306,8 +1384,9 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.format_title_line_l,
-                self.config["format_rich"],
+                self.format_rich,
                 limit_typing=self.limit_typing,
+                fun=self.fun,
             )
             self.tui.update_title_line(title_line_l, title_line_r)
         if self.format_title_tree:
@@ -1320,8 +1399,9 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.format_title_tree,
-                self.config["format_rich"],
+                self.format_rich,
                 limit_typing=self.limit_typing,
+                fun=self.fun,
             )
         else:
             title_tree = None
@@ -1334,21 +1414,33 @@ class Endcord:
             self.my_user_data,
             self.active_channel,
             self.config["format_prompt"],
+            limit_prompt=self.config["limit_prompt"],
         )
 
 
-    def update_extra_line(self):
+    def update_extra_line(self, custom_text=None, update_only=False):
         """Genearate extra line and update it in TUI"""
-        attachments = None
-        for attachments in self.ready_attachments:
-            if attachments["channel_id"] == self.active_channel["channel_id"]:
-                break
-        if attachments:
-            statusline_w = self.tui.get_dimensions()[2][1]
-            extra_line = formatter.generate_extra_line(attachments["attachments"], self.selected_attachment, statusline_w)
-            self.tui.draw_extra_line(extra_line)
+        if custom_text:
+            if custom_text == self.extra_line:
+                self.extra_line = None
+                self.tui.remove_extra_line()
+            else:
+                self.extra_line = custom_text
+                self.tui.draw_extra_line(self.extra_line)
+        elif update_only and self.extra_line:
+            self.tui.draw_extra_line(self.extra_line)
         else:
-            self.tui.remove_extra_line()
+            attachments = None
+            for attachments in self.ready_attachments:
+                if attachments["channel_id"] == self.active_channel["channel_id"]:
+                    break
+            if attachments:
+                statusline_w = self.tui.get_dimensions()[2][1]
+                self.extra_line = formatter.generate_extra_line(attachments["attachments"], self.selected_attachment, statusline_w)
+                self.tui.draw_extra_line(self.extra_line)
+            else:
+                self.extra_line = None
+                self.tui.remove_extra_line()
 
 
     def update_tree(self, collapsed=None, init_uncollapse=False):
@@ -1371,6 +1463,7 @@ class Endcord:
             self.config["tree_drop_down_corner"],
             self.config["tree_drop_down_pointer"],
             self.config["tree_drop_down_thread"],
+            self.config["tree_drop_down_forum"],
             self.config["tree_dm_status"],
             init_uncollapse=init_uncollapse,
             safe_emoji=self.config["emoji_as_text"],
@@ -1488,6 +1581,8 @@ class Endcord:
                         channel["threads"] = sorted(channel["threads"], key=lambda x: x["id"], reverse=True)
                 break
         self.update_tree()
+        if self.forum:
+            self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
 
 
     def thread_togle_join(self, guild_id, channel_id, thread_id, join=None):
@@ -1500,9 +1595,10 @@ class Endcord:
                             if thread["id"] == thread_id:
                                 if join is None:
                                     thread["joined"] = not thread["joined"]
-                                else:
+                                    return thread["joined"]
+                                if join != thread["joined"]:
                                     thread["joined"] = join
-                                return thread["joined"]
+                                    return thread["joined"]
                         break
                 break
         return None
@@ -1963,7 +2059,7 @@ class Endcord:
                 self.chat_dim = new_chat_dim
                 self.update_chat()
                 self.update_tree()
-                self.update_extra_line()
+                self.update_extra_line(update_only=True)
 
             # check and update my status
             new_status = self.gateway.get_my_status()
@@ -1995,7 +2091,7 @@ class Endcord:
             self.check_tree_format()
 
             # check if new chat chunks needs to be downloaded in any direction
-            if self.messages:
+            if not self.forum and self.messages:
                 if selected_line == 0 and self.messages[0]["id"] != self.last_message_id:
                     self.get_chat_chunk(past=False)
                 elif selected_line >= len(self.chat) - 1 and not self.chat_end:

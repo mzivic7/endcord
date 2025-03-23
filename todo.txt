@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-forums
 code blocks highlighting with pygments
 show summaries
 show channel topic
@@ -7,7 +6,6 @@ search and go to messages (Ctrl+F)
 fix hidden channels
 
 MEDIUM PRIORITY:
-spacebar support
 show user info
 member list
 assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers

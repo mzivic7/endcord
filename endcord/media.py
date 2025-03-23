@@ -113,7 +113,7 @@ class CursesMedia():
         If image is animated (eg apng) send it to play_anim instead.
         """
         img = Image.open(img_path)
-        if img.is_animated:
+        if hasattr(img, "is_animated") and img.is_animated:
             self.play_anim(img_path)
             return
         self.init_colrs()
@@ -155,7 +155,7 @@ class CursesMedia():
         container = av.open(path)
 
         # prepare video
-        fps = container.streams.video[0].base_rate
+        fps = container.streams.video[0].guessed_rate   # instead base_rate
         frame_duration = 1 / fps
         target_frames = max(int(fps / self.target_fps), 1)
         self.audio_time = 0
@@ -164,16 +164,21 @@ class CursesMedia():
         # prepare audio
         if not self.mute_video:
             audio_container = av.open(path)
-            audio_stream = audio_container.streams.audio[0]
-            p = pyaudio.PyAudio()
-            stream = p.open(
-                format=pyaudio.paFloat32,
-                channels=audio_stream.channels,
-                rate=audio_stream.rate,
-                output=True,
-            )
-            self.audio_thread = threading.Thread(target=self.play_sync_audio, daemon=True, args=(audio_container, stream, p))
-            self.audio_thread.start()
+            all_audio_streams = audio_container.streams.audio
+            if all_audio_streams:   # in case of a muted video
+                audio_stream = all_audio_streams[0]
+                p = pyaudio.PyAudio()
+                stream = p.open(
+                    format=pyaudio.paFloat32,
+                    channels=audio_stream.channels,
+                    rate=audio_stream.rate,
+                    output=True,
+                )
+                self.audio_thread = threading.Thread(target=self.play_sync_audio, daemon=True, args=(audio_container, stream, p))
+                self.audio_thread.start()
+                has_auio = True
+            else:
+                has_auio = False
 
         for index, frame in enumerate(container.decode(video=0)):
             if not self.playing:
@@ -184,7 +189,7 @@ class CursesMedia():
             if not index % target_frames:
                 img = frame.to_image()
                 self.pil_img_to_curses(img, remove_alpha=False)
-            if video_time < self.audio_time:
+            if has_auio and video_time < self.audio_time:
                 # if video is late
                 video_sleep = 0
             else:

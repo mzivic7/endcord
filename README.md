@@ -34,7 +34,7 @@ Discord token is required in order to run endcord! see [Token](#token).
     - Navigate tree (`Ctrl+Up/Down`)
     - Expand categories and servers, enter channel (`Ctrl+Space`)
     - DMs in separate drop-down, show DM status
-    - Channel threads
+    - Forums, channel threads
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links
 - Spellchecking
@@ -131,6 +131,8 @@ Undo input line - `Alt+Z`
 Redo input line - `Alt+Shift+Z`  
 Un/collapse channel with threads in tree - `Alt+T`
 Join/leave selected thread in tree - `Alt+J`
+Open selected post in forum - `Enter`  
+Open and join selected post in forum - `Alt+K`
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Cancel action, leave media viewer - `Escape`  
 Quit - `Ctrl+C`  
@@ -139,7 +141,7 @@ Quit - `Ctrl+C`
 If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
 Objects are un/collapsed with `Ctrl+Space`. Channels with threads are un/collapsed on `Alt+T`.
 Channel with threads are collapsed by default.  
-Thread can be joined or leaved (toggle) on `Alt+J`.  
+Thread can be joined or left (toggle) on `Alt+J`.  
 
 ### Newline
 Newline can be added to input line by pressing `Ctrl+N`.  
@@ -182,6 +184,12 @@ And only supports Rich Presence over IPC, which means no process detection, subs
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
 Usually RPC app must be started after RPC server (endcord).  
 More info about whats going on can be found in log, when endcord is in debug mode.  
+
+### Forums
+Forums will load only the most recent posts (unarchived) and show them in chat buffer.  
+Select post and `Enter` to open it, or `Alt+K` to open and join.  
+Posts are treated same as threads in channel tree.  
+If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
 
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
@@ -309,6 +317,11 @@ Linux tty by default supports only 16 colors. Endcord will fail to initialize co
 However endcord can be run inside fbterm [fbterm](https://salsa.debian.org/debian/fbterm), adding support for 256 colors.  
 Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Installation), then set environment variable: `export TERM=fbterm` and run endcord.  
 Note: `Ctrl+Up/Down/Left/Right` have different key codes in tty.
+
+### Spacebar and other custom hosts
+Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to prefered host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
+Then endcord will connect only to that domain instead discord.  Token is diffeerent on different hosts!  
+Note that using custom host is completely untested, and support depends on how differnet the api is to original discord api, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
 
 
 ## Planned features
