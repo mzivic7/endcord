@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "rich")
-MSG_NUM = 50   # number of messages downloaded when switching channel
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 
 download = downloader.Downloader()
@@ -53,6 +52,7 @@ class Endcord:
         # load often used values from config
         self.enable_rpc = config["rpc"] and sys.platform == "linux"
         self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
+        self.msg_num = max(min(config["download_msg"], 100), 20)
         self.limit_typing = max(config["limit_typing_string"], 25)
         self.send_my_typing = config["send_typing"]
         self.ack_throttling = max(config["ack_throttling"], 3)
@@ -309,7 +309,7 @@ class Endcord:
         # also used to check network
         else:
             self.forum = False
-            self.messages = self.get_messages_with_members(num=MSG_NUM)
+            self.messages = self.get_messages_with_members(num=self.msg_num)
             if self.messages:
                 self.last_message_id = self.messages[0]["id"]
             elif self.messages is None:
@@ -323,8 +323,8 @@ class Endcord:
 
         # if this is dm, check if user has sent minimum number of messages
         # this is to prevent triggering discords spam filter
-        if not guild_id and len(self.messages) < MSG_NUM:
-            # if there is less than MSG_NUM messages, this is the start of conversation
+        if not guild_id and len(self.messages) < self.msg_num:
+            # if there is less than self.msg_num messages, this is the start of conversation
             # so count all messages sent from this user
             my_messages = 0
             for message in self.messages:
@@ -436,7 +436,7 @@ class Endcord:
         self.update_tree(collapsed=collapsed)
 
         # keep this guild selected
-        if select:
+        if self.config["only_one_open_server"] and select:
             for tree_pos, obj in enumerate(self.tree_metadata):
                 if obj and obj["id"] == guild_id:
                     break
@@ -1730,14 +1730,14 @@ class Endcord:
         new_activities = self.gateway.get_activities()
         if new_activities:
             self.activities = new_activities
-            self.update_tree()
 
         # load threads, if any
-        new_threads = self.gateway.get_threads()
-        if new_threads:
-            # these threads are all together
-            for new_threads_guild in new_threads:
-                self.load_threads(new_threads_guild)
+        while self.run:
+            new_threads = self.gateway.get_threads()
+            if new_threads:
+                self.load_threads(new_threads)
+            else:
+                break
 
         # load pings, unseen and blocked
         self.pings = []

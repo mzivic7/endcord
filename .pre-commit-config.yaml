@@ -1,16 +1,19 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0
     hooks:
-    -   id: trailing-whitespace
+      - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-    -   id: end-of-file-fixer
+      - id: end-of-file-fixer
 
--   repo: local
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
     hooks:
-    -   id: update-version
+      - id: ruff
+
+  - repo: local
+    hooks:
+      - id: update-version
         name: update-version
         entry: pipenv run python version_update.py
         language: system

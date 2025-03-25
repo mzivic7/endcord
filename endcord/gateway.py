@@ -207,7 +207,6 @@ class Gateway():
                     last_messages = []
                     self.my_id = response["d"]["user"]["id"]
                     # guilds and channels
-                    threads_all = []
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
                         guild_channels = []
@@ -294,11 +293,10 @@ class Gateway():
                                     "message_id": thread["last_message_id"],   # really last message id
                                     "channel_id": thread["id"],
                                 })
-                        threads_all.append({
+                        self.threads_buffer.append({
                             "guild_id": guild_id,
                             "threads": threads,
                         })
-                    self.threads_buffer.append(threads_all)
                     time_log_string += f"    guilds - {round(time.time() - ready_time_start, 3)}s\n"
                     ready_time_mid = time.time()
                     # DM channels
@@ -870,7 +868,7 @@ class Gateway():
                             "parent_id": thread["parent_id"],
                             "suppress_everyone": False,   # no config for threads
                             "suppress_roles": False,
-                            "message_notifications": message_notifications,
+                            "message_notifications": None,
                             "muted": False,
                             "joined": False,
                         })
@@ -893,7 +891,7 @@ class Gateway():
                             "parent_id": response["d"]["parent_id"],
                             "suppress_everyone": False,   # no config for threads
                             "suppress_roles": False,
-                            "message_notifications": message_notifications,
+                            "message_notifications": None,
                             "muted": False,
                             "joined": False,
                         }],

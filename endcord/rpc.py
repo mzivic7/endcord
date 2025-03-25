@@ -104,23 +104,21 @@ class RPC:
                         activity["name"] = rpc_data["name"]
                         assets = {}
                         for asset_client in activity["assets"]:
+                            # check if asset is external link
+                            if activity["assets"][asset_client][:8] == "https://":
+                                if self.external:
+                                    external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
+                                    assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
+                                else:
+                                    external_asset = activity["assets"][asset_client]
+                                continue
                             # check if asset is an image
-                            if "image" in asset_client:
+                            elif "image" in asset_client:
                                 for asset_app in rpc_assets:
                                     if activity["assets"][asset_client] == asset_app["name"]:
                                         assets[asset_client] = asset_app["id"]
                                         break
-                            else:
-                                # check if asset is external link
-                                if activity["assets"][asset_client][:8] == "https://":
-                                    if self.external:
-                                        external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
-                                        assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
-                                    else:
-                                        external_asset = activity["assets"][asset_client]
-                                    continue
-                                # if its text, copy whitelisted assets over
-                                if asset_client in DISCORD_ASSETS_WHITELIST:
+                            elif asset_client in DISCORD_ASSETS_WHITELIST:
                                     assets[asset_client] = activity["assets"][asset_client]
                                     continue
                         # multiply timestamps by 1000

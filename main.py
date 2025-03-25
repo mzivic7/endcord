@@ -75,6 +75,7 @@ def main(args):
             sys.exit("Curses error, see log for more info")
     sys.exit(0)
 
+
 if __name__ == "__main__":
     args = arg.parser(APP_NAME, VERSION, default_config_path, log_path)
     signal.signal(signal.SIGINT, sigint_handler)

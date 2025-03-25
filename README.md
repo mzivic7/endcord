@@ -36,7 +36,7 @@ Discord token is required in order to run endcord! see [Token](#token).
     - DMs in separate drop-down, show DM status
     - Forums, channel threads
 - Show reactions, replied message, forwarded message
-- Show embeds, attachment types and links
+- Show embeds, attachment types and links, code blocks
 - Spellchecking
 - Undo/Redo in input line (`Alt+Z`, `Alt+Shift+Z`)
 - Open link in browser (`Ctrl+O`)
@@ -193,9 +193,11 @@ If there are no posts in the forum (this will happen when switching to forum in 
 
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
-`[theme]` section in `config.ini` is default theme. If custom theme is provided eiter with argument or in `[main]` section, those values wil be used.  
-Same format and entries as in `config.ini` are used in custom themes (as separate file). If any value is missing, it will be loaded from `config.ini`, and if its missing there too, default value will be used.  
-If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, in the same location where config is.
+Theme can also be changed in `config.ini` under section `[theme]`.  
+Loading order: argument theme -> `config.ini` theme -> builtin default theme. There can be missing settings.  
+If theme is not found at provided path, default theme will be written to it.  
+If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, in the same location where config is.  
+There are 2 default themes: `default` and `better_lines`, they are assumed to be drawn on dark background (preferably black).  
 
 ### Media support
 Very large number of image and video formats are supported thanks to pillow and PyAV.  

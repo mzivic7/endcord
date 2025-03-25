@@ -14,6 +14,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Directory where to store downloaded files. Set to None to use 'Downloads' directory (cross platform).
 - `limit_chat_buffer = 100`  
     Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
+- `download_msg = 25`  
+    Number of messages downloaded in chunks for updating chat. Discord default is 25. Limit: 20-100. Larger values means longer waiting time when switching channel and loading chat chunks.
 - `convert_timezone = True`  
     Use local time. If set to False, will show UTC time.
 - `send_typing = True`  
@@ -221,6 +223,8 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for urls in message content and embeds.
 - `color_chat_spoiler = [245, -1]`  
     Color for spoilers in message.
+- `color_chat_code = [250, 233]`  
+    Color for code snippets and blocks.
 - `color_media_bg = -1`  
     single color value for background color when showing media.
 

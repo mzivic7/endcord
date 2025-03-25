@@ -18,7 +18,7 @@ from endcord import defaults
 logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
-ASPELL_TIMEOUT = 0.05   # aspell limit for looking-up one word
+ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
 
 # platform specific code
 if sys.platform == "win32":
@@ -326,7 +326,7 @@ class SpellCheck(object):
                 return True
             return False
         except pexpect.exceptions.TIMEOUT:
-            return False
+            return True   # if timed-out return it as correct
         except pexpect.exceptions.EOF as e:
             logger.info(e)
             if self.enable:

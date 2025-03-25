@@ -296,7 +296,7 @@ class TUI():
 
 
     def tree_select(self, tree_pos):
-        """Select specific guild in tree by its index"""
+        """Select specific irem in tree by its index"""
         skipped = 0
         drop_down_skip_guild = False
         drop_down_skip_category = False

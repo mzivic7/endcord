@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-code blocks highlighting with pygments
 show summaries
 show channel topic
 search and go to messages (Ctrl+F)
@@ -16,6 +15,7 @@ tabs
 rpc on windows
 
 MAYBE:
+code blocks syntax highlighting
 emacs-like keybinding
 vi-mode
 mouse controls
