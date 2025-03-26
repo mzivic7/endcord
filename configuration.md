@@ -13,9 +13,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `downloads_path = None`  
     Directory where to store downloaded files. Set to None to use 'Downloads' directory (cross platform).
 - `limit_chat_buffer = 100`  
-    Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000.
+    Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000. Larger value will cause longer chat updates.  
 - `download_msg = 25`  
-    Number of messages downloaded in chunks for updating chat. Discord default is 25. Limit: 20-100. Larger values means longer waiting time when switching channel and loading chat chunks.
+    Number of messages downloaded in chunks for updating chat. Discord default is 25. Limit: 20-100. Larger values will cause longer waiting time when switching channel and loading chat chunks.
 - `convert_timezone = True`  
     Use local time. If set to False, will show UTC time.
 - `send_typing = True`  

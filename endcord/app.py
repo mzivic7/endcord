@@ -1087,7 +1087,7 @@ class Endcord:
         if messages is None:
             return None   # network error
         # restore deleted
-        if self.restore_deleted:
+        if self.keep_deleted:
             messages = self.restore_deleted(messages)
         missing_members = []
         if not self.active_channel["guild_id"]:
@@ -1491,15 +1491,17 @@ class Endcord:
         return sum(self.chat_indexes[:msg + 1]) - 1
 
 
-    def set_seen(self, channel_id, force=False):
-        """Set channel as seen if it is not already seen.
-        Force will send even if its not marked as unseen, used for active channel."""
+    def set_seen(self, channel_id, force=False, ack=True):
+        """
+        Set channel as seen if it is not already seen.
+        Force will set even if its not marked as unseen, used for active channel.
+        """
         for num_1, unseen_channel in enumerate(self.unseen):
             if unseen_channel["channel_id"] == channel_id or force:   # find this unseen chanel
                 if not force:
                     self.unseen.pop(num_1)
-                self.update_tree()
-                self.discord.send_ack_message(channel_id, self.messages[0]["id"])
+                if ack:
+                    self.discord.send_ack_message(channel_id, self.messages[0]["id"])
                 for num, pinged_channel in enumerate(self.pings):
                     if channel_id == pinged_channel["channel_id"]:
                         self.pings.pop(num)
@@ -1510,6 +1512,7 @@ class Endcord:
                             notification_id = self.notifications.pop(num)["notification_id"]
                             peripherals.notify_remove(notification_id)
                             break
+                self.update_tree()
                 break
 
 
@@ -1947,7 +1950,11 @@ class Endcord:
             while self.run:
                 new_typing = self.gateway.get_typing()
                 if new_typing:
-                    if new_typing["channel_id"] == self.active_channel["channel_id"] and new_typing["user_id"] != self.my_id:
+                    if (
+                        new_typing["channel_id"] == self.active_channel["channel_id"] and
+                        new_typing["user_id"] not in self.blocked and
+                        new_typing["user_id"] != self.my_id
+                    ):
                         if not new_typing["username"]:   # its DM
                             for dm in self.dms:
                                 if dm["id"] == new_typing["channel_id"]:
@@ -1981,22 +1988,7 @@ class Endcord:
             while self.run:
                 new_message_ack = self.gateway.get_message_ack()
                 if new_message_ack:
-                    ack_channel_id = new_message_ack["channel_id"]
-                    for num_1, unseen_channel in enumerate(self.unseen):
-                        if unseen_channel["channel_id"] == ack_channel_id:   # find this unseen chanel
-                            self.unseen.pop(num_1)
-                            self.update_tree()
-                            for num, pinged_channel in enumerate(self.pings):
-                                if ack_channel_id == pinged_channel["channel_id"]:
-                                    self.pings.pop(num)
-                                    break
-                            if self.enable_notifications:
-                                for num, notification in enumerate(self.notifications):
-                                    if notification["channel_id"] == ack_channel_id:
-                                        notification_id = self.notifications.pop(num)["notification_id"]
-                                        peripherals.notify_remove(notification_id)
-                                        break
-                            break
+                    self.set_seen(new_message_ack["channel_id"], ack=False)
                 else:
                     break
 

@@ -1,11 +1,11 @@
 HIGH PRIORITY:
-show summaries
-show channel topic
+show user info
+show channel info
 search and go to messages (Ctrl+F)
-fix hidden channels
+show and navigate summaries
 
 MEDIUM PRIORITY:
-show user info
+fix hidden channels
 member list
 assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
 
