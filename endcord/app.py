@@ -127,6 +127,7 @@ class Endcord:
         self.deleted_cache = []
         self.extra_window_open = False
         self.viewing_user_data = {"id": None, "guild_id": None}
+        self.hidden_channels = []
         self.reset_actions()
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
@@ -391,7 +392,7 @@ class Endcord:
         if self.config["remember_state"] and self.current_channel.get("type") not in (11, 12, 15):
             self.state["last_guild_id"] = guild_id
             self.state["last_channel_id"] = channel_id
-            peripherals.save_state(self.state)
+            peripherals.save_json(self.state, "state.json")
 
         self.remove_running_task("Switching channel", 1)
         logger.debug("Channel switching complete")
@@ -510,6 +511,12 @@ class Endcord:
         }
         self.cancel_download = None
         self.uploading = False
+        self.hidding_ch = {
+            "channel_name": None,
+            "channel_id": None,
+            "guild_id": None,
+            "content": None,
+        }
 
 
     def add_running_task(self, task, priority=5):
@@ -539,7 +546,7 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.editing["content"], reset=False)
             elif self.replying["content"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.replying["content"], reset=False, keep_cursor=True)
-            elif self.deleting["content"] or self.cancel_download:
+            elif self.deleting["content"] or self.cancel_download or self.hidding_ch["channel_id"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.warping is not None:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.warping, reset=False, keep_cursor=True, scroll_bot=True)
@@ -866,7 +873,7 @@ class Endcord:
                             break
                 elif ch_type not in (1, 3, 4, 11, 12):
                     channel_id = self.tree_metadata[tree_sel]["id"]
-                    guild_id, parent_id, guild_name = self.find_parents(tree_sel)
+                    guild_id, _, _ = self.find_parents(tree_sel)
                     channel_sel = None
                     for guild in self.guilds:
                         if guild["guild_id"] == guild_id:
@@ -877,6 +884,21 @@ class Endcord:
                             break
                     if channel_sel:
                         self.view_channel(channel_sel)
+
+            # hide selected channel locally, with a prompt
+            elif action == 26:
+                ch_type = self.tree_metadata[tree_sel]["type"]
+                if ch_type not in (-1, 1, 11, 12):
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.reset_actions()
+                    guild_id, _, _ = self.find_parents(tree_sel)
+                    self.hidding_ch = {
+                        "channel_name": self.tree_metadata[tree_sel]["name"],
+                        "channel_id": self.tree_metadata[tree_sel]["id"],
+                        "guild_id": guild_id,
+                        "content": input_text,
+                    }
+                    self.update_status_line()
 
             # escape key in main UI
             elif action == 5:
@@ -896,6 +918,11 @@ class Endcord:
             # enter
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
                 # message will be received from gateway and then added to self.messages
+                if input_text.lower() != "y" and (self.deleting["id"] or self.cancel_download or self.hidding_ch["channel_id"]):
+                    # anything not "y" when asking for "[Y/n]"
+                    self.reset_actions()
+                    self.update_status_line()
+                    continue
                 if self.editing["id"]:
                     self.discord.send_update_message(
                         channel_id=self.active_channel["channel_id"],
@@ -940,6 +967,17 @@ class Endcord:
                 elif self.uploading:
                     self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(input_text, )))
                     self.upload_threads[-1].start()
+                elif self.hidding_ch["channel_id"] and input_text.lower() == "y":
+                    channel_id = self.hidding_ch["channel_id"]
+                    guild_id = self.hidding_ch["guild_id"]
+                    self.hide_channel(channel_id, guild_id)
+                    self.hidden_channels.append({
+                        "channel_name": self.hidding_ch["channel_name"],
+                        "channel_id": channel_id,
+                        "guild_id": guild_id,
+                        })
+                    peripherals.save_json(self.hidden_channels, "hidden_channels.json")
+                    self.update_tree()
                 else:
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
@@ -993,6 +1031,17 @@ class Endcord:
                         reply_ping=self.replying["mention"],
                         attachments=this_attachments,
                     )
+                elif self.hidding_ch["channel_id"]:
+                    channel_id = self.hidding_ch["channel_id"]
+                    guild_id = self.hidding_ch["guild_id"]
+                    self.hide_channel(channel_id, guild_id)
+                    self.hidden_channels.append({
+                        "channel_name": self.hidding_ch["channel_name"],
+                        "channel_id": channel_id,
+                        "guild_id": guild_id,
+                        })
+                    peripherals.save_json(self.hidden_channels, "hidden_channels.json")
+                    self.update_tree()
                 self.reset_actions()
                 self.update_status_line()
 
@@ -1405,6 +1454,8 @@ class Endcord:
             action_type = 7
         elif self.uploading:
             action_type = 8
+        elif self.hidding_ch["channel_id"]:
+            action_type = 9
         action = {
             "type": action_type,
             "username": self.replying["username"],
@@ -1621,6 +1672,17 @@ class Endcord:
             )
 
 
+    def hide_channel(self, channel_id, guild_id):
+        """Locally hide this channel, for this session"""
+        for guild in self.guilds:
+            if guild["guild_id"] == guild_id:
+                for channel in guild["channels"]:
+                    if channel["id"] == channel_id:
+                        channel["hidden"] = True
+                        break
+                break
+
+
     def load_threads(self, new_threads):
         """
         Add new threads to sorted list of threads by guild and channel.
@@ -1703,7 +1765,7 @@ class Endcord:
                     collapsed.append(self.tree_metadata[num]["id"])
             if self.state["collapsed"] != collapsed:
                 self.state["collapsed"] = collapsed
-                peripherals.save_state(self.state)
+                peripherals.save_json(self.state, "state.json")
 
 
     def send_desktop_notification(self, new_message):
@@ -1798,6 +1860,13 @@ class Endcord:
                 break
         self.compute_permissions()
 
+        # load locally hidden channels
+        self.hidden_channels = peripherals.load_json("hidden_channels.json")
+        if not self.hidden_channels:
+            self.hidden_channels = []
+        for hidden in self.hidden_channels:
+            self.hide_channel(hidden["channel_id"], hidden["guild_id"])
+
         # init media
         if support_media:
             # must be run after all colors are initialized in endcord.tui
@@ -1851,7 +1920,7 @@ class Endcord:
 
         # restore last state
         if self.config["remember_state"]:
-            self.state = peripherals.load_state()
+            self.state = peripherals.load_json("state.json")
             if self.state is None:
                 self.state = {
                     "last_guild_id": None,

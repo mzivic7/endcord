@@ -973,7 +973,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = f"Repling {ping}to {name}"
     elif action["type"] == 2:   # editing
         action_string = "Editing the message"
-    elif action["type"] == 3:   # deleting
+    elif action["type"] == 3:   # confirm deleting
         action_string = "Really delete the message? [Y/n]"
     elif action["type"] == 4:   # select from multiple links
         action_string = "Select link to open in browser (type a number)"
@@ -985,6 +985,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = "Really cancel all downloads/attachments? [Y/n]"
     elif action["type"] == 8:   # ask for upload path
         action_string = "Type file path to upload"
+    elif action["type"] == 9:   # confirm hiding channel
+        action_string = "Really hide this channel? [Y/n]"
 
     if my_status["custom_status_emoji"]:
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])

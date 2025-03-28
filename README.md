@@ -13,7 +13,7 @@
 endcord is a third-party feature rich Discord client, running entirely in terminal.  
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](#token).  
-[Alternate theme](./.github/screenshots/02.png), [media with ASCII art](./.github/screenshots/03.png)  
+[More screenshots](https://github.com/mzivic7/endcord/blob/main/screenshots.md).  
 
 
 ## Features
@@ -67,7 +67,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 
 ## Configuration
-Settings and log file location:
+Settings, log, state and themes location:
 - On linux: `~/.config/endcord/` or `$XDG_DATA_HOME/endcord/`  
 - On windows: `%USERPROFILE%/AppData/Local/endcord/`  
 - On mac: `~/Library/Application Support/endcord/`  
@@ -132,10 +132,11 @@ Reveal one spoiler in selected messages - `Ctrl+T`
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 Undo input line - `Alt+Z`  
 Redo input line - `Alt+Shift+Z`  
-Un/collapse channel with threads in tree - `Alt+T`
-Join/leave selected thread in tree - `Alt+J`
+Un/collapse channel with threads in tree - `Alt+T`  
+Join/leave selected thread in tree - `Alt+J`  
 Open selected post in forum - `Enter`  
-Open and join selected post in forum - `Alt+K`
+Open and join selected post in forum - `Alt+K`  
+Locally hide channel - `Alt+H`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Cancel action, leave media viewer - `Escape`  
 Quit - `Ctrl+C`  
@@ -194,12 +195,18 @@ Select post and `Enter` to open it, or `Alt+K` to open and join.
 Posts are treated same as threads in channel tree, but only participated posts will be shown.  
 If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
 
+### Hiding channels
+Some channels are not hidden in endcord, even tho they are in official client. more info on why in [FAQ](#FAQ).  
+Also some servers my not provide an ability to hide channels.  
+Thats why in endcord channels can be locally hidden, by selecting channel in channel tree and pressing `Alt+H`.  
+Locally hidden channels can be restored by removing them in `hidden_channels.json`, see [Configuration](#configuration) for path.  
+
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
 Theme can also be changed in `config.ini` under section `[theme]`.  
 Loading order: argument theme -> `config.ini` theme -> builtin default theme. There can be missing settings.  
 If theme is not found at provided path, default theme will be written to it.  
-If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, in the same location where config is.  
+If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, see [Configuration](#configuration) for path.  
 There are 2 default themes: `default` and `better_lines`, they are assumed to be drawn on dark background (preferably black).  
 
 ### Media support
@@ -297,7 +304,7 @@ You can write to Discord TNS team: https://dis.gd/request.
 If you did something particular with endcord that caused the ban, open an issue describing what that is. Maybe that can be prevented or other users can be warned.  
 
 ### Debug files
-Anonymized data that might help in debugging is saved in `Debug` directory, at the same place where log file is.  
+Anonymized data that might help in debugging is saved in `Debug` directory, see [Configuration](#configuration) for path.  
 All channel and server names, topics, descriptions are replaced. All channel and server IDs are added to random number and hashed, so they are irreversible changed, and will be different on each run.
 
 ### Some role colors are wrong
@@ -305,6 +312,10 @@ This is an [issue](https://github.com/python/cpython/issues/119138) with cpython
 This will be updated in endcord when cpython issue is resolved.
 All custom color pairs are initialized first, so only role colors can pass this limit.  
 For each role with color, 2 pairs are initialized. Role colors are dynamically loaded, so this can happen only when guild has really much roles.
+
+### Some channels are not hidden
+This is because the actual way of getting hidden channels is unknown. Only the channels that are user-hidden (in Discord: right click on channel -> remove from channel list) and have no modified notification settings, will not be hidden in endcord.  
+To hide it, either give it some notification setting (eg. mute it), or locally set it as hidden: [Hiding channels](#hiding-channels).
 
 ### Status sign in tree has no color when selected or active
 Same reason as above, trying to save some color pair IDs until curses bug is fixed.  

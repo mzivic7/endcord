@@ -185,9 +185,9 @@ def notify_remove(notification_id):
         subprocess.Popen(cmd, shell=True)
 
 
-def load_state():
-    """Load saved states from same location where default config is saved"""
-    path = os.path.expanduser(config_path + "state.json")
+def load_json(file):
+    """Load saved json from same location where default config is saved"""
+    path = os.path.expanduser(config_path + file)
     if not os.path.exists(path):
         return None
     try:
@@ -197,13 +197,13 @@ def load_state():
         return None
 
 
-def save_state(state):
-    """Save state to same location where default config is saved"""
+def save_json(data, file):
+    """Save json to same location where default config is saved"""
     if not os.path.exists(config_path):
         os.makedirs(os.path.expanduser(config_path), exist_ok=True)
-    path = path = os.path.expanduser(config_path + "state.json")
+    path = os.path.expanduser(config_path + file)
     with open(path, "w") as f:
-        json.dump(state, f, indent=2)
+        json.dump(data, f, indent=2)
 
 
 def copy_to_clipboard(text):

@@ -1051,6 +1051,9 @@ class TUI():
             self.extra_index = 0
             return 25
 
+        elif key == self.keybindings["hide_channel"]:
+            return 26
+
         return None
 
 
