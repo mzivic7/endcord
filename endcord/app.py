@@ -125,6 +125,8 @@ class Endcord:
         self.tree_metadata = []
         self.my_roles = []
         self.deleted_cache = []
+        self.extra_window_open = False
+        self.viewing_user_data = {"id": None, "guild_id": None}
         self.reset_actions()
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
@@ -333,14 +335,13 @@ class Endcord:
                     if my_messages >= MSG_MIN:
                         break
             if my_messages < MSG_MIN:
-                self.disable_sending = True
-                self.update_extra_line(f"Cant send a message: please send at least {MSG_MIN} messages with the official client")
+                self.disable_sending = f"Cant send a message: please send at least {MSG_MIN} messages with the official client"
 
         # if this is thread and is locked or archived, prevent sending messages
         elif self.current_channel.get("type") in (11, 12) and self.current_channel["locked"]:
-            self.disable_sending = True
-            self.update_extra_line("Cant send a message: this thread is locked")
-
+            self.disable_sending = "Cant send a message: this thread is locked"
+        elif not self.current_channel.get("allow_write", True):
+            self.disable_sending = "Cant send a message: No write permissions"
         else:
             self.disable_sending = False
             self.tui.remove_extra_line()
@@ -377,9 +378,14 @@ class Endcord:
             self.update_chat(keep_selected=False)
         else:
             self.tui.update_chat(self.chat, self.chat_format)
-        self.update_extra_line()
+        self.close_extra_window()
+        if self.disable_sending:
+            self.update_extra_line(self.disable_sending)
+        else:
+            self.update_extra_line()
         self.update_prompt()
         self.update_tree()
+
 
         # save state (exclude threads)
         if self.config["remember_state"] and self.current_channel.get("type") not in (11, 12, 15):
@@ -803,8 +809,10 @@ class Endcord:
                             self.discord.leave_thread(thread_id)
                     self.update_tree()
 
-            # open and join thread from forum
+            # open thread from forum
             elif action == 22 and "owner_id" in self.messages[chat_sel]:
+                if input_text and input_text != "\n":
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
                 # failsafe if messages got rewritten
                 self.switch_channel(
                     self.messages[chat_sel]["id"],
@@ -815,7 +823,11 @@ class Endcord:
                 )
                 self.reset_actions()
                 self.update_status_line()
+
+            # open and join thread from forum
             elif action == 23 and "owner_id" in self.messages[chat_sel]:
+                if input_text and input_text != "\n":
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
                 # failsafe if messages got rewritten
                 self.switch_channel(
                     self.messages[chat_sel]["id"],
@@ -829,9 +841,48 @@ class Endcord:
                 if self.thread_togle_join(guild_id, channel_id, thread_id, join=True):
                     self.discord.join_thread(thread_id)
 
+            # view profile info
+            elif action == 24:
+                self.going_to = input_text   # reusing variable
+                msg_index = self.lines_to_msg(chat_sel)
+                user_id = self.messages[msg_index]["user_id"]
+                guild_id = self.active_channel["guild_id"]
+                if self.viewing_user_data["id"] != user_id or self.viewing_user_data["guild_id"] != guild_id:
+                    if guild_id:
+                        self.viewing_user_data = self.discord.get_user_guild(user_id, guild_id)
+                    else:
+                        self.viewing_user_data = self.discord.get_user(user_id)
+                self.view_profile(self.viewing_user_data)
+
+            # view channel info
+            elif action == 25:
+                self.going_to = input_text   # reusing variable
+                ch_type = self.tree_metadata[tree_sel]["type"]
+                if ch_type == -1:
+                    guild_id = self.tree_metadata[tree_sel]["id"]
+                    for guild in self.guilds:
+                        if guild["guild_id"] == guild_id:
+                            self.view_channel(guild, True)
+                            break
+                elif ch_type not in (1, 3, 4, 11, 12):
+                    channel_id = self.tree_metadata[tree_sel]["id"]
+                    guild_id, parent_id, guild_name = self.find_parents(tree_sel)
+                    channel_sel = None
+                    for guild in self.guilds:
+                        if guild["guild_id"] == guild_id:
+                            for channel in guild["channels"]:
+                                if channel["id"] == channel_id:
+                                    channel_sel = channel
+                                    break
+                            break
+                    if channel_sel:
+                        self.view_channel(channel_sel)
+
             # escape key in main UI
             elif action == 5:
-                if self.replying["id"]:
+                if self.extra_window_open:
+                    self.close_extra_window()
+                elif self.replying["id"]:
                     self.reset_actions()
                     self.replying["content"] = input_text
                 else:
@@ -1179,6 +1230,39 @@ class Endcord:
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                     self.tui.set_selected(self.msg_to_lines(num))
                     break
+
+
+    def view_profile(self, user_data):
+        """Format and show extra window with profile informations"""
+        max_w = self.tui.get_dimensions()[2][1]
+        roles = []
+        if user_data["roles"]:
+            for role_id in user_data["roles"]:
+                for role in self.current_roles:
+                    if role["id"] == role_id:
+                        roles.append(role["name"])
+                        break
+        extra_title, extra_body = formatter.generate_extra_window_profile(user_data, roles, max_w)
+        self.tui.draw_extra_window(extra_title, extra_body)
+        self.extra_window_open = True
+
+
+    def view_channel(self, channel, guild=False):
+        """Format and show extra window with channel/guild informations"""
+        max_w = self.tui.get_dimensions()[2][1]
+        if guild:
+            extra_title, extra_body = formatter.generate_extra_window_guild(channel, max_w)
+        else:
+            extra_title, extra_body = formatter.generate_extra_window_channel(channel, max_w)
+        self.tui.draw_extra_window(extra_title, extra_body)
+        self.extra_window_open = True
+
+
+    def close_extra_window(self):
+        """Close extra window and toggle its state"""
+        self.tui.remove_extra_window()
+        self.extra_window_open = False
+        self.viewing_user_data = {"id": None, "guild_id": None}
 
 
     def cache_deleted(self):

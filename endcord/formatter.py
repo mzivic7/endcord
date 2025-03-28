@@ -75,11 +75,19 @@ def generate_timestamp(discord_time, format_string, timezone=True):
     return datetime.strftime(time_obj, format_string)
 
 
+def timestamp_from_snowflake(snowflake, format_string, timezone=True):
+    """Converts discord snowflake to formatted string and optionally converts to current timezone"""
+    time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000)
+    if timezone:
+        time_obj = time_obj.astimezone()
+    return datetime.strftime(time_obj, format_string)
+
+
 def day_from_snowflake(snowflake, timezone=True):
     """Extract day from discord snowflake with optional timezone conversion"""
     snowflake = int(snowflake)
     if timezone:
-        time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000).astimezone()
+        time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000)
         time_obj = time_obj.astimezone()
         return time_obj.day
     # faster than datetime, but no timezone conversion
@@ -277,6 +285,34 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
         else:
             line_format.append([color, newline_len, end])
     return line_format
+
+
+def split_long_line(line, max_len):
+    """Split long line into list, on nearest spece to left or on newline"""
+    lines_list = []
+    while line:
+        if len(line) > max_len:
+            newline_index = len(line[:max_len].rsplit(" ", 1)[0])
+            if newline_index == 0:
+                newline_index = max_len
+            if "\n" in line[:newline_index]:
+                newline_index = line.index("\n")
+            lines_list.append(line[:newline_index])
+            try:
+                if line[newline_index] in (" ", "\n"):   # remove space and \n
+                    line = line[newline_index+1:]
+                else:
+                    line = line[newline_index:]
+            except IndexError:
+                line = line[newline_index+1:]
+        elif "\n" in line:
+            newline_index = line.index("\n")
+            lines_list.append(line[:newline_index])
+            line = line[newline_index+1:]
+        else:
+            lines_list.append(line)
+            break
+    return lines_list
 
 
 def clean_type(embed_type):
@@ -1025,6 +1061,90 @@ def generate_extra_line(attachments, selected, max_len):
         end = f" - {state}, Selected:{selected + 1}, Total:{total}"
         return f" Attachments: {name}"[:max_len - len(end)] + end
     return ""
+
+
+def generate_extra_window_profile(user_data, user_roles, max_len):
+    """Generate extra window title and body for user profile view"""
+    nick = ""
+    if user_data["nick"]:
+        nick = f"Nick: {user_data["nick"]}; "
+    global_name = ""
+    if user_data["global_name"]:
+        global_name = f"Name: {user_data["global_name"]}; "
+    username = f"Username: {user_data["username"]}"
+    pronouns = ""
+    if user_data["pronouns"]:
+        pronouns = f"; Pronouns: {user_data["pronouns"]}"
+    roles_string = ", ".join(user_roles)
+    member_since = timestamp_from_snowflake(int(user_data["id"]), "%Y-%m-%d")
+
+    # build title
+    title_line = ""
+    items = [nick, global_name, username, pronouns]
+    complete = True
+    for num, item in enumerate(items):
+        if len(title_line + item) > max_len:
+            complete = False
+            break
+        title_line += items[num]
+    items = items[num+complete:]
+    if not title_line:
+        title_line = items.pop(0)[:max_len]
+
+    # add overflow from title line to to body
+    body_line = ""
+    if items:
+        for item in items:
+            body_line += item
+        body_line += "\n"
+
+    # build body
+    body_line += f"Member since: {member_since}\n"
+    if user_data["joined_at"]:
+        body_line += f"Joined: {user_data["joined_at"]}\n"
+    if roles_string:
+        body_line += f"Roles: {roles_string}\n"
+    if user_data["bio"]:
+        body_line += f"Bio:\n{user_data["bio"]}"
+
+    body = split_long_line(body_line, max_len)
+    return title_line, body
+
+
+def generate_extra_window_channel(channel, max_len):
+    """Generate extra window title and body for channel info view"""
+    title_line = f"Channel: {channel["name"]}"[:max_len]
+    body_line = ""
+    no_embed = not channel.get("allow_attach", True)
+    no_write = not channel.get("allow_write", True)
+    if no_embed and no_write:
+        body_line += "No write and embed permissions\n"
+    elif no_embed:
+        body_line += "No embed permissions\n"
+    elif no_write:
+        body_line += "No write permissions\n"
+    if channel["topic"]:
+        body_line += f"Topic:\n{channel["topic"]}"
+    else:
+        body_line += "No topic."
+
+    body = split_long_line(body_line, max_len)
+    return title_line, body
+
+
+def generate_extra_window_guild(guild, max_len):
+    """Generate extra window title and body for guild info view"""
+    title_line = f"Server: {guild["name"]}"[:max_len]
+
+    # build body
+    body_line = f"Members: {guild["member_count"]}\n"
+    if guild["description"]:
+        body_line += f"Description:\n{guild["description"]}"
+    else:
+        body_line += "No description."
+
+    body = split_long_line(body_line, max_len)
+    return title_line, body
 
 
 def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):

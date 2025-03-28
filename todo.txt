@@ -1,12 +1,11 @@
 HIGH PRIORITY:
-show user info
-show channel info
+hide channel locally (Alt+H with prompt)
 search and go to messages (Ctrl+F)
-show and navigate summaries
+show and navigate summaries (Alt+S)
 
 MEDIUM PRIORITY:
 fix hidden channels
-member list
+member list (Alt+M)
 assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
 
 LOW PRIORITY:

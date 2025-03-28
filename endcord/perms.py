@@ -74,6 +74,10 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
             decode_permission(permissions, 0x400)    # VIEW_CHANNEL
             or decode_permission(permissions, 0x8)   # ADMINISTRATOR
         )
+        guild["channels"][num]["allow_write"] = (
+            decode_permission(permissions, 0x800)    # SEND_MESSAGES
+            or decode_permission(permissions, 0x8)   # ADMINISTRATOR
+        )
         guild["channels"][num]["allow_attach"] = (
             decode_permission(permissions, 0x8000)   # ATTACH_FILES
             or decode_permission(permissions, 0x8)   # ADMINISTRATOR

@@ -35,6 +35,7 @@ settings = {
 }
 theme = {
     "tree_width": 32,
+    "extra_window_height": 6,
     "format_message": "[%timestamp] <%username> | %content %edited",
     "format_newline": "                       %content",
     "format_reply": "[REPLY] <%username> | /--> [%timestamp] %content",
@@ -79,6 +80,7 @@ theme = {
     "color_status_line": [233, 255],
     "color_extra_line": [233, 245],
     "color_title_line": [233, 255],
+    "color_extra_window": [-1, -1],
     "color_prompt": [255, -1],
     "color_input_line": [255, -1],
     "color_cursor": [233, 255],
@@ -114,6 +116,7 @@ keybindings = {
     "tree_select": 0,   # Ctrl+Space
     "tree_collapse_threads": "ALT+116",   # Alt+T
     "tree_join_thread": "ALT+106",   # Alt+J
+    "channel_info": "ALT+105",   # Alt+I
     # input line
     "word_left": 554,   # Ctrl+Left
     "word_right": 569,   # Ctrl+Right
@@ -125,10 +128,6 @@ keybindings = {
     "select_all": "ALT+97",   # Alt+A
     "copy_sel": "ALT+99",   # Alt+C
     "cut_sel": "ALT+120",   # Alt+X
-    # extra line
-    "attach_prev": 552,   # Alt+Left
-    "attach_next": 567,   # Alt+Right
-    "attach_cancel": 11,   # Ctrl+K
     # chat
     "reply": 18,   # Ctrl+R
     "edit": 5,   # Ctrl+E
@@ -142,10 +141,18 @@ keybindings = {
     "copy_msg": 8,   # Ctrl+H
     "view_media": 22,   # Ctrl+V
     "spoil": 20,   # Ctrl+T
+    "profile_info": "ALT+112",   # Alt+P
+    # extra line
+    "attach_prev": "ALT+552",   # Alt+Left
+    "attach_next": "ALT+567",   # Alt+Right
+    "attach_cancel": 11,   # Ctrl+K
+    # extra window
+    "extra_up": 573,   # Alt+Up
+    "extra_down": 532,   # Alt+Down
     # other
     "redraw": 12,   # Ctrl+L
     "cancel": 24,   # Ctrl+X
-    "forum_join_thread": "ALT+112",   # Alt+P
+    "forum_join_thread": "ALT+107",   # Alt+K
 }
 
 

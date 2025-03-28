@@ -260,6 +260,7 @@ class Gateway():
                             "owned": self.my_id == guild["properties"]["owner_id"],
                             "name": guild["properties"]["name"],
                             "description": guild["properties"]["description"],
+                            "member_count": guild["member_count"],
                             "channels": guild_channels,
                             "base_permissions": base_permissions,
                         })

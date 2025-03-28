@@ -84,6 +84,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 ### Theme
 - `tree_width = 32`  
     Width of channel tree in characters.
+- `extra_window_height = 6`  
+    Height of extra window drawn above status line. Window title line not included.
 - `format_message = "[%timestamp] <%username> | %content %edited"`  
     Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
@@ -189,8 +191,10 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for status line.
 - `color_extra_line = [233, 245]`  
     Color for extra line, drawn above status line.
-- `"color_title_line" = [233, 255]`  
+- `color_title_line = [233, 255]`  
     Color for chat title line and tree title line.
+-`color_extra_window = [-1, -1]`  
+    Color for extra window body.
 - `color_prompt = [255, -1]`  
     Color for prompt line.
 - `color_input_line = [255, -1]`  

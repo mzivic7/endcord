@@ -69,6 +69,7 @@ class TUI():
         self.init_pair((46, tree_bg))    # green   # 18
         self.init_pair((208, tree_bg))   # orange
         self.init_pair((196, tree_bg))   # red
+        self.init_pair(config["color_extra_window"])   # 21
         self.color_default = 1
         self.role_color_start_id = 1   # starting id for role colors
         self.keybindings = keybindings
@@ -78,6 +79,7 @@ class TUI():
         vert_line = config["tree_vert_line"][0]
         self.vert_line = acs_map.get(vert_line, vert_line)
         self.tree_width = config["tree_width"]
+        self.extra_window_h = config["extra_window_height"]
         self.blink_cursor_on = config["cursor_on_time"]
         self.blink_cursor_off = config["cursor_off_time"]
         self.tree_dm_status = config["tree_dm_status"]
@@ -125,8 +127,12 @@ class TUI():
         self.input_select_text = ""
         self.typing = time.time()
         self.extra_line_text = ""
+        self.extra_window_title = ""
+        self.extra_window_body = ""
+        self.extra_index = 0
         self.run = True
         self.win_extra_line = None
+        self.win_extra_window = None
         self.win_prompt = None
         self.resize()
         if self.enable_blink_cursor:
@@ -177,6 +183,7 @@ class TUI():
         self.input_hw = self.win_input_line.getmaxyx()
         self.tree_hw = self.win_tree.getmaxyx()
         self.win_extra_line = None
+        self.win_extra_window = None
         self.redraw_ui()
 
 
@@ -340,6 +347,7 @@ class TUI():
         if self.have_title_tree:
             self.draw_title_tree()
         self.draw_extra_line(self.extra_line_text)
+        self.draw_extra_window(self.extra_window_title, self.extra_window_body)
 
 
     def draw_status_line(self):
@@ -562,7 +570,7 @@ class TUI():
 
     def draw_extra_line(self, text=None, toggle=False):
         """
-        Draw extra line above status line and resize chat if needed.
+        Draw extra line above status line and resize chat.
         If toggle and same text is repeated then remve extra line.
         """
         if toggle and text == self.extra_line_text:
@@ -586,7 +594,7 @@ class TUI():
     def remove_extra_line(self):
         """Disable drawing of extra line above status line, and resize chat"""
         if self.win_extra_line:
-            del (self.win_extra_line, self.win_chat)
+            del self.win_chat
             self.extra_line_text = ""
             self.win_extra_line = None
             h, w = self.screen.getmaxyx()
@@ -594,6 +602,63 @@ class TUI():
             self.win_chat = self.screen.derwin(*chat_hwyx)
             self.chat_hw = self.win_chat.getmaxyx()
             self.draw_chat()
+
+
+    def draw_extra_window(self, title_text, body_text):
+        """
+        Draw extra window above status line and resize chat.
+        title_text is string, body_text is list.
+        """
+        self.extra_window_title = title_text
+        self.extra_window_body = body_text
+        if title_text and not self.disable_drawing:
+            h, w = self.screen.getmaxyx()
+            if not self.win_extra_window:
+                del self.win_chat
+                self.win_extra_line = None
+                chat_hwyx = (
+                    h - 3 - int(self.have_title) - self.extra_window_h,
+                    w - (self.tree_width + 1),
+                    int(self.have_title),
+                    self.tree_width + 1,
+                )
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
+                self.draw_chat()
+                extra_window_hwyx = (
+                    self.extra_window_h + 1,
+                    w - (self.tree_width + 1),
+                    h - 3 - self.extra_window_h,
+                    self.tree_width + 1,
+                )
+                self.win_extra_window = self.screen.derwin(*extra_window_hwyx)
+            self.win_extra_window.insstr(0, 0, title_text + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+            h, _ = self.win_extra_window.getmaxyx()
+            y = -1
+            for y, line in enumerate(body_text[self.extra_index:]):
+                if y + 1 >= h:
+                    break
+                self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(title_text)) + "\n", curses.color_pair(21) | self.attrib_map[21])
+            y += 2
+            while y < h:
+                self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
+                y += 1
+            self.win_extra_window.refresh()
+
+
+    def remove_extra_window(self):
+        """Disable drawing of extra window above status line, and resize chat"""
+        if self.win_extra_window:
+            del (self.win_extra_window, self.win_chat)
+            self.extra_window_title = ""
+            self.extra_window_body = ""
+            self.win_extra_window = None
+            h, w = self.screen.getmaxyx()
+            chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+            self.win_chat = self.screen.derwin(*chat_hwyx)
+            self.chat_hw = self.win_chat.getmaxyx()
+            self.draw_chat()
+            self.draw_extra_line(self.extra_line_text)
 
 
     def set_cursor_color(self, color_id):
@@ -970,8 +1035,21 @@ class TUI():
             self.draw_tree()
 
         elif key == self.keybindings["tree_join_thread"]:
-            self.asking_num = True
             return 21
+
+        elif self.extra_window_body and key == self.keybindings["extra_up"]:
+            if self.extra_index > 0:
+                self.extra_index -= 1
+                self.draw_extra_window(self.extra_window_title, self.extra_window_body)
+
+        elif self.extra_window_body and key == self.keybindings["extra_down"]:
+            if self.extra_index + 1 < len(self.extra_window_body):
+                self.extra_index += 1
+                self.draw_extra_window(self.extra_window_title, self.extra_window_body)
+
+        elif key == self.keybindings["channel_info"] and self.tree_selected > 0:
+            self.extra_index = 0
+            return 25
 
         return None
 
@@ -1381,6 +1459,12 @@ class TUI():
                 self.input_buffer = ""
                 self.asking_num = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 18
+
+            elif key == self.keybindings["profile_info"] and self.chat_selected != -1:
+                self.extra_index = 0
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 24
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

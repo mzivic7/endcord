@@ -108,11 +108,13 @@ class Discord():
                 extra_data = None
             return {
                 "id": data["user"]["id"],
+                "guild_id": None,
                 "username": data["user"]["username"],
                 "global_name": data["user"]["global_name"],
                 "nick": nick,
                 "bio": data["user"]["bio"],
                 "pronouns": data["user_profile"]["pronouns"],
+                "joined_at": None,
                 "extra": extra_data,
                 "roles": None,
             }
@@ -135,16 +137,20 @@ class Discord():
             if "guild_member" in data:
                 nick = data["guild_member"]["nick"]
                 roles = data["guild_member"]["roles"]
+                joined_at = data["guild_member"]["joined_at"][:10]
             else:
                 nick = None   # just in case
                 roles = None
+                joined_at = None
             return {
                 "id": data["user"]["id"],
+                "guild_id": guild_id,
                 "username": data["user"]["username"],
                 "global_name": data["user"]["global_name"],
                 "nick": nick,
                 "bio": data["user"]["bio"],
                 "pronouns": data["user_profile"]["pronouns"],
+                "joined_at": joined_at,
                 "roles": roles,
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")

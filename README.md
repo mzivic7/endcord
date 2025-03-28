@@ -18,13 +18,13 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 ## Features
 - Extremely low CPU and and RAM usage (~30MB)
-- Live chat, send message
 - View images, gifs, videos and stickers in terminal with ASCII art (`Ctrl+V`)
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
 - Download/upload attachments (`Ctrl+W/U`)
 - Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
 - Toggle reply ping (`Ctrl+P`)
+- View user prfile (`Alt+P`)
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Dont show hidden channels
@@ -35,6 +35,7 @@ Discord token is required in order to run endcord! see [Token](#token).
     - Expand categories and servers, enter channel (`Ctrl+Space`)
     - DMs in separate drop-down, show DM status
     - Forums, channel threads
+    - View channel info (`Alt+I`)
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
@@ -52,7 +53,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Role colors in chat
 - Date separtors in chat
 - Partial markdown support (underline, bold, italic, spoiler, quote)
-- Emoji support with `:emoji:` (only default)
+- Sending emoji support with `:emoji:` (only default)
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
@@ -118,6 +119,8 @@ Edit selected message - `Ctrl+E`
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
 Go to replied message - `Ctrl+G`  
+View user profile (selected message) - `Alt+P`  
+View channel info (selected in tree) - `Alt+I`  
 Copy message to clipboard - `Ctrl+B`  
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
@@ -186,9 +189,9 @@ Usually RPC app must be started after RPC server (endcord).
 More info about whats going on can be found in log, when endcord is in debug mode.  
 
 ### Forums
-Forums will load only the most recent posts (unarchived) and show them in chat buffer.  
+Forums in tree can be opened just like a channel (`Ctrl+Space`). It will load only the most recent posts (unarchived) and show them in chat buffer.  
 Select post and `Enter` to open it, or `Alt+K` to open and join.  
-Posts are treated same as threads in channel tree.  
+Posts are treated same as threads in channel tree, but only participated posts will be shown.  
 If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
 
 ### Theming
@@ -284,6 +287,7 @@ Never tested on macOS. Feedback is welcome.
 - MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
 - Discord REST API is called each time client is started, when channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background.
+- Do not repeatedly view user profiles.
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence.
 - Typing status and Rich Presence are using WebSocket so disabling it will make no difference.
