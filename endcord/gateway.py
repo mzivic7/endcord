@@ -551,7 +551,7 @@ class Gateway():
                         self.subscribed_activities_changed.append(guild_id)
                     else:
                         selected_activities = self.dm_activities
-                    for num, user in enumerate(self.dm_activities):
+                    for num, user in enumerate(selected_activities):
                         if user["id"] == user_id:
                             selected_activities[num] = {
                                 "id": user_id,
@@ -973,6 +973,13 @@ class Gateway():
                             del self.activities[guild_index]["members"][memlist["index"]]
                         elif memlist["op"] in ("UPDATE", "INSERT"):
                             custom_status = None
+                            if "group" in memlist["item"]:
+                                # can only insert group
+                                self.activities[guild_index]["members"].insert(memlist["index"], {"group": memlist["item"]["group"]["id"]})
+                                if len(self.activities[guild_index]["members"]) > 100:
+                                    self.activities[guild_index]["members"].pop(-1)
+                                self.activities_changed.append(guild_id)
+                                continue
                             data = memlist["item"]["member"]
                             activities = []
                             for activity in data["presence"]["activities"]:
