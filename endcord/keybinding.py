@@ -18,7 +18,8 @@ def picker_internal(screen):
         screen.nodelay(True)
         key_code_2 = screen.getch()   # key pressed with ALT
         screen.nodelay(False)
-        key_code = "ALT+" + str(key_code_2)
+        if key_code_2 != -1:
+            key_code = "ALT+" + str(key_code_2)
 
 def picker():
     """Keybinding picker, prints last pressed key combination"""

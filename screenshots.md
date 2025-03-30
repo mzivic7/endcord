@@ -16,6 +16,7 @@
 <br><br>
 <b>Viewing user profile:<b><br>
 <img src="./.github/screenshots/03.png" alt="Viewing user profile" width="800">
+<br><br>
 <b>Media with ASCII art:<b><br>
 <img src="./.github/screenshots/04.png" alt="Media with ASCII art" width="800">
 </div>

@@ -217,7 +217,10 @@ def copy_to_clipboard(text):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
             )
-            proc.communicate(input=text.encode("utf-8"))
+            try:
+                proc.communicate(input=text.encode("utf-8"))
+            except FileNotFoundError:
+                logger.warn("Cant copy: wl-copy not foud on system")
         else:
             proc = subprocess.Popen(
                 ["xclip"],
@@ -225,7 +228,10 @@ def copy_to_clipboard(text):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
             )
-            proc.communicate(input=text.encode("utf-8"))
+            try:
+                proc.communicate(input=text.encode("utf-8"))
+            except FileNotFoundError:
+                logger.warn("Cant copy: xclip not foud on system")
     elif sys.platform == "win32":
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()

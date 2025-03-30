@@ -897,6 +897,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         %action   # replying/editig/deleting
         %task   # currently running long task
     Possible options for format_rich:
+        %type
         %name
         %state
         %details
@@ -942,8 +943,13 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         details = my_status["activities"][0]["details"][:limit_typing]
         sm_txt = my_status["activities"][0]["small_text"]
         lg_txt = my_status["activities"][0]["large_text"]
+        if my_status["activities"][0]["type"] == 0:
+            verb = "Playing"
+        else:
+            verb = "Listening to"
         rich = (
             format_rich
+            .replace("%type", verb)
             .replace("%name", my_status["activities"][0]["name"])
             .replace("%state", state if state else "")
             .replace("%details", details if details else "")
@@ -970,7 +976,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
             name = action["global_name"]
         else:
             name = action["username"]
-        action_string = f"Repling {ping}to {name}"
+        action_string = f"Replying {ping}to {name}"
     elif action["type"] == 2:   # editing
         action_string = "Editing the message"
     elif action["type"] == 3:   # confirm deleting
@@ -1065,18 +1071,19 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
-def generate_extra_window_profile(user_data, user_roles, max_len):
+def generate_extra_window_profile(user_data, user_roles, presence, max_len):
     """Generate extra window title and body for user profile view"""
+    # prepare user strings
     nick = ""
     if user_data["nick"]:
-        nick = f"Nick: {user_data["nick"]}; "
+        nick = f"Nick: {user_data["nick"]}"
     global_name = ""
     if user_data["global_name"]:
-        global_name = f"Name: {user_data["global_name"]}; "
+        global_name = f"Name: {user_data["global_name"]}"
     username = f"Username: {user_data["username"]}"
     pronouns = ""
     if user_data["pronouns"]:
-        pronouns = f"; Pronouns: {user_data["pronouns"]}"
+        pronouns = f"Pronouns: {user_data["pronouns"]}"
     roles_string = ", ".join(user_roles)
     member_since = timestamp_from_snowflake(int(user_data["id"]), "%Y-%m-%d")
 
@@ -1085,10 +1092,12 @@ def generate_extra_window_profile(user_data, user_roles, max_len):
     items = [nick, global_name, username, pronouns]
     complete = True
     for num, item in enumerate(items):
-        if len(title_line + item) > max_len:
+        if len(title_line + item) + 3 > max_len:
             complete = False
             break
-        title_line += items[num]
+        if item:
+            title_line += f"{items[num]} | "
+    title_line = title_line[:-3]
     items = items[num+complete:]
     if not title_line:
         title_line = items.pop(0)[:max_len]
@@ -1096,14 +1105,52 @@ def generate_extra_window_profile(user_data, user_roles, max_len):
     # add overflow from title line to to body
     body_line = ""
     if items:
+        add_newline = False
         for item in items:
-            body_line += item
-        body_line += "\n"
+            if item:
+                body_line += f"{item} | "
+                add_newline = True
+        if add_newline:
+            body_line += "\n"
+
+    # activity and string
+    if presence:
+        status = presence["status"].capitalize().replace("Dnd", "DnD")
+        if presence["custom_status"]:
+            custom = f" - {presence["custom_status"]}"
+        else:
+            custom = ""
+        body_line += f"Status: {status}{custom}\n"
+    else:
+        body_line += "Could not fetch status\n"
 
     # build body
     body_line += f"Member since: {member_since}\n"
     if user_data["joined_at"]:
         body_line += f"Joined: {user_data["joined_at"]}\n"
+
+    # rich presences
+    if presence:
+        if presence["activities"]:
+            body_line += "\n"
+        for activity in presence["activities"]:
+            if activity["type"] == 0:
+                action = "Playing"
+            else:
+                action = "Listening to"
+            if activity["state"]:
+                state = f" - {activity["state"]}"
+            else:
+                state = ""
+            body_line += f"{action} {activity["name"]}{state}\n"
+            if activity["details"]:
+                body_line += f"{activity["details"]}\n"
+            if activity["small_text"]:
+                body_line += f"{activity["small_text"]}\n"
+            if activity["large_text"]:
+                body_line += f"{activity["large_text"]}\n"
+            body_line += "\n"
+
     if roles_string:
         body_line += f"Roles: {roles_string}\n"
     if user_data["bio"]:
@@ -1390,9 +1437,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         # hide restricted channels now because they can be marked as unseen/ping
                         if not channel.get("permitted", False):
                             hidden_ch = True
-                        # this is first so guild can be marked as unseen/ping
-                        # without downloaded permissions
-                        if not (category["muted"] or hidden_ch or muted_ch):
+                        if not (category["muted"] or category["hidden"] or hidden_ch or muted_ch):
                             if unseen_ch:
                                 category["unseen"] = True
                                 unseen_guild = True

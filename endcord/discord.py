@@ -23,7 +23,7 @@ def ceil(x):
     Return the ceiling of x as an integral.
     Equivalent to math.ceil().
     """
-    # lets not import whole math just for math.ceil()
+    # lets not import whole math just for this
     return -int(-1 * x // 1)
 
 
@@ -106,14 +106,21 @@ class Discord():
                 }
             else:
                 extra_data = None
+            bio = data["user"].get("bio")
+            pronouns = data["user"].get("pronouns")
+            if data["user_profile"]:
+                if data["user_profile"].get("bio"):
+                    bio = data["user_profile"].get("bio")
+                if data["user_profile"].get("pronouns"):
+                    pronouns = data["user_profile"].get("pronouns")
             return {
                 "id": data["user"]["id"],
                 "guild_id": None,
                 "username": data["user"]["username"],
                 "global_name": data["user"]["global_name"],
                 "nick": nick,
-                "bio": data["user"]["bio"],
-                "pronouns": data["user_profile"]["pronouns"],
+                "bio": bio,
+                "pronouns": pronouns,
                 "joined_at": None,
                 "extra": extra_data,
                 "roles": None,
@@ -142,14 +149,27 @@ class Discord():
                 nick = None   # just in case
                 roles = None
                 joined_at = None
+            bio = data["user"].get("bio")
+            pronouns = data["user"].get("pronouns")
+            if data["user_profile"]:
+                if data["user_profile"].get("bio"):
+                    bio = data["user_profile"].get("bio")
+                if data["user_profile"].get("pronouns"):
+                    pronouns = data["user_profile"].get("pronouns")
+            if data["guild_member_profile"]:
+                guild_profile = data["guild_member_profile"]
+                if "pronouns" in guild_profile and guild_profile["pronouns"]:
+                    pronouns = data["guild_member_profile"]["pronouns"]
+                if "bio" in guild_profile and guild_profile["bio"]:
+                    bio = data["guild_member_profile"]["bio"]
             return {
                 "id": data["user"]["id"],
                 "guild_id": guild_id,
                 "username": data["user"]["username"],
                 "global_name": data["user"]["global_name"],
                 "nick": nick,
-                "bio": data["user"]["bio"],
-                "pronouns": data["user_profile"]["pronouns"],
+                "bio": bio,
+                "pronouns": pronouns,
                 "joined_at": joined_at,
                 "roles": roles,
             }

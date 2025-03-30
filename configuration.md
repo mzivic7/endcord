@@ -28,6 +28,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Sound played when notification is displayed. Linux only. Set to None to disable. Sound names can be found in `/usr/share/sounds/freedesktop/stereo`, without extension.
 - `ack_throttling = 5`  
     Delay in seconds between each ack send. Minimum is 3s. The larger it is, the longer will `[New unreads]` stay in status line.
+- `member_list = True`  
+    Wether to download member activities. Disable for lower CPU, RAM and network usage. If disabled, member list will be empty and there will be no presences in profile view screen.
 - `use_nick_when_avail = True`  
     Replace global_name with nick when it is available.
 - `remember_state = True`  
@@ -108,7 +110,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for right side of title line. See [format_status](#format_status) for more info.
 - `format_title_tree = " endcord  %task"`  
     Formatting for channel tree title line. See [format_status](#format_status) for more info. Set to None to disable.
-- `format_rich = "playing: %name - %state - %details "`  
+- `format_rich = "%type %name - %state - %details "`  
     Formatting for rich presence string used in `format_status`. See [format_rich](#format_rich) for more info.
 - `format_prompt = "[%channel] > "`  
     Formatting for prompt line. See [format_prompt](#format_prompt) for more info.
@@ -274,6 +276,7 @@ Note: everything after `%content` may be pushed to newline.
 - `%task` - currently running slow task (reconnecting, downloading chat...)
 
 ## format_rich
+- `%type` - type of rich presence: "Playing" or "Listening to"
 - `%name` - name of the rich presence app
 - `%state` - rich presence state
 - `%details` - rich presence details

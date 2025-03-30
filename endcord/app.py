@@ -72,6 +72,7 @@ class Endcord:
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
         self.fun = not config["disable_easter_eggs"]
+        self.get_members = self.config["member_list"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -128,6 +129,10 @@ class Endcord:
         self.extra_window_open = False
         self.viewing_user_data = {"id": None, "guild_id": None}
         self.hidden_channels = []
+        self.members = []
+        self.subscribed_members = []
+        self.current_members = []
+        self.current_subscribed_members = []
         self.reset_actions()
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
@@ -183,7 +188,7 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
-        new_activities = self.gateway.get_activities()
+        new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
             self.update_tree()
@@ -244,7 +249,11 @@ class Endcord:
 
         self.typing = []
         self.chat_end = False
-        self.gateway.subscribe(self.active_channel["channel_id"], self.active_channel["guild_id"])
+        self.gateway.subscribe(
+            self.active_channel["channel_id"],
+            self.active_channel["guild_id"],
+            self.get_members,
+        )
         self.update_chat(keep_selected=False)
         self.update_tree()
 
@@ -351,9 +360,21 @@ class Endcord:
         self.typing = []
         self.chat_end = False
         self.selected_attachment = 0
-        self.gateway.subscribe(channel_id, guild_id)
+        self.gateway.subscribe(channel_id, guild_id, self.get_members)
         if not self.forum:
             self.set_seen(channel_id)
+
+        # select guild member activities
+        if guild_id:
+            if self.get_members:
+                for guild in self.members:
+                    if guild["guild_id"] == self.active_channel["guild_id"]:
+                        self.current_members = guild["members"]
+                        break
+            for guild in self.subscribed_members:
+                if guild["guild_id"] == self.active_channel["guild_id"]:
+                    self.current_subscribed_members = guild["members"]
+                    break
 
         # manage roles
         self.all_roles = self.tui.init_role_colors(
@@ -1291,7 +1312,28 @@ class Endcord:
                     if role["id"] == role_id:
                         roles.append(role["name"])
                         break
-        extra_title, extra_body = formatter.generate_extra_window_profile(user_data, roles, max_w)
+        user_id = user_data["id"]
+        selected_presence = None
+        guild_id = user_data["guild_id"]
+        if guild_id:
+            if self.get_members:   # first check member list
+                for presence in self.current_members:
+                    if "id" in presence and presence["id"] == user_id:
+                        selected_presence = presence
+                        break
+            if not selected_presence:   # then check subscribed list
+                for presence in self.current_subscribed_members:
+                    if presence["id"] == user_id:
+                        selected_presence = presence
+                        break
+                else:   # if none, then subscribe
+                    self.gateway.subscribe_member(user_id, guild_id)
+        else:   # dms
+            for presence in self.activities:
+                if "id" in presence and presence["id"] == user_id:
+                    selected_presence = presence
+                    break
+        extra_title, extra_body = formatter.generate_extra_window_profile(user_data, roles, selected_presence, max_w)
         self.tui.draw_extra_window(extra_title, extra_body)
         self.extra_window_open = True
 
@@ -1883,7 +1925,7 @@ class Endcord:
                 if dm["is_spam"]:
                     self.dms_id.remove(dm["id"])
                     self.dms.remove(dm)
-        new_activities = self.gateway.get_activities()
+        new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
 
@@ -2219,7 +2261,7 @@ class Endcord:
                 self.update_status_line()
 
             # check changes in presences and update tree
-            new_activities = self.gateway.get_activities()
+            new_activities = self.gateway.get_dm_activities()
             if new_activities:
                 self.activities = new_activities
                 self.update_tree()
@@ -2231,6 +2273,32 @@ class Endcord:
                     self.load_threads(new_threads)
                 else:
                     break
+
+            # check for new member presences
+            if self.get_members:
+                new_members, changed_guilds = self.gateway.get_activities()
+                if changed_guilds:
+                    self.members = new_members
+                    for guild in new_members:   # select guild
+                        if guild["guild_id"] == self.active_channel["guild_id"]:
+                            self.current_members = guild["members"]
+                            break
+                    if self.active_channel["guild_id"] in changed_guilds:
+                        if self.viewing_user_data["id"]:
+                            self.view_profile(self.viewing_user_data)
+                        # will also redraw member list when impelemented
+
+            # check for subscribed member presences
+            new_members, changed_guilds = self.gateway.get_subscribed_activities()
+            if changed_guilds:
+                self.subscribed_members = new_members
+                for guild in new_members:   # select guild
+                    if guild["guild_id"] == self.active_channel["guild_id"]:
+                        self.current_subscribed_members = guild["members"]
+                        break
+                if self.active_channel["guild_id"] in changed_guilds:
+                    if self.viewing_user_data["id"]:
+                        self.view_profile(self.viewing_user_data)
 
             # check for tree format changes
             self.check_tree_format()

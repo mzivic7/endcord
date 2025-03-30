@@ -17,7 +17,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 
 ## Features
-- Extremely low CPU and and RAM usage (~30MB)
+- Extremely low CPU and and RAM usage (values greatly depend on number of servers and channels)
 - View images, gifs, videos and stickers in terminal with ASCII art (`Ctrl+V`)
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
@@ -35,7 +35,7 @@ Discord token is required in order to run endcord! see [Token](#token).
     - Expand categories and servers, enter channel (`Ctrl+Space`)
     - DMs in separate drop-down, show DM status
     - Forums, channel threads
-    - View channel info (`Alt+I`)
+    - View channel and server info (`Alt+I`)
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
@@ -308,10 +308,8 @@ Anonymized data that might help in debugging is saved in `Debug` directory, see 
 All channel and server names, topics, descriptions are replaced. All channel and server IDs are added to random number and hashed, so they are irreversible changed, and will be different on each run.
 
 ### Some role colors are wrong
-This is an [issue](https://github.com/python/cpython/issues/119138) with cpython ncurses API. It is ignoring color prirs with ID larger than 255. This means only 255 color pairs can actually be used.  
+This is an [issue](https://github.com/python/cpython/issues/119138) with cpython ncurses API. It is ignoring color prirs with ID larger than 255. This means only 255 color pairs can actually be used. Only role colors can reach this limit, because they are initialized last.
 This will be updated in endcord when cpython issue is resolved.
-All custom color pairs are initialized first, so only role colors can pass this limit.  
-For each role with color, 2 pairs are initialized. Role colors are dynamically loaded, so this can happen only when guild has really much roles.
 
 ### Some channels are not hidden
 This is because the actual way of getting hidden channels is unknown. Only the channels that are user-hidden (in Discord: right click on channel -> remove from channel list) and have no modified notification settings, will not be hidden in endcord.  
@@ -321,7 +319,7 @@ To hide it, either give it some notification setting (eg. mute it), or locally s
 Same reason as above, trying to save some color pair IDs until curses bug is fixed.  
 
 ### No emoji
-If emoji are drawn as empty box or simmilar it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.
+If emoji are drawn as empty box or simmilar, it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.
 
 ### Sticker cannot be opened
 If the message says it "cannot be opened", then this is lottie sticker. These stickers have special vector way of drawing animations and will not be supported.

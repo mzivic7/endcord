@@ -1,10 +1,11 @@
 HIGH PRIORITY:
-show status and presences in profile view
-search and go to messages (Ctrl+F)
+Simplify messages processing from other channel/server
+Advanced selection controls
 show and navigate summaries (Alt+S)
+search and go to messages (Ctrl+F)
 
 MEDIUM PRIORITY:
-member list (Alt+M)
+member list (Alt+M) - auto open on large screen
 assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
 
 LOW PRIORITY:

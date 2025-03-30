@@ -68,9 +68,13 @@ class Gateway():
         self.threads_buffer = []
         self.reconnect_requested = False
         self.status_changed = False
-        self.activities_changed = False
+        self.dm_activities_changed = False
         self.roles_changed = False
         self.user_settings_proto = None
+        self.activities = []
+        self.activities_changed = []
+        self.subscribed_activities = []
+        self.subscribed_activities_changed = []
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
@@ -78,7 +82,7 @@ class Gateway():
         """Clear local variables when new READY event is received"""
         self.ready = False
         self.my_status = {}
-        self.activities = []
+        self.dm_activities = []
         self.guilds = []
         self.roles = []
         self.member_roles = []
@@ -431,16 +435,17 @@ class Gateway():
                             for activity in user["activities"]:
                                 if activity["type"] == 4:
                                     custom_status = activity.get("state", "")
-                                elif activity["type"] == 0:
+                                elif activity["type"] in (0, 2):
                                     assets = activity.get("assets", {})
                                     activities.append({
+                                        "type": activity["type"],
                                         "name": activity["name"],
                                         "state": activity.get("state"),
                                         "details": activity.get("details"),
                                         "small_text": assets.get("small_text"),
                                         "large_text": assets.get("large_text"),
                                     })
-                            self.activities.append({
+                            self.dm_activities.append({
                                 "id": user["user_id"],
                                 "status": user["status"],
                                 "custom_status": custom_status,
@@ -451,24 +456,25 @@ class Gateway():
                         activities = []
                         for activity in user["activities"]:
                             if activity["type"] == 4:
-                                custom_status = activity["state"]
-                            elif activity["type"] == 0:
+                                custom_status = activity.get("state")
+                            elif activity["type"] in (0, 2):
                                 assets = activity.get("assets", {})
                                 activities.append({
+                                    "type": activity["type"],
                                     "name": activity["name"],
                                     "state": activity.get("state"),
                                     "details": activity.get("details"),
                                     "small_text": assets.get("small_text"),
                                     "large_text": assets.get("large_text"),
                                 })
-                        self.activities.append({
+                        self.dm_activities.append({
                             "id": user["user_id"],
                             "status": user["status"],
                             "custom_status": custom_status,
                             "activities": activities,
                         })
                     del (guild)   # this is large dict so lets save some memory
-                    self.activities_changed = True
+                    self.dm_activities_changed = True
 
                 elif optext == "SESSIONS_REPLACE":
                     # received when new client is connected
@@ -477,7 +483,7 @@ class Gateway():
                     activities = []
                     for activity in response["d"][0]["activities"]:
                         if activity["type"] == 4:
-                            custom_status = activity["state"]
+                            custom_status = activity.get("state")
                             custom_status_emoji = {
                                 "id": activity["emoji"].get("id"),
                                 "name": activity["emoji"].get("name"),
@@ -491,6 +497,7 @@ class Gateway():
                                 small_text = None
                                 large_text = None
                             activities.append({
+                                "type": activity["type"],
                                 "name": activity["name"],
                                 "state": activity.get("state", ""),
                                 "details": activity.get("details", ""),
@@ -512,8 +519,8 @@ class Gateway():
                     activities = []
                     for activity in response["d"]["activities"]:
                         if activity["type"] == 4:
-                            custom_status = activity["state"]
-                        elif activity["type"] == 0:
+                            custom_status = activity.get("state")
+                        elif activity["type"] in (0, 2):
                             if "assets" in activity:
                                 small_text =  activity["assets"].get("small_text")
                                 large_text =  activity["assets"].get("large_text")
@@ -521,15 +528,32 @@ class Gateway():
                                 small_text = None
                                 large_text = None
                             activities.append({
+                                "type": activity["type"],
                                 "name": activity["name"],
                                 "state": activity.get( "state"),
                                 "details": activity.get("details"),
                                 "small_text": small_text,
                                 "large_text": large_text,
                             })
-                    for num, user in enumerate(self.activities):
+                    # select what list of activities to update
+                    if "guild_id" in response["d"]:
+                        guild_id = response["d"]["guild_id"]
+                        for guild_activities in self.subscribed_activities:
+                            if guild_activities["guild_id"] == guild_id:
+                                selected_activities = guild_activities["members"]
+                                break
+                        else:
+                            self.subscribed_activities.append({
+                                "guild_id": guild_id,
+                                "members": [],
+                            })
+                            selected_activities = self.subscribed_activities[-1]["members"]
+                        self.subscribed_activities_changed.append(guild_id)
+                    else:
+                        selected_activities = self.dm_activities
+                    for num, user in enumerate(self.dm_activities):
                         if user["id"] == user_id:
-                            self.activities[num] = {
+                            selected_activities[num] = {
                                 "id": user_id,
                                 "status": response["d"]["status"],
                                 "custom_status": custom_status,
@@ -537,13 +561,13 @@ class Gateway():
                             }
                             break
                     else:
-                        self.activities.append({
+                        selected_activities.append({
                             "id": response["d"]["user"]["id"],
                             "status": response["d"]["status"],
                             "custom_status": custom_status,
                             "activities": activities,
                         })
-                    self.activities_changed = True
+                    self.dm_activities_changed = True
 
                 elif optext == "TYPING_START":
                     # received when user in currently subscribed guild channel starts typing
@@ -898,11 +922,95 @@ class Gateway():
                         }],
                     })
 
+                elif optext == "GUILD_MEMBER_LIST_UPDATE":
+                    guild_id = response["d"]["guild_id"]
+                    for guild_index, guild in enumerate(self.activities):
+                        if guild["guild_id"] == guild_id:
+                            break
+                    else:
+                        self.activities.append({"guild_id": guild_id, "members": []})
+                        guild_index = -1
+                    for memlist in response["d"]["ops"]:
+                        # keeping only necessary data, bacause the rest can be fetched with discord.get_user_guild()
+                        if memlist["op"] == "SYNC":
+                            if memlist["range"][0] != 0:
+                                # keeping only first chunk (first 99)
+                                continue
+                            members_sync = []
+                            for item in memlist["items"]:
+                                if "group" in item:
+                                    members_sync.append({"group": item["group"]["id"]})
+                                else:
+                                    custom_status = None
+                                    data = item["member"]
+                                    activities = []
+                                    for activity in data["presence"]["activities"]:
+                                        if activity["type"] == 4:
+                                            custom_status = activity.get("state", "")
+                                        elif activity["type"] in (0, 2):
+                                            assets = activity.get("assets", {})
+                                            activities.append({
+                                                "type": activity["type"],
+                                                "name": activity["name"],
+                                                "state": activity.get("state"),
+                                                "details": activity.get("details"),
+                                                "small_text": assets.get("small_text"),
+                                                "large_text": assets.get("large_text"),
+                                            })
+                                    members_sync.append({
+                                        "id": data["user"]["id"],
+                                        "username": data["user"]["username"],
+                                        "global_name": data["user"]["global_name"],
+                                        "nick": data["nick"],
+                                        # "roles": data["roles"],   # not needed
+                                        "status": data["presence"]["status"],
+                                        "custom_status": custom_status,
+                                        "activities": activities,
+                                    })
+                            self.activities[guild_index]["members"] = members_sync
+
+                        elif memlist["op"] == "DELETE":
+                            del self.activities[guild_index]["members"][memlist["index"]]
+                        elif memlist["op"] in ("UPDATE", "INSERT"):
+                            custom_status = None
+                            data = memlist["item"]["member"]
+                            activities = []
+                            for activity in data["presence"]["activities"]:
+                                if activity["type"] == 4:
+                                    custom_status = activity.get("state", "")
+                                elif activity["type"] in (0, 2):
+                                    assets = activity.get("assets", {})
+                                    activities.append({
+                                        "type": activity["type"],
+                                        "name": activity["name"],
+                                        "state": activity.get("state"),
+                                        "details": activity.get("details"),
+                                        "small_text": assets.get("small_text"),
+                                        "large_text": assets.get("large_text"),
+                                    })
+                            ready_data = {
+                                "id": data["user"]["id"],
+                                "username": data["user"]["username"],
+                                "global_name": data["user"]["global_name"],
+                                "nick": data["nick"],
+                                # "roles": data["roles"],
+                                "status": data["presence"]["status"],
+                                "custom_status": custom_status,
+                                "activities": activities,
+                            }
+                            if memlist["op"] == "UPDATE":
+                                self.activities[guild_index]["members"][memlist["index"]].update(ready_data)
+                            else:   # INSERT
+                                self.activities[guild_index]["members"].insert(memlist["index"], ready_data)
+                                if len(self.activities[guild_index]["members"]) > 100:   # lets have some limits
+                                    self.activities[guild_index]["members"].pop(-1)
+                        self.activities_changed.append(guild_id)
+
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
                 break
             # debug_events
-            # if "t" in response and response["t"]:
+            # if response.get("t"):
             #     debug.save_json(response, f"{response["t"]}.json", False)
         self.state = 0
         logger.info("Receiver stopped")
@@ -1070,14 +1178,16 @@ class Gateway():
         logger.debug("Updated presence")
 
 
-    def subscribe(self, channel_id, guild_id):
-        """Subscribe to the channel to receive "typing" events from gateway for specified channel"""
+    def subscribe(self, channel_id, guild_id, activities=True):
+        """
+        Subscribe to the channel to receive "typing" events from gateway for specified channel,
+        and threads updates, and member presence updates tor this guild.
+        """
         if guild_id:
             # when subscribing, add channel to list of subscribed channels
             # then send whole list
             # if channel is already in list send nothing
             # when subscribing to guild for the first time, send extra config
-            done = False
             for num, guild in enumerate(self.subscribed):
                 if guild["guild_id"] == guild_id:
                     if channel_id in guild["channels"]:
@@ -1099,12 +1209,13 @@ class Gateway():
                             },
                         }
                         self.send(payload)
-                    done = True
-            if not done:
+                    break
+            else:
                 logger.debug("Adding guild to subscribed")
                 self.subscribed.append({
                     "guild_id": guild_id,
                     "channels": [channel_id],
+                    "members": [],
                 })
                 payload = {
                     "op": 37,   # changed in gateway v10
@@ -1112,7 +1223,7 @@ class Gateway():
                         "subscriptions": {
                             guild_id: {
                                 "typing": True,
-                                "activities": False,
+                                "activities": activities,
                                 "threads": True,
                                 "channels": {
                                     channel_id: [[0, 99]],
@@ -1122,7 +1233,7 @@ class Gateway():
                     },
                 }
                 self.send(payload)
-        else:
+        else:   # for DMs
             payload = {
                 "op": 13,
                 "d": {
@@ -1131,6 +1242,32 @@ class Gateway():
             }
             self.send(payload)
             logger.debug("Subscribed to a DM")
+
+
+    def subscribe_member(self, member_id, guild_id):
+        """Subscribe to the member account to receive presence updates from gateway"""
+        # same as subscribe() just with members instead channels
+        # no need to handle subscribing to the guild for first time
+        # because it will always be subscribed with subscribe()
+        for num, guild in enumerate(self.subscribed):
+            if guild["guild_id"] == guild_id:
+                if member_id in guild["members"]:
+                    logger.debug("Already subscribed to the member")
+                else:
+                    logger.debug("Adding member to subscribed")
+                    guild["members"].append(member_id)
+                    payload = {
+                        "op": 37,   # changed in gateway v10
+                        "d": {
+                            "subscriptions": {
+                                guild_id: {
+                                    "members": guild["members"],
+                                },
+                            },
+                        },
+                    }
+                    self.send(payload)
+                break
 
 
     def request_members(self, guild_id, members):
@@ -1229,11 +1366,16 @@ class Gateway():
         return None
 
 
-    def get_activities(self):
-        """Get list of friends with their activity status, including rich presence, updated regularly"""
-        if self.activities_changed:
-            self.activities_changed = False
-            return self.activities
+    def get_dm_activities(self):
+        """
+        Get list of friends with their activity status, including rich presence, updated regularly
+        Activity types:
+        0 - playing
+        2 - listening
+        """
+        if self.dm_activities_changed:
+            self.dm_activities_changed = False
+            return self.dm_activities
         return None
 
 
@@ -1245,18 +1387,46 @@ class Gateway():
         return None
 
 
+    def get_activities(self):
+        """
+        Get member activities, updated regularly.
+        Activity types:
+        0 - playing
+        2 - listening
+        """
+        if self.activities_changed:
+            cache = self.activities_changed
+            self.activities_changed = []
+            return self.activities, cache
+        return [], []
+
+
+    def get_subscribed_activities(self):
+        """
+        Get subscribed member activities, updated regularly.
+        Activity types:
+        0 - playing
+        2 - listening
+        """
+        if self.subscribed_activities_changed:
+            cache = self.subscribed_activities_changed
+            self.subscribed_activities_changed = []
+            return self.subscribed_activities, cache
+        return [], []
+
+
     # all following "get_*" work like this:
     # internally:
     #    get events and append them to list
     #    when get_messages() is called, remove event from list and return it
     # externally:
-    #    in main get initial values
-    #    thread in app runs get_*() functions:
-    #    if returned value:
-    #       if value is for current channel:
-    #           update it in initial message list
-    #       run it again,
-    #    if returned None:
+    #    in main get initial data
+    #    main loop in app runs get_*() functions:
+    #    if returned data:
+    #       if data is for current channel:
+    #           update it in existing data from init
+    #       repeat
+    #    else:
     #       continue to other code in main
 
 
