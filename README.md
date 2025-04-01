@@ -222,7 +222,7 @@ Audio is also played along with the video.
     - `yay -S endcord` - full version with media support, larger executable
     - `yay -S endcord-lite` - lite version without media support
 - Build, then copy built executable to system:  
-    `sudo cp dist/endcord /usr/local/sbin/`
+    `sudo cp dist/endcord /usr/local/bin/`
 
 Optional dependencies:
 - `xclip` - Clipboard support on X11  
@@ -326,6 +326,9 @@ If the message says it "cannot be opened", then this is lottie sticker. These st
 
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.
+
+### No notification sound
+Custom notification sound can be set in config: `custom_notification_sound = /path/to/file.mp3`.
 
 ### Running in headless Linux tty
 Linux tty by default supports only 16 colors. Endcord will fail to initialize colors and not start.  

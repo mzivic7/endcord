@@ -6,12 +6,15 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from ast import literal_eval
 from configparser import ConfigParser
 
 import magic
 import pexpect
 import pexpect.popen_spawn
+import sounddevice
+import soundfile
 
 from endcord import defaults
 
@@ -151,11 +154,13 @@ def merge_configs(custom_config_path, theme_path):
     return config, gen_config
 
 
-def notify_send(title, message, sound="message"):
+def notify_send(title, message, sound="message", custom_sound=None):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":
-        command = ["notify-send", "-p", "--app-name", APP_NAME, "-h", f"string:sound-name:{sound}", title, message]
+        if custom_sound:
+            threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
         if have_notify_send:
+            command = ["notify-send", "-p", "--app-name", APP_NAME, "-h", f"string:sound-name:{sound}", title, message]
             proc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
@@ -165,10 +170,14 @@ def notify_send(title, message, sound="message"):
             return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
         return None
     if sys.platform == "win32":
+        if custom_sound:
+            threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
         notification = Toast()
         notification.text_fields = [message]
         toaster.show_toast(notification)
     elif sys.platform == "mac":
+        if custom_sound:
+            threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
         cmd = f"osascript -e 'display notification \"{message}\" with title \"{title}\"'"
         subprocess.Popen(cmd, shell=True)
     return None
@@ -269,6 +278,12 @@ def complete_path(path, separator=True):
         else:
             completions.append(path)
     return completions
+
+
+def play_audio(path):
+    """Play audio file with sounddevice"""
+    data, fs = soundfile.read(path, dtype="float32")
+    sounddevice.play(data, fs)
 
 
 def find_aspell():

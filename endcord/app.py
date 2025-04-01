@@ -26,7 +26,6 @@ from endcord import (
 support_media = (
     importlib.util.find_spec("PIL") is not None and
     importlib.util.find_spec("av") is not None and
-    importlib.util.find_spec("pyaudio") is not None and
     importlib.util.find_spec("numpy") is not None
 )
 if support_media:
@@ -36,6 +35,7 @@ logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "rich")
+ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github.com/mzivic7/endcord/issues"
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 
 download = downloader.Downloader()
@@ -66,18 +66,21 @@ class Endcord:
         self.cache_typed = config["cache_typed"]
         self.enable_notifications = config["desktop_notifications"]
         self.notification_sound = config["linux_notification_sound"]
+        self.notification_path = config["custom_notification_sound"]
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
         self.deleted_cache_limit = config["deleted_cache_limit"]
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
         self.fun = not config["disable_easter_eggs"]
-        self.get_members = self.config["member_list"]
+        self.tenor_gif_type = config["tenor_gif_type"]
+        self.get_members = config["member_list"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
         self.downloads_path = os.path.expanduser(downloads_path)
-        self.tenor_gif_type = config["tenor_gif_type"]
+        if self.notification_path:
+            self.notification_path = os.path.expanduser(self.notification_path)
         self.colors = color.extract_colors(config)
         self.colors_formatted = color.extract_colors_formatted(config)
         self.default_msg_color = self.colors_formatted[0][0][:]
@@ -134,6 +137,7 @@ class Endcord:
         self.current_members = []
         self.current_subscribed_members = []
         self.reset_actions()
+        self.gateway.set_want_member_list(self.get_members)
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
 
@@ -252,7 +256,6 @@ class Endcord:
         self.gateway.subscribe(
             self.active_channel["channel_id"],
             self.active_channel["guild_id"],
-            self.get_members,
         )
         self.update_chat(keep_selected=False)
         self.update_tree()
@@ -360,7 +363,8 @@ class Endcord:
         self.typing = []
         self.chat_end = False
         self.selected_attachment = 0
-        self.gateway.subscribe(channel_id, guild_id, self.get_members)
+        self.gateway.subscribe(channel_id, guild_id)
+        self.gateway.set_active_channel(channel_id)
         if not self.forum:
             self.set_seen(channel_id)
 
@@ -407,7 +411,6 @@ class Endcord:
             self.update_extra_line()
         self.update_prompt()
         self.update_tree()
-
 
         # save state (exclude threads)
         if self.config["remember_state"] and self.current_channel.get("type") not in (11, 12, 15):
@@ -556,7 +559,7 @@ class Endcord:
 
 
     def wait_input(self):
-        """Thread that handles getting input, formatting, sending, replying, editing, deleting message and switching channel"""
+        """Thread that handles: getting input, formatting, sending, replying, editing, deleting message and switching channel"""
         logger.info("Input handler loop started")
 
         while self.run:
@@ -1825,6 +1828,7 @@ class Endcord:
                     APP_NAME,
                     f"{new_message["d"]["global_name"]}:\n{new_message["d"]["content"]}",
                     sound=self.notification_sound,
+                    custom_sound=self.notification_path,
                 )
                 self.notifications.append({
                     "notification_id": notification_id,
@@ -2095,10 +2099,6 @@ class Endcord:
                                                     loaded_message["reactions"][num2]["count"] -= 1
                                                 break
                                         self.update_chat()
-                    else:
-                        new_member_roles = self.gateway.get_member_roles()
-                        if new_member_roles:
-                            self.member_roles = new_member_roles
                     # handling unseen and mentions
                     if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
                         # ignoring messages sent by other clients
@@ -2108,13 +2108,11 @@ class Endcord:
                                     "channel_id": new_message_channel_id,
                                     "guild_id": new_message["d"]["guild_id"],
                                 })
-                            mentions = []
-                            for mention in new_message["d"]["mentions"]:
-                                mentions.append(mention["id"])
+                            mentions = new_message["d"]["mentions"]
                             if (
                                 new_message["d"]["mention_everyone"] or
                                 bool([i for i in self.my_roles if i in new_message["d"]["mention_roles"]]) or
-                                self.my_id in mentions or
+                                self.my_id in [[x["id"] for x in mentions]] or
                                 (new_message_channel_id in self.dms_id)
                             ):
                                 self.pings.append({
@@ -2309,5 +2307,9 @@ class Endcord:
                     self.get_chat_chunk(past=False)
                 elif selected_line >= len(self.chat) - 1 and not self.chat_end:
                     self.get_chat_chunk(past=True)
+
+            # check gateway for errors
+            if self.gateway.error:
+                sys.exit(self.gateway.error + ERROR_TEXT)
 
             time.sleep(0.1)   # some reasonable delay

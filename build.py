@@ -32,7 +32,6 @@ def check_media_support():
     return (
         importlib.util.find_spec("PIL") is not None and
         importlib.util.find_spec("av") is not None and
-        importlib.util.find_spec("pyaudio") is not None and
         importlib.util.find_spec("numpy") is not None
     )
 
@@ -47,7 +46,7 @@ def add_media():
 def remove_media():
     """Remove media support"""
     if check_media_support():
-        command = "pipenv run python -m pip uninstall -y pillow pyav pyaudio numpy"
+        command = "pipenv run python -m pip uninstall -y pillow pyav numpy"
         os.system(command)
 
 

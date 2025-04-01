@@ -11,6 +11,7 @@ settings = {
     "desktop_notifications": True,
     "notification_in_active": True,
     "linux_notification_sound": "message",
+    "custom_notification_sound": None,
     "ack_throttling": 5,
     "member_list": False,
     "use_nick_when_available": True,
@@ -127,6 +128,8 @@ keybindings = {
     "redo": "ALT+90",   # Alt+Shift+Z
     "select_left": 393,   # Shift+Left
     "select_right": 402,   # Shift+Right
+    "select_word_left": 555,   # Ctrl+Shift+Left
+    "select_word_right": 570,   # Ctrl+Shift+Right
     "select_all": "ALT+97",   # Alt+A
     "copy_sel": "ALT+99",   # Alt+C
     "cut_sel": "ALT+120",   # Alt+X

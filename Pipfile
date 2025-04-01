@@ -11,11 +11,12 @@ pexpect = "*"
 python-magic = "*"
 pyinstaller = ">=6"
 emoji = "*"
+sounddevice = "*"
+soundfile = "*"
 
 [dev-packages]
 pillow = "*"
 pyav = "*"
-pyaudio = "*"
 numpy = "*"
 
 [requires]

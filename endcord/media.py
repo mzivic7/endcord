@@ -5,7 +5,7 @@ import time
 
 import av
 import magic
-import pyaudio
+import sounddevice
 from PIL import Image, ImageEnhance
 
 from endcord import xterm256
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class CursesMedia():
-    """Methods for shwing and playing media in termial with curses"""
+    """Methods for showing and playing media in termial with curses"""
 
     def __init__(self, screen, config, start_color_id):
         logging.getLogger("libav").setLevel(logging.ERROR)
@@ -22,7 +22,7 @@ class CursesMedia():
         self.font_scale = config["font_scale"]   # 2.25
         self.ascii_palette = config["ascii_palette"]   # "  ..',;:c*loexk#O0XNW"
         self.saturation = config["saturation"]   # 1.2
-        self.target_fps = config["target_fps"]   # 30
+        self.default_fps = config["target_fps"]   # 30
         self.color_media_bg = config["color_media_bg"]   # -1
         self.mute_video = config["mute_video"]   # false
         self.start_color_id = start_color_id
@@ -155,11 +155,12 @@ class CursesMedia():
         container = av.open(path)
 
         # prepare video
-        fps = container.streams.video[0].guessed_rate   # instead base_rate
-        frame_duration = 1 / fps
-        target_frames = max(int(fps / self.target_fps), 1)
+        self.video_fps = container.streams.video[0].guessed_rate   # instead base_rate
+        frame_duration = 1 / self.video_fps
+        self.target_fps = self.default_fps
+        self.target_frames = max(int(self.video_fps / self.target_fps), 1)
         self.audio_time = 0
-        self.video_sleep = False
+        self.video_time = 0
 
         # prepare audio
         if not self.mute_video:
@@ -167,50 +168,45 @@ class CursesMedia():
             all_audio_streams = audio_container.streams.audio
             if all_audio_streams:   # in case of a muted video
                 audio_stream = all_audio_streams[0]
-                p = pyaudio.PyAudio()
-                stream = p.open(
-                    format=pyaudio.paFloat32,
+                stream = sounddevice.RawOutputStream(
+                    samplerate=audio_stream.rate,
                     channels=audio_stream.channels,
-                    rate=audio_stream.rate,
-                    output=True,
+                    dtype="float32",
                 )
-                self.audio_thread = threading.Thread(target=self.play_sync_audio, daemon=True, args=(audio_container, stream, p))
+                self.audio_thread = threading.Thread(target=self.play_sync_audio, daemon=True, args=(audio_container, stream))
                 self.audio_thread.start()
-                has_auio = True
-            else:
-                has_auio = False
 
         for index, frame in enumerate(container.decode(video=0)):
             if not self.playing:
                 container.close()
                 break
             start_time = time.time()
-            video_time = float(index / fps)
-            if not index % target_frames:
+            if not index % self.target_frames:
                 img = frame.to_image()
                 self.pil_img_to_curses(img, remove_alpha=False)
-            if has_auio and video_time < self.audio_time:
-                # if video is late
-                video_sleep = 0
-            else:
-                # all fine
-                video_sleep = max(frame_duration - (time.time() - start_time), 0)
-            time.sleep(video_sleep)
+            if self.video_time >= self.audio_time:
+                # if all is fine or video is ahead of audio
+                time.sleep(max(max(frame_duration, self.video_time - self.video_time) - (time.time() - start_time), 0))
+                self.target_fps = min(self.target_fps + 1, self.default_fps)   # increase fps
+                self.target_frames = max(int(self.video_fps / self.target_fps), 1)
+            self.video_time += frame_duration
+        self.audio_thread.join()
 
 
-    def play_sync_audio(self, container, stream, p):
+    def play_sync_audio(self, container, stream):
         """Play audio synchronized with video"""
+        stream.start()
         start_time = time.time()
         for frame in container.decode(audio=0):
             if not self.playing:
-                stream.close()
-                p.terminate()
                 break
-            audio_data = frame.to_ndarray().astype("float32")
-            interleaved_data = audio_data.T.flatten().tobytes()
-            stream.write(interleaved_data)
+            if self.audio_time - self.video_time > 0.1:
+                # if audio is ahead of video
+                self.target_fps = max(self.target_fps - 1, 1)   # decrease fps
+                self.target_frames = max(int(self.video_fps / self.target_fps), 1)
+            stream.write(frame.to_ndarray().astype("float32").T.flatten())
             self.audio_time = time.time() - start_time
-
+        stream.close()
 
 
     def play(self, path):
@@ -232,6 +228,6 @@ class CursesMedia():
 
 
     def stop(self):
-        """Stop playig media"""
+        """Stop playing media"""
         self.playing = False
         self.redraw_img = False

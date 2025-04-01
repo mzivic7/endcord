@@ -966,6 +966,18 @@ class TUI():
             self.undo_index = None
 
 
+    def delete_selection(self):
+        """Delete selected text in input line and add it to undo history"""
+        input_select_start, input_select_end = self.store_input_selected()
+        # delete selection
+        self.input_buffer = self.input_buffer[:input_select_start] + self.input_buffer[input_select_end:]
+        # add selection to undo history as backspace
+        self.input_index = input_select_end
+        for letter in self.input_select_text[::-1]:
+            self.input_index -= 1
+            self.add_to_delta_store("BACKSPACE", letter)
+
+
     def common_keybindings(self, key):
         """Handle keybinding events that are common for all buffers"""
         if key == curses.KEY_UP:   # UP
@@ -1165,6 +1177,9 @@ class TUI():
                 return tmp, self.chat_selected, self.tree_selected_abs, code
 
             if isinstance(key, int) and 32 <= key <= 126:   # all regular characters
+                if self.input_select_start is not None:
+                    self.delete_selection()
+                    self.input_select_start = None
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.typing = int(time.time())
@@ -1173,10 +1188,12 @@ class TUI():
                     selected_completion = 0
                 self.add_to_delta_store(chr(key))
                 self.show_cursor()
-                self.input_select_start = None
 
             elif key == curses.KEY_BACKSPACE:   # BACKSPACE
-                if self.input_index > 0:
+                if self.input_select_start is not None:
+                    self.delete_selection()
+                    self.input_select_start = None
+                elif self.input_index > 0:
                     removed_char = self.input_buffer[self.input_index-1]
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
@@ -1185,15 +1202,16 @@ class TUI():
                         selected_completion = 0
                     self.add_to_delta_store("BACKSPACE", removed_char)
                     self.show_cursor()
-                self.input_select_start = None
 
             elif key == curses.KEY_DC:   # DEL
-                if self.input_index < len(self.input_buffer):
+                if self.input_select_start is not None:
+                    self.delete_selection()
+                    self.input_select_start = None
+                elif self.input_index < len(self.input_buffer):
                     removed_char = self.input_buffer[self.input_index]
                     self.input_buffer = self.input_buffer[:self.input_index] + self.input_buffer[self.input_index+1:]
                     self.add_to_delta_store("DELETE", removed_char)
                     self.show_cursor()
-                self.input_select_start = None
 
             elif key == curses.KEY_LEFT:   # LEFT
                 if self.input_index > 0:
@@ -1246,6 +1264,36 @@ class TUI():
                 self.input_index += left_len
                 self.input_index = min(self.input_index, len(self.input_buffer))
                 self.input_select_start = None
+
+            elif key == self.keybindings["select_word_left"]:
+                if self.input_select_start is None:
+                    self.input_select_end = self.input_select_start = self.input_index
+                left_len = 0
+                for word in self.input_buffer[:self.input_index].split(" ")[::-1]:
+                    if word == "":
+                        left_len += 1
+                    else:
+                        left_len += len(word)
+                        break
+                self.input_index -= left_len
+                self.input_index = max(self.input_index, 0)
+                if self.input_select_start is not None:
+                    self.input_select_end -= left_len
+
+            elif key == self.keybindings["select_word_right"]:
+                if self.input_select_start is None:
+                    self.input_select_end = self.input_select_start = self.input_index
+                left_len = 0
+                for word in self.input_buffer[self.input_index:].split(" "):
+                    if word == "":
+                        left_len += 1
+                    else:
+                        left_len += len(word)
+                        break
+                self.input_index += left_len
+                self.input_index = min(self.input_index, len(self.input_buffer))
+                if self.input_select_start is not None:
+                    self.input_select_end += left_len
 
             elif key == self.keybindings["undo"]:
                 self.add_to_delta_store("UNDO")
@@ -1326,14 +1374,7 @@ class TUI():
                 return tmp, self.chat_selected, self.tree_selected_abs, 20
 
             elif self.input_select_start and key == self.keybindings["cut_sel"]:
-                input_select_start, input_select_end = self.store_input_selected()
-                # delete selection
-                self.input_buffer = self.input_buffer[:input_select_start] + self.input_buffer[input_select_end:]
-                # add selection to undo history as backspace
-                self.input_index = input_select_end
-                for letter in self.input_select_text[::-1]:
-                    self.input_index -= 1
-                    self.add_to_delta_store("BACKSPACE", letter)
+                self.delete_selection()
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 20

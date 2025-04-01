@@ -6,6 +6,7 @@ import socket
 import sys
 import threading
 import time
+import traceback
 import urllib
 import zlib
 from http.client import HTTPSConnection
@@ -61,6 +62,7 @@ class Gateway():
         self.resume_gateway_url = ""
         self.session_id = ""
         self.clear_ready_vars()
+        self.want_member_list = False
         self.messages_buffer = []
         self.typing_buffer = []
         self.summaries_buffer = []
@@ -75,6 +77,8 @@ class Gateway():
         self.activities_changed = []
         self.subscribed_activities = []
         self.subscribed_activities_changed = []
+        self.active_channel = None
+        self.error = None
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
@@ -129,12 +133,23 @@ class Gateway():
         self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
         self.state = 1
         self.heartbeat_interval = int(json.loads(zlib_decompress(self.ws.recv()))["d"]["heartbeat_interval"])
-        self.receiver_thread = threading.Thread(target=self.receiver, daemon=True, args=())
+        self.receiver_thread = threading.Thread(target=self.safe_func_wrapper, daemon=True, args=(self.receiver, ))
         self.receiver_thread.start()
         self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
         self.heartbeat_thread.start()
         self.reconnect_thread = threading.Thread()
         self.authenticate()
+
+
+    def safe_func_wrapper(self, func, args=()):
+        """
+        Wrapper for a function running in a thread that captures error and stores it for later use.
+        Error can be accessed from main loop and handled there.
+        """
+        try:
+            func(*args)
+        except BaseException as e:
+            self.error = "".join(traceback.format_exception(e))
 
 
     def send(self, request):
@@ -588,8 +603,8 @@ class Gateway():
                         "nick": nick,
                     })
 
-                elif optext == "MESSAGE_CREATE":
-                    if "content" in response["d"]:
+                elif optext == "MESSAGE_CREATE" and "content" in response["d"]:
+                    if response["d"]["channel_id"] == self.active_channel:
                         if "referenced_message" in response["d"]:
                             reference_nick = None
                             for mention in response["d"]["mentions"]:
@@ -718,6 +733,27 @@ class Gateway():
                                 "reactions": [],
                                 "embeds": embeds,
                                 "stickers": response["d"].get("sticker_items", []),   # {name, id, format_type}
+                            },
+                        })
+                    else:   # all other non-active channel
+                        mentions = []
+                        if response["d"]["mentions"]:
+                            for mention in response["d"]["mentions"]:
+                                mentions.append({
+                                    "id": mention["id"],
+                                })
+                        self.messages_buffer.append({
+                            "op": "MESSAGE_CREATE",
+                            "d": {
+                                "id": response["d"]["id"],
+                                "channel_id": response["d"]["channel_id"],
+                                "guild_id": response["d"].get("guild_id"),
+                                "content": response["d"]["content"],
+                                "mentions": mentions,
+                                "mention_roles": response["d"]["mention_roles"],
+                                "mention_everyone": response["d"]["mention_everyone"],
+                                "user_id": response["d"]["author"]["id"],
+                                "global_name": response["d"]["author"]["global_name"],
                             },
                         })
 
@@ -922,7 +958,7 @@ class Gateway():
                         }],
                     })
 
-                elif optext == "GUILD_MEMBER_LIST_UPDATE":
+                elif self.want_member_list and optext == "GUILD_MEMBER_LIST_UPDATE":
                     guild_id = response["d"]["guild_id"]
                     for guild_index, guild in enumerate(self.activities):
                         if guild["guild_id"] == guild_id:
@@ -970,7 +1006,10 @@ class Gateway():
                             self.activities[guild_index]["members"] = members_sync
 
                         elif memlist["op"] == "DELETE":
-                            del self.activities[guild_index]["members"][memlist["index"]]
+                            try:
+                                del self.activities[guild_index]["members"][memlist["index"]]
+                            except IndexError:
+                                pass
                         elif memlist["op"] in ("UPDATE", "INSERT"):
                             custom_status = None
                             if "group" in memlist["item"]:
@@ -1006,7 +1045,10 @@ class Gateway():
                                 "activities": activities,
                             }
                             if memlist["op"] == "UPDATE":
-                                self.activities[guild_index]["members"][memlist["index"]].update(ready_data)
+                                try:
+                                    self.activities[guild_index]["members"][memlist["index"]].update(ready_data)
+                                except IndexError:
+                                    pass
                             else:   # INSERT
                                 self.activities[guild_index]["members"].insert(memlist["index"], ready_data)
                                 if len(self.activities[guild_index]["members"]) > 100:   # lets have some limits
@@ -1126,7 +1168,7 @@ class Gateway():
             self.wait = False
             # restarting threads
             if not self.receiver_thread.is_alive():
-                self.receiver_thread = threading.Thread(target=self.receiver, daemon=True, args=())
+                self.receiver_thread = threading.Thread(target=self.safe_func_wrapper, daemon=True, args=(self.receiver, ))
                 self.receiver_thread.start()
             if not self.heartbeat_thread.is_alive():
                 self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
@@ -1185,7 +1227,7 @@ class Gateway():
         logger.debug("Updated presence")
 
 
-    def subscribe(self, channel_id, guild_id, activities=True):
+    def subscribe(self, channel_id, guild_id):
         """
         Subscribe to the channel to receive "typing" events from gateway for specified channel,
         and threads updates, and member presence updates tor this guild.
@@ -1230,7 +1272,7 @@ class Gateway():
                         "subscriptions": {
                             guild_id: {
                                 "typing": True,
-                                "activities": activities,
+                                "activities": self.want_member_list,
                                 "threads": True,
                                 "channels": {
                                     channel_id: [[0, 99]],
@@ -1295,6 +1337,16 @@ class Gateway():
             }
             self.send(payload)
             logger.debug("Requesting guild members chunk")
+
+
+    def set_active_channel(self, channel_id):
+        """Set currently active cannel so MESSAGE_CREATE event can be faster prcessed for non-active channels"""
+        self.active_channel = channel_id
+
+
+    def set_want_member_list(self, want):
+        """Set if client wants to recive member list updates"""
+        self.want_member_list = want
 
 
     def get_ready(self):

@@ -26,6 +26,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Allow sending desktop notifications for mentions even in active channel.
 - `linux_notification_sound = "message"`  
     Sound played when notification is displayed. Linux only. Set to None to disable. Sound names can be found in `/usr/share/sounds/freedesktop/stereo`, without extension.
+- `custom_notification_sound = None`  
+    Path to audio file played when notification is sent. Set to `None` to disable. Supports many audio formats like mp3, m4a...
 - `ack_throttling = 5`  
     Delay in seconds between each ack send. Minimum is 3s. The larger it is, the longer will `[New unreads]` stay in status line.
 - `member_list = True`  
