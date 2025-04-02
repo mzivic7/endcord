@@ -37,6 +37,8 @@ MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles
 MEDIA_EMBEDS = ("image", "gifv", "video", "rich")
 ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github.com/mzivic7/endcord/issues"
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
+SUMMARY_SAVE_INTERVAL = 300   # 5min
+LIMIT_SUMMARIES = 5   # max number of summaries per channel
 
 download = downloader.Downloader()
 match_url = re.compile(r"(https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*)")
@@ -72,6 +74,7 @@ class Endcord:
         self.deleted_cache_limit = config["deleted_cache_limit"]
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
+        self.save_summaries = config["save_summaries"]
         self.fun = not config["disable_easter_eggs"]
         self.tenor_gif_type = config["tenor_gif_type"]
         self.get_members = config["member_list"]
@@ -81,12 +84,12 @@ class Endcord:
         self.downloads_path = os.path.expanduser(downloads_path)
         if self.notification_path:
             self.notification_path = os.path.expanduser(self.notification_path)
+        if not support_media:
+            self.config["native_media_player"] = True
         self.colors = color.extract_colors(config)
         self.colors_formatted = color.extract_colors_formatted(config)
         self.default_msg_color = self.colors_formatted[0][0][:]
         self.default_msg_alt_color = self.colors[1]
-        self.cached_downloads = []
-        self.color_cache = []
 
         # variables
         self.run = False
@@ -104,6 +107,9 @@ class Endcord:
         self.summaries = []
         self.input_store = []
         self.running_tasks = []
+        self.cached_downloads = []
+        self.color_cache = []
+        self.last_summary_save = time.time() - SUMMARY_SAVE_INTERVAL - 1
 
         # initialize stuff
         self.discord = discord.Discord(config["custom_host"], config["token"])
@@ -130,6 +136,7 @@ class Endcord:
         self.my_roles = []
         self.deleted_cache = []
         self.extra_window_open = False
+        self.extra_indexes = []
         self.viewing_user_data = {"id": None, "guild_id": None}
         self.hidden_channels = []
         self.members = []
@@ -138,6 +145,7 @@ class Endcord:
         self.current_subscribed_members = []
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
+        self.gateway.set_want_summaries(self.save_summaries)
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
 
@@ -897,7 +905,7 @@ class Endcord:
                             break
                 elif ch_type not in (1, 3, 4, 11, 12):
                     channel_id = self.tree_metadata[tree_sel]["id"]
-                    guild_id, _, _ = self.find_parents(tree_sel)
+                    guild_id = self.find_parents(tree_sel)[0]
                     channel_sel = None
                     for guild in self.guilds:
                         if guild["guild_id"] == guild_id:
@@ -915,7 +923,7 @@ class Endcord:
                 if ch_type not in (-1, 1, 11, 12):
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.reset_actions()
-                    guild_id, _, _ = self.find_parents(tree_sel)
+                    guild_id = self.find_parents(tree_sel)[0]
                     self.hidding_ch = {
                         "channel_name": self.tree_metadata[tree_sel]["name"],
                         "channel_id": self.tree_metadata[tree_sel]["id"],
@@ -923,6 +931,39 @@ class Endcord:
                         "content": input_text,
                     }
                     self.update_status_line()
+
+            # select in extra menu
+            elif self.extra_indexes and action == 27:
+                self.going_to = input_text   # reusing variable
+                extra_selected = self.tui.get_extra_selected()
+                if extra_selected < 0:
+                    return
+                total_len = 0
+                for num, item in enumerate(self.extra_indexes):
+                    total_len += item["lines"]
+                    if total_len >= extra_selected + 1:
+                        message_id = item["message_id"]
+                        break
+                else:
+                    return
+                self.go_to_message(message_id)
+                self.close_extra_window()
+
+            # view summaries
+            elif action == 28:
+                self.going_to = input_text   # reusing variable
+                max_w = self.tui.get_dimensions()[2][1]
+                summaries = []
+                for guild in self.summaries:
+                    if guild["guild_id"] == self.active_channel["guild_id"]:
+                        for channel in guild["channels"]:
+                            if channel["channel_id"] == self.active_channel["channel_id"]:
+                                summaries = channel["summaries"]
+                                break
+                        break
+                extra_title, extra_body, self.extra_indexes = formatter.generate_extra_window_summaries(summaries, max_w)
+                self.tui.draw_extra_window(extra_title, extra_body, select=True)
+                self.extra_window_open = True
 
             # escape key in main UI
             elif action == 5:
@@ -1318,7 +1359,9 @@ class Endcord:
         user_id = user_data["id"]
         selected_presence = None
         guild_id = user_data["guild_id"]
-        if guild_id:
+        if user_id == self.my_id:
+            selected_presence = self.my_status
+        elif guild_id:
             if self.get_members:   # first check member list
                 for presence in self.current_members:
                     if "id" in presence and presence["id"] == user_id:
@@ -1413,8 +1456,13 @@ class Endcord:
 
 
     def open_media(self, path):
-        """Prevent other UI updates, draw media and wait for input, after quitting - update UI"""
-        if support_media:
+        """
+        If TUI mode: prevent other UI updates, draw media and wait for input, after quitting - update UI
+        If native mode: just open the file
+        """
+        if self.config["native_media_player"]:
+            peripherals.native_open(path)
+        elif support_media:
             self.tui.lock_ui(True)
             self.curses_media.play(path)
             # restore first 255 colors, attributes were not modified
@@ -1813,6 +1861,39 @@ class Endcord:
                 peripherals.save_json(self.state, "state.json")
 
 
+    def update_summary(self, new_summary):
+        """Add new summary to list, then save it, avoiding often disk writes"""
+        summary = {
+            "message_id": new_summary["message_id"],
+            "topic": new_summary["topic"],
+            "description": new_summary["description"],
+        }
+        for num, guild in enumerate(self.summaries):   # select guild
+            if guild["guild_id"] == new_summary["guild_id"]:
+                selected_guild = num
+                break
+        else:
+            self.summaries.append({
+                "guild_id": new_summary["guild_id"],
+                "channels": [],
+            })
+            selected_guild = -1
+        for channel in self.summaries[selected_guild]["channels"]:
+            if channel["channel_id"] == new_summary["channel_id"]:
+                channel["summaries"].append(summary)
+                if len(channel["summaries"]) > LIMIT_SUMMARIES:
+                    del channel["summaries"][0]
+                break
+        else:
+            self.summaries[selected_guild]["channels"].append({
+                "channel_id": new_summary["channel_id"],
+                "summaries": [summary],
+            })
+        if time.time() - self.last_summary_save > SUMMARY_SAVE_INTERVAL:
+            peripherals.save_json(self.summaries, "summaries.json")
+            self.last_summary_save = time.time()
+
+
     def send_desktop_notification(self, new_message):
         """
         Send desktop notification, and handle its ID so it can be removed.
@@ -1916,11 +1997,11 @@ class Endcord:
         # init media
         if support_media:
             # must be run after all colors are initialized in endcord.tui
-            logger.info("Media is supported")
+            logger.info("ASCII media is supported")
             self.curses_media = media.CursesMedia(self.screen, self.config, last_free_color_id)
         else:
             self.curses_media = None
-            logger.info("Media is not supported")
+            logger.info("ASCII media is not supported")
 
         # load dms
         self.dms, self.dms_id = self.gateway.get_dms()
@@ -1973,6 +2054,12 @@ class Endcord:
                     "last_channel_id": None,
                     "collapsed": [],
                 }
+
+        # load summaries
+        if self.save_summaries:
+            self.summaries = peripherals.load_json("summaries.json")
+            if not self.summaries:
+                self.summaries = []
 
         # open uncollapsed guilds
         self.open_guild(guild["guild_id"], restore=True)
@@ -2166,16 +2253,13 @@ class Endcord:
                     break
 
             # get new summaries
-            while self.run:
-                new_summary = self.gateway.get_summaries()
-                if new_summary:
-                    for num, loaded_summary in enumerate(self.summaries):
-                        if new_summary["channel_id"] == loaded_summary["channel_id"]:
-                            self.summaries[num] = new_summary
-                        else:
-                            self.summaries.append(new_summary)
-                else:
-                    break
+            if self.save_summaries:
+                while self.run:
+                    new_summary = self.gateway.get_summaries()
+                    if new_summary:
+                        self.update_summary(new_summary)
+                    else:
+                        break
 
             # get new message_ack
             while self.run:

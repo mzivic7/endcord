@@ -75,6 +75,15 @@ else:
     sys.exit(f"Unsupported platform: {sys.platform}")
 
 
+# platform specific commands
+if sys.platform == "linux":
+    runner = "xdg-open"
+elif sys.platform == "win32":
+    runner = "explorer"
+elif sys.platform == "mac":
+    runner = "open"
+
+
 def load_config(path, default, section="main", gen_config=False):
     """
     Load settings and theme from config
@@ -284,6 +293,16 @@ def play_audio(path):
     """Play audio file with sounddevice"""
     data, fs = soundfile.read(path, dtype="float32")
     sounddevice.play(data, fs)
+    sounddevice.wait()
+
+
+def native_open(path):
+    """Open media file in native application, cross-system"""
+    _ = subprocess.Popen(
+        [runner, path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def find_aspell():

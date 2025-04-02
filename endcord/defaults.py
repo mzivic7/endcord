@@ -31,6 +31,8 @@ settings = {
     "mute_video": False,
     "rpc_external": True,
     "emoji_as_text": False,
+    "native_media_player": False,
+    "save_summaries": True,
     "only_one_open_server": False,
     "custom_host": None,
     "disable_easter_eggs": False,
@@ -147,6 +149,7 @@ keybindings = {
     "view_media": 22,   # Ctrl+V
     "spoil": 20,   # Ctrl+T
     "profile_info": "ALT+112",   # Alt+P
+    "show_summaries": "ALT+115",   # Alt+S
     # extra line
     "attach_prev": "ALT+552",   # Alt+Left
     "attach_next": "ALT+567",   # Alt+Right
@@ -154,6 +157,7 @@ keybindings = {
     # extra window
     "extra_up": 573,   # Alt+Up
     "extra_down": 532,   # Alt+Down
+    "extra_select": "ALT+10",   # Alt+Enter
     # other
     "redraw": 12,   # Ctrl+L
     "cancel": 24,   # Ctrl+X

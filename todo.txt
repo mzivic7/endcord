@@ -1,22 +1,22 @@
 HIGH PRIORITY:
-show and navigate summaries (Alt+S)
 search and go to messages (Ctrl+F)
+member list (Alt+M) - auto open on large screen
 
 MEDIUM PRIORITY:
-member list (Alt+M) - auto open on large screen
+media player: UI, pause, seek
+play audio messages
 assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
 
 LOW PRIORITY:
+:commands
+recording audio messages
 fix hidden channels
-media player: zoom, seek, pause, play audio messages
-vi-mode (commands, controls)
 tabs
 rpc on windows
 
 MAYBE:
 code blocks syntax highlighting
-emacs-like keybinding
+emacs-like controls
+vi-like controls
 mouse controls
-recording voice messages
 voice and video calls
-non-ascii media

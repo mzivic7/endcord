@@ -287,8 +287,11 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
     return line_format
 
 
-def split_long_line(line, max_len):
-    """Split long line into list, on nearest spece to left or on newline"""
+def split_long_line(line, max_len, align=None):
+    """
+    Split long line into list, on nearest spece to left or on newline
+    optionally align newline to specified length
+    """
     lines_list = []
     while line:
         if len(line) > max_len:
@@ -312,6 +315,8 @@ def split_long_line(line, max_len):
         else:
             lines_list.append(line)
             break
+        if align:
+            line = " " * align + line
     return lines_list
 
 
@@ -1194,6 +1199,26 @@ def generate_extra_window_guild(guild, max_len):
 
     body = split_long_line(body_line, max_len)
     return title_line, body
+
+
+def generate_extra_window_summaries(summaries, max_len):
+    """Generate extra window title and body for summaries list view"""
+    title_line = "Summaries:"
+    body = []
+    indexes = []
+    if summaries:
+        for summary in summaries:
+            summary_date = timestamp_from_snowflake(int(summary["message_id"]), "%m-%d-%H:%M")
+            summary_string = f"[{summary_date}] - {summary["topic"]}: {summary["description"]}"
+            summary_lines = split_long_line(summary_string, max_len, align=16)
+            indexes.append({
+                "lines": len(summary_lines),
+                "message_id": summary["message_id"],
+            })
+            body.extend(summary_lines)
+    else:
+        body = ["No summaries."]
+    return title_line, body, indexes
 
 
 def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):

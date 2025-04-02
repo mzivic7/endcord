@@ -78,10 +78,14 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to use external resources for Rich Presence (like custom pictures).
 - `emoji_as_text = False`  
     Will convert emoji characters to their names. Enable if emoji are not supported by terminal.
+- `native_media_player = False`  
+    Use system native media player instead in-terminal ASCII art.
+- `save_sumamries = True`  
+    Wether to save summaries to disk. Disable to save RAM and reduce disk writes.
 - `only_one_open_server = False`  
-    Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.  
+    Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.
 - `custom_host = None`  
-    Custom host to connect to, like `spacebar.chat`. Set to none to use default host (`discord.com`).  
+    Custom host to connect to, like `spacebar.chat`. Set to None to use default host (`discord.com`)
 - `"disable_easter_eggs = False`  
     In case some easter egg is annoying.
 

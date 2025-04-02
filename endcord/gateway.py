@@ -63,6 +63,7 @@ class Gateway():
         self.session_id = ""
         self.clear_ready_vars()
         self.want_member_list = False
+        self.want_summaries = True
         self.messages_buffer = []
         self.typing_buffer = []
         self.summaries_buffer = []
@@ -884,16 +885,19 @@ class Gateway():
                         "d": data,
                     })
 
-                elif optext == "CONVERSATION_SUMMARY_UPDATE":
+                elif self.want_summaries and optext == "CONVERSATION_SUMMARY_UPDATE":
                     # received when new conversation summary is generated
                     for summary in response["d"]["summaries"]:
-                        self.summaries_buffer.append({
-                            "channel_id": response["d"]["channel_id"],
-                            "guild_id": response["d"].get("guild_id"),
-                            "topic": summary["topic"],
-                            "description": summary["summ_short"],
-
-                        })
+                        if summary["type"] == 3:
+                            self.summaries_buffer.append({
+                                "message_id": summary["start_id"],
+                                "channel_id": response["d"]["channel_id"],
+                                "guild_id": response["d"].get("guild_id"),
+                                "topic": summary["topic"],
+                                "description": summary["summ_short"],
+                            })
+                        else:
+                            logger.warn(f"Unhandled summary type\n{json.dumps(summary, indent=2)}")
 
                 elif optext == "MESSAGE_ACK":
                     # received when other client ACKs messages
@@ -1348,6 +1352,10 @@ class Gateway():
         """Set if client wants to recive member list updates"""
         self.want_member_list = want
 
+
+    def set_want_summaries(self, want):
+        """Set if client wants to recive summaries"""
+        self.want_summaries = want
 
     def get_ready(self):
         """Return wether gateway processed entire READY event"""

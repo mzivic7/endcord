@@ -18,7 +18,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 ## Features
 - Extremely low CPU and and RAM usage (values greatly depend on number of servers and channels)
-- View images, gifs, videos and stickers in terminal with ASCII art (`Ctrl+V`)
+- View images, gifs, videos, audio and stickers in terminal with ASCII art or external app (`Ctrl+V`)
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
 - Download/upload attachments (`Ctrl+W/U`)
@@ -57,7 +57,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
-- Customizable colors, ASCII art
+- Customizable colors and ASCII art
 - Automatic recovery on network failure
 - Remember last open channel and tree state
 - Resizable
@@ -75,7 +75,7 @@ Settings, log, state and themes location:
 Run `endcord -h` or `endcord --help` to see possible command arguments.  
 
 ### Providing config
-Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.
+Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.  
 If config is not found at that path, default will be written.  
 There can be missing entries in config, they will be filled with defaults.  
 
@@ -124,7 +124,7 @@ View channel info (selected in tree) - `Alt+I`
 Copy message to clipboard - `Ctrl+B`  
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
-View attached media (image, gif, video) - `Ctrl+V`  
+View attached media (image, gif, video, audio) - `Ctrl+V`  
 Upload attachments - `Ctrl+U`  
 Cancel all downloads/uploads - `Ctrl+X`  
 Cancel selected attachment - `Ctrl+K`  
@@ -143,7 +143,7 @@ Quit - `Ctrl+C`
 
 ### Channel Tree
 If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
-Objects are un/collapsed with `Ctrl+Space`. Channels with threads are un/collapsed on `Alt+T`.
+Objects are un/collapsed with `Ctrl+Space`. Channels with threads are un/collapsed on `Alt+T`.  
 Channel with threads are collapsed by default.  
 Thread can be joined or left (toggle) on `Alt+J`.  
 
@@ -176,6 +176,15 @@ If file size exceeds discord's limit it will not be added to the sent message.
 Attachments can be navigated with `Ctrl+Left/Right` in extra line (above status line).  
 `Ctrl+X` will cancel ALL downloads and attachments, with a confirmation prompt.  
 `Ctrl+K` will cancel selected attachment (and stop upload) and remove it from attachments list.
+
+### Extra window navigation
+Navigating in extra window:
+`Alt+Up/Down` - Go up/down  
+`Alt+Enter` - perform action on selected line (depends on context)  
+Extra window is drawn for viewing:
+- User profile info - from selected message (`Alt+P`)
+- Channel/server info - from selected tree channel (`Alt+I`)
+- Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that sumamry topic.
 
 ### Emoji
 To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  
@@ -212,8 +221,9 @@ There are 2 default themes: `default` and `better_lines`, they are assumed to be
 ### Media support
 Very large number of image and video formats are supported thanks to pillow and PyAV.  
 All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
+Optionally in config can be set to open media in external app (cross-system, will use default system app for that file format).  
 Audio is also played along with the video.  
-"endcord-lite", without media support, can be built by not specifying `--lite` flag to build script. Lite version is significantly smaller in size.  
+"endcord-lite", without ASCII media support, can be built by not specifying `--lite` flag to build script. Lite version is significantly smaller in size, but still can open media in external app.  
 
 
 ## Installing

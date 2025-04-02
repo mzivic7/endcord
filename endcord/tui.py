@@ -129,7 +129,9 @@ class TUI():
         self.extra_line_text = ""
         self.extra_window_title = ""
         self.extra_window_body = ""
+        self.extra_selected = -1
         self.extra_index = 0
+        self.extra_select = False
         self.run = True
         self.win_extra_line = None
         self.win_extra_window = None
@@ -198,6 +200,11 @@ class TUI():
     def get_selected(self):
         """Return index of currently selected line and how much text has been scrolled"""
         return self.chat_selected, self.chat_index
+
+
+    def get_extra_selected(self):
+        """Return index of currently selected line in extra window"""
+        return self.extra_selected
 
 
     def get_my_typing(self):
@@ -347,7 +354,7 @@ class TUI():
         if self.have_title_tree:
             self.draw_title_tree()
         self.draw_extra_line(self.extra_line_text)
-        self.draw_extra_window(self.extra_window_title, self.extra_window_body)
+        self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
 
 
     def draw_status_line(self):
@@ -604,11 +611,12 @@ class TUI():
             self.draw_chat()
 
 
-    def draw_extra_window(self, title_text, body_text):
+    def draw_extra_window(self, title_text, body_text, select=False):
         """
         Draw extra window above status line and resize chat.
         title_text is string, body_text is list.
         """
+        self.extra_select = select
         self.extra_window_title = title_text
         self.extra_window_body = body_text
         if title_text and not self.disable_drawing:
@@ -633,12 +641,16 @@ class TUI():
                 )
                 self.win_extra_window = self.screen.derwin(*extra_window_hwyx)
             self.win_extra_window.insstr(0, 0, title_text + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
-            h, _ = self.win_extra_window.getmaxyx()
-            y = -1
-            for y, line in enumerate(body_text[self.extra_index:]):
+            h = self.win_extra_window.getmaxyx()[0]
+            for num, line in enumerate(body_text):
+                y = max(num - self.extra_index, 0)
                 if y + 1 >= h:
                     break
-                self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(title_text)) + "\n", curses.color_pair(21) | self.attrib_map[21])
+                if y >= 0:
+                    if num == self.extra_selected:
+                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                    else:
+                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(title_text)) + "\n", curses.color_pair(21) | self.attrib_map[21])
             y += 2
             while y < h:
                 self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
@@ -1004,8 +1016,8 @@ class TUI():
 
         elif key == self.keybindings["tree_down"]:
             if self.tree_selected + 1 < self.tree_clean_len:
-                top_line = self.tree_index + self.tree_hw[0] - 3
-                if top_line + 3 < self.tree_clean_len and self.tree_selected >= top_line:
+                top_line = self.tree_index + self.tree_hw[0]
+                if top_line < self.tree_clean_len and self.tree_selected >= top_line - 3:
                     self.tree_index += 1
                 self.tree_selected += 1
                 self.draw_tree()
@@ -1050,17 +1062,33 @@ class TUI():
             return 21
 
         elif self.extra_window_body and key == self.keybindings["extra_up"]:
-            if self.extra_index > 0:
+            if self.extra_select and self.extra_selected >= 0:
+                if self.extra_index and self.extra_selected <= self.extra_index:
+                    self.extra_index -= 1
+                self.extra_selected -= 1
+                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+            elif self.extra_index > 0:
                 self.extra_index -= 1
-                self.draw_extra_window(self.extra_window_title, self.extra_window_body)
+                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
 
         elif self.extra_window_body and key == self.keybindings["extra_down"]:
-            if self.extra_index + 1 < len(self.extra_window_body):
+            if self.extra_select:
+                if self.extra_selected + 1 < len(self.extra_window_body):
+                    top_line = self.extra_index + self.win_extra_window.getmaxyx()[0]
+                    if top_line < len(self.extra_window_body) and self.extra_selected >= top_line - 1:
+                        self.extra_index += 1
+                    self.extra_selected += 1
+                    self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+            elif self.extra_index + 1 < len(self.extra_window_body):
                 self.extra_index += 1
-                self.draw_extra_window(self.extra_window_title, self.extra_window_body)
+                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+
+        elif self.extra_window_body and key == self.keybindings["extra_select"]:
+            return 27
 
         elif key == self.keybindings["channel_info"] and self.tree_selected > 0:
             self.extra_index = 0
+            self.extra_selected = -1
             return 25
 
         elif key == self.keybindings["hide_channel"]:
@@ -1506,9 +1534,17 @@ class TUI():
 
             elif key == self.keybindings["profile_info"] and self.chat_selected != -1:
                 self.extra_index = 0
+                self.extra_selected = -1
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 24
+
+            elif key == self.keybindings["show_summaries"]:
+                self.extra_index = 0
+                self.extra_selected = -1
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 28
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

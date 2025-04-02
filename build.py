@@ -74,11 +74,11 @@ def build():
     if check_media_support():
         hidden_imports = "--hidden-import uuid "
         pkgname = "endcord"
-        print("Media support is enabled")
+        print("ASCII media support is enabled")
     else:
         hidden_imports = ""
         pkgname = "endcord-lite"
-        print("Media support is disabled")
+        print("ASCII media support is disabled")
 
     emoji_path = prepare_emoji_codes()
 
