@@ -1,11 +1,15 @@
 HIGH PRIORITY:
-search and go to messages (Ctrl+F)
+replace discord link with channel/message shortcut
+go to channel/message mentioned in selected message
 member list (Alt+M) - auto open on large screen
 
 MEDIUM PRIORITY:
 media player: UI, pause, seek
 play audio messages
-assist with @[username]/@[role]/#channel/:emoji:/reactions/stickers
+assist with @[username]/@[role]/#channel/:emoji:
+assist in search
+assist with reactions
+assist with stickers
 
 LOW PRIORITY:
 :commands

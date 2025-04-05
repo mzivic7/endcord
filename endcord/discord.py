@@ -15,6 +15,8 @@ from endcord import peripherals
 CLIENT_NAME = "endcord"
 DISCORD_HOST = "discord.com"
 DISCORD_EPOCH = 1420070400
+SEARCH_PARAMS = ("content", "channel_id", "author_id", "mentions", "has", "max_id", "min_id", "pinned", "offset")
+SEARCH_HAS_OPTS = ("link", "embed", "poll", "file", "video", "image", "sound", "sticker", "forward")
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +39,148 @@ def get_sticker_url(sticker):
     if sticker_type == 4:   # gif
         return f"https://media.discordapp.net/stickers/{sticker["id"]}.gif"
     return None   # lottie
+
+
+def prepare_messages(data, have_channel_id=False):
+    """Prepare list of messages"""
+    messages = []
+    for message in data:
+        if "referenced_message" in message:
+            if message["referenced_message"]:
+                reference_nick = None
+                for mention in message["mentions"]:
+                    if mention["id"] == message["referenced_message"]["id"]:
+                        if "member" in mention:
+                            reference_nick = mention["member"]["nick"]
+                ref_mentions = []
+                if message["referenced_message"]["mentions"]:
+                    for ref_mention in message["referenced_message"]["mentions"]:
+                        ref_mentions.append({
+                            "username": ref_mention["username"],
+                            "id": ref_mention["id"],
+                        })
+                if "message_snapshots" in message["referenced_message"]:
+                    forwarded = message["referenced_message"]["message_snapshots"][0]["message"]
+                    # additional text with forwarded message is sent separately
+                    message["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
+                    message["referenced_message"]["embeds"] = forwarded.get("embeds")
+                    message["referenced_message"]["attachments"] = forwarded.get("attachments")
+                reference_embeds = []
+                for embed in message["referenced_message"]["embeds"]:
+                    content = embed.get("url")
+                    if "video" in embed and "url" in embed["video"]:
+                        url = embed["video"]["url"]
+                    elif "image" in embed and "url" in embed["image"]:
+                        content = embed["image"]["url"]
+                    if content:
+                        reference_embeds.append({
+                            "type": embed["type"],
+                            "name": None,
+                            "url": url,
+
+                        })
+                for attachment in message["referenced_message"]["attachments"]:
+                    reference_embeds.append({
+                        "type": attachment.get("content_type", "unknown"),
+                        "name": attachment["filename"],
+                        "url": attachment["url"],
+                    })   # keep attachments in same place as embeds
+                reference = {
+                    "id": message["referenced_message"]["id"],
+                    "timestamp": message["referenced_message"]["timestamp"],
+                    "content": message["referenced_message"]["content"],
+                    "mentions": ref_mentions,
+                    "user_id": message["referenced_message"]["author"]["id"],
+                    "username": message["referenced_message"]["author"]["username"],
+                    "global_name": message["referenced_message"]["author"]["global_name"],
+                    "nick": reference_nick,
+                    "embeds": reference_embeds,
+                    "stickers": message["referenced_message"].get("sticker_items", []),
+                }
+            else:   # reference message is deleted
+                reference = {
+                    "id": None,
+                    "content": "Deleted message",
+                }
+        else:
+            reference = None
+        if "reactions" in message:
+            reactions = []
+            for reaction in message["reactions"]:
+                reactions.append({
+                    "emoji": reaction["emoji"]["name"],
+                    "emoji_id": reaction["emoji"]["id"],
+                    "count": reaction["count"],
+                    "me": reaction["me"],
+                })
+        else:
+            reactions = []
+        if "member" in message:
+            nick = message["member"]["nick"]
+        else:
+            nick = None
+        if "message_snapshots" in message:
+            forwarded = message["message_snapshots"][0]["message"]
+            # additional text with forwarded message is sent separately
+            message["content"] = f"[Forwarded]: {forwarded.get("content")}"
+            message["embeds"] = forwarded.get("embeds")
+            message["attachments"] = forwarded.get("attachments")
+        embeds = []
+        for embed in message["embeds"]:
+            content = embed.get("url")
+            if "video" in embed and "url" in embed["video"]:
+                content = embed["video"]["url"]
+            elif "image" in embed and "url" in embed["image"]:
+                content = embed["image"]["url"]
+            elif "fields" in embed:
+                content = ""
+                if "url" in embed:
+                    content = embed["url"]
+                for field in embed["fields"]:
+                    content = content + "\n" + field["name"] + "\n" + field["value"]
+                content = content.strip("\n")
+            else:
+                content = None
+            if content and content not in message["content"]:
+                embeds.append({
+                    "type": embed["type"],
+                    "name": None,
+                    "url": content,
+                })
+        for attachment in message["attachments"]:
+            embeds.append({
+                "type": attachment.get("content_type", "unknown"),
+                "name": attachment["filename"],
+                "url": attachment["url"],
+            })   # keep attachments in same place as embeds
+        mentions = []
+        if message["mentions"]:
+            for mention in message["mentions"]:
+                mentions.append({
+                    "username": mention["username"],
+                    "id": mention["id"],
+                })
+        messages.append({
+            "id": message["id"],
+            "timestamp": message["timestamp"],
+            "edited": bool(message["edited_timestamp"]),
+            "content": message["content"],
+            "mentions": mentions,
+            "mention_roles": message["mention_roles"],
+            "mention_everyone": message["mention_everyone"],
+            "user_id": message["author"]["id"],
+            "username": message["author"]["username"],
+            "global_name": message["author"]["global_name"],
+            "nick": nick,
+            "referenced_message": reference,
+            "reactions": reactions,
+            "embeds": embeds,
+            "stickers": message.get("sticker_items", []),   # {name, id, format_type}
+        })
+        if have_channel_id:
+            messages[-1]["channel_id"] = message["channel_id"]
+        # sticker types: 1 - png, 2 - apng, 3 - lottie, 4 - gif
+    return messages
 
 
 class Discord():
@@ -275,142 +419,7 @@ class Discord():
             # debug
             # with open("messages.json", "w") as f:
             #     json.dump(data, f, indent=2)
-            messages = []
-            for message in data:
-                if "referenced_message" in message:
-                    if message["referenced_message"]:
-                        reference_nick = None
-                        for mention in message["mentions"]:
-                            if mention["id"] == message["referenced_message"]["id"]:
-                                if "member" in mention:
-                                    reference_nick = mention["member"]["nick"]
-                        ref_mentions = []
-                        if message["referenced_message"]["mentions"]:
-                            for ref_mention in message["referenced_message"]["mentions"]:
-                                ref_mentions.append({
-                                    "username": ref_mention["username"],
-                                    "id": ref_mention["id"],
-                                })
-                        if "message_snapshots" in message["referenced_message"]:
-                            forwarded = message["referenced_message"]["message_snapshots"][0]["message"]
-                            # additional text with forwarded message is sent separately
-                            message["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
-                            message["referenced_message"]["embeds"] = forwarded.get("embeds")
-                            message["referenced_message"]["attachments"] = forwarded.get("attachments")
-                        reference_embeds = []
-                        for embed in message["referenced_message"]["embeds"]:
-                            content = embed.get("url")
-                            if "video" in embed and "url" in embed["video"]:
-                                url = embed["video"]["url"]
-                            elif "image" in embed and "url" in embed["image"]:
-                                content = embed["image"]["url"]
-                            if content:
-                                reference_embeds.append({
-                                    "type": embed["type"],
-                                    "name": None,
-                                    "url": url,
-
-                                })
-                        for attachment in message["referenced_message"]["attachments"]:
-                            reference_embeds.append({
-                                "type": attachment.get("content_type", "unknown"),
-                                "name": attachment["filename"],
-                                "url": attachment["url"],
-                            })   # keep attachments in same place as embeds
-                        reference = {
-                            "id": message["referenced_message"]["id"],
-                            "timestamp": message["referenced_message"]["timestamp"],
-                            "content": message["referenced_message"]["content"],
-                            "mentions": ref_mentions,
-                            "user_id": message["referenced_message"]["author"]["id"],
-                            "username": message["referenced_message"]["author"]["username"],
-                            "global_name": message["referenced_message"]["author"]["global_name"],
-                            "nick": reference_nick,
-                            "embeds": reference_embeds,
-                            "stickers": message["referenced_message"].get("sticker_items", []),
-                        }
-                    else:   # reference message is deleted
-                        reference = {
-                            "id": None,
-                            "content": "Deleted message",
-                        }
-                else:
-                    reference = None
-                if "reactions" in message:
-                    reactions = []
-                    for reaction in message["reactions"]:
-                        reactions.append({
-                            "emoji": reaction["emoji"]["name"],
-                            "emoji_id": reaction["emoji"]["id"],
-                            "count": reaction["count"],
-                            "me": reaction["me"],
-                        })
-                else:
-                    reactions = []
-                if "member" in message:
-                    nick = response["d"]["member"]["nick"]
-                else:
-                    nick = None
-                if "message_snapshots" in message:
-                    forwarded = message["message_snapshots"][0]["message"]
-                    # additional text with forwarded message is sent separately
-                    message["content"] = f"[Forwarded]: {forwarded.get("content")}"
-                    message["embeds"] = forwarded.get("embeds")
-                    message["attachments"] = forwarded.get("attachments")
-                embeds = []
-                for embed in message["embeds"]:
-                    content = embed.get("url")
-                    if "video" in embed and "url" in embed["video"]:
-                        content = embed["video"]["url"]
-                    elif "image" in embed and "url" in embed["image"]:
-                        content = embed["image"]["url"]
-                    elif "fields" in embed:
-                        content = ""
-                        if "url" in embed:
-                            content = embed["url"]
-                        for field in embed["fields"]:
-                            content = content + "\n" + field["name"] + "\n" + field["value"]
-                        content = content.strip("\n")
-                    else:
-                        content = None
-                    if content and content not in message["content"]:
-                        embeds.append({
-                            "type": embed["type"],
-                            "name": None,
-                            "url": content,
-                        })
-                for attachment in message["attachments"]:
-                    embeds.append({
-                        "type": attachment.get("content_type", "unknown"),
-                        "name": attachment["filename"],
-                        "url": attachment["url"],
-                    })   # keep attachments in same place as embeds
-                mentions = []
-                if message["mentions"]:
-                    for mention in message["mentions"]:
-                        mentions.append({
-                            "username": mention["username"],
-                            "id": mention["id"],
-                        })
-                messages.append({
-                    "id": message["id"],
-                    "timestamp": message["timestamp"],
-                    "edited": bool(message["edited_timestamp"]),
-                    "content": message["content"],
-                    "mentions": mentions,
-                    "mention_roles": message["mention_roles"],
-                    "mention_everyone": message["mention_everyone"],
-                    "user_id": message["author"]["id"],
-                    "username": message["author"]["username"],
-                    "global_name": message["author"]["global_name"],
-                    "nick": nick,
-                    "referenced_message": reference,
-                    "reactions": reactions,
-                    "embeds": embeds,
-                    "stickers": message.get("sticker_items", []),   # {name, id, format_type}
-                })
-                # sticker types: 1 - png, 2 - apng, 3 - lottie, 4 - gif
-            return messages
+            return prepare_messages(data)
         logger.error(f"Failed to fetch messages. Response code: {response.status}")
         return None
 
@@ -783,6 +792,52 @@ class Discord():
             logger.error(f"Failed to leave a thread. Response code: {response.status}")
             return False
         return True
+
+
+    def search(self, guild_id, content=None, channel_id=None, author_id=None, mentions=None, has=None, max_id=None, min_id=None, pinned=None, offset=None):
+        """
+        Search in specified guild
+        author_id   - (from) user_id
+        mentions    - user_id
+        has         - link, embed, poll, file, video, image, sound, sticker, forward
+        max_id      - (before) convert date to (floor) snowflake
+        min_id      - (after) convert date to (ceil) snowflake
+        channel_id  - (in) channel_id
+        pinned      - true, false
+        content     - search text
+        offset      - starting number
+        """
+        message_data = None
+        url = f"/api/v9/guilds/{guild_id}/messages/search?"
+        if "true" in pinned:
+            pinned = "true"
+        elif "false" in pinned:
+            pinned = "false"
+        for one_has in has:
+            if one_has not in SEARCH_HAS_OPTS:
+                return 0, None
+        content = [content]
+        offset = [offset]
+        for num, items in enumerate([content, channel_id, author_id, mentions, has, max_id, min_id, pinned, offset]):
+            for item in items:
+                if item:
+                    url += f"{SEARCH_PARAMS[num]}={item}&"
+        url = url.rstrip("&")
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None, None
+        if response.status == 200:
+            data = json.loads(response.read())
+            messages = []
+            total = data["total_results"]
+            for message in data["messages"]:
+                messages.append(message[0])
+            return total, prepare_messages(messages, have_channel_id=True)
+        logger.error(f"Failed to perform a message search. Response code: {response.status}")
+        return None, None
 
 
     def request_attachment_link(self, channel_id, path):

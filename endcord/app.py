@@ -17,6 +17,7 @@ from endcord import (
     downloader,
     formatter,
     gateway,
+    parser,
     peripherals,
     perms,
     rpc,
@@ -39,6 +40,13 @@ ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
 LIMIT_SUMMARIES = 5   # max number of summaries per channel
+SEARCH_HELP_TEXT = """from:user_id
+mentions:user_id
+has:link/embed/file/video/image/sound/sticker
+before:date (format: 2015-01-01)
+after:date (format: 2015-01-01)
+in:channel_id
+pinned:true/false"""
 
 download = downloader.Downloader()
 match_url = re.compile(r"(https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*)")
@@ -137,6 +145,7 @@ class Endcord:
         self.deleted_cache = []
         self.extra_window_open = False
         self.extra_indexes = []
+        self.extra_body = []
         self.viewing_user_data = {"id": None, "guild_id": None}
         self.hidden_channels = []
         self.members = []
@@ -183,9 +192,13 @@ class Endcord:
         self.current_member_roles = []
         self.threads = []
         self.activities = []
+        self.search_messages = []
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
+        self.search = False
+        self.search_end = False
+        self.ignore_typing = False
 
 
     def reconnect(self):
@@ -543,12 +556,14 @@ class Endcord:
         }
         self.cancel_download = None
         self.uploading = False
-        self.hidding_ch = {
+        self.hiding_ch = {
             "channel_name": None,
             "channel_id": None,
             "guild_id": None,
             "content": None,
         }
+        self.ignore_typing = False
+        self.tui.typing = time.time() - 5
 
 
     def add_running_task(self, task, priority=5):
@@ -578,7 +593,7 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.editing["content"], reset=False)
             elif self.replying["content"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.replying["content"], reset=False, keep_cursor=True)
-            elif self.deleting["content"] or self.cancel_download or self.hidding_ch["channel_id"]:
+            elif self.deleting["content"] or self.cancel_download or self.hiding_ch["channel_id"]:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.warping is not None:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.warping, reset=False, keep_cursor=True, scroll_bot=True)
@@ -591,6 +606,8 @@ class Endcord:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.uploading:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
+            elif self.search:
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input("[SEARCH] > ")
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -650,6 +667,7 @@ class Endcord:
                     if "deleted" not in self.messages[msg_index]:
                         self.add_to_store(self.active_channel["channel_id"], input_text)
                         self.reset_actions()
+                        self.ignore_typing = True
                         self.deleting = {
                             "id": self.messages[msg_index]["id"],
                             "content": input_text,
@@ -699,6 +717,7 @@ class Endcord:
                     self.download_threads[-1].start()
                 elif len(urls) > 1:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.ignore_typing = True
                     self.downloading_file = {
                         "content": input_text,
                         "urls": urls,
@@ -726,6 +745,7 @@ class Endcord:
                     webbrowser.open(urls[0], new=0, autoraise=True)
                 elif len(urls) > 1:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.ignore_typing = True
                     self.downloading_file = {
                         "content": input_text,
                         "urls": urls,
@@ -773,6 +793,7 @@ class Endcord:
             elif action == 11:
                 self.add_to_store(self.active_channel["channel_id"], input_text)
                 self.reset_actions()
+                self.ignore_typing = True
                 self.cancel_download = True
                 self.update_status_line()
 
@@ -787,6 +808,7 @@ class Endcord:
                 if self.current_channel.get("allow_attach", True):
                     self.uploading = True
                 self.add_to_store(self.active_channel["channel_id"], input_text)
+                self.ignore_typing = True
                 self.update_status_line()
 
             # moving left/right through attachments
@@ -923,8 +945,9 @@ class Endcord:
                 if ch_type not in (-1, 1, 11, 12):
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.reset_actions()
+                    self.ignore_typing = True
                     guild_id = self.find_parents(tree_sel)[0]
-                    self.hidding_ch = {
+                    self.hiding_ch = {
                         "channel_name": self.tree_metadata[tree_sel]["name"],
                         "channel_id": self.tree_metadata[tree_sel]["id"],
                         "guild_id": guild_id,
@@ -943,9 +966,20 @@ class Endcord:
                     total_len += item["lines"]
                     if total_len >= extra_selected + 1:
                         message_id = item["message_id"]
+                        channel_id = item.get("channel_id")
                         break
                 else:
                     return
+                if channel_id and channel_id != self.active_channel["channel_id"]:
+                    guild_id = self.active_channel["guild_id"]
+                    guild_name = self.active_channel["guild_name"]
+                    for channel in self.current_channels:
+                        if channel["id"] == channel_id:
+                            channel_name = channel["name"]
+                            break
+                    if not channel_name:
+                        return
+                    self.switch_channel(channel_id, channel_name, guild_id, guild_name)
                 self.go_to_message(message_id)
                 self.close_extra_window()
 
@@ -965,10 +999,24 @@ class Endcord:
                 self.tui.draw_extra_window(extra_title, extra_body, select=True)
                 self.extra_window_open = True
 
+            # search
+            elif action == 29:
+                self.reset_actions()
+                self.add_to_store(self.active_channel["channel_id"], input_text)
+                self.search = True
+                self.ignore_typing = True
+                max_w = self.tui.get_dimensions()[2][1]
+                extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
+                self.tui.draw_extra_window(extra_title, extra_body)
+                self.extra_window_open = True
+
             # escape key in main UI
             elif action == 5:
                 if self.extra_window_open:
                     self.close_extra_window()
+                    self.search = False
+                    self.search_end = False
+                    self.search_messages = []
                 elif self.replying["id"]:
                     self.reset_actions()
                     self.replying["content"] = input_text
@@ -983,7 +1031,7 @@ class Endcord:
             # enter
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
                 # message will be received from gateway and then added to self.messages
-                if input_text.lower() != "y" and (self.deleting["id"] or self.cancel_download or self.hidding_ch["channel_id"]):
+                if input_text.lower() != "y" and (self.deleting["id"] or self.cancel_download or self.hiding_ch["channel_id"]):
                     # anything not "y" when asking for "[Y/n]"
                     self.reset_actions()
                     self.update_status_line()
@@ -994,11 +1042,13 @@ class Endcord:
                         message_id=self.editing["id"],
                         message_content=input_text,
                     )
+
                 elif self.deleting["id"] and input_text.lower() == "y":
                     self.discord.send_delete_message(
                         channel_id=self.active_channel["channel_id"],
                         message_id=self.deleting["id"],
                     )
+
                 elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
                     if self.downloading_file["web"]:
                         try:
@@ -1024,25 +1074,63 @@ class Endcord:
                                 self.download_threads[-1].start()
                         except ValueError:
                             pass
+
                 elif self.cancel_download and input_text.lower() == "y":
                     download.cancel()
                     self.download_threads = []
                     self.cancel_upload()
                     self.upload_threads = []
+
                 elif self.uploading:
                     self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(input_text, )))
                     self.upload_threads[-1].start()
-                elif self.hidding_ch["channel_id"] and input_text.lower() == "y":
-                    channel_id = self.hidding_ch["channel_id"]
-                    guild_id = self.hidding_ch["guild_id"]
+
+                elif self.search:
+                    self.add_running_task("Searching", 4)
+                    content, channel_id, author_id, mentions, has, max_id, min_id, pinned = parser.search_string(input_text)
+                    self.search = (content, channel_id, author_id, mentions, has, max_id, min_id, pinned)
+                    logger.debug(f"Starting search with params: {self.search}")
+                    total_search_messages, self.search_messages = self.discord.search(
+                        self.active_channel["guild_id"],
+                        content=content,
+                        channel_id=channel_id,
+                        author_id=author_id,
+                        mentions=mentions,
+                        has=has,
+                        max_id=max_id,
+                        min_id=min_id,
+                        pinned=pinned,
+                    )
+                    if len(self.search_messages) >= total_search_messages:
+                        self.search_end = True
+                    extra_title, self.extra_body, self.extra_indexes = formatter.generate_extra_window_search(
+                        self.search_messages,
+                        self.current_roles,
+                        self.current_channels,
+                        self.blocked,
+                        total_search_messages,
+                        self.config,
+                        self.tui.get_dimensions()[2][1],
+                    )
+                    self.tui.draw_extra_window(extra_title, self.extra_body, select=True)
+                    self.reset_actions()
+                    self.ignore_typing = True
+                    self.update_status_line()
+                    self.remove_running_task("Searching", 4)
+                    continue
+
+                elif self.hiding_ch["channel_id"] and input_text.lower() == "y":
+                    channel_id = self.hiding_ch["channel_id"]
+                    guild_id = self.hiding_ch["guild_id"]
                     self.hide_channel(channel_id, guild_id)
                     self.hidden_channels.append({
-                        "channel_name": self.hidding_ch["channel_name"],
+                        "channel_name": self.hiding_ch["channel_name"],
                         "channel_id": channel_id,
                         "guild_id": guild_id,
                         })
                     peripherals.save_json(self.hidden_channels, "hidden_channels.json")
                     self.update_tree()
+
                 else:
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
@@ -1066,6 +1154,7 @@ class Endcord:
                             reply_ping=self.replying["mention"],
                             attachments=this_attachments,
                         )
+
                 self.reset_actions()
                 self.update_status_line()
 
@@ -1083,7 +1172,8 @@ class Endcord:
                     self.upload_threads = []
                 elif self.ready_attachments:
                     this_attachments = None
-                    for attachments in self.ready_attachments:
+                    for num, attachments in enumerate(self.ready_attachments):
+                        if attachments["channel_id"] == self.active_channel["channel_id"]:
                             this_attachments = self.ready_attachments.pop(num)["attachments"]
                             self.update_extra_line()
                             break
@@ -1096,12 +1186,12 @@ class Endcord:
                         reply_ping=self.replying["mention"],
                         attachments=this_attachments,
                     )
-                elif self.hidding_ch["channel_id"]:
-                    channel_id = self.hidding_ch["channel_id"]
-                    guild_id = self.hidding_ch["guild_id"]
+                elif self.hiding_ch["channel_id"]:
+                    channel_id = self.hiding_ch["channel_id"]
+                    guild_id = self.hiding_ch["guild_id"]
                     self.hide_channel(channel_id, guild_id)
                     self.hidden_channels.append({
-                        "channel_name": self.hidding_ch["channel_name"],
+                        "channel_name": self.hiding_ch["channel_name"],
                         "channel_id": channel_id,
                         "guild_id": guild_id,
                         })
@@ -1402,6 +1492,41 @@ class Endcord:
         self.viewing_user_data = {"id": None, "guild_id": None}
 
 
+    def extend_search(self):
+        """Repeat search and add more messages"""
+        self.add_running_task("Searching", 4)
+        logger.debug(f"Extending search with params: {self.search}")
+        total_search_messages, search_chunk = self.discord.search(
+            self.active_channel["guild_id"],
+            content=self.search[0],
+            channel_id=self.search[1],
+            author_id=self.search[2],
+            mentions=self.search[3],
+            has=self.search[4],
+            max_id=self.search[5],
+            min_id=self.search[6],
+            pinned=self.search[7],
+            offset=len(self.search_messages),
+        )
+        if search_chunk:
+            self.search_messages += search_chunk
+            if len(self.search_messages) >= total_search_messages:
+                self.search_end = True
+            extra_title, extra_body_chunk, indexes_chunk = formatter.generate_extra_window_search(
+                search_chunk,
+                self.current_roles,
+                self.current_channels,
+                self.blocked,
+                total_search_messages,
+                self.config,
+                self.tui.get_dimensions()[2][1],
+            )
+            self.extra_body += extra_body_chunk
+            self.extra_indexes += indexes_chunk
+            self.tui.draw_extra_window(extra_title, self.extra_body, select=len(self.extra_body))
+        self.remove_running_task("Searching", 4)
+
+
     def cache_deleted(self):
         """Cache all deleted messages from current channel"""
         if not self.active_channel["channel_id"]:
@@ -1547,7 +1672,7 @@ class Endcord:
             action_type = 7
         elif self.uploading:
             action_type = 8
-        elif self.hidding_ch["channel_id"]:
+        elif self.hiding_ch["channel_id"]:
             action_type = 9
         action = {
             "type": action_type,
@@ -2114,6 +2239,7 @@ class Endcord:
 
         while self.run:
             selected_line, text_index = self.tui.get_selected()
+
             # get new messages
             while self.run:
                 new_message = self.gateway.get_messages()
@@ -2292,7 +2418,7 @@ class Endcord:
             if self.send_my_typing:
                 my_typing = self.tui.get_my_typing()
                 # typing indicator on server expires in 10s, so lest stay safe with 7s
-                if my_typing and time.time() >= self.typing_sent + 7:
+                if not self.ignore_typing and my_typing and time.time() >= self.typing_sent + 7:
                     self.discord.send_typing(self.active_channel["channel_id"])
                     self.typing_sent = int(time.time())
 
@@ -2391,6 +2517,12 @@ class Endcord:
                     self.get_chat_chunk(past=False)
                 elif selected_line >= len(self.chat) - 1 and not self.chat_end:
                     self.get_chat_chunk(past=True)
+
+            # check for message search chunks
+            if self.search and self.extra_indexes:
+                extra_selected = self.tui.get_extra_selected()
+                if extra_selected >= len(self.extra_body) - 2 and not self.search_end:
+                    self.extend_search()
 
             # check gateway for errors
             if self.gateway.error:

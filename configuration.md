@@ -124,6 +124,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for each thread in forum. One line per thread. See [format_forum](#format_status) for more info.
 - `format_forum_timestamp = "%Y-%m-%d"`  
     Format for timestamps in forum. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
+- `format_search_message = "%channel: [%date] <%username> | %content"`  
+    Formatting for message line in extra window when searching. See [format_search_message](#format_search_message) for more info.
 - `edited_string = "(edited)"`  
     A string added to the end of the message when it is edsited.
 - `quote_character = "|"`  
@@ -299,3 +301,10 @@ Note: everything after `%content` may be pushed to newline.
 - `%thread_name` - name of a thread
 - `%timestamp` - date a thread is created, formatted with `format_forum_timestamp`
 - `%msg_count` - number of messages send in a thread
+
+## format_search_message
+- `%content` - message text
+- `%username` - of message author
+- `%global_name` - of message author
+- `%date` - formatted same as `format_forum_timestamp`
+- `%channel` - to which channel in this server the message belongs, limited with `limit_global_name`

@@ -287,7 +287,7 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
     return line_format
 
 
-def split_long_line(line, max_len, align=None):
+def split_long_line(line, max_len, align=0):
     """
     Split long line into list, on nearest spece to left or on newline
     optionally align newline to specified length
@@ -297,6 +297,8 @@ def split_long_line(line, max_len, align=None):
         if len(line) > max_len:
             newline_index = len(line[:max_len].rsplit(" ", 1)[0])
             if newline_index == 0:
+                newline_index = max_len
+            elif newline_index < align:
                 newline_index = max_len
             if "\n" in line[:newline_index]:
                 newline_index = line.index("\n")
@@ -1219,6 +1221,107 @@ def generate_extra_window_summaries(summaries, max_len):
     else:
         body = ["No summaries."]
     return title_line, body, indexes
+
+
+def generate_extra_window_search(messages, roles, channels, blocked, total_msg, config, max_len, limit_lines=3, newline_len=4):
+    """
+    Generate extra window title and body for message search view
+    Possible options for format_message:
+        %content
+        %username
+        %global_name
+        %date
+        %channel
+    """
+    limit_username = config["limit_username"]
+    limit_global_name = config["limit_global_name"]
+    use_nick = config["use_nick_when_available"]
+    convert_timezone = config["convert_timezone"]
+    blocked_mode = config["blocked_mode"]
+    format_date = config["format_forum_timestamp"]
+    emoji_as_text = config["emoji_as_text"]
+    format_message = config["format_search_message"]
+    title_line = f"Search results: {total_msg} messages"
+
+    body = []
+    indexes = []
+    if messages:
+        for message in messages:
+
+            # skip blocked messages
+            if blocked_mode and message["user_id"] in blocked:
+                indexes.append({
+                    "lines": 0,
+                    "message_id": message["id"],
+                })
+                continue
+
+            if use_nick and message["nick"]:
+                global_name_nick = message["nick"]
+            elif message["global_name"]:
+                global_name_nick = message["global_name"]
+            else:
+                global_name_nick = message["username"]
+
+            channel_name = "Unknown"
+            channel_id = message["channel_id"]
+            for channel in channels:
+                if channel["id"] == channel_id:
+                    channel_name = channel["name"]
+                    break
+
+            content = ""
+            if message["content"]:
+                content = replace_discord_emoji(message["content"])
+                content = replace_mentions(content, message["mentions"])
+                content = replace_roles(content, roles)
+                content = replace_channels(content, channels)
+                content = replace_spoilers_oneline(content)
+                if emoji_as_text:
+                    content = emoji.demojize(content)
+
+            for embed in message["embeds"]:
+                if embed["url"] and embed["url"] not in content:
+                    if content:
+                        content += "\n"
+                    content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
+
+            # skip empty messages
+            if not content:
+                indexes.append({
+                    "lines": 0,
+                    "message_id": message["id"],
+                })
+                continue
+
+            message_string = (
+                format_message
+                .replace("%username", normalize_string(message["username"], limit_username))
+                .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
+                .replace("%date", generate_timestamp(message["timestamp"], format_date, convert_timezone))
+                .replace("%channel", normalize_string(channel_name, limit_global_name))
+                .replace("%content", content)
+            )
+
+            message_lines = split_long_line(message_string, max_len, align=newline_len)
+            message_lines = message_lines[:limit_lines]
+            indexes.append({
+                "lines": len(message_lines),
+                "message_id": message["id"],
+                "channel_id": message["channel_id"],
+            })
+            body.extend(message_lines)
+
+    else:
+        body = ["No messages found."]
+    return title_line, body, indexes
+
+
+def generate_extra_window_text(title_text, body_text, max_len):
+    """Generate extra window title and body for summaries list view"""
+    title_line = title_text[:max_len]
+    body = split_long_line(body_text, max_len)
+    return title_line, body
 
 
 def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):

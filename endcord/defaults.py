@@ -55,6 +55,7 @@ theme = {
     "format_prompt": "[%channel] > ",
     "format_forum": "[%timestamp] - <%msg_count> - %thread_name",
     "format_forum_timestamp": "%Y-%m-%d",
+    "format_search_message": "%channel: [%date] <%username> | %content",
     "edited_string": "(edited)",
     "quote_character": "|",
     "reactions_separator": "; ",
@@ -148,6 +149,7 @@ keybindings = {
     "copy_msg": 8,   # Ctrl+H
     "view_media": 22,   # Ctrl+V
     "spoil": 20,   # Ctrl+T
+    "search": 6,   # Ctrl+F
     "profile_info": "ALT+112",   # Alt+P
     "show_summaries": "ALT+115",   # Alt+S
     # extra line

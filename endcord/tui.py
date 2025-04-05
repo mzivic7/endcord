@@ -1074,7 +1074,7 @@ class TUI():
         elif self.extra_window_body and key == self.keybindings["extra_down"]:
             if self.extra_select:
                 if self.extra_selected + 1 < len(self.extra_window_body):
-                    top_line = self.extra_index + self.win_extra_window.getmaxyx()[0]
+                    top_line = self.extra_index + self.win_extra_window.getmaxyx()[0] - 1
                     if top_line < len(self.extra_window_body) and self.extra_selected >= top_line - 1:
                         self.extra_index += 1
                     self.extra_selected += 1
@@ -1545,6 +1545,13 @@ class TUI():
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 28
+
+            elif key == self.keybindings["search"]:
+                self.extra_index = 0
+                self.extra_selected = -1
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 29
 
             elif key == curses.KEY_RESIZE:
                 self.resize()
