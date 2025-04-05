@@ -815,20 +815,20 @@ class Discord():
             pinned = "false"
         for one_has in has:
             if one_has not in SEARCH_HAS_OPTS:
-                return 0, None
+                return 0, []
         content = [content]
         offset = [offset]
         for num, items in enumerate([content, channel_id, author_id, mentions, has, max_id, min_id, pinned, offset]):
             for item in items:
                 if item:
-                    url += f"{SEARCH_PARAMS[num]}={item}&"
+                    url += f"{SEARCH_PARAMS[num]}={urllib.parse.quote(item)}&"
         url = url.rstrip("&")
         try:
             connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
-            return None, None
+            return 0, []
         if response.status == 200:
             data = json.loads(response.read())
             messages = []
@@ -837,7 +837,7 @@ class Discord():
                 messages.append(message[0])
             return total, prepare_messages(messages, have_channel_id=True)
         logger.error(f"Failed to perform a message search. Response code: {response.status}")
-        return None, None
+        return 0, []
 
 
     def request_attachment_link(self, channel_id, path):
