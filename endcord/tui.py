@@ -111,8 +111,6 @@ class TUI():
         self.input_line_index = 0   # index of input line, when moving it to left
         self.cursor_pos = 0   # on-screen position of cursor
         self.cursor_on = True
-        self.deleting_msg = False
-        self.replying_msg = False
         self.asking_num = False
         self.enable_autocomplete = False
         self.spelling_range = [0, 0]
@@ -1137,7 +1135,7 @@ class TUI():
                 if key == 27:   # ESCAPE
                     self.screen.nodelay(True)
                     key = self.screen.getch()
-                    if key == -1:
+                    if key in (-1, 27):
                         self.input_buffer = ""
                         self.screen.nodelay(False)
                         return None, 0, 0, 101
@@ -1152,8 +1150,6 @@ class TUI():
                 key = self.screen.getch()
                 if key == -1:
                     # escape key
-                    self.deleting_msg = False
-                    self.replying_msg = False
                     self.asking_num = False
                     tmp = self.input_buffer
                     self.input_buffer = ""
@@ -1167,6 +1163,9 @@ class TUI():
                     sequence.append(key)
                     if key == 126:
                         break
+                    if key == 27:   # holding escape key
+                        sequence.append(-1)
+                        break
                 self.screen.nodelay(False)
                 # match sequences
                 if len(sequence) == 3 and sequence[2] == -1:   # ALT+KEY
@@ -1177,6 +1176,14 @@ class TUI():
                 elif sequence == [27, 91, 50, 48, 49, 126]:
                     bracket_paste = False
                     continue
+                elif sequence[-1] == -1 and sequence[-2] == 27:
+                    # holding escape key
+                    self.asking_num = False
+                    tmp = self.input_buffer
+                    self.input_buffer = ""
+                    self.screen.nodelay(False)
+                    return tmp, self.chat_selected, self.tree_selected_abs, 5
+
 
             if key == 10:   # ENTER
                 # wehen pasting, dont return, but insert newline character
@@ -1435,24 +1442,18 @@ class TUI():
                 self.show_cursor()
 
             elif key == self.keybindings["reply"] and self.chat_selected != -1:
-                self.replying_msg = True
-                self.deleting_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 1
 
             elif key == self.keybindings["edit"] and self.chat_selected != -1:
-                self.deleting_msg = False
-                self.replying_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 2
 
             elif key == self.keybindings["delete"] and self.chat_selected != -1:
-                self.replying_msg = False
                 tmp = self.input_buffer
                 self.input_buffer = ""
-                self.deleting_msg = True
                 return tmp, self.chat_selected, self.tree_selected_abs, 3
 
             elif key == self.keybindings["scroll_bottom"]:
@@ -1465,19 +1466,7 @@ class TUI():
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 6
 
-            elif self.deleting_msg and key == 110:   # N when deleting
-                self.deleting_msg = False
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return "n", self.chat_selected, self.tree_selected_abs, 5
-
-            elif self.deleting_msg and key == 121:   # Y when deleting
-                self.deleting_msg = False
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return "y", self.chat_selected, self.tree_selected_abs, 0
-
-            elif key == self.keybindings["go_replyed"] and self.chat_selected != -1:
+            elif key == self.keybindings["go_replied"] and self.chat_selected != -1:
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 8
@@ -1552,6 +1541,21 @@ class TUI():
                 tmp = self.input_buffer
                 self.input_buffer = ""
                 return tmp, self.chat_selected, self.tree_selected_abs, 29
+
+            elif key == self.keybindings["copy_channel_link"] and self.tree_selected > 0:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 30
+
+            elif key == self.keybindings["copy_message_link"] and self.chat_selected != -1:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 31
+
+            elif key == self.keybindings["go_channel"] and self.chat_selected != -1:
+                tmp = self.input_buffer
+                self.input_buffer = ""
+                return tmp, self.chat_selected, self.tree_selected_abs, 32
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

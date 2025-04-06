@@ -123,6 +123,7 @@ keybindings = {
     "tree_join_thread": "ALT+106",   # Alt+J
     "channel_info": "ALT+105",   # Alt+I
     "hide_channel": "ALT+104",   # Alt+H
+    "copy_channel_link": "ALT+85",   # Alt+Shift+U
     # input line
     "word_left": 554,   # Ctrl+Left
     "word_right": 569,   # Ctrl+Right
@@ -142,7 +143,7 @@ keybindings = {
     "delete": 4,   # Ctrl+D
     "toggle_ping": 16,   # Ctrl+P
     "scroll_bottom": 2,   # Ctrl+B
-    "go_replyed": 7,   # Ctrl+G
+    "go_replied": 7,   # Ctrl+G
     "download": 23,   # Ctrl+W
     "upload": 21,   # Ctrl+U
     "browser": 15,   # Ctrl+O
@@ -152,6 +153,8 @@ keybindings = {
     "search": 6,   # Ctrl+F
     "profile_info": "ALT+112",   # Alt+P
     "show_summaries": "ALT+115",   # Alt+S
+    "copy_message_link": "ALT+117",   # Alt+U
+    "go_channel": "ALT+103",   # Alt+G
     # extra line
     "attach_prev": "ALT+552",   # Alt+Left
     "attach_next": "ALT+567",   # Alt+Right

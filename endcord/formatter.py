@@ -20,6 +20,8 @@ match_role_string = re.compile(r"<@&\d*?>")
 match_role_id = re.compile(r"(?<=<@&)\d*?(?=>)")
 match_channel_string = re.compile(r"<#\d*?>")
 match_channel_id = re.compile(r"(?<=<#)\d*?(?=>)")
+match_channel_id_msg = re.compile(r"(?<=<#)\d*?(?=>>MSG)")
+match_channel_id_msg_group = re.compile(r"((?<=<#)\d*?(?=>))(>>MSG)?")
 match_escaped_md = re.compile(r"\\(?=[^a-zA-Z\d\s])")
 match_md_underline = re.compile(r"(?<!\\)((?<=_))?__[^_]+__")
 match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
@@ -29,6 +31,8 @@ match_md_code_snippet = re.compile(r"(?<!`|\\)`[^`]+`")
 match_md_code_block = re.compile(r"(?s)```.+\n```")
 match_md_italic = re.compile(r"\b(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)\b|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
+match_discord_channel_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)")
+match_discord_message_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)\/(\d*)")
 
 
 def sort_by_indexes(input_list, indexes):
@@ -330,6 +334,24 @@ def clean_type(embed_type):
     return embed_type.split("/")[0]
 
 
+def replace_discord_url(message, current_guild):
+    """Replace discord url only from this guild, for channelor message"""
+    text = message["content"]
+    mention_msg = []
+    for match in re.finditer(match_discord_message_url, text):
+        if match.group(1) == current_guild:
+            text = text[:match.start()] + f"<#{match.group(2)}>>MSG" + text[match.end():]
+            mention_msg.append(match.group(3))
+    for match in re.finditer(match_discord_channel_url, text):
+        if match.group(1) == current_guild:
+            text = text[:match.start()] + f"<#{match.group(2)}>" + text[match.end():]
+    message["content"] = text
+    if mention_msg:
+        message["mention_msg"] = mention_msg
+    return message
+
+
+
 def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, config):
     """
     Generate chat according to provided formatting.
@@ -539,7 +561,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                         content = emoji.demojize(content)
                 if reply_embeds:
                     for embed in reply_embeds:
-                        if embed["url"] not in content:
+                        if embed["url"] and embed["url"] not in content:
                             if content:
                                 content += "\n"
                             content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
@@ -1000,6 +1022,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = "Type file path to upload"
     elif action["type"] == 9:   # confirm hiding channel
         action_string = "Really hide this channel? [Y/n]"
+    elif action["type"] == 10:   # select to which channel to go
+        action_string = "Select channel/message to go to (type a number)"
 
     if my_status["custom_status_emoji"]:
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])

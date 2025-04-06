@@ -49,7 +49,6 @@ in:channel_id
 pinned:true/false"""
 
 download = downloader.Downloader()
-match_url = re.compile(r"(https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*)")
 
 
 class Endcord:
@@ -562,6 +561,7 @@ class Endcord:
             "guild_id": None,
             "content": None,
         }
+        self.going_to_ch = None
         self.ignore_typing = False
         self.tui.typing = time.time() - 5
 
@@ -579,6 +579,14 @@ class Endcord:
             self.update_status_line()
         except ValueError:
             pass
+
+
+    def channel_name_from_id(self, channel_id):
+        """Get channel name from its id"""
+        for channel in self.current_channels:
+            if channel["id"] == channel_id:
+                return channel["name"]
+        return None
 
 
     def wait_input(self):
@@ -730,11 +738,31 @@ class Endcord:
             elif action == 10:
                 msg_index = self.lines_to_msg(chat_sel)
                 urls = []
-                for url in re.findall(match_url, self.messages[msg_index]["content"]):
-                    urls.append(url[0])
+                code_snippets = []
+                code_blocks = []
+                message_text = self.messages[msg_index]["content"]
+                for match in re.finditer(formatter.match_md_code_snippet, message_text):
+                    code_snippets.append([match.start(), match.end()])
+                for match in re.finditer(formatter.match_md_code_block, message_text):
+                    code_blocks.append([match.start(), match.end()])
+                except_ranges = code_snippets + code_blocks
+                for match in re.finditer(formatter.match_url, message_text):
+                    start = match.start()
+                    end = match.end()
+                    skip = False
+                    for except_range in except_ranges:
+                        start_r = except_range[0]
+                        end_r = except_range[1]
+                        if start > start_r and start < end_r and end > start_r and end <= end_r:
+                            skip = True
+                            break
+                    if not skip:
+                        urls.append(match.group())
                 for embed in self.messages[msg_index]["embeds"]:
                     if embed["url"]:
                         urls.append(embed["url"])
+                if not urls:
+                    continue
                 if len(urls) == 1:
                     self.downloading_file = {
                         "content": input_text,
@@ -743,7 +771,7 @@ class Endcord:
                         "open": False,
                     }
                     webbrowser.open(urls[0], new=0, autoraise=True)
-                elif len(urls) > 1:
+                else:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.ignore_typing = True
                     self.downloading_file = {
@@ -829,14 +857,14 @@ class Endcord:
 
             # cancel selected attachment
             elif action == 16:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 self.cancel_attachment()
                 self.update_extra_line()
 
             # reveal one-by-one spoiler in a message
             elif action == 18:
                 msg_index = self.lines_to_msg(chat_sel)
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 if "spoiled" in self.messages[msg_index]:
                     self.messages[msg_index]["spoiled"] += 1
                 else:
@@ -845,18 +873,18 @@ class Endcord:
 
             # open guild in tree
             elif action == 19:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 guild_id = self.tree_metadata[tree_sel]["id"]
                 self.open_guild(guild_id, select=True)
 
             # copy/cut on input line
             elif action == 20:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 peripherals.copy_to_clipboard(self.tui.get_input_selected())
 
             # join/leave selected thread in tree
             elif action == 21:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 if self.tree_metadata[tree_sel]["type"] in (11, 12):
                     # find threads parent channel and guild
                     thread_id = self.tree_metadata[tree_sel]["id"]
@@ -904,7 +932,7 @@ class Endcord:
 
             # view profile info
             elif action == 24:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 msg_index = self.lines_to_msg(chat_sel)
                 user_id = self.messages[msg_index]["user_id"]
                 guild_id = self.active_channel["guild_id"]
@@ -917,7 +945,7 @@ class Endcord:
 
             # view channel info
             elif action == 25:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 ch_type = self.tree_metadata[tree_sel]["type"]
                 if ch_type == -1:
                     guild_id = self.tree_metadata[tree_sel]["id"]
@@ -957,10 +985,10 @@ class Endcord:
 
             # select in extra menu
             elif self.extra_indexes and action == 27:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 extra_selected = self.tui.get_extra_selected()
                 if extra_selected < 0:
-                    return
+                    continue
                 total_len = 0
                 for num, item in enumerate(self.extra_indexes):
                     total_len += item["lines"]
@@ -969,23 +997,18 @@ class Endcord:
                         channel_id = item.get("channel_id")
                         break
                 else:
-                    return
+                    continue
                 if channel_id and channel_id != self.active_channel["channel_id"]:
                     guild_id = self.active_channel["guild_id"]
                     guild_name = self.active_channel["guild_name"]
-                    for channel in self.current_channels:
-                        if channel["id"] == channel_id:
-                            channel_name = channel["name"]
-                            break
-                    if not channel_name:
-                        return
+                    channel_name = self.channel_name_from_id(channel_id)
                     self.switch_channel(channel_id, channel_name, guild_id, guild_name)
                 self.go_to_message(message_id)
                 self.close_extra_window()
 
             # view summaries
             elif action == 28:
-                self.going_to = input_text   # reusing variable
+                self.going_to = input_text
                 max_w = self.tui.get_dimensions()[2][1]
                 summaries = []
                 for guild in self.summaries:
@@ -1009,6 +1032,56 @@ class Endcord:
                 extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
                 self.tui.draw_extra_window(extra_title, extra_body)
                 self.extra_window_open = True
+
+            # copy channel link
+            elif action == 30:
+                self.going_to = input_text
+                guild_id = self.active_channel["guild_id"]
+                channel_id = self.tree_metadata[tree_sel]["id"]
+                url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
+                peripherals.copy_to_clipboard(url)
+
+            # copy message link
+            elif action == 31 and self.messages:
+                self.going_to = input_text
+                guild_id = self.active_channel["guild_id"]
+                channel_id = self.active_channel["channel_id"]
+                msg_index = self.lines_to_msg(chat_sel)
+                msg_id = self.messages[msg_index]["id"]
+                url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}/{msg_id}"
+                peripherals.copy_to_clipboard(url)
+
+            # go to channel/message mentioned in this message
+            elif action == 32:
+                self.going_to = input_text
+                channels = []
+                msg_index = self.lines_to_msg(chat_sel)
+                message_text = self.messages[msg_index]["content"]
+                mention_msg = self.messages[msg_index].get("mention_msg")
+                msg_num = 0
+                for match in re.finditer(formatter.match_channel_id_msg_group, message_text):
+                    if match.group(2) and msg_num < len(mention_msg):
+                        message_id = mention_msg[msg_num]
+                        msg_num += 1
+                    else:
+                        message_id = None
+                    channels.append([match.group(1), message_id])
+                if not channels:
+                    continue
+                if len(channels) == 1:
+                    channel_id = channels[0][0]
+                    message_id = channels[0][1]
+                    channel_name = self.channel_name_from_id(channel_id)
+                    if channel_name:
+                        self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
+                        if message_id:
+                            self.go_to_message(message_id)
+                else:
+                    self.reset_actions()
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.ignore_typing = True
+                    self.going_to_ch = channels
+                    self.update_status_line()
 
             # escape key in main UI
             elif action == 5:
@@ -1130,6 +1203,21 @@ class Endcord:
                         })
                     peripherals.save_json(self.hidden_channels, "hidden_channels.json")
                     self.update_tree()
+
+                elif self.going_to_ch:
+                    try:
+                        num = max(int(input_text) - 1, 0)
+                    except ValueError:
+                        self.reset_actions()
+                        self.update_status_line()
+                        continue
+                    if num <= len(channels):
+                        channel_id = channels[num][0]
+                        message_id = channels[num][1]
+                        channel_name = self.channel_name_from_id(channel_id)
+                        self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
+                        if message_id:
+                            self.go_to_message(message_id)
 
                 else:
                     this_attachments = None
@@ -1341,13 +1429,17 @@ class Endcord:
         messages = self.discord.get_messages(channel_id, num, before, after, around)
         if messages is None:
             return None   # network error
+
         # restore deleted
         if self.keep_deleted:
             messages = self.restore_deleted(messages)
+
+        current_guild = self.active_channel["guild_id"]
         missing_members = []
-        if not self.active_channel["guild_id"]:
+        if not current_guild:
             # skipping DMs
             return messages
+
         # find missing members
         for message in messages:
             message_user_id = message["user_id"]
@@ -1358,9 +1450,10 @@ class Endcord:
                     break
             else:
                 missing_members.append(message_user_id)
+
         # request missing members
         if missing_members:
-            self.gateway.request_members(self.active_channel["guild_id"], missing_members)
+            self.gateway.request_members(current_guild, missing_members)
             for _ in range(10):   # wait max 1s
                 new_member_roles = self.gateway.get_member_roles()
                 if new_member_roles:
@@ -1370,6 +1463,10 @@ class Endcord:
                 else:
                     # wait to receive
                     time.sleep(0.1)
+
+        # replace discord links
+        for msg_num, message in enumerate(messages):
+            messages[msg_num] = formatter.replace_discord_url(message, current_guild)
         return messages
 
 
@@ -1424,10 +1521,12 @@ class Endcord:
 
         else:
             logger.debug(f"Requesting chat chunk around {message_id}")
+            self.add_running_task("Downloading chat", 4)
             new_messages = self.get_messages_with_members(around=message_id)
             if new_messages:
                 self.messages = new_messages
             self.update_chat(keep_selected=False)
+            self.add_running_task("Downloading chat", 4)
 
             for num, message in enumerate(self.messages):
                 if message["id"] == message_id:
@@ -1674,6 +1773,8 @@ class Endcord:
             action_type = 8
         elif self.hiding_ch["channel_id"]:
             action_type = 9
+        elif self.going_to_ch:
+            action_type = 10
         action = {
             "type": action_type,
             "username": self.replying["username"],
@@ -2251,6 +2352,7 @@ class Endcord:
                         data = new_message["d"]
                         if op == "MESSAGE_CREATE":
                             # if latest message is loaded - not viewing old message chunks
+                            data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
                             if self.messages[0]["id"] == self.last_message_id:
                                 self.messages.insert(0, data)
                             self.last_message_id = new_message["d"]["id"]
@@ -2280,6 +2382,7 @@ class Endcord:
                             for num, loaded_message in enumerate(self.messages):
                                 if data["id"] == loaded_message["id"]:
                                     if op == "MESSAGE_UPDATE":
+                                        data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
                                         for element in MESSAGE_UPDATE_ELEMENTS:
                                             loaded_message[element] = data[element]
                                             loaded_message["spoiled"] = 0

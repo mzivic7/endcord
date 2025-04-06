@@ -68,6 +68,7 @@ def prepare_messages(data, have_channel_id=False):
                 reference_embeds = []
                 for embed in message["referenced_message"]["embeds"]:
                     content = embed.get("url")
+                    url = None
                     if "video" in embed and "url" in embed["video"]:
                         url = embed["video"]["url"]
                     elif "image" in embed and "url" in embed["image"]:

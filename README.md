@@ -137,6 +137,9 @@ Un/collapse channel with threads in tree - `Alt+T`
 Join/leave selected thread in tree - `Alt+J`  
 Open selected post in forum - `Enter`  
 Open and join selected post in forum - `Alt+K`  
+Copy selected message url to clipboard - `Alt+U`  
+Copy selected channel ( in tree) url to clipboard - `Alt+Shift+U`  
+Go to #channel/message mentioned in selected message - `Alt+G`  
 Locally hide channel - `Alt+H`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Cancel action, leave media viewer - `Escape`  

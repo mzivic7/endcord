@@ -2,29 +2,7 @@ import argparse
 import importlib.metadata
 import importlib.util
 import os
-import shutil
-import site
 import sys
-
-
-def prepare_emoji_codes():
-    """
-    Patch that gets and prepares necesary unicode_codes directory from emoji lib.
-    This directory is not copied by pyinstaller, so it has to be done with --add-data.
-    Return relative path to emoji dir.
-    """
-    site_pkgs = site.getsitepackages()[0]
-    emoji_codes = os.path.join("emoji", "unicode_codes")
-    site_emoji_codes = os.path.join(site_pkgs, emoji_codes)
-    if os.path.exists(site_emoji_codes):
-        os.makedirs(emoji_codes, exist_ok=True)
-        # copy only json
-        for file_name in os.listdir(site_emoji_codes):
-            source_file = os.path.join(site_emoji_codes, file_name)
-            if os.path.isfile(source_file) and file_name.endswith(".json"):
-                shutil.copy(source_file, emoji_codes)
-        return "emoji"
-    sys.exit("Emoji library is missing")
 
 
 def check_media_support():
@@ -80,16 +58,14 @@ def build():
         pkgname = "endcord-lite"
         print("ASCII media support is disabled")
 
-    emoji_path = prepare_emoji_codes()
-
     if sys.platform == "linux":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--add-data="{emoji_path}:emoji" --noconfirm --onefile --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm --onefile --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "win32":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--add-data="{emoji_path}:emoji" --noconfirm --onefile --console --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm --onefile --console --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "mac":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--add-data="{emoji_path}:emoji" --noconfirm --onefile --console --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm --onefile --console --clean --name {pkgname} "main.py"'
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
