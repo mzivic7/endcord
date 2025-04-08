@@ -74,6 +74,7 @@ class Gateway():
         self.dm_activities_changed = False
         self.roles_changed = False
         self.user_settings_proto = None
+        self.proto_changed = False
         self.activities = []
         self.activities_changed = []
         self.subscribed_activities = []
@@ -134,7 +135,7 @@ class Gateway():
         self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
         self.state = 1
         self.heartbeat_interval = int(json.loads(zlib_decompress(self.ws.recv()))["d"]["heartbeat_interval"])
-        self.receiver_thread = threading.Thread(target=self.safe_func_wrapper, daemon=True, args=(self.receiver, ))
+        self.receiver_thread = threading.Thread(target=self.safe_function_wrapper, daemon=True, args=(self.receiver, ))
         self.receiver_thread.start()
         self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
         self.heartbeat_thread.start()
@@ -142,13 +143,13 @@ class Gateway():
         self.authenticate()
 
 
-    def safe_func_wrapper(self, func, args=()):
+    def safe_function_wrapper(self, function, args=()):
         """
         Wrapper for a function running in a thread that captures error and stores it for later use.
         Error can be accessed from main loop and handled there.
         """
         try:
-            func(*args)
+            function(*args)
         except BaseException as e:
             self.error = "".join(traceback.format_exception(e))
 
@@ -414,6 +415,7 @@ class Gateway():
                     # get proto
                     decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["user_settings_proto"]))
                     self.user_settings_proto = json.loads(MessageToJson(decoded))
+                    self.proto_changed = True
                     time_log_string += f"    protobuf - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # get my roles
@@ -494,18 +496,9 @@ class Gateway():
 
                 elif optext == "SESSIONS_REPLACE":
                     # received when new client is connected
-                    custom_status = None
-                    custom_status_emoji = None
                     activities = []
                     for activity in response["d"][0]["activities"]:
-                        if activity["type"] == 4:
-                            custom_status = activity.get("state")
-                            custom_status_emoji = {
-                                "id": activity["emoji"].get("id"),
-                                "name": activity["emoji"].get("name"),
-                                "animated": activity["emoji"].get("animated", False),
-                            }
-                        elif activity["type"] in (0, 2):
+                        if activity["type"] in (0, 2):
                             if "assets" in activity:
                                 small_text = activity["assets"].get("small_text")
                                 large_text = activity["assets"].get("large_text")
@@ -521,9 +514,6 @@ class Gateway():
                                 "large_text": large_text,
                             })
                     self.my_status = {
-                        "status": response["d"][0]["status"],
-                        "custom_status": custom_status,
-                        "custom_status_emoji": custom_status_emoji,
                         "activities": activities,
                     }
                     self.status_changed = True
@@ -1059,6 +1049,13 @@ class Gateway():
                                     self.activities[guild_index]["members"].pop(-1)
                         self.activities_changed.append(guild_id)
 
+                elif optext == "USER_SETTINGS_PROTO_UPDATE":
+                    if response["d"]["partial"] or response["d"]["settings"]["type"] != 1:
+                        continue
+                    decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["settings"]["proto"]))
+                    self.user_settings_proto = json.loads(MessageToJson(decoded))
+                    self.proto_changed = True
+
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
                 break
@@ -1172,7 +1169,7 @@ class Gateway():
             self.wait = False
             # restarting threads
             if not self.receiver_thread.is_alive():
-                self.receiver_thread = threading.Thread(target=self.safe_func_wrapper, daemon=True, args=(self.receiver, ))
+                self.receiver_thread = threading.Thread(target=self.safe_function_wrapper, daemon=True, args=(self.receiver, ))
                 self.receiver_thread.start()
             if not self.heartbeat_thread.is_alive():
                 self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
@@ -1412,7 +1409,10 @@ class Gateway():
 
     def get_settings_proto(self):
         """Get account settings, only proto 1"""
-        return self.user_settings_proto
+        if self.proto_changed:
+            self.proto_changed = False
+            return self.user_settings_proto
+        return None
 
 
     def get_my_roles(self):

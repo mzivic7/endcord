@@ -142,6 +142,7 @@ Copy selected channel ( in tree) url to clipboard - `Alt+Shift+U`
 Go to #channel/message mentioned in selected message - `Alt+G`  
 Locally hide channel - `Alt+H`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
+Media player: quit - `escape`, pause - `Space`, seek - `Left/Right`, replay - `Z`  
 Cancel action, leave media viewer - `Escape`  
 Quit - `Ctrl+C`  
 

@@ -111,7 +111,6 @@ class TUI():
         self.input_line_index = 0   # index of input line, when moving it to left
         self.cursor_pos = 0   # on-screen position of cursor
         self.cursor_on = True
-        self.asking_num = False
         self.enable_autocomplete = False
         self.spelling_range = [0, 0]
         self.misspelled = []
@@ -1092,7 +1091,17 @@ class TUI():
         elif key == self.keybindings["hide_channel"]:
             return 26
 
+        elif key == self.keybindings["cycle_status"]:
+            return 33
+
         return None
+
+
+    def return_input_code(self, code):
+        """Clean input line and return input code wit other data"""
+        tmp = self.input_buffer
+        self.input_buffer = ""
+        return tmp, self.chat_selected, self.tree_selected_abs, code
 
 
     def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False, autocomplete=False, clear_delta=False):
@@ -1138,8 +1147,18 @@ class TUI():
                     if key in (-1, 27):
                         self.input_buffer = ""
                         self.screen.nodelay(False)
-                        return None, 0, 0, 101
+                        return None, 0, 0, 100
                     self.screen.nodelay(False)
+                elif key == self.keybindings["media_pause"]:
+                    return None, 0, 0, 101
+                elif key == self.keybindings["media_replay"]:
+                    return None, 0, 0, 102
+                elif key == self.keybindings["media_seek_forward"]:
+                    return None, 0, 0, 103
+                elif key == self.keybindings["media_seek_backward"]:
+                    return None, 0, 0, 104
+                elif key == self.keybindings["redraw"]:
+                    return None, 0, 0, 105
                 elif key == curses.KEY_RESIZE:
                     pass
                 continue   # disable all inputs from main UI
@@ -1150,11 +1169,8 @@ class TUI():
                 key = self.screen.getch()
                 if key == -1:
                     # escape key
-                    self.asking_num = False
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
                     self.screen.nodelay(False)
-                    return tmp, self.chat_selected, self.tree_selected_abs, 5
+                    return self.return_input_code(5)
                 # sequence (bracketed paste or ALT+KEY)
                 sequence = [27, key]
                 # -1 means no key is pressed, 126 is end of escape sequence
@@ -1178,11 +1194,8 @@ class TUI():
                     continue
                 elif sequence[-1] == -1 and sequence[-2] == 27:
                     # holding escape key
-                    self.asking_num = False
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
                     self.screen.nodelay(False)
-                    return tmp, self.chat_selected, self.tree_selected_abs, 5
+                    return self.return_input_code(5)
 
 
             if key == 10:   # ENTER
@@ -1193,8 +1206,6 @@ class TUI():
                     self.add_to_delta_store("\n")
                     pass
                 else:
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
                     self.input_index = 0
                     self.cursor_pos = 0
                     self.draw_input_line()
@@ -1203,13 +1214,11 @@ class TUI():
                     self.set_cursor_color(2)
                     self.cursor_on = True
                     self.input_select_start = None
-                    return tmp, self.chat_selected, self.tree_selected_abs, 0
+                    return self.return_input_code(0)
 
             code = self.common_keybindings(key)
             if code:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, code
+                return self.return_input_code(code)
 
             if isinstance(key, int) and 32 <= key <= 126:   # all regular characters
                 if self.input_select_start is not None:
@@ -1404,15 +1413,11 @@ class TUI():
 
             elif self.input_select_start and key == self.keybindings["copy_sel"]:
                 self.store_input_selected()
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 20
+                return self.return_input_code(20)
 
             elif self.input_select_start and key == self.keybindings["cut_sel"]:
                 self.delete_selection()
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 20
+                return self.return_input_code(20)
 
             elif self.enable_autocomplete and key == 9:   # TAB - same as CTRL+I
                 if self.input_buffer and self.input_index == len(self.input_buffer):
@@ -1427,14 +1432,10 @@ class TUI():
                             selected_completion = 0
 
             elif key == self.keybindings["attach_prev"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 14
+                return self.return_input_code(14)
 
             elif key == self.keybindings["attach_next"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 15
+                return self.return_input_code(15)
 
             elif key == self.keybindings["ins_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
@@ -1442,120 +1443,77 @@ class TUI():
                 self.show_cursor()
 
             elif key == self.keybindings["reply"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 1
+                return self.return_input_code(1)
 
             elif key == self.keybindings["edit"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 2
+                return self.return_input_code(2)
 
             elif key == self.keybindings["delete"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 3
-
-            elif key == self.keybindings["scroll_bottom"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 7
+                return self.return_input_code(3)
 
             elif key == self.keybindings["toggle_ping"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 6
+                return self.return_input_code(6)
+
+            elif key == self.keybindings["scroll_bottom"]:
+                return self.return_input_code(7)
+
 
             elif key == self.keybindings["go_replied"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 8
+                return self.return_input_code(8)
 
             elif key == self.keybindings["download"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                self.asking_num = True
-                return tmp, self.chat_selected, self.tree_selected_abs, 9
+                return self.return_input_code(9)
 
             elif key == self.keybindings["browser"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                self.asking_num = True
-                return tmp, self.chat_selected, self.tree_selected_abs, 10
+                return self.return_input_code(10)
 
             elif key == self.keybindings["cancel"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 11
+                return self.return_input_code(11)
 
             elif key == self.keybindings["copy_msg"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 12
+                return self.return_input_code(12)
 
             elif key == self.keybindings["upload"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
                 self.enable_autocomplete = True
                 self.misspelled = []
-                return tmp, self.chat_selected, self.tree_selected_abs, 13
+                return self.return_input_code(13)
 
             elif key == self.keybindings["redraw"]:
                 self.screen.clear()
                 self.resize()
 
             elif key == self.keybindings["attach_cancel"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 16
+                return self.return_input_code(16)
 
             elif key == self.keybindings["view_media"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                self.asking_num = True
-                return tmp, self.chat_selected, self.tree_selected_abs, 17
+                return self.return_input_code(17)
 
             elif key == self.keybindings["spoil"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                self.asking_num = True
-                return tmp, self.chat_selected, self.tree_selected_abs, 18
+                return self.return_input_code(18)
 
             elif key == self.keybindings["profile_info"] and self.chat_selected != -1:
                 self.extra_index = 0
                 self.extra_selected = -1
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 24
+                return self.return_input_code(24)
 
             elif key == self.keybindings["show_summaries"]:
                 self.extra_index = 0
                 self.extra_selected = -1
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 28
+                return self.return_input_code(28)
 
             elif key == self.keybindings["search"]:
                 self.extra_index = 0
                 self.extra_selected = -1
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 29
+                return self.return_input_code(29)
 
             elif key == self.keybindings["copy_channel_link"] and self.tree_selected > 0:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 30
+                return self.return_input_code(30)
 
             elif key == self.keybindings["copy_message_link"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 31
+                return self.return_input_code(31)
 
             elif key == self.keybindings["go_channel"] and self.chat_selected != -1:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 32
+                return self.return_input_code(32)
 
             elif key == curses.KEY_RESIZE:
                 self.resize()
@@ -1598,10 +1556,10 @@ class TUI():
                 if key == 27:   # ESCAPE
                     self.screen.nodelay(True)
                     key = self.screen.getch()
-                    if key == -1:
+                    if key in (-1, 27):
                         self.input_buffer = ""
                         self.screen.nodelay(False)
-                        return None, 0, 0, 101
+                        return None, 0, 0, 100
                     self.screen.nodelay(False)
                 elif key == curses.KEY_RESIZE:
                     pass
@@ -1613,10 +1571,8 @@ class TUI():
                 key = self.screen.getch()
                 if key == -1:
                     # escape key
-                    tmp = self.input_buffer
-                    self.input_buffer = ""
                     self.screen.nodelay(False)
-                    return tmp, self.chat_selected, self.tree_selected_abs, 5
+                    return self.return_input_code(5)
                 # sequence (bracketed paste or ALT+KEY)
                 sequence = [27, key]
                 # -1 means no key is pressed, 126 is end of escape sequence
@@ -1631,8 +1587,6 @@ class TUI():
                     key = f"ALT+{sequence[1]}"
 
             if key == 10:   # ENTER
-                tmp = self.input_buffer
-                self.input_buffer = ""
                 self.input_index = 0
                 self.cursor_pos = 0
                 self.win_input_line.cursyncup()
@@ -1640,27 +1594,21 @@ class TUI():
                 self.set_cursor_color(2)
                 self.cursor_on = True
                 self.input_select_start = None
-                return tmp, self.chat_selected, self.tree_selected_abs, 22
+                return self.return_input_code(22)
 
             code = self.common_keybindings(key)
             if code:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, code
+                return self.return_input_code(code)
 
             if key == self.keybindings["cancel"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 11
+                return self.return_input_code(11)
+
+            if key == self.keybindings["forum_join_thread"]:
+                return self.return_input_code(23)
 
             if key == self.keybindings["redraw"]:
                 self.screen.clear()
                 self.resize()
-
-            elif key == self.keybindings["forum_join_thread"]:
-                tmp = self.input_buffer
-                self.input_buffer = ""
-                return tmp, self.chat_selected, self.tree_selected_abs, 23
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

@@ -1,8 +1,7 @@
 HIGH PRIORITY:
-ability to change activity and custom status
+audio message recording
+fix protobuf encoding
 member list (Alt+M) - auto open on large screen
-media player: UI, pause, seek
-play audio messages
 
 MEDIUM PRIORITY:
 assist with @[username]/@[role]/#channel/:emoji:
@@ -12,7 +11,7 @@ assist with stickers
 
 LOW PRIORITY:
 :commands
-recording audio messages
+fix "glitches"
 fix hidden channels
 tabs
 rpc on windows

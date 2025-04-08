@@ -72,8 +72,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Language dictionary for aspell.  
     To list all installed languages, run `aspell dump dicts`.
     Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
-- `mute_video = False`  
-    Wether to mute video or not. If true, will not initialize audio at all.
+- `media_mute = False`  
+    Wether to mute video in media player or not. If true, will not initialize audio at all.
+- `media_cap_fps = 30`  
+    Maximum framerate when playing videos.
 - `rpc_external = True`  
     Wether to use external resources for Rich Presence (like custom pictures).
 - `emoji_as_text = False`  
@@ -166,13 +168,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
-- `ascii_palette = "  ..',;:c*loexk#O0XNW"`  
+- `media_ascii_palette = "  ..',;:c*loexk#O0XNW"`  
     Characters used to draw in terminal. From darkest to brightest. Same character can be repeated. Number of characters is not fixed.
-- `saturation = 1.2`  
+- `media_saturation = 1.2`  
     Saturation correction applied to image in order to make colors more visible. Adjust if changing `ascii_palette` or color_media_bg.
-- `target_fps = 30`  
-    Target framerate when playing videos, high values may result in AV-desyncing and higher CPU usage.
-- `font_scale = 2.25`  
+- `media_font_scale = 2.25`  
     Font height/width ratio. Change only if picture dimensions ratio is wrong in terminal.
 
 ### Colors and attributes
@@ -239,8 +239,11 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for spoilers in message.
 - `color_chat_code = [250, 233]`  
     Color for code snippets and blocks.
-- `color_media_bg = -1`  
-    single color value for background color when showing media.
+- `media_color_bg = -1`  
+    Single color value for background color when showing media.
+- `media_bar_ch = "━"`  
+    A single character used to draw progress bar in media player when playing video or audio.
+
 
 ## format_message
 - `%content` - message text

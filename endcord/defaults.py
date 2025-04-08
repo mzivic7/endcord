@@ -28,7 +28,8 @@ settings = {
     "tenor_gif_type": 1,
     "aspell_mode": "normal",
     "aspell_lang": "en_US",
-    "mute_video": False,
+    "media_mute": False,
+    "media_cap_fps": 30,
     "rpc_external": True,
     "emoji_as_text": False,
     "native_media_player": False,
@@ -106,11 +107,11 @@ theme = {
     "color_chat_url": [153, -1, "u"],
     "color_chat_spoiler": [245, -1],
     "color_chat_code": [250, 233],
-    "ascii_palette": "  ..',;:c*loexk#O0XNW",
-    "saturation": 1.2,
-    "target_fps": 30,
-    "font_scale": 2.25,
-    "color_media_bg": 16,
+    "media_ascii_palette": "  ..',;:c*loexk#O0XNW",
+    "media_saturation": 1.2,
+    "media_font_scale": 2.25,
+    "media_color_bg": 16,
+    "media_bar_ch": "━",
 }
 
 
@@ -163,10 +164,16 @@ keybindings = {
     "extra_up": 573,   # Alt+Up
     "extra_down": 532,   # Alt+Down
     "extra_select": "ALT+10",   # Alt+Enter
+    # media
+    "media_pause": 32,   # C
+    "media_replay": 122,   # Z
+    "media_seek_forward": 261,   # Right
+    "media_seek_backward": 260,   # Left
     # other
     "redraw": 12,   # Ctrl+L
     "cancel": 24,   # Ctrl+X
     "forum_join_thread": "ALT+107",   # Alt+K
+    "cycle_status": "ALT+118",   # Alt+V
 }
 
 

@@ -35,7 +35,8 @@ if support_media:
 logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
-MEDIA_EMBEDS = ("image", "gifv", "video", "rich")
+MEDIA_EMBEDS = ("image", "gifv", "video", "audio", "rich")
+STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
 ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github.com/mzivic7/endcord/issues"
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
@@ -198,6 +199,13 @@ class Endcord:
         self.search = False
         self.search_end = False
         self.ignore_typing = False
+        self.my_status = {
+            "status": "online",
+            "custom_status": None,
+            "custom_status_emoji": None,
+            "activities": [],
+            "client_state": "OFFLINE",
+        }
 
 
     def reconnect(self):
@@ -1083,6 +1091,38 @@ class Endcord:
                     self.going_to_ch = channels
                     self.update_status_line()
 
+            # cycle status
+            elif action == 33:
+                self.going_to = input_text
+                if self.my_status["client_state"] == "online":
+                    for num, status in enumerate(STATUS_STRINGS):
+                        if status == self.my_status["status"]:
+                            if num == len(STATUS_STRINGS) - 1:
+                                self.my_status["status"] = STATUS_STRINGS[0]
+                            else:
+                                self.my_status["status"] = STATUS_STRINGS[num+1]
+                            break
+                    self.gateway.update_presence(
+                        self.my_status["status"],
+                        custom_status=self.my_status["custom_status"],
+                        custom_status_emoji=self.my_status["custom_status_emoji"],
+                        rpc=self.my_rpc,
+                    )
+                    settings = {"status":{
+                        "status": {
+                            "value": self.my_status["status"],
+                        },
+                        "custom_status": {
+                            "text": self.my_status["custom_status"],
+                            "emoji_name": self.my_status["custom_status_emoji"],
+                        },
+                        "show_current_game": {
+                            "value": True,
+                        },
+                    }}
+                    self.discord.patch_settings_proto(1, settings)
+                    self.update_status_line()
+
             # escape key in main UI
             elif action == 5:
                 if self.extra_window_open:
@@ -1097,9 +1137,9 @@ class Endcord:
                     self.reset_actions()
                 self.update_status_line()
 
-            # escape key in media viewer
-            elif action == 101:
-                self.curses_media.stop()
+            # media controls
+            elif action >= 100:
+                self.curses_media.control_codes(action)
 
             # enter
             elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
@@ -2120,6 +2160,33 @@ class Endcord:
             self.last_summary_save = time.time()
 
 
+    def update_presence_from_proto(self):
+        """Update presence from protos locally and redraw status line"""
+        custom_status_emoji = None
+        custom_status = None
+        if "status" in self.discord_settings:
+            status = self.discord_settings["status"]["status"]
+            if "customStatus" in self.discord_settings["status"]:
+                custom_status_emoji = {
+                    "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
+                    "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
+                    "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
+                }
+                custom_status = self.discord_settings["status"]["customStatus"]["text"]
+            if custom_status_emoji and not (custom_status_emoji["name"] or custom_status_emoji["id"]):
+                custom_status_emoji = None
+        else:   # just in case
+            status = "online"
+            custom_status = None
+            custom_status_emoji = None
+        self.my_status.update({
+            "status": status,
+            "custom_status": custom_status,
+            "custom_status_emoji": custom_status_emoji,
+        })
+        self.update_status_line()
+
+
     def send_desktop_notification(self, new_message):
         """
         Send desktop notification, and handle its ID so it can be removed.
@@ -2147,8 +2214,14 @@ class Endcord:
         """Main app method"""
         logger.info("Main started")
         logger.info("Waiting for ready signal from gateway")
+        self.my_status["client_state"] = "connecting"
+        self.update_status_line()
+
         while not self.gateway.get_ready():
             time.sleep(0.2)
+
+        self.my_status["client_state"] = "online"
+        self.update_status_line()
 
         self.discord_settings = self.gateway.get_settings_proto()
 
@@ -2168,30 +2241,7 @@ class Endcord:
         # self.guild_positions = debug.load_json("guild_positions.json")
 
         # custom status
-        custom_status_emoji = None
-        custom_status = None
-        if "status" in self.discord_settings:
-            status = self.discord_settings["status"]["status"]
-            if "customStatus" in self.discord_settings["status"]:
-                custom_status_emoji = {
-                    "id": self.discord_settings["status"]["customStatus"].get("emojiID"),
-                    "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
-                    "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
-                }
-                custom_status = self.discord_settings["status"]["customStatus"]["text"]
-            if custom_status_emoji and not (custom_status_emoji["name"] or custom_status_emoji["id"]):
-                custom_status_emoji = None
-        else:   # just in case
-            status = "online"
-            custom_status = None
-            custom_status_emoji = None
-        self.my_status = {
-            "status": status,
-            "custom_status": custom_status,
-            "custom_status_emoji": custom_status_emoji,
-            "activities": [],
-            "client_state": "online",
-        }
+        self.update_presence_from_proto()
 
         self.gateway_state = 1
         logger.info("Gateway is ready")
@@ -2562,14 +2612,19 @@ class Endcord:
             # check and update my status
             new_status = self.gateway.get_my_status()
             if new_status:
-                self.my_status = {
-                    "status": new_status["status"],
-                    "custom_status": new_status["custom_status"],
-                    "custom_status_emoji": new_status["custom_status_emoji"],
-                    "activities": new_status["activities"],
-                    "client_state": "online",
-                }
+                self.my_status.update(new_status)
+                self.my_status["activites"] = new_status["activities"]
                 self.update_status_line()
+            new_proto = self.gateway.get_settings_proto()
+            if new_proto:
+                self.discord_settings = new_proto
+                self.update_presence_from_proto()
+                self.gateway.update_presence(
+                    self.my_status["status"],
+                    custom_status=self.my_status["custom_status"],
+                    custom_status_emoji=self.my_status["custom_status_emoji"],
+                    rpc=self.my_rpc,
+                )
 
             # check changes in presences and update tree
             new_activities = self.gateway.get_dm_activities()
@@ -2629,6 +2684,7 @@ class Endcord:
 
             # check gateway for errors
             if self.gateway.error:
+                logger.fatal(f"Gateway error: \n {self.gateway.error}")
                 sys.exit(self.gateway.error + ERROR_TEXT)
 
             time.sleep(0.1)   # some reasonable delay

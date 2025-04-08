@@ -7,7 +7,7 @@ import socket
 import time
 import urllib.parse
 
-from discord_protos import PreloadedUserSettings
+from discord_protos import FrecencyUserSettings, PreloadedUserSettings
 from google.protobuf.json_format import MessageToJson
 
 from endcord import peripherals
@@ -199,8 +199,7 @@ class Discord():
             "authorization": self.token,
         }
         self.my_id = self.get_my_id(exit_on_error=True)
-        self.cache_proto_1 = None
-        self.cache_proto_2 = None
+        self.cache_protos = [[], []]
         self.uploading = []
 
 
@@ -490,10 +489,8 @@ class Discord():
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things
         """
-        if num == 1 and self.cache_proto_1:
-            return self.cache_proto_1
-        if num == 2 and self.cache_proto_2:
-            return self.cache_proto_2
+        if self.cache_protos[num-1]:
+            return self.cache_protos[num-1]
         message_data = None
         url = f"/api/v9/users/@me/settings-proto/{num}"
         try:
@@ -504,15 +501,46 @@ class Discord():
             return None
         if response.status == 200:
             data = json.loads(response.read())["settings"]
-            decoded = PreloadedUserSettings.FromString(base64.b64decode(data))
             if num == 1:
-                self.cache_proto_1 = json.loads(MessageToJson(decoded))
-                return self.cache_proto_1
-            if num == 2:
-                self.cache_proto_2 = json.loads(MessageToJson(decoded))
-                return self.cache_proto_2
+                decoded = PreloadedUserSettings.FromString(base64.b64decode(data))
+            elif num == 2:
+                decoded = FrecencyUserSettings.FromString(base64.b64decode(data))
+            else:
+                return {}
+            self.cache_protos[num-1] = json.loads(MessageToJson(decoded))
+            return self.cache_protos[num-1]
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
         return None
+
+
+    def patch_settings_proto(self, num, data):
+        """
+        Patch acount settings
+        num=1 - General user settings
+        num=2 - Frecency and favorites storage for various things"""
+        return False  # DISABLED FOR NOW
+
+        if not self.cache_protos[num-1]:
+            self.get_settings_proto(num)
+        self.cache_protos[num-1].update(data)
+        if num == 1:
+            encoded = base64.b64encode(PreloadedUserSettings.ParseDict(data).SerializeToString())
+        elif num == 2:
+            encoded = base64.b64encode(FrecencyUserSettings.ParseDict(data).SerializeToString())
+        else:
+            return False
+        message_data = json.dumps({"settings": encoded})
+        url = f"/api/v9/users/@me/settings-proto/{num}"
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("PATCH", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return False
+        if response.status == 200:
+            return True
+        logger.error(f"Failed to patch protobuf {num}. Response code: {response.status}")
+        return False
 
 
     def get_rpc_app(self, app_id):
