@@ -41,6 +41,11 @@ def get_sticker_url(sticker):
     return None   # lottie
 
 
+def generate_nonce():
+    """Generate nonce string - current UTC time as discord snowflake"""
+    return str((int(time.time() * 1000) - DISCORD_EPOCH * 1000) << 22)
+
+
 def prepare_messages(data, have_channel_id=False):
     """Prepare list of messages"""
     messages = []
@@ -626,6 +631,7 @@ class Discord():
             "content": message_text,
             "tts": "false",
             "flags": 0,
+            "nonce": generate_nonce(),
         }
         if reply_id and reply_channel_id:
             message_dict["message_reference"] = {
@@ -869,7 +875,7 @@ class Discord():
         return 0, []
 
 
-    def request_attachment_link(self, channel_id, path):
+    def request_attachment_link(self, channel_id, path, custom_name=None):
         """
         Request attachment upload link.
         If file is too large - will return None.
@@ -878,10 +884,14 @@ class Discord():
         1 - Failed
         2 - File too large
         """
+        if custom_name:
+            filename = custom_name
+        else:
+            filename = os.path.basename(path)
         message_data = json.dumps({
             "files": [{
                 "file_size": peripherals.get_file_size(path),
-                "filename": os.path.basename(path),
+                "filename": filename,
                 "id": None,   # should not be None, but works
                 "is_clip": peripherals.get_is_clip(path),
             }],
@@ -965,9 +975,67 @@ class Discord():
         if response.status == 204:
             return True
         if response.status == 429:
-            # discord usually returns 429 for this request, but original client does not retry afteer some time
+            # discord usually returns 429 for this request, but original client does not retry after some time
             # so this wont retry either, file wont be sent in the messgae anyway
             logger.debug("Failed to delete attachemnt. Response code: 429 - Too Many Requests")
             return True
         logger.error(f"Failed to delete attachemnt. Response code: {response.status}")
         return None
+
+
+    def send_voice_message(self, channel_id, path, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=None):
+        """Send voice message from file path, file must be ogg"""
+        waveform, duration = peripherals.get_audio_waveform(path)
+        if not duration:
+            logger.warn(f"Couldnt read voice message file: {path}")
+        upload_data, status = self.request_attachment_link(channel_id, path, custom_name="voice-message.ogg")
+        if status != 0:
+            logger.warn("Cant send voice message, attachment error")
+        uploaded = self.upload_attachment(upload_data["upload_url"], path)
+        if not uploaded:
+            logger.warn("Cant upload voice message, upload error")
+        message_dict = {
+            "channel_id": channel_id,
+            "content": "",
+            "attachments": [{
+                "id": "0",
+                "filename": "voice-message.ogg",
+                "uploaded_filename": upload_data["upload_filename"],
+                "duration_secs": duration,
+                "waveform": waveform,
+            }],
+            "message_reference": None,
+            "flags": 8192,
+            "type": 0,
+            "sticker_ids": [],
+            "nonce": generate_nonce(),
+        }
+        if reply_id and reply_channel_id:
+            message_dict["message_reference"] = {
+                "message_id": reply_id,
+                "channel_id": reply_channel_id,
+            }
+            if reply_guild_id:
+                message_dict["message_reference"]["guild_id"] = reply_guild_id
+            if not reply_ping:
+                if reply_guild_id:
+                    message_dict["allowed_mentions"] = {
+                        "parse": ["users", "roles", "everyone"],
+                    }
+                else:
+                    message_dict["allowed_mentions"] = {
+                        "parse": ["users", "roles", "everyone"],
+                        "replied_user": False,
+                    }
+        message_data = json.dumps(message_dict)
+        url = f"/api/v9/channels/{channel_id}/messages"
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return False
+        if response.status == 200:
+            return True
+        logger.error(f"Failed to send voice message. Response code: {response.status}")
+        return False

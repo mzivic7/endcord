@@ -156,6 +156,7 @@ keybindings = {
     "show_summaries": "ALT+115",   # Alt+S
     "copy_message_link": "ALT+117",   # Alt+U
     "go_channel": "ALT+103",   # Alt+G
+    "record_audio": "ALT+114",   # Alt+R
     # extra line
     "attach_prev": "ALT+552",   # Alt+Left
     "attach_next": "ALT+567",   # Alt+Right

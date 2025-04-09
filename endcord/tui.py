@@ -1515,6 +1515,9 @@ class TUI():
             elif key == self.keybindings["go_channel"] and self.chat_selected != -1:
                 return self.return_input_code(32)
 
+            elif key == self.keybindings["record_audio"]:
+                return self.return_input_code(34)
+
             elif key == curses.KEY_RESIZE:
                 self.resize()
                 _, w = self.input_hw

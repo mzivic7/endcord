@@ -50,6 +50,7 @@ in:channel_id
 pinned:true/false"""
 
 download = downloader.Downloader()
+recorder = peripherals.Recorder()
 
 
 class Endcord:
@@ -152,6 +153,7 @@ class Endcord:
         self.subscribed_members = []
         self.current_members = []
         self.current_subscribed_members = []
+        self.recording = False
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
@@ -395,6 +397,9 @@ class Endcord:
         self.gateway.set_active_channel(channel_id)
         if not self.forum:
             self.set_seen(channel_id)
+        if self.recording:
+            self.recording = False
+            _ = recorder.stop()
 
         # select guild member activities
         if guild_id:
@@ -842,10 +847,13 @@ class Endcord:
             # upload attachment
             elif action == 13 and self.messages and not self.disable_sending:
                 if self.current_channel.get("allow_attach", True):
+                    if self.recording:   # stop recording voice message
+                        self.recording = False
+                        _ = recorder.stop()
                     self.uploading = True
+                    self.ignore_typing = True
+                    self.update_status_line()
                 self.add_to_store(self.active_channel["channel_id"], input_text)
-                self.ignore_typing = True
-                self.update_status_line()
 
             # moving left/right through attachments
             elif action == 14:
@@ -1123,9 +1131,35 @@ class Endcord:
                     self.discord.patch_settings_proto(1, settings)
                     self.update_status_line()
 
+            # record audio messgae
+            elif action == 34 and self.messages and not self.disable_sending and not self.uploading:
+                self.going_to = input_text
+                if self.recording:   # stop recording
+                    self.recording = False
+                    file_path = recorder.stop()
+                    self.update_extra_line()
+                    self.add_running_task("Uploading file", 2)
+                    self.discord.send_voice_message(
+                        self.active_channel["channel_id"],
+                        file_path,
+                        reply_id=self.replying["id"],
+                        reply_channel_id=self.active_channel["channel_id"],
+                        reply_guild_id=self.active_channel["guild_id"],
+                        reply_ping=self.replying["mention"],
+                    )
+                    self.remove_running_task("Uploading file", 2)
+                else:   # start recording
+                    recorder.start()
+                    self.recording = True
+                    self.update_extra_line("RECORDING, Esc to cancel, Enter to send")
+
             # escape key in main UI
             elif action == 5:
-                if self.extra_window_open:
+                if self.recording:
+                    self.recording = False
+                    _ = recorder.stop()
+                    self.update_extra_line()
+                elif self.extra_window_open:
                     self.close_extra_window()
                     self.search = False
                     self.search_end = False
@@ -1325,6 +1359,21 @@ class Endcord:
                         })
                     peripherals.save_json(self.hidden_channels, "hidden_channels.json")
                     self.update_tree()
+                elif self.recording:
+                    self.recording = False
+                    file_path = recorder.stop()
+                    self.update_extra_line()
+                    if not self.disable_sending:
+                        self.add_running_task("Uploading file", 2)
+                        self.discord.send_voice_message(
+                            self.active_channel["channel_id"],
+                            file_path,
+                            reply_id=self.replying["id"],
+                            reply_channel_id=self.active_channel["channel_id"],
+                            reply_guild_id=self.active_channel["guild_id"],
+                            reply_ping=self.replying["mention"],
+                        )
+                        self.remove_running_task("Uploading file", 2)
                 self.reset_actions()
                 self.update_status_line()
 

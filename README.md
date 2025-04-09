@@ -36,10 +36,11 @@ Discord token is required in order to run endcord! see [Token](#token).
     - Expand categories and servers, enter channel (`Ctrl+Space`)
     - DMs in separate drop-down, show DM status
     - Forums, channel threads
-    - View channel and server info (`Alt+I`)
+    - View channel or server info (`Alt+I`)
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
+- Record and send voice messages (`Alt+R`)
 - Undo/Redo in input line (`Alt+Z`, `Alt+Shift+Z`)
 - Open link in browser (`Ctrl+O`)
 - Infinite chat scrolling

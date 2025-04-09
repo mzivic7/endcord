@@ -1,3 +1,4 @@
+import base64
 import glob
 import json
 import logging
@@ -7,10 +8,12 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from ast import literal_eval
 from configparser import ConfigParser
 
 import magic
+import numpy as np
 import pexpect
 import pexpect.popen_spawn
 import sounddevice
@@ -296,6 +299,24 @@ def play_audio(path):
     sounddevice.wait()
 
 
+def get_audio_waveform(path):
+    """Get audio file waveform and length"""
+    if not os.path.exists(path):
+        return None, None
+    with soundfile.SoundFile(path) as audio_file:
+        data = audio_file.read()
+        if data.ndim > 1:
+            data = data[:, 0]   # select only one stream
+        duration = len(data) / audio_file.samplerate
+        chunk_num = min(max(int(duration * 10), 32), 256)
+        chunk_size = int(len(data) / chunk_num)
+        reshaped = data[:len(data) - len(data) % chunk_size].reshape(-1, chunk_size)
+        rms_samples = np.sqrt(np.mean(reshaped**2, axis=1))
+        normalized = (rms_samples / rms_samples.max()) * 255
+        waveform = base64.b64encode(normalized.astype(np.uint8)).decode("utf-8")
+    return waveform, duration
+
+
 def native_open(path):
     """Open media file in native application, cross-system"""
     _ = subprocess.Popen(
@@ -323,7 +344,7 @@ def find_aspell():
     logger.info("Spellchecking not supproted on this platform")
 
 
-class SpellCheck(object):
+class SpellCheck():
     """Sentence and word spellchecker"""
 
     def __init__(self, aspell_mode, aspell_language):
@@ -424,3 +445,50 @@ class SpellCheck(object):
         else:
             return [False] * len(words)
         return misspelled
+
+
+class Recorder():
+    """Sound recorder"""
+
+    def __init__(self):
+        self.recording = False
+        self.audio_data = []
+
+
+    def callback(self, indata, frames, time, status):   # noqa
+        """Function that stores recorded audio data"""
+        self.audio_data.append(indata.copy())
+
+
+    def record(self):
+        """Continuously record audio"""
+        timer = 0
+        with sounddevice.InputStream(samplerate=48000, channels=1, callback=self.callback):
+            while self.recording:
+                if timer >= 600:   # 10min limit
+                    del self.audio_data
+                    self.recording = False
+                    break
+                time.sleep(1)
+                timer += 1
+
+
+    def start(self):
+        """Start continuously recording audio"""
+        if not self.recording:
+            self.recording = True
+            self.audio_data = []
+            self.record_thread = threading.Thread(target=self.record, daemon=True)
+            self.record_thread.start()
+
+
+    def stop(self):
+        """Stop recording audio and return file path"""
+        if self.recording:
+            self.recording = False
+            self.record_thread.join()
+            self.audio_data = np.concatenate(self.audio_data, axis=0)
+            save_path = os.path.join(temp_path, "rec-audio-message.ogg")
+            soundfile.write(save_path, self.audio_data, 48000, format="OGG", subtype="OPUS")
+            del self.audio_data
+            return save_path
