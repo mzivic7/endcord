@@ -328,15 +328,11 @@ Anonymized data that might help in debugging is saved in `Debug` directory, see 
 All channel and server names, topics, descriptions are replaced. All channel and server IDs are added to random number and hashed, so they are irreversible changed, and will be different on each run.
 
 ### Some role colors are wrong
-This is an [issue](https://github.com/python/cpython/issues/119138) with cpython ncurses API. It is ignoring color prirs with ID larger than 255. This means only 255 color pairs can actually be used. Only role colors can reach this limit, because they are initialized last.
+This is an [issue](https://github.com/python/cpython/issues/119138) with cpython ncurses API. It is ignoring color pairs with ID larger than 255. This means only 255 color pairs can actually be used. Only role colors can reach this limit, because they are initialized last.
 This will be updated in endcord when cpython issue is resolved.
 
-### Some channels are not hidden
-This is because the actual way of getting hidden channels is unknown. Only the channels that are user-hidden (in Discord: right click on channel -> remove from channel list) and have no modified notification settings, will not be hidden in endcord.  
-To hide it, either give it some notification setting (eg. mute it), or locally set it as hidden: [Hiding channels](#hiding-channels).
-
 ### Status sign in tree has no color when selected or active
-Same reason as above, trying to save some color pair IDs until curses bug is fixed.  
+Same reason as above, colors will be added when curses bug is fixed.  
 
 ### No emoji
 If emoji are drawn as empty box or simmilar, it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.

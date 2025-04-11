@@ -233,10 +233,10 @@ class Gateway():
                         guild_channels = []
                         # channels
                         for channel in guild["channels"]:
-                            if channel["type"] in (0, 5):
-                                hidden = False   # hidden by default
+                            if channel["type"] in (0, 2, 4, 5, 15):
+                                hidden = True   # hidden by default
                             else:
-                                hidden = False   # categories cant be hidden
+                                hidden = False
                             guild_channels.append({
                                 "id": channel["id"],
                                 "type": channel["type"],
@@ -344,6 +344,7 @@ class Gateway():
                             "name": name,
                             "is_spam": dm.get("is_spam"),
                             "is_request": dm.get("is_message_request"),
+                            "muted": False,
                         })
                         self.dms_id.append(dm["id"])
                     time_log_string += f"    DMs - {round(time.time() - ready_time_mid, 3)}s\n"
@@ -385,10 +386,10 @@ class Gateway():
                                         found = True
                                         break
                                 if found:
-                                    if channel_g["type"] in (0, 5):
+                                    if channel_g["type"] in (0, 2, 4, 5, 15):
                                         flags = int(channel.get("flags", 0))
                                         hidden = not perms.decode_flag(flags, 12)
-                                    else:   # categories cant be hidden
+                                    else:
                                         hidden = False
                                     self.guilds[guild_num]["channels"][channel_num].update({
                                         "message_notifications": channel["message_notifications"],
@@ -405,6 +406,24 @@ class Gateway():
                                     "message_notifications": dm["message_notifications"],
                                     "muted": dm["muted"],
                                 })
+                    # process hidden channels and categories
+                    for guild_num, guild in enumerate(self.guilds):
+                        owned = guild["owned"]
+                        for category_num, category in enumerate(guild["channels"]):
+                            if category["type"] == 4:
+                                category_id = category["id"]
+                                if owned:   # cant hide channels in owned guild
+                                    self.guilds[guild_num]["channels"][category_num]["hidden"] = False
+                                if not category["hidden"]:
+                                    for channel in guild["channels"]:
+                                        if channel["parent_id"] == category_id:
+                                            channel["hidden"] = False
+                                else:
+                                    for channel in guild["channels"]:
+                                        if channel["parent_id"] == category_id:
+                                            if not channel["hidden"]:
+                                                self.guilds[guild_num]["channels"][category_num]["hidden"] = False
+                                                break
                     time_log_string += f"    channel settings - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     for user in response["d"]["relationships"]:

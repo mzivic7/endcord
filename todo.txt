@@ -10,7 +10,6 @@ assist with stickers
 LOW PRIORITY:
 :commands
 fix "glitches"
-fix hidden channels
 tabs
 rpc on windows
 

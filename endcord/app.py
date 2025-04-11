@@ -216,12 +216,14 @@ class Endcord:
         self.reset()
         self.guilds = self.gateway.get_guilds()
         # not initializing role colors again to avoid issues with media colors
-        self.dms, self.dms_id = self.gateway.get_dms()
+        self.dms, self.dms_vis_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
                 if dm["is_spam"]:
-                    self.dms_id.remove(dm["id"])
+                    self.dms_vis_id.remove(dm["id"])
                     self.dms.remove(dm)
+                elif dm["muted"]:
+                    self.dms_vis_id.remove(dm["id"])
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
@@ -2265,6 +2267,9 @@ class Endcord:
         self.update_status_line()
 
         while not self.gateway.get_ready():
+            if self.gateway.error:
+                logger.fatal(f"Gateway error: \n {self.gateway.error}")
+                sys.exit(self.gateway.error + ERROR_TEXT)
             time.sleep(0.2)
 
         self.my_status["client_state"] = "online"
@@ -2327,11 +2332,11 @@ class Endcord:
             logger.info("ASCII media is not supported")
 
         # load dms
-        self.dms, self.dms_id = self.gateway.get_dms()
+        self.dms, self.dms_vis_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
                 if dm["is_spam"]:
-                    self.dms_id.remove(dm["id"])
+                    self.dms_vis_id.remove(dm["id"])
                     self.dms.remove(dm)
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
@@ -2516,24 +2521,34 @@ class Endcord:
                     if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
                         # ignoring messages sent by other clients
                         if op == "MESSAGE_CREATE" and new_message["d"]["user_id"] != self.my_id:
-                            if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
-                                self.unseen.append({
-                                    "channel_id": new_message_channel_id,
-                                    "guild_id": new_message["d"]["guild_id"],
-                                })
-                            mentions = new_message["d"]["mentions"]
-                            if (
-                                new_message["d"]["mention_everyone"] or
-                                bool([i for i in self.my_roles if i in new_message["d"]["mention_roles"]]) or
-                                self.my_id in [[x["id"] for x in mentions]] or
-                                (new_message_channel_id in self.dms_id)
-                            ):
-                                self.pings.append({
-                                    "channel_id": new_message_channel_id,
-                                    "message_id": new_message["d"]["id"],
-                                })
-                                self.send_desktop_notification(new_message)
-                            self.update_tree()
+                            # skip muted channels
+                            muted = False
+                            for guild in self.guilds:
+                                if guild["guild_id"] == new_message["d"]["guild_id"]:
+                                    for channel in guild["channels"]:
+                                        if new_message_channel_id == channel["id"] and (channel["muted"] or channel["hidden"]):
+                                            muted = True
+                                            break
+                                    break
+                            if not muted:
+                                if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
+                                    self.unseen.append({
+                                        "channel_id": new_message_channel_id,
+                                        "guild_id": new_message["d"]["guild_id"],
+                                    })
+                                mentions = new_message["d"]["mentions"]
+                                if (
+                                    new_message["d"]["mention_everyone"] or
+                                    bool([i for i in self.my_roles if i in new_message["d"]["mention_roles"]]) or
+                                    self.my_id in [[x["id"] for x in mentions]] or
+                                    (new_message_channel_id in self.dms_vis_id)
+                                ):
+                                    self.pings.append({
+                                        "channel_id": new_message_channel_id,
+                                        "message_id": new_message["d"]["id"],
+                                    })
+                                    self.send_desktop_notification(new_message)
+                                self.update_tree()
                     # remove ghost pings
                     if op == "MESSAGE_DELETE" and not self.keep_deleted:
                         for num, pinged_channel in enumerate(self.pings):
