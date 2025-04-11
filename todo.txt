@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-fix protobuf encoding
 member list (Alt+M) - auto open on large screen
 
 MEDIUM PRIORITY:

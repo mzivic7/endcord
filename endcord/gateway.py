@@ -13,7 +13,7 @@ from http.client import HTTPSConnection
 
 import websocket
 from discord_protos import PreloadedUserSettings
-from google.protobuf.json_format import MessageToJson
+from google.protobuf.json_format import MessageToDict
 
 from endcord import debug, perms
 
@@ -414,7 +414,7 @@ class Gateway():
                     ready_time_mid = time.time()
                     # get proto
                     decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["user_settings_proto"]))
-                    self.user_settings_proto = json.loads(MessageToJson(decoded))
+                    self.user_settings_proto = MessageToDict(decoded)
                     self.proto_changed = True
                     time_log_string += f"    protobuf - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
@@ -1053,7 +1053,7 @@ class Gateway():
                     if response["d"]["partial"] or response["d"]["settings"]["type"] != 1:
                         continue
                     decoded = PreloadedUserSettings.FromString(base64.b64decode(response["d"]["settings"]["proto"]))
-                    self.user_settings_proto = json.loads(MessageToJson(decoded))
+                    self.user_settings_proto = MessageToDict(decoded)
                     self.proto_changed = True
 
             elif opcode == 7:

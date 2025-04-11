@@ -1116,18 +1116,16 @@ class Endcord:
                         custom_status_emoji=self.my_status["custom_status_emoji"],
                         rpc=self.my_rpc,
                     )
-                    settings = {"status":{
-                        "status": {
-                            "value": self.my_status["status"],
+                    settings = {
+                        "status":{
+                            "status": self.my_status["status"],
+                            "custom_status": {
+                                "text": self.my_status["custom_status"],
+                                "emoji_name": self.my_status["custom_status_emoji"]["name"],
+                            },
+                            "show_current_game": True,
                         },
-                        "custom_status": {
-                            "text": self.my_status["custom_status"],
-                            "emoji_name": self.my_status["custom_status_emoji"],
-                        },
-                        "show_current_game": {
-                            "value": True,
-                        },
-                    }}
+                    }
                     self.discord.patch_settings_proto(1, settings)
                     self.update_status_line()
 
@@ -2662,7 +2660,7 @@ class Endcord:
             new_status = self.gateway.get_my_status()
             if new_status:
                 self.my_status.update(new_status)
-                self.my_status["activites"] = new_status["activities"]
+                self.my_status["activities"] = new_status["activities"]
                 self.update_status_line()
             new_proto = self.gateway.get_settings_proto()
             if new_proto:

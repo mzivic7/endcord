@@ -193,6 +193,9 @@ Extra window is drawn for viewing:
 - Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that sumamry topic.
 - Search and search results (`Ctrl+F`), `Alt+Enter` will jump to selected message.
 
+### Escape key priority order:
+Stop recording, close extra window, stop replying, everything else.
+
 ### Emoji
 To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  
 For now, there is no emoji assist, but it is planned.  

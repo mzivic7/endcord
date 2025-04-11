@@ -8,7 +8,7 @@ import time
 import urllib.parse
 
 from discord_protos import FrecencyUserSettings, PreloadedUserSettings
-from google.protobuf.json_format import MessageToJson
+from google.protobuf.json_format import MessageToDict, ParseDict
 
 from endcord import peripherals
 
@@ -512,7 +512,7 @@ class Discord():
                 decoded = FrecencyUserSettings.FromString(base64.b64decode(data))
             else:
                 return {}
-            self.cache_protos[num-1] = json.loads(MessageToJson(decoded))
+            self.cache_protos[num-1] = MessageToDict(decoded)
             return self.cache_protos[num-1]
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
         return None
@@ -523,17 +523,16 @@ class Discord():
         Patch acount settings
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things"""
-        return False  # DISABLED FOR NOW
-
         if not self.cache_protos[num-1]:
             self.get_settings_proto(num)
         self.cache_protos[num-1].update(data)
         if num == 1:
-            encoded = base64.b64encode(PreloadedUserSettings.ParseDict(data).SerializeToString())
+            encoded = base64.b64encode(ParseDict(data, PreloadedUserSettings()).SerializeToString()).decode("utf-8")
         elif num == 2:
-            encoded = base64.b64encode(FrecencyUserSettings.ParseDict(data).SerializeToString())
+            encoded = base64.b64encode(ParseDict(data, FrecencyUserSettings()).SerializeToString()).decode("utf-8")
         else:
             return False
+
         message_data = json.dumps({"settings": encoded})
         url = f"/api/v9/users/@me/settings-proto/{num}"
         try:
