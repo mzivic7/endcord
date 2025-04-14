@@ -1,21 +1,23 @@
 HIGH PRIORITY:
-member list (Alt+M) - auto open on large screen
+assist with @username and @role
+assist with #channel
+assist with :emoji:
 
 MEDIUM PRIORITY:
-assist with @[username]/@[role]/#channel/:emoji:
 assist in search
-assist with reactions
+assist with emoji
 assist with stickers
+add reaction to message and assist
 
 LOW PRIORITY:
-:commands
+commands (Alt+X)
 fix "glitches"
+emacs-like chainable keybinds
 tabs
 rpc on windows
 
 MAYBE:
 code blocks syntax highlighting
-emacs-like controls
-vi-like controls
-mouse controls
+vi-like controls (???)
+mouse controls (select in tree/chat)
 voice and video calls

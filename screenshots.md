@@ -9,7 +9,7 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
 <br><br>
 <b>Standard theme:<b><br>
-<img src="./.github/screenshots/01.png" alt="Standard theme" width="800">
+<img src="./.github/screenshots/01.png" alt="Standard theme" width="864">
 <br><br>
 <b>Alternate theme with better lines:<b><br>
 <img src="./.github/screenshots/02.png" alt="Alternate theme with better lines" width="800">

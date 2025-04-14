@@ -87,6 +87,10 @@ class Endcord:
         self.fun = not config["disable_easter_eggs"]
         self.tenor_gif_type = config["tenor_gif_type"]
         self.get_members = config["member_list"]
+        self.member_list_auto_open = config["member_list_auto_open"]
+        self.member_list_width = config["member_list_width"]
+        self.use_nick = config["use_nick_when_available"]
+        self.status_char = self.config["tree_dm_status"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -149,11 +153,9 @@ class Endcord:
         self.extra_body = []
         self.viewing_user_data = {"id": None, "guild_id": None}
         self.hidden_channels = []
-        self.members = []
-        self.subscribed_members = []
-        self.current_members = []
         self.current_subscribed_members = []
         self.recording = False
+        self.member_list_visible = False
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
@@ -195,6 +197,9 @@ class Endcord:
         self.threads = []
         self.activities = []
         self.search_messages = []
+        self.members = []
+        self.subscribed_members = []
+        self.current_members = []
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
@@ -439,6 +444,12 @@ class Endcord:
             self.update_chat(keep_selected=False)
         else:
             self.tui.update_chat(self.chat, self.chat_format)
+        if not guild_id:   # no member list in DMs
+            self.member_list_visible = False
+            self.tui.remove_member_list()
+        elif self.member_list_visible or self.member_list_auto_open:
+            self.member_list_visible = True
+            self.update_member_list()
         self.close_extra_window()
         if self.disable_sending:
             self.update_extra_line(self.disable_sending)
@@ -1001,28 +1012,43 @@ class Endcord:
                     }
                     self.update_status_line()
 
-            # select in extra menu
-            elif self.extra_indexes and action == 27:
+            # select in extra menu / memeber list
+            elif action == 27:
                 self.going_to = input_text
-                extra_selected = self.tui.get_extra_selected()
-                if extra_selected < 0:
-                    continue
-                total_len = 0
-                for num, item in enumerate(self.extra_indexes):
-                    total_len += item["lines"]
-                    if total_len >= extra_selected + 1:
-                        message_id = item["message_id"]
-                        channel_id = item.get("channel_id")
-                        break
-                else:
-                    continue
-                if channel_id and channel_id != self.active_channel["channel_id"]:
-                    guild_id = self.active_channel["guild_id"]
-                    guild_name = self.active_channel["guild_name"]
-                    channel_name = self.channel_name_from_id(channel_id)
-                    self.switch_channel(channel_id, channel_name, guild_id, guild_name)
-                self.go_to_message(message_id)
-                self.close_extra_window()
+                if self.extra_window_open:
+                    if self.extra_indexes:
+                        extra_selected = self.tui.get_extra_selected()
+                        if extra_selected < 0:
+                            continue
+                        total_len = 0
+                        for num, item in enumerate(self.extra_indexes):
+                            total_len += item["lines"]
+                            if total_len >= extra_selected + 1:
+                                message_id = item["message_id"]
+                                channel_id = item.get("channel_id")
+                                break
+                        else:
+                            continue
+                        if channel_id and channel_id != self.active_channel["channel_id"]:
+                            guild_id = self.active_channel["guild_id"]
+                            guild_name = self.active_channel["guild_name"]
+                            channel_name = self.channel_name_from_id(channel_id)
+                            self.switch_channel(channel_id, channel_name, guild_id, guild_name)
+                        self.go_to_message(message_id)
+                        self.close_extra_window()
+                elif self.member_list_visible:   # contrlos for memeber list when no extra window
+                    member = self.current_members[self.tui.get_mlist_selected()]
+                    logger.info(member)
+                    if "id" in member:
+                        user_id = member["id"]
+                        guild_id = self.active_channel["guild_id"]
+                        if self.viewing_user_data["id"] != user_id or self.viewing_user_data["guild_id"] != guild_id:
+                            if guild_id:
+                                self.viewing_user_data = self.discord.get_user_guild(user_id, guild_id)
+                            else:
+                                self.viewing_user_data = self.discord.get_user(user_id)
+                        self.view_profile(self.viewing_user_data)
+                logger.info(self.member_list_visible)
 
             # view summaries
             elif action == 28:
@@ -1152,6 +1178,17 @@ class Endcord:
                     recorder.start()
                     self.recording = True
                     self.update_extra_line("RECORDING, Esc to cancel, Enter to send")
+
+            # toggle member list
+            elif self.get_members and action == 35 and self.active_channel["guild_id"]:
+                if self.screen.getmaxyx()[1] - self.config["tree_width"] - self.member_list_width - 2 < 32:
+                    self.update_extra_line("Not enough space to draw member list")
+                    continue
+                self.member_list_visible = not self.member_list_visible
+                if self.member_list_visible:
+                    self.update_member_list()
+                else:
+                    self.tui.remove_member_list()
 
             # escape key in main UI
             elif action == 5:
@@ -1840,6 +1877,20 @@ class Endcord:
         )
 
 
+    def update_member_list(self, last_index=None):
+        """Generate member list and update it in TUI"""
+        if last_index is not None and self.tui.mlist_index < last_index < self.tui.mlist_index + self.screen.getmaxyx()[0]:
+            return   # dont regenerate for changes that are not vidible
+        member_list, member_list_format = formatter.generate_member_list(
+            self.current_members,
+            self.current_roles,
+            self.member_list_width,
+            self.use_nick,
+            self.status_char,
+        )
+        self.tui.draw_member_list(member_list, member_list_format)
+
+
     def update_status_line(self):
         """Generate status and title lines and update them in TUI"""
         action_type = 0
@@ -2007,7 +2058,7 @@ class Endcord:
             self.config["tree_drop_down_pointer"],
             self.config["tree_drop_down_thread"],
             self.config["tree_drop_down_forum"],
-            self.config["tree_dm_status"],
+            self.status_char,
             init_uncollapse=init_uncollapse,
             safe_emoji=self.config["emoji_as_text"],
             show_invisible = self.config["tree_show_invisible"],
@@ -2261,7 +2312,7 @@ class Endcord:
 
     def main(self):
         """Main app method"""
-        logger.info("Main started")
+        logger.info("Init sequence started")
         logger.info("Waiting for ready signal from gateway")
         self.my_status["client_state"] = "connecting"
         self.update_status_line()
@@ -2422,13 +2473,25 @@ class Endcord:
             self.update_tree(init_uncollapse=True)
             self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
 
-        # send new presence and start input thread
+        # auto open member list if enough space
+        if (
+            self.member_list_auto_open and
+            self.active_channel["guild_id"] and
+            self.screen.getmaxyx()[1] - self.config["tree_width"] - self.member_list_width - 2 >= 32
+        ):
+            self.member_list_visible
+            self.update_member_list()
+        logger.info(self.screen.getmaxyx())
+
+        # send new presence
         self.gateway.update_presence(
             self.my_status["status"],
             custom_status=self.my_status["custom_status"],
             custom_status_emoji=self.my_status["custom_status_emoji"],
             rpc=self.my_rpc,
         )
+
+        # start input thread
         self.send_message_thread = threading.Thread(target=self.wait_input, daemon=True, args=())
         self.send_message_thread.start()
 
@@ -2525,8 +2588,10 @@ class Endcord:
                             muted = False
                             for guild in self.guilds:
                                 if guild["guild_id"] == new_message["d"]["guild_id"]:
+                                    if guild["muted"]:
+                                        break
                                     for channel in guild["channels"]:
-                                        if new_message_channel_id == channel["id"] and (channel["muted"] or channel["hidden"]):
+                                        if new_message_channel_id == channel["id"] and (channel.get(["muted"]) or channel["hidden"]):
                                             muted = True
                                             break
                                     break
@@ -2707,14 +2772,17 @@ class Endcord:
                 new_members, changed_guilds = self.gateway.get_activities()
                 if changed_guilds:
                     self.members = new_members
+                    last_index = 99
                     for guild in new_members:   # select guild
                         if guild["guild_id"] == self.active_channel["guild_id"]:
                             self.current_members = guild["members"]
+                            last_index = guild["last_index"]
                             break
                     if self.active_channel["guild_id"] in changed_guilds:
                         if self.viewing_user_data["id"]:
                             self.view_profile(self.viewing_user_data)
-                        # will also redraw member list when impelemented
+                        if self.member_list_visible:
+                            self.update_member_list(last_index)
 
             # check for subscribed member presences
             new_members, changed_guilds = self.gateway.get_subscribed_activities()

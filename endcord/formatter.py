@@ -108,6 +108,19 @@ def replace_emoji_string(line):
     return re.sub(match_emoji_string, TREE_EMOJI_REPLACE, line)
 
 
+def trim_at_emoji(line, limit):
+    """Remove zwj emojis that are near the limit of the string"""
+    if len(line) < limit-1:
+        return line
+    i = len(line) - 1
+    while i >= 0:
+        if emoji.is_emoji(line[i]):
+            i -= 1
+        else:
+            break
+    return line[:i+1]
+
+
 def replace_discord_emoji(line):
     """
     Transform emoji strings into nicer looking ones:
@@ -1403,6 +1416,58 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
             forum_format.append(color_format_forum)
 
     return forum, forum_format
+
+
+def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_sign):
+    """Generate member list"""
+    # colors: 18 - green, 19 - orange, 20 - red
+    member_list = []
+    member_list_format = []
+    if not member_list_raw:
+        return ["No online members"], [[]]
+    for member in member_list_raw:
+        this_format = []
+        if "id" in member:
+
+            # format text
+            if use_nick and member["nick"]:
+                global_name_nick = member["nick"]
+            elif member["global_name"]:
+                global_name_nick = member["global_name"]
+            else:
+                global_name_nick = member["username"]
+            text = f"{status_sign} {global_name_nick}"
+
+            # get status color
+            if member["status"] == "dnd":
+                this_format.append([20, 0, 2])
+            elif member["status"] == "idle":
+                this_format.append([19, 0, 2])
+            else:   # online
+                this_format.append([18, 0, 2])
+
+            # get role color
+            member_roles = member["roles"]
+            for role in guild_roles:
+                if role["id"] in member_roles:
+                    if role.get("color_id"):
+                        this_format.append([role["color_id"], 2, width])
+                    break
+
+        else:   # user group
+            text = "Unknown group"
+            if member["group"] == "online":
+                text = "Online"
+            group_id = member["group"]
+            for role in guild_roles:
+                if role["id"] == group_id:
+                    text = role["name"]
+            this_format = []
+
+        member_list.append(trim_at_emoji(text[:width-1], width-1) + " ")
+        member_list_format.append(this_format)
+
+    return member_list, member_list_format
 
 
 def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):

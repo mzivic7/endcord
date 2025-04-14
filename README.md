@@ -7,7 +7,7 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
-<img src="./.github/screenshots/01.png" alt="Screenshot 1" width="800">
+<img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
 </div>
 
 endcord is a third-party feature rich Discord client, running entirely in terminal.  
@@ -23,6 +23,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Desktop notifications
 - Download/upload attachments (`Ctrl+W/U`)
 - Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
+- Member list (`Alt+M`)
 - Toggle reply ping (`Ctrl+P`)
 - Search messages (`Ctrl+F`)
 - View user prfile (`Alt+P`)
@@ -183,15 +184,18 @@ Attachments can be navigated with `Ctrl+Left/Right` in extra line (above status 
 `Ctrl+X` will cancel ALL downloads and attachments, with a confirmation prompt.  
 `Ctrl+K` will cancel selected attachment (and stop upload) and remove it from attachments list.
 
-### Extra window navigation
-Navigating in extra window:
+### Extra window and member list navigation
+Same controls for navigating in extra window and member list:
 `Alt+Up/Down` - Go up/down  
 `Alt+Enter` - perform action on selected line (depends on context)  
+Extra window navigation is prioritized over member list.  
 Extra window is drawn for viewing:
 - User profile info - from selected message (`Alt+P`)
 - Channel/server info - from selected tree channel (`Alt+I`)
 - Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that sumamry topic.
-- Search and search results (`Ctrl+F`), `Alt+Enter` will jump to selected message.
+- Search and search results (`Ctrl+F`), `Alt+Enter` will jump to selected message.  
+
+`Alt+Enter` in member list will whow user profile of the selected member.  
 
 ### Escape key priority order:
 Stop recording, close extra window, stop replying, everything else.
@@ -219,6 +223,9 @@ Some channels are not hidden in endcord, even tho they are in official client. m
 Also some servers my not provide an ability to hide channels.  
 Thats why in endcord channels can be locally hidden, by selecting channel in channel tree and pressing `Alt+H`.  
 Locally hidden channels can be restored by removing them in `hidden_channels.json`, see [Configuration](#configuration) for path.  
+
+### Terminal size
+Recommended terminal size for proper viewing is minimum 118 columns and 32 rows, for default theme.
 
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.

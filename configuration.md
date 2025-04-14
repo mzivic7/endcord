@@ -32,6 +32,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Delay in seconds between each ack send. Minimum is 3s. The larger it is, the longer will `[New unreads]` stay in status line.
 - `member_list = True`  
     Wether to download member activities. Disable for lower CPU, RAM and network usage. If disabled, member list will be empty and there will be no presences in profile view screen.
+- `member_list_auto_open = True`  
+    Automatically opem member list on startup and on channel switch, if enough space.
 - `use_nick_when_avail = True`  
     Replace global_name with nick when it is available.
 - `remember_state = True`  
@@ -96,6 +98,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Width of channel tree in characters.
 - `extra_window_height = 6`  
     Height of extra window drawn above status line. Window title line not included.
+- `member_list_width = 20`  
+    Width of member list. It wont be drawn if remaining screen width for chat is less than 32 characters.
 - `format_message = "[%timestamp] <%username> | %content %edited"`  
     Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
@@ -165,7 +169,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `tree_drop_down_forum = "◆"`  
     A single character used to draw forum pointer in tree drop down menus.
 - `tree_dm_status = "◆"`  
-    A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd.
+    A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd. Also used in member list.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
 - `media_ascii_palette = "  ..',;:c*loexk#O0XNW"`  

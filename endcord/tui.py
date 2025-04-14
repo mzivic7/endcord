@@ -70,7 +70,7 @@ class TUI():
         self.init_pair((208, tree_bg))   # orange
         self.init_pair((196, tree_bg))   # red
         self.init_pair(config["color_extra_window"])   # 21
-        self.color_default = 1
+        self.color_default = self.last_free_id + 1
         self.role_color_start_id = 1   # starting id for role colors
         self.keybindings = keybindings
         self.screen = screen
@@ -83,6 +83,7 @@ class TUI():
         self.blink_cursor_on = config["cursor_on_time"]
         self.blink_cursor_off = config["cursor_off_time"]
         self.tree_dm_status = config["tree_dm_status"]
+        self.member_list_width = config["member_list_width"]
         if not (self.blink_cursor_on and self.blink_cursor_off):
             self.enable_blink_cursor = False
         else:
@@ -126,12 +127,17 @@ class TUI():
         self.extra_line_text = ""
         self.extra_window_title = ""
         self.extra_window_body = ""
+        self.member_list = []
+        self.member_list_format = []
         self.extra_selected = -1
         self.extra_index = 0
         self.extra_select = False
+        self.mlist_selected = -1
+        self.mlist_index = 0
         self.run = True
         self.win_extra_line = None
         self.win_extra_window = None
+        self.win_member_list = None
         self.win_prompt = None
         self.resize()
         if self.enable_blink_cursor:
@@ -183,6 +189,7 @@ class TUI():
         self.tree_hw = self.win_tree.getmaxyx()
         self.win_extra_line = None
         self.win_extra_window = None
+        self.win_member_list = None
         self.redraw_ui()
 
 
@@ -200,8 +207,13 @@ class TUI():
 
 
     def get_extra_selected(self):
-        """Return index of currently selected line in extra window"""
+        """Return index of selected line in extra window"""
         return self.extra_selected
+
+
+    def get_mlist_selected(self):
+        """Return index of selected line in member list"""
+        return self.mlist_selected
 
 
     def get_my_typing(self):
@@ -352,6 +364,7 @@ class TUI():
             self.draw_title_tree()
         self.draw_extra_line(self.extra_line_text)
         self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+        self.draw_member_list(self.member_list, self.member_list_format)
 
 
     def draw_status_line(self):
@@ -585,12 +598,19 @@ class TUI():
             h, w = self.screen.getmaxyx()
             if not self.win_extra_line:
                 del self.win_chat
-                chat_hwyx = (h - 3 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+                chat_hwyx = (
+                    h - 3 - int(self.have_title),
+                    w - (self.tree_width + 1),
+                    int(self.have_title),
+                    self.tree_width + 1,
+                )
                 self.win_chat = self.screen.derwin(*chat_hwyx)
                 self.chat_hw = self.win_chat.getmaxyx()
-                self.draw_chat()
+                if not self.member_list:
+                    self.draw_chat()
                 extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
                 self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
+                self.draw_member_list(self.member_list, self.member_list_format, force=True)
             self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
             self.win_extra_line.refresh()
 
@@ -605,7 +625,9 @@ class TUI():
             chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
             self.win_chat = self.screen.derwin(*chat_hwyx)
             self.chat_hw = self.win_chat.getmaxyx()
-            self.draw_chat()
+            if not self.member_list:
+                self.draw_chat()
+            self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
     def draw_extra_window(self, title_text, body_text, select=False):
@@ -629,7 +651,8 @@ class TUI():
                 )
                 self.win_chat = self.screen.derwin(*chat_hwyx)
                 self.chat_hw = self.win_chat.getmaxyx()
-                self.draw_chat()
+                if not self.member_list:
+                    self.draw_chat()
                 extra_window_hwyx = (
                     self.extra_window_h + 1,
                     w - (self.tree_width + 1),
@@ -637,17 +660,19 @@ class TUI():
                     self.tree_width + 1,
                 )
                 self.win_extra_window = self.screen.derwin(*extra_window_hwyx)
+                self.draw_member_list(self.member_list, self.member_list_format, force=True)
             self.win_extra_window.insstr(0, 0, title_text + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
             h = self.win_extra_window.getmaxyx()[0]
+            y = 0
             for num, line in enumerate(body_text):
                 y = max(num - self.extra_index, 0)
                 if y + 1 >= h:
                     break
                 if y >= 0:
                     if num == self.extra_selected:
-                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(11) | self.attrib_map[11])
                     else:
-                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(title_text)) + "\n", curses.color_pair(21) | self.attrib_map[21])
+                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(21) | self.attrib_map[21])
             y += 2
             while y < h:
                 self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
@@ -666,8 +691,101 @@ class TUI():
             chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
             self.win_chat = self.screen.derwin(*chat_hwyx)
             self.chat_hw = self.win_chat.getmaxyx()
-            self.draw_chat()
+            if not self.member_list:
+                self.draw_chat()
             self.draw_extra_line(self.extra_line_text)
+            self.draw_member_list(self.member_list, self.member_list_format, force=True)
+
+
+    def draw_member_list(self, member_list, member_list_format, force=False):
+        """Draw member list and resize chat"""
+        self.member_list = member_list
+        self.member_list_format = member_list_format
+        if member_list and not self.disable_drawing:
+            h, w = self.screen.getmaxyx()
+            if not self.win_member_list or force:
+                del self.win_chat
+                if not force and self.win_member_list:
+                    self.mlist_selected = -1
+                    self.mlist_index = 0
+                self.win_extra_line = None
+                if self.win_extra_window:
+                    common_h = h - 3 - int(self.have_title) - self.extra_window_h
+                elif self.win_extra_line:
+                    common_h = h - 3 - int(self.have_title)
+                else:
+                    common_h = h - 2 - int(self.have_title)
+                chat_hwyx = (
+                    common_h,
+                    w - (self.tree_width + 1) - (self.member_list_width + 1),
+                    int(self.have_title),
+                    self.tree_width + 1,
+                )
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
+                self.draw_chat()
+                member_list_hwyx = (
+                    common_h,
+                    self.member_list_width,
+                    int(self.have_title),
+                    w - self.member_list_width,
+                )
+                self.win_member_list = self.screen.derwin(*member_list_hwyx)
+                self.screen.vline(int(self.have_title), w - self.member_list_width - 1, self.vert_line, common_h)
+                self.screen.refresh()
+            h, w = self.win_member_list.getmaxyx()
+            y = 0
+            for num, line in enumerate(member_list):
+                y =  max(num - self.mlist_index, 0)
+                if y >= h:
+                    break
+                line_format = member_list_format[num]
+                if num == self.mlist_selected:
+                    self.win_member_list.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(4) | self.attrib_map[4])
+                else:
+                    for pos, character in enumerate(line + " " * (w - len(line)) + "\n"):
+                        if pos >= w:
+                            break
+                        for format_part in line_format:
+                            if format_part[1] <= pos < format_part[2]:
+                                color = format_part[0]
+                                if color > 255:   # set all colors after 255 to default color
+                                    color = self.color_default
+                                color_ready = curses.color_pair(color) | self.attrib_map[color]
+                                safe_insch(self.win_member_list, y, pos, character, color_ready)
+                                break
+                        else:
+                            safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
+            y += 1
+            while y < h:
+                self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
+                y += 1
+            self.win_member_list.refresh()
+
+
+    def remove_member_list(self):
+        """Remove member list and resize chat"""
+        if self.win_member_list:
+            del (self.win_member_list, self.win_chat)
+            self.member_list = []
+            self.member_list_format = []
+            self.win_member_list = None
+            h, w = self.screen.getmaxyx()
+            chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+            self.win_chat = self.screen.derwin(*chat_hwyx)
+            self.chat_hw = self.win_chat.getmaxyx()
+            if self.win_extra_line:
+                extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
+                self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
+            elif self.win_extra_window:
+                chat_hwyx = (
+                    h - 3 - int(self.have_title) - self.extra_window_h,
+                    w - (self.tree_width + 1),
+                    int(self.have_title),
+                    self.tree_width + 1,
+                )
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+            self.draw_chat()
 
 
     def set_cursor_color(self, color_id):
@@ -1058,29 +1176,47 @@ class TUI():
         elif key == self.keybindings["tree_join_thread"]:
             return 21
 
-        elif self.extra_window_body and key == self.keybindings["extra_up"]:
-            if self.extra_select and self.extra_selected >= 0:
-                if self.extra_index and self.extra_selected <= self.extra_index:
-                    self.extra_index -= 1
-                self.extra_selected -= 1
-                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-            elif self.extra_index > 0:
-                self.extra_index -= 1
-                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-
-        elif self.extra_window_body and key == self.keybindings["extra_down"]:
-            if self.extra_select:
-                if self.extra_selected + 1 < len(self.extra_window_body):
-                    top_line = self.extra_index + self.win_extra_window.getmaxyx()[0] - 1
-                    if top_line < len(self.extra_window_body) and self.extra_selected >= top_line - 1:
-                        self.extra_index += 1
-                    self.extra_selected += 1
+        elif key == self.keybindings["extra_up"]:
+            if self.extra_window_body:
+                if self.extra_select and self.extra_selected >= 0:
+                    if self.extra_index and self.extra_selected <= self.extra_index:
+                        self.extra_index -= 1
+                    self.extra_selected -= 1
                     self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-            elif self.extra_index + 1 < len(self.extra_window_body):
-                self.extra_index += 1
-                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+                elif self.extra_index > 0:
+                    self.extra_index -= 1
+                    self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+            elif self.win_member_list:
+                if self.mlist_selected >= 0:
+                    if self.mlist_index and self.mlist_selected <= self.mlist_index:
+                        self.mlist_index -= 1
+                    self.mlist_selected -= 1
+                    self.draw_member_list(self.member_list, self.member_list_format)
+                elif self.mlist_index > 0:
+                    self.mlist_index -= 1
+                    self.draw_member_list(self.member_list, self.member_list_format)
 
-        elif self.extra_window_body and key == self.keybindings["extra_select"]:
+        elif key == self.keybindings["extra_down"]:
+            if self.extra_window_body:
+                if self.extra_select:
+                    if self.extra_selected + 1 < len(self.extra_window_body):
+                        top_line = self.extra_index + self.win_extra_window.getmaxyx()[0] - 1
+                        if top_line < len(self.extra_window_body) and self.extra_selected >= top_line - 1:
+                            self.extra_index += 1
+                        self.extra_selected += 1
+                        self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+                elif self.extra_index + 1 < len(self.extra_window_body):
+                    self.extra_index += 1
+                    self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+            elif self.win_member_list:
+                if self.mlist_selected + 1 < len(self.member_list):
+                    top_line = self.mlist_index + self.win_member_list.getmaxyx()[0] - 1
+                    if top_line < len(self.member_list) and self.mlist_selected >= top_line - 1:
+                        self.mlist_index += 1
+                    self.mlist_selected += 1
+                    self.draw_member_list(self.member_list, self.member_list_format)
+
+        elif key == self.keybindings["extra_select"]:
             return 27
 
         elif key == self.keybindings["channel_info"] and self.tree_selected > 0:
@@ -1093,6 +1229,9 @@ class TUI():
 
         elif key == self.keybindings["cycle_status"]:
             return 33
+
+        elif key == self.keybindings["toggle_member_list"]:
+            return 35
 
         return None
 
@@ -1375,11 +1514,7 @@ class TUI():
                         delta_index = delta_index - len(delta_text) + 1
                         self.input_buffer = self.input_buffer[:delta_index] + delta_text + self.input_buffer[delta_index:]
                         self.input_index = delta_index + len(delta_text)
-                    elif delta_code == "BACKSPACE":
-                        # remove len(text) after index pos
-                        self.input_buffer = self.input_buffer[:delta_index + 1] + self.input_buffer[delta_index + len(delta_text) + 1:]
-                        self.input_index = delta_index + 1
-                    elif delta_code == "DELETE":
+                    elif delta_code in ("BACKSPACE", "DELETE"):
                         # remove len(text) after index pos
                         self.input_buffer = self.input_buffer[:delta_index + 1] + self.input_buffer[delta_index + len(delta_text) + 1:]
                         self.input_index = delta_index + 1

@@ -1011,12 +1011,15 @@ class Gateway():
                                         "username": data["user"]["username"],
                                         "global_name": data["user"]["global_name"],
                                         "nick": data["nick"],
-                                        # "roles": data["roles"],   # not needed
+                                        "roles": data["roles"],
                                         "status": data["presence"]["status"],
                                         "custom_status": custom_status,
                                         "activities": activities,
+
                                     })
                             self.activities[guild_index]["members"] = members_sync
+                            self.activities[guild_index]["last_index"] = 0
+                            self.activities_changed.append(guild_id)
 
                         elif memlist["op"] == "DELETE":
                             try:
@@ -1026,11 +1029,12 @@ class Gateway():
                         elif memlist["op"] in ("UPDATE", "INSERT"):
                             custom_status = None
                             if "group" in memlist["item"]:
-                                # can only insert group
+                                # group can only be inserted
                                 self.activities[guild_index]["members"].insert(memlist["index"], {"group": memlist["item"]["group"]["id"]})
                                 if len(self.activities[guild_index]["members"]) > 100:
                                     self.activities[guild_index]["members"].pop(-1)
                                 self.activities_changed.append(guild_id)
+                                self.activities[guild_index]["last_index"] = int(memlist["index"])
                                 continue
                             data = memlist["item"]["member"]
                             activities = []
@@ -1052,7 +1056,7 @@ class Gateway():
                                 "username": data["user"]["username"],
                                 "global_name": data["user"]["global_name"],
                                 "nick": data["nick"],
-                                # "roles": data["roles"],
+                                "roles": data["roles"],
                                 "status": data["presence"]["status"],
                                 "custom_status": custom_status,
                                 "activities": activities,
@@ -1066,6 +1070,7 @@ class Gateway():
                                 self.activities[guild_index]["members"].insert(memlist["index"], ready_data)
                                 if len(self.activities[guild_index]["members"]) > 100:   # lets have some limits
                                     self.activities[guild_index]["members"].pop(-1)
+                            self.activities[guild_index]["last_index"] = int(memlist["index"])
                         self.activities_changed.append(guild_id)
 
                 elif optext == "USER_SETTINGS_PROTO_UPDATE":

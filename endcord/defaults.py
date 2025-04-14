@@ -13,7 +13,8 @@ settings = {
     "linux_notification_sound": "message",
     "custom_notification_sound": None,
     "ack_throttling": 5,
-    "member_list": False,
+    "member_list": True,
+    "member_list_auto_open": True,
     "use_nick_when_available": True,
     "remember_state": True,
     "reply_mention": True,
@@ -41,6 +42,7 @@ settings = {
 theme = {
     "tree_width": 32,
     "extra_window_height": 6,
+    "member_list_width": 20,
     "format_message": "[%timestamp] <%username> | %content %edited",
     "format_newline": "                       %content",
     "format_reply": "[REPLY] <%username> | /--> [%timestamp] %content",
@@ -175,6 +177,7 @@ keybindings = {
     "cancel": 24,   # Ctrl+X
     "forum_join_thread": "ALT+107",   # Alt+K
     "cycle_status": "ALT+118",   # Alt+V
+    "toggle_member_list": "ALT+109",   # Alt+M
 }
 
 
