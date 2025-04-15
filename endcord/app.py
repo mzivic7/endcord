@@ -121,7 +121,6 @@ class Endcord:
         self.input_store = []
         self.running_tasks = []
         self.cached_downloads = []
-        self.color_cache = []
         self.last_summary_save = time.time() - SUMMARY_SAVE_INTERVAL - 1
 
         # initialize stuff
@@ -254,11 +253,6 @@ class Endcord:
                 "guild_id": guild_id,
             })
         self.blocked = self.gateway.get_blocked()
-        self.current_roles = []   # dm has no roles
-        for roles in self.all_roles:
-            if roles["guild_id"] == self.active_channel["guild_id"]:
-                self.current_roles = roles["roles"]
-                break
         self.select_current_member_roles()
         self.my_roles = self.gateway.get_my_roles()
         self.current_my_roles = []   # user has no roles in dm
@@ -421,12 +415,13 @@ class Endcord:
                     break
 
         # manage roles
-        self.all_roles = self.tui.init_role_colors(
-            self.all_roles,
-            self.default_msg_color[1],
-            self.default_msg_alt_color[1],
-            guild_id=guild_id,
-        )
+        if guild_id:   # for guilds only
+            self.all_roles = self.tui.init_role_colors(
+                self.all_roles,
+                self.default_msg_color[1],
+                self.default_msg_alt_color[1],
+                guild_id=guild_id,
+            )
         self.current_roles = []   # dm has no roles
         for roles in self.all_roles:
             if roles["guild_id"] == guild_id:
@@ -2351,7 +2346,6 @@ class Endcord:
         self.guilds = self.gateway.get_guilds()
         self.all_roles = self.gateway.get_roles()
         self.all_roles = color.convert_role_colors(self.all_roles)
-        self.color_cache = self.tui.get_color_cache()
         last_free_color_id = self.tui.get_last_free_color_id()
 
         # get my roles

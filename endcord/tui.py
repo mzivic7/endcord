@@ -71,7 +71,7 @@ class TUI():
         self.init_pair((196, tree_bg))   # red
         self.init_pair(config["color_extra_window"])   # 21
         self.color_default = self.last_free_id + 1
-        self.role_color_start_id = 1   # starting id for role colors
+        self.role_color_start_id = self.last_free_id   # starting id for role colors
         self.keybindings = keybindings
         self.screen = screen
         self.have_title = bool(config["format_title_line_l"])
@@ -1251,6 +1251,7 @@ class TUI():
         if reset:
             self.input_buffer = ""
             self.input_index = 0
+            self.input_line_index = 0
             self.cursor_pos = 0
             self.enable_autocomplete = autocomplete
         if init_text:
@@ -1272,6 +1273,7 @@ class TUI():
             self.delta_store = []
             self.last_key = None
             self.delta_cache = ""
+            self.undo_index = None
         bracket_paste = False
         selected_completion = 0
         key = -1
@@ -1345,12 +1347,6 @@ class TUI():
                     self.add_to_delta_store("\n")
                     pass
                 else:
-                    self.input_index = 0
-                    self.cursor_pos = 0
-                    self.draw_input_line()
-                    self.win_input_line.cursyncup()
-                    self.input_line_index = 0
-                    self.set_cursor_color(2)
                     self.cursor_on = True
                     self.input_select_start = None
                     return self.return_input_code(0)
@@ -1418,6 +1414,7 @@ class TUI():
 
             elif key == curses.KEY_HOME:   # HOME
                 self.input_index = 0
+                self.input_line_index = 0
                 self.input_select_start = None
 
             elif key == curses.KEY_END:   # END
@@ -1677,6 +1674,7 @@ class TUI():
         """
         self.input_buffer = ""
         self.input_index = 0
+        self.input_line_index = 0
         self.cursor_pos = 0
         self.enable_autocomplete = False
         self.chat_selected = -1
@@ -1726,12 +1724,11 @@ class TUI():
 
             if key == 10:   # ENTER
                 self.input_index = 0
-                self.cursor_pos = 0
-                self.win_input_line.cursyncup()
                 self.input_line_index = 0
-                self.set_cursor_color(2)
+                self.cursor_pos = 0
                 self.cursor_on = True
                 self.input_select_start = None
+                self.draw_input_line()
                 return self.return_input_code(22)
 
             code = self.common_keybindings(key)
