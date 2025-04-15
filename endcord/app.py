@@ -388,7 +388,7 @@ class Endcord:
                 self.disable_sending = f"Cant send a message: please send at least {MSG_MIN} messages with the official client"
 
         # if this is thread and is locked or archived, prevent sending messages
-        elif self.current_channel.get("type") in (11, 12) and self.current_channel["locked"]:
+        elif self.current_channel.get("type") in (11, 12) and self.current_channel.get("locked"):
             self.disable_sending = "Cant send a message: this thread is locked"
         elif not self.current_channel.get("allow_write", True):
             self.disable_sending = "Cant send a message: No write permissions"
@@ -919,12 +919,7 @@ class Endcord:
                     thread_id = self.tree_metadata[tree_sel]["id"]
                     guild_id, channel_id, _ = self.find_parents(tree_sel)
                     # toggle joined
-                    joined = self.thread_togle_join(guild_id, channel_id, thread_id)
-                    if joined is not None:
-                        if joined:
-                            self.discord.join_thread(thread_id)
-                        else:
-                            self.discord.leave_thread(thread_id)
+                    self.thread_togle_join(guild_id, channel_id, thread_id)
                     self.update_tree()
 
             # open thread from forum
@@ -956,8 +951,7 @@ class Endcord:
                 )
                 self.reset_actions()
                 self.update_status_line()
-                if self.thread_togle_join(guild_id, channel_id, thread_id, join=True):
-                    self.discord.join_thread(thread_id)
+                self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
 
             # view profile info
             elif action == 24:
@@ -1339,7 +1333,7 @@ class Endcord:
                             break
                     if not self.disable_sending:
                         # if this is unjoined thread, join it (locally only)
-                        if self.current_channel["type"] in (11, 12) and not self.current_channel["joined"]:
+                        if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
                             self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
                         text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                         if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
@@ -2202,14 +2196,17 @@ class Endcord:
                         for thread in channel["threads"]:
                             if thread["id"] == thread_id:
                                 if join is None:
-                                    thread["joined"] = not thread["joined"]
-                                    return thread["joined"]
+                                    if thread["joined"]:
+                                        thread["joined"] = False
+                                        discord.leave_thread(thread_id)
+                                    else:
+                                        thread["joined"] = True
+                                        discord.join_thread(thread_id)
                                 if join != thread["joined"]:
                                     thread["joined"] = join
-                                    return thread["joined"]
+                                    discord.join_thread(thread_id)
                         break
                 break
-        return None
 
 
     def check_tree_format(self):
@@ -2591,7 +2588,7 @@ class Endcord:
                                     if guild["muted"]:
                                         break
                                     for channel in guild["channels"]:
-                                        if new_message_channel_id == channel["id"] and (channel.get(["muted"]) or channel["hidden"]):
+                                        if new_message_channel_id == channel["id"] and (channel.get("muted") or channel.get("hidden")):
                                             muted = True
                                             break
                                     break
