@@ -2,17 +2,15 @@ HIGH PRIORITY:
 assist with @username and @role
 assist with #channel
 assist with :emoji:
+assist with stickers
+assist in search
 
 MEDIUM PRIORITY:
-assist in search
-assist with emoji
-assist with stickers
 add reaction to message and assist
+commands
+fix "glitches"
 
 LOW PRIORITY:
-commands (Alt+X)
-fix "glitches"
-emacs-like chainable keybinds
 tabs
 rpc on windows
 

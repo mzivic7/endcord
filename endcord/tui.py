@@ -1,5 +1,6 @@
 import curses
 import logging
+import sys
 import threading
 import time
 
@@ -74,6 +75,8 @@ class TUI():
         self.role_color_start_id = self.last_free_id   # starting id for role colors
         self.keybindings = keybindings
         self.screen = screen
+
+        # load config
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
         vert_line = config["tree_vert_line"][0]
@@ -84,6 +87,22 @@ class TUI():
         self.blink_cursor_off = config["cursor_off_time"]
         self.tree_dm_status = config["tree_dm_status"]
         self.member_list_width = config["member_list_width"]
+
+        # find all first chain parts
+        self.chainable = []
+        for binding in self.keybindings.values():
+            if isinstance(binding, str):
+                split_binding = binding.split("-")
+                if len(split_binding) == 1:
+                    continue
+                elif len(split_binding) > 2:
+                    sys.exit(f"Invalid keybinding: {binding}")
+                try:
+                    self.chainable.append(int(split_binding[0]))
+                except ValueError:
+                    self.chainable.append(split_binding[0])
+
+        # initial values
         if not (self.blink_cursor_on and self.blink_cursor_off):
             self.enable_blink_cursor = False
         else:
@@ -139,7 +158,10 @@ class TUI():
         self.win_extra_window = None
         self.win_member_list = None
         self.win_prompt = None
+        self.keybinding_chain = None
         self.resize()
+
+        # start blink cursor thread
         if self.enable_blink_cursor:
             self.blink_cursor_thread = threading.Thread(target=self.blink_cursor, daemon=True, args=())
             self.blink_cursor_thread.start()
@@ -1276,6 +1298,7 @@ class TUI():
             self.undo_index = None
         bracket_paste = False
         selected_completion = 0
+        self.keybinding_chain = None
         key = -1
         while self.run:
             key = self.screen.getch()
@@ -1335,9 +1358,15 @@ class TUI():
                     continue
                 elif sequence[-1] == -1 and sequence[-2] == 27:
                     # holding escape key
-                    self.screen.nodelay(False)
                     return self.return_input_code(5)
 
+            # handle chained keybindings
+            if key in self.chainable and not self.keybinding_chain:
+                self.keybinding_chain = key
+                continue
+            if self.keybinding_chain:
+                key = f"{self.keybinding_chain}-{key}"
+                self.keybinding_chain = None
 
             if key == 10:   # ENTER
                 # wehen pasting, dont return, but insert newline character
@@ -1717,10 +1746,16 @@ class TUI():
                     sequence.append(key)
                     if key == 126:
                         break
+                    if key == 27:   # holding escape key
+                        sequence.append(-1)
+                        break
                 self.screen.nodelay(False)
                 # match sequences
                 if len(sequence) == 3 and sequence[2] == -1:   # ALT+KEY
                     key = f"ALT+{sequence[1]}"
+                elif sequence[-1] == -1 and sequence[-2] == 27:
+                    # holding escape key
+                    return self.return_input_code(5)
 
             if key == 10:   # ENTER
                 self.input_index = 0
