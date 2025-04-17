@@ -429,7 +429,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     indexes = []
     len_edited = len(edited_string)
     enable_separator = format_date and date_separator
-
     # load colors
     color_default = [colors[0]]
     color_blocked = [colors[2]]
@@ -492,7 +491,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 selected_color_spoiler = color_mention_spoiler
                 break
         for role in message["mention_roles"]:
-            if bool([i for i in my_roles if i in message["mention_roles"]]):
+            if role in my_roles:
                 mentioned = True
                 selected_color_spoiler = color_mention_spoiler
                 break
@@ -1361,6 +1360,29 @@ def generate_extra_window_text(title_text, body_text, max_len):
     return title_line, body
 
 
+def generate_extra_window_assist(found, assist_type, max_len):
+    """Generate extra window title and body for assist"""
+    body = []
+    sufix = ""
+    if assist_type == 1:
+        title_line = "Channel assist:"
+        prefix = "#"
+    elif assist_type == 2:
+        title_line = "Username/role assist:"
+        prefix = "@"
+    elif assist_type == 3:
+        title_line = "Emoji assist:"
+        prefix = ":"
+        sufix = ":"
+    elif assist_type == 4:
+        title_line = "Sticker assist:"
+        prefix = ";"
+        sufix = ";"
+    for item in found:
+        body.append(f"{prefix}{item[0]}{sufix}")
+    return title_line[:max_len], body[:max_len]
+
+
 def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):
     """
     Generate chat according to provided formatting.
@@ -1974,7 +1996,6 @@ def update_tree(tree_format, tree_metadata, guilds, unseen, mentioned, active_ch
                                     if channel_g["id"] == channel_id:
                                         muted = not channel_g.get("permitted", True) or (channel_g.get("muted", False) or (channel_g.get("hidden", False) and channel_g["type"] in (0, 5)))
                                         parent_id = channel_g.get("parent_id")
-                                        # logger.info(f"{channel_g.get("name")} {channel_g.get("parent_id")} {channel_g.get("hidden", "None")} {channel_g.get("permitted", "None")}   {muted}")
                                         break
                             # apply channels parent (category) stats
                             if not muted:

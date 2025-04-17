@@ -1,21 +1,18 @@
 HIGH PRIORITY:
 assist with @username and @role
-assist with #channel
+assist with ;stickers;
 assist with :emoji:
-assist with stickers
 assist in search
 
 MEDIUM PRIORITY:
-add reaction to message and assist
+ability to add reaction to message with assist
 commands
 fix "glitches"
 
 LOW PRIORITY:
 tabs
 rpc on windows
-
-MAYBE:
 code blocks syntax highlighting
 vi-like controls (???)
-mouse controls (select in tree/chat)
+mouse controls (select in tree/chat/extra/member)
 voice and video calls

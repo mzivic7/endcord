@@ -19,6 +19,7 @@ settings = {
     "remember_state": True,
     "reply_mention": True,
     "cache_typed": True,
+    "assist": True,
     "cursor_on_time": 0.7,
     "cursor_off_time": 0.5,
     "blocked_mode": 2,

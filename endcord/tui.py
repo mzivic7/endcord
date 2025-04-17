@@ -9,6 +9,8 @@ from endcord import acs, peripherals
 logger = logging.getLogger(__name__)
 INPUT_LINE_JUMP = 20   # jump size when moving input line
 MAX_DELTA_STORE = 50   # limit undo size
+MIN_ASSIST_LETTERS = 2
+ASSIST_TRIGGERS = ("#", "@", ":", ";")
 
 
 def ctrl(x):
@@ -23,6 +25,7 @@ def set_list_item(input_list, item, index):
     except IndexError:
         input_list.append(item)
     return input_list
+
 
 def safe_insch(screen, y, x, character, color):
     """
@@ -87,6 +90,7 @@ class TUI():
         self.blink_cursor_off = config["cursor_off_time"]
         self.tree_dm_status = config["tree_dm_status"]
         self.member_list_width = config["member_list_width"]
+        self.assist = config["assist"]
 
         # find all first chain parts
         self.chainable = []
@@ -159,6 +163,7 @@ class TUI():
         self.win_member_list = None
         self.win_prompt = None
         self.keybinding_chain = None
+        self.assist_start = -1
         self.resize()
 
         # start blink cursor thread
@@ -239,7 +244,7 @@ class TUI():
 
 
     def get_my_typing(self):
-        """Return whether it has been typied in past 3s"""
+        """Return whether it has been typed in past 3s"""
         if time.time() - self.typing > 3:
             return None
         return True
@@ -253,8 +258,27 @@ class TUI():
         return None
 
 
+    def get_assist(self):
+        """Return word to be assisted with completing and type of asssist needed"""
+        if self.assist_start >= 0:
+            if self.assist_start < self.input_index - (MIN_ASSIST_LETTERS - 1):
+                if (
+                    self.assist_start != -1 and
+                    self.assist_start < len(self.input_buffer) and
+                    self.input_buffer[self.assist_start-1] in ASSIST_TRIGGERS
+                ):
+                    assist_type = ASSIST_TRIGGERS.index(self.input_buffer[self.assist_start-1]) + 1
+                    assist_word = self.input_buffer[self.assist_start : self.input_index]
+                    return assist_word, assist_type
+                self.assist_start = -1
+                return None, 100
+            if self.assist_start > self.input_index:
+                return None, 100
+        return None, None
+
+
     def get_last_free_color_id(self):
-        """Return last free color id. Should be run at the end of al color initializations in endcord.tui."""
+        """Return last free color id. Should be run at the end of all color initializations in endcord.tui."""
         return self.last_free_id
 
 
@@ -283,6 +307,16 @@ class TUI():
         self.draw_chat()
 
 
+    def set_input_index(self, index):
+        """Set cursor position on input line"""
+        self.input_index = index
+        _, w = self.input_hw
+        self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+        self.cursor_pos = max(self.cursor_pos, 0)
+        self.cursor_pos = min(w - 1, self.cursor_pos)
+        self.show_cursor()
+
+
     def store_input_selected(self):
         """Get selected text from imput line"""
         input_select_start = self.input_select_start
@@ -294,10 +328,6 @@ class TUI():
         self.input_select_text = self.input_buffer[input_select_start:input_select_end]
         return input_select_start, input_select_end
 
-
-    def get_input_selected(self):
-        """Get selected text from imput line"""
-        return self.input_select_text
 
     def allow_chat_selected_hide(self, allow):
         """Allow selected line in chat to be none, position -1"""
@@ -652,7 +682,7 @@ class TUI():
             self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
-    def draw_extra_window(self, title_text, body_text, select=False):
+    def draw_extra_window(self, title_text, body_text, select=False, start_zero=False):
         """
         Draw extra window above status line and resize chat.
         title_text is string, body_text is list.
@@ -660,6 +690,9 @@ class TUI():
         self.extra_select = select
         self.extra_window_title = title_text
         self.extra_window_body = body_text
+        if start_zero:
+            self.extra_index = 0
+            self.extra_selected = 0
         if title_text and not self.disable_drawing:
             h, w = self.screen.getmaxyx()
             if not self.win_extra_window:
@@ -730,7 +763,6 @@ class TUI():
                 if not force and self.win_member_list:
                     self.mlist_selected = -1
                     self.mlist_index = 0
-                self.win_extra_line = None
                 if self.win_extra_window:
                     common_h = h - 3 - int(self.have_title) - self.extra_window_h
                 elif self.win_extra_line:
@@ -797,8 +829,14 @@ class TUI():
             self.win_chat = self.screen.derwin(*chat_hwyx)
             self.chat_hw = self.win_chat.getmaxyx()
             if self.win_extra_line:
-                extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
-                self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
+                chat_hwyx = (
+                    h - 3 - int(self.have_title),
+                    w - (self.tree_width + 1),
+                    int(self.have_title),
+                    self.tree_width + 1,
+                )
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
             elif self.win_extra_window:
                 chat_hwyx = (
                     h - 3 - int(self.have_title) - self.extra_window_h,
@@ -807,6 +845,7 @@ class TUI():
                     self.tree_width + 1,
                 )
                 self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
             self.draw_chat()
 
 
@@ -1334,6 +1373,8 @@ class TUI():
                 if key == -1:
                     # escape key
                     self.screen.nodelay(False)
+                    if self.assist_start:
+                        self.assist_start = -1
                     return self.return_input_code(5)
                 # sequence (bracketed paste or ALT+KEY)
                 sequence = [27, key]
@@ -1358,6 +1399,8 @@ class TUI():
                     continue
                 elif sequence[-1] == -1 and sequence[-2] == 27:
                     # holding escape key
+                    if self.assist_start:
+                        self.assist_start = -1
                     return self.return_input_code(5)
 
             # handle chained keybindings
@@ -1396,6 +1439,11 @@ class TUI():
                     selected_completion = 0
                 self.add_to_delta_store(chr(key))
                 self.show_cursor()
+                if self.assist:
+                    if chr(key) in ASSIST_TRIGGERS:
+                        self.assist_start = self.input_index
+                    elif chr(key) == " ":
+                        self.assist_start = -1
 
             elif key == curses.KEY_BACKSPACE:   # BACKSPACE
                 if self.input_select_start is not None:

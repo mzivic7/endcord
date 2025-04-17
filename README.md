@@ -10,7 +10,7 @@
 <img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
 </div>
 
-endcord is a third-party feature rich Discord client, running entirely in terminal.  
+Endcord is a third-party feature rich Discord client, running entirely in terminal.  
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](#token).  
 [More screenshots](https://github.com/mzivic7/endcord/blob/main/screenshots.md).  
@@ -41,10 +41,11 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
+- Assist when typing channel/username/role/emoji/sticker
 - Record and send voice messages (`Alt+R`)
 - Undo/Redo in input line (`Alt+Z`, `Alt+Shift+Z`)
 - Open link in browser (`Ctrl+O`)
-- Infinite chat scrolling
+- Unlimited chat scrolling
 - Keep deleted messages (OFF by default)
 - Highlight messages with mentions
 - Show who is typing
@@ -199,6 +200,13 @@ Extra window is drawn for viewing:
 - Search and search results (`Ctrl+F`), `Alt+Enter` will jump to selected message.  
 
 `Alt+Enter` in member list will whow user profile of the selected member.  
+
+### Assist with mention, role, channel, emoji, sticker
+When typing username prepended with `@` assist will open as extra window.  
+Assist triggers are (the first character): `@username`, `@role`, `#channel`, `:emoji:`, `;sticker;`.  
+Press `Esc` to stop assist. Re-type trigger to start it again.  
+Navigation: `Alt+Up/Down` - Go up/down, `Alt+Enter` or `Enter` - insert selected item.  
+When inserted in input line, item will usually be shown as `<some_numbers>` - that is intended - do not alter it.  
 
 ### Escape key priority order:
 Stop recording, close extra window, stop replying, everything else.

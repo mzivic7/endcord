@@ -42,6 +42,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Ping someone by default when replying.
 - `cache_typed = True`  
     Save unsent message when switching channel, and load it when re-opening that channel.
+- `assist = True`  
+  Assist when typing @username, @role, #channel, :emoji:, ::sticker::
 - `cursor_on_time = 0.7`  
     Time in seconds the cursor stays ON. Set to None or 0 to disable cursor blinking.
 - `cursor_off_time = 0.5`  
