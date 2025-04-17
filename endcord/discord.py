@@ -204,7 +204,8 @@ class Discord():
             "authorization": self.token,
         }
         self.my_id = self.get_my_id(exit_on_error=True)
-        self.cache_protos = [[], []]
+        self.protos = [[], []]
+        self.stickers = []
         self.uploading = []
 
 
@@ -488,14 +489,46 @@ class Discord():
         return None
 
 
+    def get_stickers(self):
+        """Get default discord stickers and cache them"""
+        if self.stickers:
+            return self.stickers
+        url = "/api/v9/sticker-packs?locale=en-US"
+        message_data = None
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            for pack in data["sticker_packs"]:
+                pack_stickers = []
+                for sticker in pack["stickers"]:
+                    pack_stickers.append({
+                        "id": sticker["id"],
+                        "name": sticker["name"],
+                    })
+                self.stickers.append({
+                    "pack_id": pack["id"],
+                    "pack_name": pack["name"],
+                    "stickers": pack_stickers,
+                })
+            del (data, pack_stickers)
+            return self.stickers
+        logger.error(f"Failed to fetch stickers. Response code: {response.status}")
+        return None
+
+
     def get_settings_proto(self, num):
         """
         Get account settings:
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things
         """
-        if self.cache_protos[num-1]:
-            return self.cache_protos[num-1]
+        if self.protos[num-1]:
+            return self.protos[num-1]
         message_data = None
         url = f"/api/v9/users/@me/settings-proto/{num}"
         try:
@@ -512,8 +545,8 @@ class Discord():
                 decoded = FrecencyUserSettings.FromString(base64.b64decode(data))
             else:
                 return {}
-            self.cache_protos[num-1] = MessageToDict(decoded)
-            return self.cache_protos[num-1]
+            self.protos[num-1] = MessageToDict(decoded)
+            return self.protos[num-1]
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
         return None
 
@@ -523,9 +556,9 @@ class Discord():
         Patch acount settings
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things"""
-        if not self.cache_protos[num-1]:
+        if not self.protos[num-1]:
             self.get_settings_proto(num)
-        self.cache_protos[num-1].update(data)
+        self.protos[num-1].update(data)
         if num == 1:
             encoded = base64.b64encode(ParseDict(data, PreloadedUserSettings()).SerializeToString()).decode("utf-8")
         elif num == 2:
@@ -624,7 +657,7 @@ class Discord():
             file.write(response.read())
 
 
-    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None):
+    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None, stickers=None):
         """Send a message in the channel with reply with or without ping"""
         message_dict = {
             "content": message_text,
@@ -664,6 +697,8 @@ class Discord():
                         "filename": attachment["name"],
                         "uploaded_filename": attachment["upload_filename"],
                     })
+        if stickers:
+            message_dict["sticker_ids"] = stickers
         message_data = json.dumps(message_dict)
         url = f"/api/v9/channels/{channel_id}/messages"
         try:

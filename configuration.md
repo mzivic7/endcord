@@ -88,6 +88,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Use system native media player instead in-terminal ASCII art.
 - `save_sumamries = True`  
     Wether to save summaries to disk. Disable to save RAM and reduce disk writes.
+- `default_stickers = True`  
+    Download discord default stickers and add them to sticker search. Disable to save some RAM.
 - `only_one_open_server = False`  
     Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.
 - `custom_host = None`  

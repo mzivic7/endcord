@@ -202,11 +202,14 @@ Extra window is drawn for viewing:
 `Alt+Enter` in member list will whow user profile of the selected member.  
 
 ### Assist with mention, role, channel, emoji, sticker
-When typing username prepended with `@` assist will open as extra window.  
+When typing eg. username prepended with `@` assist will open as extra window with search results for typed text after `@` (search is case-insensitive).  
 Assist triggers are (the first character): `@username`, `@role`, `#channel`, `:emoji:`, `;sticker;`.  
 Press `Esc` to stop assist. Re-type trigger to start it again.  
 Navigation: `Alt+Up/Down` - Go up/down, `Alt+Enter` or `Enter` - insert selected item.  
 When inserted in input line, item will usually be shown as `<some_numbers>` - that is intended - do not alter it.  
+To search multiple words use `_`, space will end assist.  
+Stickers and emojis are sorted into packs, and will be shown as `pack name - emoji/sticker name`, and search is performed on that string.  
+Sticker will also be added to message text and removed when sending.  
 
 ### Escape key priority order:
 Stop recording, close extra window, stop replying, everything else.

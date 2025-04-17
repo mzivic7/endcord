@@ -132,6 +132,7 @@ class Endcord:
         self.tui.update_chat(["Connecting to Discord"], [[[self.colors[0]]]] * 1)
         self.tui.update_status_line("CONNECTING")
         self.my_id = self.discord.get_my_id()
+        self.premium = None
         self.my_user_data = self.discord.get_user(self.my_id, extra=True)
         self.reset()
         self.gateway.connect()
@@ -222,6 +223,7 @@ class Endcord:
         """Fetch updated data from gateway and rebuild chat after reconnecting"""
         self.add_running_task("Reconnecting", 1)
         self.reset()
+        self.premium = self.gateway.get_premium()
         self.guilds = self.gateway.get_guilds()
         # not initializing role colors again to avoid issues with media colors
         self.dms, self.dms_vis_id = self.gateway.get_dms()
@@ -612,14 +614,16 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input_forum(self.prompt)
                 input_text = ""
             elif self.restore_input_text[1] == "prompt":
-                self.restore_input_text = [None, None]
+                self.restore_input_text = [None, "after_prompt"]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.restore_input_text[1] == "warp":
+                init_text = self.restore_input_text[0]
                 self.restore_input_text = [None, None]
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.restore_input_text[0], reset=False, keep_cursor=True, scroll_bot=True)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True, scroll_bot=True)
             elif self.restore_input_text[1] == "standard":
+                init_text = self.restore_input_text[0]
                 self.restore_input_text = [None, None]
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=self.restore_input_text[0], reset=False, keep_cursor=True)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True)
             elif self.restore_input_text[1] == "autocomplete":
                 self.restore_input_text = [None, None]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
@@ -1024,6 +1028,7 @@ class Endcord:
                             self.tui.input_index,
                         )
                         if new_input_text:
+                            logger.info(new_input_text)
                             self.restore_input_text = [new_input_text, "standard"]
                             self.tui.set_input_index(new_index)
                 elif self.member_list_visible:   # controls for memeber list when no extra window
@@ -1188,6 +1193,9 @@ class Endcord:
                     self.recording = False
                     _ = recorder.stop()
                     self.update_extra_line()
+                elif self.assist_found:
+                    self.close_extra_window()
+                    self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
                     self.close_extra_window()
                     self.search = False
@@ -1198,8 +1206,12 @@ class Endcord:
                 elif self.editing:
                     self.restore_input_text = [None, None]
                     self.reset_actions()
+                elif self.restore_input_text[1] == "after_prompt":
+                    self.reset_actions()
+                    self.restore_input_text = [None, None]
                 else:
                     self.reset_actions()
+                    self.restore_input_text = [input_text, "standard"]
                 self.update_status_line()
                 self.stop_assist()
 
@@ -1353,6 +1365,11 @@ class Endcord:
                         # if this is unjoined thread, join it (locally only)
                         if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
                             self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
+                        # search for stickers
+                        stickers = []
+                        for match in re.finditer(formatter.match_sticker_id, input_text):
+                            stickers.append(match.group()[2:-2])
+                            input_text = input_text[:match.start()] + input_text[match.end():]
                         text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                         if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
                             self.update_extra_line("Nothing happens.")
@@ -1364,6 +1381,7 @@ class Endcord:
                             reply_guild_id=self.active_channel["guild_id"],
                             reply_ping=self.replying["mention"],
                             attachments=this_attachments,
+                            stickers=stickers,
                         )
 
                 self.reset_actions()
@@ -1769,18 +1787,42 @@ class Endcord:
         self.assist_word = assist_word
         self.assist_type = assist_type
         assist_word = assist_word.lower()
+        assist_words = assist_word.split("_")
         self.assist_found = []
         if assist_type == 1:   # channel
             for channel in self.current_channels:
                 # skip categories (type 4)
-                if channel["type"] != 4 and assist_word in channel["name"].lower():
+                channel_name = channel["name"].lower()
+                if channel["type"] != 4 and all(s in channel_name for s in assist_words):
                     self.assist_found.append([channel["name"], channel["id"]])
         elif assist_type == 2:   # username/role
             pass
         elif assist_type == 3:   # emoji
             pass
         elif assist_type == 4:   # sticker
-            pass
+            stickers = []
+            if self.premium:
+                stickers += self.gateway.get_stickers()
+            else:
+                for pack in self.gateway.get_stickers():
+                    if pack["pack_id"] == self.active_channel["guild_id"]:
+                        stickers.append(pack)
+                        break
+            if self.config["default_stickers"]:
+                stickers += self.discord.get_stickers()
+            for pack in stickers:
+                pack_name = pack["pack_name"]
+                pack_name_lower = pack_name.lower()
+                for sticker in pack["stickers"]:
+                    sticker_name = sticker["name"].lower()
+                    check_string = pack_name_lower + sticker_name
+                    if all(s in check_string for s in assist_words):
+                        sticker_name = f"{pack_name} - {sticker["name"]}"
+                        self.assist_found.append([sticker_name, sticker["id"]])
+                        if len(self.assist_found) > 100:
+                            break
+                if len(self.assist_found) > 100:
+                    break
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, self.assist_type, max_w)
         self.extra_window_open = True
@@ -1808,9 +1850,11 @@ class Endcord:
             # role format: "<@&ID>"
             pass
         elif self.assist_type == 3:   # emoji
+            # default emoji format: ":emoji:"
+            # custom emoji format: "<:ID:>"
             pass
         elif self.assist_type == 4:   # sticker
-            pass
+            insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
         new_text = input_text[:start-1] + insert_string + input_text[end:]
         new_pos = (len(input_text[:start-1] + insert_string))
         self.stop_assist()
@@ -2398,6 +2442,7 @@ class Endcord:
         self.my_status["client_state"] = "online"
         self.update_status_line()
 
+        self.premium = self.gateway.get_premium()
         self.discord_settings = self.gateway.get_settings_proto()
 
         # just in case, download proto if its not in gateway
@@ -2714,8 +2759,8 @@ class Endcord:
                         if not new_typing["username"]:   # its DM
                             for dm in self.dms:
                                 if dm["id"] == new_typing["channel_id"]:
-                                    new_typing["username"] = dm["username"]
-                                    new_typing["global_name"] = dm["global_name"]
+                                    new_typing["username"] = dm["recipients"][0]["username"]
+                                    new_typing["global_name"] = dm["recipients"][0]["global_name"]
                                     # no nick in DMs
                                     break
                         for num, user in enumerate(self.typing):

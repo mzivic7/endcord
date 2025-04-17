@@ -80,6 +80,8 @@ class Gateway():
         self.subscribed_activities = []
         self.subscribed_activities_changed = []
         self.active_channel = None
+        self.stickers = []
+        self.premium = False
         self.error = None
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
@@ -227,6 +229,7 @@ class Gateway():
                     time_log_string = "READY event time profile:\n"
                     last_messages = []
                     self.my_id = response["d"]["user"]["id"]
+                    self.premium = response["d"]["user"]["premium"]
                     # guilds and channels
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
@@ -319,6 +322,18 @@ class Gateway():
                             "guild_id": guild_id,
                             "threads": threads,
                         })
+                        # stickers
+                        pack_stickers = []
+                        for sticker in guild["stickers"]:
+                            pack_stickers.append({
+                                "id": sticker["id"],
+                                "name": sticker["name"],
+                            })
+                        self.stickers.append({
+                            "pack_id": guild["id"],
+                            "pack_name": guild["properties"]["name"],
+                            "stickers": pack_stickers,
+                        })
                     time_log_string += f"    guilds - {round(time.time() - ready_time_start, 3)}s\n"
                     ready_time_mid = time.time()
                     # DM channels
@@ -333,7 +348,7 @@ class Gateway():
                                         "global_name": user["global_name"],
                                     })
                                     break
-                        if "name" in dm:
+                        if "name" in dm:   # for group dm
                             name = dm["name"]
                         else:
                             name = recipients[0]["global_name"]
@@ -1439,6 +1454,11 @@ class Gateway():
         return None
 
 
+    def get_premium(self):
+        """Get premoum state of my account"""
+        return self.premium
+
+
     def get_my_roles(self):
         """Get list of my roles for all servers"""
         return self.my_roles
@@ -1504,6 +1524,11 @@ class Gateway():
             self.subscribed_activities_changed = []
             return self.subscribed_activities, cache
         return [], []
+
+
+    def get_stickers(self):
+        """Get all guilds stickers"""
+        return self.stickers
 
 
     # all following "get_*" work like this:

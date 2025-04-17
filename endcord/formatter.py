@@ -33,6 +33,7 @@ match_md_italic = re.compile(r"\b(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)\b|(((?<=\*))?
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 match_discord_channel_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)")
 match_discord_message_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)\/(\d*)")
+match_sticker_id = re.compile(r"<;\d*?;>")
 
 
 def sort_by_indexes(input_list, indexes):
@@ -1379,8 +1380,10 @@ def generate_extra_window_assist(found, assist_type, max_len):
         prefix = ";"
         sufix = ";"
     for item in found:
-        body.append(f"{prefix}{item[0]}{sufix}")
-    return title_line[:max_len], body[:max_len]
+        body.append(f"{prefix}{item[0]}{sufix}"[:max_len])
+    if not body:
+        body = ["No matches"]
+    return title_line[:max_len], body
 
 
 def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):

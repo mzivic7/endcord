@@ -36,6 +36,7 @@ settings = {
     "emoji_as_text": False,
     "native_media_player": False,
     "save_summaries": True,
+    "default_stickers": True,
     "only_one_open_server": False,
     "custom_host": None,
     "disable_easter_eggs": False,

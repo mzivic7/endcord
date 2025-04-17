@@ -1442,8 +1442,6 @@ class TUI():
                 if self.assist:
                     if chr(key) in ASSIST_TRIGGERS:
                         self.assist_start = self.input_index
-                    elif chr(key) == " ":
-                        self.assist_start = -1
 
             elif key == curses.KEY_BACKSPACE:   # BACKSPACE
                 if self.input_select_start is not None:

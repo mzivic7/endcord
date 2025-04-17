@@ -1,6 +1,5 @@
 HIGH PRIORITY:
 assist with @username and @role
-assist with ;stickers;
 assist with :emoji:
 assist in search
 
