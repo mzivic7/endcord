@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-assist with @username and @role
 assist with :emoji:
 assist in search
 

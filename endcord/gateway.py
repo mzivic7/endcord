@@ -83,6 +83,8 @@ class Gateway():
         self.stickers = []
         self.premium = False
         self.error = None
+        self.querying_members = False
+        self.member_query_results = []
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
@@ -932,16 +934,24 @@ class Gateway():
 
                 elif optext == "GUILD_MEMBERS_CHUNK":
                     # received when requesting members (op 8)
-                    guild_id = response["d"]["guild_id"]
-                    members = response["d"]["members"]
-                    for member in members:
-                        if "roles" in member and member["roles"]:
-                            # for now, saving only first role, used for username color
-                            self.add_member_roles(
-                                guild_id,
-                                member["user"]["id"],
-                                member["roles"],
-                            )
+                    if self.querying_members:
+                        self.querying_members = False
+                        self.member_query_results = []
+                        for member in response["d"]["members"]:
+                            self.member_query_results.append({
+                                "id": member["user"]["id"],
+                                "username": member["user"]["username"],
+                            })
+                    else:
+                        guild_id = response["d"]["guild_id"]
+                        for member in response["d"]["members"]:
+                            if "roles" in member and member["roles"]:
+                                # for now, saving only first role, used for username color
+                                self.add_member_roles(
+                                    guild_id,
+                                    member["user"]["id"],
+                                    member["roles"],
+                                )
 
                 elif optext == "THREAD_LIST_SYNC":
                     threads = []
@@ -1359,18 +1369,20 @@ class Gateway():
                 break
 
 
-    def request_members(self, guild_id, members):
+    def request_members(self, guild_id, members, query=None, limit=None):
         """
         Request update chunk for specified members in this guild.
         GUILD_MEMBERS_CHUNK event will be received after this.
         """
-        if members:
+        if query:
+            self.querying_members = True
+        if members or query:
             payload = {
                 "op": 8,
                 "d": {
                     "guild_id": [guild_id],
-                    "query": None,
-                    "limit": None,
+                    "query": query,
+                    "limit": limit,
                     "presences": False,
                     "user_ids": members,
                 },
@@ -1529,6 +1541,15 @@ class Gateway():
     def get_stickers(self):
         """Get all guilds stickers"""
         return self.stickers
+
+
+    def get_member_query_resuts(self):
+        """Get memner query results, updated after request_members() with query is called"""
+        if self.member_query_results:
+            cache = self.member_query_results
+            self.member_query_results = []
+            return cache
+        return None
 
 
     # all following "get_*" work like this:

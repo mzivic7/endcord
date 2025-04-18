@@ -1782,23 +1782,44 @@ class Endcord:
         self.remove_running_task("Searching", 4)
 
 
-    def assist(self, assist_word, assist_type):
+    def assist(self, assist_word, assist_type, query_results=None):
         """Assist when typing: channel, username, role, emoji and sticker"""
         self.assist_word = assist_word
         self.assist_type = assist_type
         assist_word = assist_word.lower()
         assist_words = assist_word.split("_")
         self.assist_found = []
+
         if assist_type == 1:   # channel
             for channel in self.current_channels:
                 # skip categories (type 4)
                 channel_name = channel["name"].lower()
-                if channel["type"] != 4 and all(s in channel_name for s in assist_words):
-                    self.assist_found.append([channel["name"], channel["id"]])
+                if channel["type"] != 4 and all(x in channel_name for x in assist_words):
+                    self.assist_found.append((channel["name"], channel["id"]))
+
         elif assist_type == 2:   # username/role
-            pass
+            # roles first
+            for role in self.current_roles:
+                role_name = role["name"]
+                role_name_lower = role_name.lower()
+                if all(x in role_name_lower for x in assist_words):
+                    self.assist_found.append((f"{role_name} - role", f"&{role["id"]}"))
+            if query_results:
+                for member in query_results:
+                    member_name = member["username"]
+                    if all(x in member_name for x in assist_words):
+                        self.assist_found.append((member_name, member["id"]))
+            else:
+                self.gateway.request_members(
+                    self.active_channel["guild_id"],
+                    None,
+                    query=assist_word,
+                    limit=10,
+                )
+
         elif assist_type == 3:   # emoji
             pass
+
         elif assist_type == 4:   # sticker
             stickers = []
             if self.premium:
@@ -1816,9 +1837,9 @@ class Endcord:
                 for sticker in pack["stickers"]:
                     sticker_name = sticker["name"].lower()
                     check_string = pack_name_lower + sticker_name
-                    if all(s in check_string for s in assist_words):
+                    if all(x in check_string for x in assist_words):
                         sticker_name = f"{pack_name} - {sticker["name"]}"
-                        self.assist_found.append([sticker_name, sticker["id"]])
+                        self.assist_found.append((sticker_name, sticker["id"]))
                         if len(self.assist_found) > 100:
                             break
                 if len(self.assist_found) > 100:
@@ -1847,8 +1868,8 @@ class Endcord:
             insert_string = f"<#{self.assist_found[index][1]}>"   # format: "<#ID>"
         elif self.assist_type == 2:   # username/role
             # username format: "<@ID>"
-            # role format: "<@&ID>"
-            pass
+            # role format: "<@&ID>" - already has "&" in ID
+            insert_string = f"<@{self.assist_found[index][1]}>"
         elif self.assist_type == 3:   # emoji
             # default emoji format: ":emoji:"
             # custom emoji format: "<:ID:>"
@@ -2934,6 +2955,11 @@ class Endcord:
                     self.stop_assist()
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)
+            # check member assist query results
+            if self.assist_type == 2:
+                query_results = self.gateway.get_member_query_resuts()
+                if query_results:
+                    self.assist(self.assist_word, self.assist_type, query_results=query_results)
 
             # check gateway for errors
             if self.gateway.error:
