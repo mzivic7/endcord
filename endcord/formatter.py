@@ -1364,7 +1364,6 @@ def generate_extra_window_text(title_text, body_text, max_len):
 def generate_extra_window_assist(found, assist_type, max_len):
     """Generate extra window title and body for assist"""
     body = []
-    sufix = ""
     if assist_type == 1:
         title_line = "Channel assist:"
         prefix = "#"
@@ -1373,14 +1372,12 @@ def generate_extra_window_assist(found, assist_type, max_len):
         prefix = "@"
     elif assist_type == 3:
         title_line = "Emoji assist:"
-        prefix = ":"
-        sufix = ":"
+        prefix = ""   # handled externally
     elif assist_type == 4:
         title_line = "Sticker assist:"
-        prefix = ";"
-        sufix = ";"
+        prefix = ""
     for item in found:
-        body.append(f"{prefix}{item[0]}{sufix}"[:max_len])
+        body.append(f"{prefix}{item[0]}"[:max_len])
     if not body:
         body = ["No matches"]
     return title_line[:max_len], body

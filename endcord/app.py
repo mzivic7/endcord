@@ -1824,7 +1824,36 @@ class Endcord:
                 )
 
         elif assist_type == 3:   # emoji
-            pass
+            # server emoji
+            emojis = []
+            if self.premium:
+                emojis = self.gateway.get_emojis()
+            else:
+                for guild in self.gateway.get_emojis():
+                    if guild["guild_id"] == self.active_channel["guild_id"]:
+                        emojis = [guild]
+                        break
+            for guild in emojis:
+                guild_name = guild["guild_name"]
+                guild_name_lower = guild_name.lower()
+                for guild_emoji in guild["emojis"]:
+                    check_string = guild_emoji["name"].lower() + guild_name_lower
+                    if all(x in check_string for x in assist_words):
+                        self.assist_found.append((
+                            f"{guild_emoji["name"]} ({guild_name})",
+                            f"<:{guild_emoji["name"]}:{guild_emoji["id"]}>",
+                        ))
+                        if len(self.assist_found) >= 50:
+                            break
+                if len(self.assist_found) >= 50:
+                    break
+            # standard emoji
+            for key, item in emoji.EMOJI_DATA.items():
+                # emoji.EMOJI_DATA = {emoji: {"en": ":emoji_name:", "status": 2, "E": 3}...}
+                if all(x in item["en"] for x in assist_words):
+                    self.assist_found.append((f"{item["en"]} - {key}", item["en"]))
+                    if len(self.assist_found) >= 50:
+                        break
 
         elif assist_type == 4:   # sticker
             stickers = []
@@ -1841,14 +1870,13 @@ class Endcord:
                 pack_name = pack["pack_name"]
                 pack_name_lower = pack_name.lower()
                 for sticker in pack["stickers"]:
-                    sticker_name = sticker["name"].lower()
-                    check_string = pack_name_lower + sticker_name
+                    check_string = sticker["name"].lower() + pack_name_lower
                     if all(x in check_string for x in assist_words):
-                        sticker_name = f"{pack_name} - {sticker["name"]}"
+                        sticker_name = f"{sticker["name"]} ({pack_name})"
                         self.assist_found.append((sticker_name, sticker["id"]))
-                        if len(self.assist_found) > 100:
+                        if len(self.assist_found) > 50:
                             break
-                if len(self.assist_found) > 100:
+                if len(self.assist_found) > 50:
                     break
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, self.assist_type, max_w)
@@ -1883,9 +1911,9 @@ class Endcord:
             # role format: "<@&ID>" - already has "&" in ID
             insert_string = f"<@{self.assist_found[index][1]}>"
         elif self.assist_type == 3:   # emoji
-            # default emoji format: ":emoji:"
-            # custom emoji format: "<:ID:>"
-            pass
+            # default emoji - :emoji_name:
+            # discord emoji format: "<:name:ID>"
+            insert_string = self.assist_found[index][1]
         elif self.assist_type == 4:   # sticker
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
         new_text = input_text[:start-1] + insert_string + input_text[end:]

@@ -80,6 +80,7 @@ class Gateway():
         self.subscribed_activities = []
         self.subscribed_activities_changed = []
         self.active_channel = None
+        self.emojis = []
         self.stickers = []
         self.premium = False
         self.error = None
@@ -324,17 +325,31 @@ class Gateway():
                             "guild_id": guild_id,
                             "threads": threads,
                         })
+                        # emojis
+                        guild_emojis = []
+                        for emojis in guild["emojis"]:
+                            if emojis["available"]:
+                                guild_emojis.append({
+                                    "id": emojis["id"],
+                                    "name": emojis["name"],
+                                })
+                        self.emojis.append({
+                            "guild_id": guild["id"],
+                            "guild_name": guild["properties"]["name"],
+                            "emojis": guild_emojis,
+                        })
                         # stickers
-                        pack_stickers = []
+                        guild_stickers = []
                         for sticker in guild["stickers"]:
-                            pack_stickers.append({
-                                "id": sticker["id"],
-                                "name": sticker["name"],
-                            })
+                            if sticker["available"]:
+                                guild_stickers.append({
+                                    "id": sticker["id"],
+                                    "name": sticker["name"],
+                                })
                         self.stickers.append({
                             "pack_id": guild["id"],
                             "pack_name": guild["properties"]["name"],
-                            "stickers": pack_stickers,
+                            "stickers": guild_stickers,
                         })
                     time_log_string += f"    guilds - {round(time.time() - ready_time_start, 3)}s\n"
                     ready_time_mid = time.time()
@@ -1536,6 +1551,11 @@ class Gateway():
             self.subscribed_activities_changed = []
             return self.subscribed_activities, cache
         return [], []
+
+
+    def get_emojis(self):
+        """Get all guilds emojis"""
+        return self.emojis
 
 
     def get_stickers(self):
