@@ -1,8 +1,5 @@
 HIGH PRIORITY:
 assist with :emoji:
-assist in search
-
-MEDIUM PRIORITY:
 ability to add reaction to message with assist
 commands
 fix "glitches"

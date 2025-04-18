@@ -4,12 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 DISCORD_EPOCH_MS = 1420070400000
 
-match_from = re.compile(r"from:\d*")   # temporary
-match_mentions = re.compile(r"mentions:\d*")   # temporary
+match_from = re.compile(r"from:<@\d*>")
+match_mentions = re.compile(r"mentions:<@\d*>")
 match_has = re.compile(r"has:(?:link|embed|file|video|image|sound|sticker)")
 match_before = re.compile(r"before:\d{4}-\d{2}-\d{2}")
 match_after = re.compile(r"after:\d{4}-\d{2}-\d{2}")
-match_in = re.compile(r"in:\d*")   # temporary
+match_in = re.compile(r"in:<#\d*>")
 match_pinned = re.compile(r"pinned:(?:true|false)")
 
 
@@ -33,22 +33,22 @@ def date_to_snowflake(date, end=False):
 def search_string(text):
     """
     Parse search string.
-    from:[integer]
-    mentions:[integer]
+    from:[<@ID>]
+    mentions:[<@ID>]
     has:[link|embed|file|video|image|sound|sticker]
     before:[2015-01-01]
     after:[2015-01-01]
-    in:[integer]
+    in:[<#ID>]
     pinned:[true|false]
     """
     author_id = []
     for match in re.findall(match_from, text):
         text = text.replace(match, "")
-        author_id.append(match[5:])
+        author_id.append(match[7:-1])
     mentions = []
     for match in re.findall(match_mentions, text):
         text = text.replace(match, "")
-        mentions.append(match[9:])
+        author_id.append(match[11:-1])
     has = []
     for match in re.findall(match_has, text):
         text = text.replace(match, "")
@@ -64,7 +64,7 @@ def search_string(text):
     channel_id = []
     for match in re.findall(match_in, text):
         text = text.replace(match, "")
-        channel_id.append(match[3:])
+        channel_id.append(match[5:-1])
     pinned = []
     for match in re.findall(match_pinned, text):
         text = text.replace(match, "")

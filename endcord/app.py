@@ -160,6 +160,7 @@ class Endcord:
         self.assist_type = None
         self.assist_found = []
         self.restore_input_text = [None, None]
+        self.extra_bkp = None
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
@@ -628,8 +629,9 @@ class Endcord:
                 self.restore_input_text = [None, None]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
             elif self.restore_input_text[1] == "search":
+                init_text = self.restore_input_text[0]
                 self.restore_input_text = [None, None]
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input("[SEARCH] > ")
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input("[SEARCH] > ", init_text=init_text)
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -1028,8 +1030,10 @@ class Endcord:
                             self.tui.input_index,
                         )
                         if new_input_text:
-                            logger.info(new_input_text)
-                            self.restore_input_text = [new_input_text, "standard"]
+                            if self.search and self.extra_bkp:
+                                self.restore_input_text = [new_input_text, "search"]
+                            else:
+                                self.restore_input_text = [new_input_text, "standard"]
                             self.tui.set_input_index(new_index)
                 elif self.member_list_visible:   # controls for memeber list when no extra window
                     member = self.current_members[self.tui.get_extra_selected()]
@@ -1187,14 +1191,13 @@ class Endcord:
                 else:
                     self.tui.remove_member_list()
 
-            # escape key in main UI
+            # escape in main UI
             elif action == 5:
                 if self.recording:
                     self.recording = False
                     _ = recorder.stop()
                     self.update_extra_line()
                 elif self.assist_found:
-                    self.close_extra_window()
                     self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
                     self.close_extra_window()
@@ -1232,7 +1235,10 @@ class Endcord:
                     self.reset_actions()
                     self.update_status_line()
                     if new_input_text:
-                        self.restore_input_text = [new_input_text, "standard"]
+                        if self.search and self.extra_bkp:
+                            self.restore_input_text = [new_input_text, "search"]
+                        else:
+                            self.restore_input_text = [new_input_text, "standard"]
                         self.tui.set_input_index(new_index)
                     continue
 
@@ -1847,17 +1853,23 @@ class Endcord:
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, self.assist_type, max_w)
         self.extra_window_open = True
+        if self.search:
+            self.extra_bkp = (self.tui.extra_window_title, self.tui.extra_window_body)
         self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
 
 
     def stop_assist(self, close=True):
         """Stop assisting and hide assist UI"""
-        if close:
-            self.close_extra_window()
-        self.assist_word = None
-        self.assist_type = None
-        self.assist_found = []
-        self.tui.assist_start = -1
+        if self.assist_word:
+            if close:
+                self.close_extra_window()
+            self.assist_word = None
+            self.assist_type = None
+            self.assist_found = []
+            self.tui.assist_start = -1
+            # if search was open, restore it
+            if self.search and self.extra_bkp:
+                self.tui.draw_extra_window(self.extra_bkp[0], self.extra_bkp[1], select=True)
 
 
     def insert_assist(self, input_text, index, start, end):
