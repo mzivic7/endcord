@@ -1,5 +1,5 @@
 HIGH PRIORITY:
-ability to add reaction to message with assist
+show list of members who reacted to message
 commands
 fix "glitches"
 

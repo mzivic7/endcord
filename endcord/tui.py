@@ -1728,6 +1728,9 @@ class TUI():
             elif key == self.keybindings["record_audio"]:
                 return self.return_input_code(34)
 
+            elif key == self.keybindings["add_reaction"]:
+                return self.return_input_code(36)
+
             elif key == curses.KEY_RESIZE:
                 self.resize()
                 _, w = self.input_hw

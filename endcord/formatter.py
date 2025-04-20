@@ -892,10 +892,13 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 emoji_str = reaction["emoji"]
                 if emoji_as_text:
                     emoji_str = emoji_name(emoji_str)
+                my_reaction = ""
+                if reaction["me"]:
+                    my_reaction = "*"
                 reactions.append(
                     format_one_reaction
                     .replace("%reaction", emoji_str)
-                    .replace("%count", str(reaction["count"])),
+                    .replace("%count", f"{my_reaction}{reaction["count"]}"),
                 )
             reactions = reactions_separator.join(reactions)
             reactions_line = (
@@ -1037,6 +1040,12 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         action_string = "Really hide this channel? [Y/n]"
     elif action["type"] == 10:   # select to which channel to go
         action_string = "Select channel/message to go to (type a number)"
+    elif action["type"] == 11:   # reacting
+        if action["global_name"]:
+            name = action["global_name"]
+        else:
+            name = action["username"]
+        action_string = f"Reacting to {name}"
 
     if my_status["custom_status_emoji"]:
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])

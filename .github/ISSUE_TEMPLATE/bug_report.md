@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-<!-- Before submitting an issue, make sure that it is present in the latest version, and that issue is not already open. Windows (cmd) support is currently in low priority.-->
+<!-- Before submitting an issue, make sure that it is present in the latest version, and that issue is not already open.-->
 
 **Describe the bug**
 A clear and concise description of what the bug is.

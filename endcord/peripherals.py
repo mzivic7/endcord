@@ -78,6 +78,12 @@ else:
     sys.exit(f"Unsupported platform: {sys.platform}")
 
 
+# ensure paths exists
+for app_path in (config_path, log_path, temp_path, downloads_path):
+    if not os.path.exists(os.path.expanduser(app_path)):
+        os.makedirs(os.path.expanduser(app_path), exist_ok=True)
+
+
 # platform specific commands
 if sys.platform == "linux":
     runner = "xdg-open"

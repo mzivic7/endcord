@@ -829,6 +829,40 @@ class Discord():
         return True
 
 
+    def send_reaction(self, channel_id, messgae_id, reaction):
+        """Send reaction to specified message"""
+        encoded_reaction = urllib.parse.quote(reaction)
+        message_data = None
+        url = f"/api/v9/channels/{channel_id}/messages/{messgae_id}/reactions/{encoded_reaction}/%40me?location=Message%20Reaction%20Picker&type=0"
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("PUT", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to send reaction: {reaction}. Response code: {response.status}")
+            return False
+        return True
+
+
+    def remove_reaction(self, channel_id, messgae_id, reaction):
+        """Remove reaction from specified message"""
+        encoded_reaction = urllib.parse.quote(reaction)
+        message_data = None
+        url = f"/api/v9/channels/{channel_id}/messages/{messgae_id}/reactions/{encoded_reaction}/0/%40me?location=Message%20Inline%20Button&burst=false"
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("DELETE", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to delete reaction: {reaction}. Response code: {response.status}")
+            return False
+        return True
+
+
     def join_thread(self, thread_id):
         """Join a thread"""
         message_data = None

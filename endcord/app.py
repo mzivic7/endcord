@@ -48,6 +48,7 @@ before:date (format: 2015-01-01)
 after:date (format: 2015-01-01)
 in:channel_id
 pinned:true/false"""
+match_emoji = re.compile(r"<:(.*):(\d*)>")
 
 download = downloader.Downloader()
 recorder = peripherals.Recorder()
@@ -578,6 +579,12 @@ class Endcord:
             "channel_id": None,
             "guild_id": None,
         }
+        self.reacting = {
+            "id": None,
+            "msg_index": None,
+            "username": None,
+            "global_name": None,
+        }
         self.going_to_ch = None
         self.ignore_typing = False
         self.tui.typing = time.time() - 5
@@ -628,10 +635,11 @@ class Endcord:
             elif self.restore_input_text[1] == "autocomplete":
                 self.restore_input_text = [None, None]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
-            elif self.restore_input_text[1] == "search":
+            elif self.restore_input_text[1] in ("search", "react", "edit"):
                 init_text = self.restore_input_text[0]
+                prompt_text = self.restore_input_text[1].upper()
                 self.restore_input_text = [None, None]
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input("[SEARCH] > ", init_text=init_text)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(f"[{prompt_text}] > ", init_text=init_text)
             else:
                 restore_text = None
                 if self.cache_typed:
@@ -669,22 +677,24 @@ class Endcord:
                         "global_name": self.messages[msg_index]["global_name"],
                         "mention": mention,
                     }
-                    self.restore_input_text = [input_text, "standard"]
-                    self.update_status_line()
+                self.restore_input_text = [input_text, "standard"]
+                self.update_status_line()
 
             # set edit
             elif action == 2 and self.messages:
+                self.restore_input_text = [input_text, "standard"]
                 msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
                         self.reset_actions()
                         self.editing = self.messages[msg_index]["id"]
                         self.add_to_store(self.active_channel["channel_id"], input_text)
-                        self.restore_input_text = [None, "prompt"]
+                        self.restore_input_text = [self.messages[msg_index]["content"], "edit"]
                         self.update_status_line()
 
             # set delete
             elif action == 3 and self.messages:
+                self.restore_input_text = [input_text, "standard"]
                 msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
@@ -1032,6 +1042,7 @@ class Endcord:
                         if new_input_text:
                             if self.search and self.extra_bkp:
                                 self.restore_input_text = [new_input_text, "search"]
+                                self.ignore_typing = True
                             else:
                                 self.restore_input_text = [new_input_text, "standard"]
                             self.tui.set_input_index(new_index)
@@ -1191,16 +1202,36 @@ class Endcord:
                 else:
                     self.tui.remove_member_list()
 
+            # add reaction'
+            elif action == 36 and self.messages:
+                msg_index = self.lines_to_msg(chat_sel)
+                self.add_to_store(self.active_channel["channel_id"], input_text)
+                if "deleted" not in self.messages[msg_index]:
+                    self.restore_input_text = [None, "react"]
+                    self.ignore_typing = True
+                    self.reacting = {
+                        "id": self.messages[msg_index]["id"],
+                        "msg_index": msg_index,
+                        "username": self.messages[msg_index]["username"],
+                        "global_name": self.messages[msg_index]["global_name"],
+                    }
+                    self.update_status_line()
+
             # escape in main UI
             elif action == 5:
                 if self.recording:
                     self.recording = False
                     _ = recorder.stop()
                     self.update_extra_line()
-                elif self.assist_found:
+                elif self.reacting:
+                    self.reset_actions()
+                    self.restore_input_text = [None, None]
+                elif self.assist_word:
                     self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
                     self.close_extra_window()
+                    if self.search:
+                        self.reset_actions()
                     self.search = False
                     self.search_end = False
                     self.search_messages = []
@@ -1232,11 +1263,16 @@ class Endcord:
                         self.tui.assist_start,
                         self.tui.input_index,
                     )
-                    self.reset_actions()
-                    self.update_status_line()
+                    if not self.reacting:
+                        self.reset_actions()
+                        self.update_status_line()
                     if new_input_text:
                         if self.search and self.extra_bkp:
                             self.restore_input_text = [new_input_text, "search"]
+                            self.ignore_typing = True
+                        elif self.reacting["id"]:
+                            self.restore_input_text = [new_input_text, "react"]
+                            self.ignore_typing = True
                         else:
                             self.restore_input_text = [new_input_text, "standard"]
                         self.tui.set_input_index(new_index)
@@ -1250,10 +1286,11 @@ class Endcord:
                     continue
 
                 if self.editing:
+                    text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                     self.discord.send_update_message(
                         channel_id=self.active_channel["channel_id"],
                         message_id=self.editing,
-                        message_content=input_text,
+                        message_content=text_to_send,
                     )
 
                 elif self.deleting and input_text.lower() == "y":
@@ -1332,6 +1369,81 @@ class Endcord:
                     self.update_status_line()
                     self.remove_running_task("Searching", 4)
                     continue
+
+                elif self.reacting["id"]:
+                    first = input_text.split(" ")[0]
+                    all_reactions = self.messages[self.reacting["msg_index"]]["reactions"]
+                    my_present_emojis = []
+                    my_present_ids = []
+                    for reaction in all_reactions:
+                        if reaction["me"]:
+                            if reaction["emoji_id"]:
+                                my_present_ids.append(reaction["emoji_id"])
+                            else:
+                                my_present_emojis.append(reaction["emoji"])
+                    add_to_existing = False
+                    try:  # existing emoji index
+                        num = max(int(first) - 1, 0)
+                        if num < len(all_reactions) and num >= 0:
+                            # get reaction from existing emoji
+                            selected_reaction = all_reactions[num]
+                            if selected_reaction["emoji_id"]:
+                                emoji_string = f"<:{selected_reaction["emoji"]}:{selected_reaction["emoji_id"]}>"
+                            else:
+                                emoji_string = selected_reaction["emoji"]
+                            add_to_existing = True
+                    except ValueError:   # new emoji
+                        emoji_string = emoji.emojize(first)
+                    if emoji.is_emoji(emoji_string):   # standard emoji
+                        if emoji_string not in my_present_emojis:
+                            if len(all_reactions) < 20 or add_to_existing:
+                                self.discord.send_reaction(
+                                    self.active_channel["channel_id"],
+                                    self.reacting["id"],
+                                    emoji_string,
+                                )
+                            else:
+                                self.update_extra_line("Maximum number of reactions reached.")
+                        else:
+                            self.discord.remove_reaction(
+                                self.active_channel["channel_id"],
+                                self.reacting["id"],
+                                emoji_string,
+                            )
+                    else:   # discord emoji
+                        match = re.match(match_emoji, emoji_string)
+                        if match:
+                            emoji_name = match.group(1)
+                            emoji_id = match.group(2)
+                            if emoji_id not in my_present_ids:
+                                if len(all_reactions) < 20 or add_to_existing:
+                                    # validate discord emoji before adding it
+                                    valid = False
+                                    guild_emojis = []
+                                    for guild in self.gateway.get_emojis():
+                                        if guild["guild_id"] == self.active_channel["guild_id"]:
+                                            guild_emojis += guild["emojis"]
+                                            if not self.premium:
+                                                break
+                                    for guild_emoji in guild_emojis:
+                                        if guild_emoji["id"] == emoji_id:
+                                            valid = True
+                                            break
+                                    if valid:
+                                        self.discord.send_reaction(
+                                            self.active_channel["channel_id"],
+                                            self.reacting["id"],
+                                            f"{emoji_name}:{emoji_id}",
+                                        )
+                                else:
+                                    self.update_extra_line("Maximum number of reactions reached.")
+                            else:
+                                self.discord.remove_reaction(
+                                    self.active_channel["channel_id"],
+                                    self.reacting["id"],
+                                    f"{emoji_name}:{emoji_id}",
+                                )
+                    self.restore_input_text = [None, None]
 
                 elif self.hiding_ch["channel_id"] and input_text.lower() == "y":
                     channel_id = self.hiding_ch["channel_id"]
@@ -1850,7 +1962,8 @@ class Endcord:
             # standard emoji
             for key, item in emoji.EMOJI_DATA.items():
                 # emoji.EMOJI_DATA = {emoji: {"en": ":emoji_name:", "status": 2, "E": 3}...}
-                if all(x in item["en"] for x in assist_words):
+                # using only qualified emojis (status: 2)
+                if item["status"] == 2 and all(x in item["en"] for x in assist_words):
                     self.assist_found.append((f"{item["en"]} - {key}", item["en"]))
                     if len(self.assist_found) >= 50:
                         break
@@ -2067,34 +2180,47 @@ class Endcord:
 
     def update_status_line(self):
         """Generate status and title lines and update them in TUI"""
-        action_type = 0
+        action = {
+            "type": None,
+            "username": None,
+            "global_name": None,
+            "mention": None,
+        }
         if self.replying["id"]:
-            action_type = 1
+            action = {
+                "type": 1,
+                "username": self.replying["username"],
+                "global_name": self.replying["global_name"],
+                "mention": self.replying["mention"],
+            }
         elif self.editing:
-            action_type = 2
+            action["type"] = 2
         elif self.deleting:
-            action_type = 3
+            action["type"] = 3
         elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
             if self.downloading_file["web"]:
-                action_type = 4
+                action["type"] = 4
             elif self.downloading_file["open"]:
-                action_type = 6
+                action["type"] = 6
             else:
-                action_type = 5
+                action["type"] = 5
         elif self.cancel_download:
-            action_type = 7
+            action["type"] = 7
         elif self.uploading:
-            action_type = 8
+            action["type"] = 8
         elif self.hiding_ch["channel_id"]:
-            action_type = 9
+            action["type"] = 9
         elif self.going_to_ch:
-            action_type = 10
-        action = {
-            "type": action_type,
-            "username": self.replying["username"],
-            "global_name": self.replying["global_name"],
-            "mention": self.replying["mention"],
-        }
+            action["type"] = 10
+        elif self.reacting["id"]:
+            action = {
+                "type": 11,
+                "username": self.reacting["username"],
+                "global_name": self.reacting["global_name"],
+            }
+        else:
+            action["type"] = 0
+
         if self.format_status_line_r:
             status_line_r = formatter.generate_status_line(
                 self.my_user_data,
@@ -2738,13 +2864,15 @@ class Endcord:
                                         for num2, reaction in enumerate(loaded_message["reactions"]):
                                             if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
                                                 loaded_message["reactions"][num2]["count"] += 1
+                                                if data["user_id"] == self.my_id:
+                                                    loaded_message["reactions"][num2]["me"] = True
                                                 break
                                         else:
                                             loaded_message["reactions"].append({
                                                 "emoji": data["emoji"],
                                                 "emoji_id": data["emoji_id"],
                                                 "count": 1,
-                                                "me": False,
+                                                "me": data["user_id"] == self.my_id,
                                             })
                                         self.update_chat()
                                     elif op == "MESSAGE_REACTION_REMOVE":
@@ -2754,6 +2882,8 @@ class Endcord:
                                                     loaded_message["reactions"].pop(num2)
                                                 else:
                                                     loaded_message["reactions"][num2]["count"] -= 1
+                                                    if data["user_id"] == self.my_id:
+                                                        loaded_message["reactions"][num2]["me"] = False
                                                 break
                                         self.update_chat()
                     # handling unseen and mentions
