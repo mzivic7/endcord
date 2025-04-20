@@ -18,46 +18,45 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 ## Features
 - Extremely low CPU and and RAM usage (values greatly depend on number of servers and channels)
-- View images, gifs, videos, audio and stickers in terminal with ASCII art or external app (`Ctrl+V`)
+- View images, gifs, videos, audio and stickers in terminal with ASCII art or external app
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
-- Download/upload attachments (`Ctrl+W/U`)
-- Select message and: reply (`Ctrl+R`), edit (`Ctrl+E`), delete (`Ctrl+D`), go to replied (`Ctrl+G`)
-- Member list (`Alt+M`)
-- Toggle reply ping (`Ctrl+P`)
-- Search messages (`Ctrl+F`)
-- View user prfile (`Alt+P`)
+- Download/upload attachments
+- Select message and: reply, edit, delete, go to replied, react
+- Member list
+- Toggle reply ping
+- Search messages
+- View user prfile
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Dont show hidden channels
     - Show muted chanels as gray
     - Show unread channels as bold
     - Show channels with mention as red
-    - Navigate tree (`Ctrl+Up/Down`)
-    - Expand categories and servers, enter channel (`Ctrl+Space`)
+    - Navigate tree
+    - Expand categories and servers, enter channel
     - DMs in separate drop-down, show DM status
     - Forums, channel threads
-    - View channel or server info (`Alt+I`)
+    - View channel or server info
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
 - Assist when typing channel/username/role/emoji/sticker
-- Record and send voice messages (`Alt+R`)
-- Undo/Redo in input line (`Alt+Z`, `Alt+Shift+Z`)
-- Open link in browser (`Ctrl+O`)
+- Record and send voice messages
+- Undo/Redo in input line
+- Open link in browser
 - Unlimited chat scrolling
 - Keep deleted messages (OFF by default)
 - Highlight messages with mentions
 - Show who is typing
 - Send 'typing' (ON by default)
-- Insertable newline in input line (`Ctr+N`)
-- Copy message text to clipboard (`Ctrl+H`)
+- Insertable newline in input line
+- Copy message text to clipboard
 - Hide or mask blocked/ignored users
 - No ghost pings (when client is running)
 - Role colors in chat
 - Date separtors in chat
 - Partial markdown support (underline, bold, italic, spoiler, quote)
-- Sending emoji support with `:emoji:` (only default)
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
@@ -126,6 +125,7 @@ Edit selected message - `Ctrl+E`
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
 Add reaction with assist to selected message - `Alt+E`
+Show reactions details for selected message - `Alt+W`
 Go to replied message - `Ctrl+G`  
 View user profile (selected message) - `Alt+P`  
 View channel info (selected in tree) - `Alt+I`  

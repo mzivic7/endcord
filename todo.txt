@@ -1,5 +1,4 @@
 HIGH PRIORITY:
-show list of members who reacted to message
 commands
 fix "glitches"
 

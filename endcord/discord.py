@@ -430,13 +430,11 @@ class Discord():
         return None
 
 
-    def get_reactions(self, emoji_name, emoji_id, message_id, channel_id):
-        """Get reactions belonging to {message_id} inside specified channel"""
+    def get_reactions(self, channel_id, message_id, reaction):
+        """Get reaction for specified message"""
+        encoded_reaction = urllib.parse.quote(reaction)
         message_data = None
-        emoji_name_enc = urllib.parse.quote(emoji_name)
-        url = f"/api/v9/channels/{channel_id}/messages/{message_id}/reactions/{emoji_name_enc}"
-        if emoji_id:
-            url += f"%3A{emoji_id}"
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}/reactions/{encoded_reaction}?limit=50&type=0"
         try:
             connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("GET", url, message_data, self.header)
@@ -445,16 +443,15 @@ class Discord():
             return None
         if response.status == 200:
             data = json.loads(response.read())
-            reactions = []
+            reaction = []
             for user in data:
-                reactions.append({
-                    "emoji_id": user["id"],
+                reaction.append({
+                    "id": user["id"],
                     "username": user["username"],
-                    "global_name": user["global_name"],
                 })
-            return reactions
-        logger.error(f"Failed to fetch reactions. Response code: {response.status}")
-        return None
+            return reaction
+        logger.error(f"Failed to fetch reaction details: {reaction}. Response code: {response.status}")
+        return False
 
 
     def get_mentions(self, num=25, roles=True, everyone=True):
@@ -829,11 +826,11 @@ class Discord():
         return True
 
 
-    def send_reaction(self, channel_id, messgae_id, reaction):
+    def send_reaction(self, channel_id, message_id, reaction):
         """Send reaction to specified message"""
         encoded_reaction = urllib.parse.quote(reaction)
         message_data = None
-        url = f"/api/v9/channels/{channel_id}/messages/{messgae_id}/reactions/{encoded_reaction}/%40me?location=Message%20Reaction%20Picker&type=0"
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}/reactions/{encoded_reaction}/%40me?location=Message%20Reaction%20Picker&type=0"
         try:
             connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("PUT", url, message_data, self.header)
@@ -846,11 +843,11 @@ class Discord():
         return True
 
 
-    def remove_reaction(self, channel_id, messgae_id, reaction):
+    def remove_reaction(self, channel_id, message_id, reaction):
         """Remove reaction from specified message"""
         encoded_reaction = urllib.parse.quote(reaction)
         message_data = None
-        url = f"/api/v9/channels/{channel_id}/messages/{messgae_id}/reactions/{encoded_reaction}/0/%40me?location=Message%20Inline%20Button&burst=false"
+        url = f"/api/v9/channels/{channel_id}/messages/{message_id}/reactions/{encoded_reaction}/0/%40me?location=Message%20Inline%20Button&burst=false"
         try:
             connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
             connection.request("DELETE", url, message_data, self.header)
@@ -1044,7 +1041,7 @@ class Discord():
             return True
         if response.status == 429:
             # discord usually returns 429 for this request, but original client does not retry after some time
-            # so this wont retry either, file wont be sent in the messgae anyway
+            # so this wont retry either, file wont be sent in the message anyway
             logger.debug("Failed to delete attachemnt. Response code: 429 - Too Many Requests")
             return True
         logger.error(f"Failed to delete attachemnt. Response code: {response.status}")

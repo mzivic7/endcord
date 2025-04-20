@@ -1731,6 +1731,9 @@ class TUI():
             elif key == self.keybindings["add_reaction"]:
                 return self.return_input_code(36)
 
+            elif key == self.keybindings["show_reactions"]:
+                return self.return_input_code(37)
+
             elif key == curses.KEY_RESIZE:
                 self.resize()
                 _, w = self.input_hw

@@ -162,6 +162,7 @@ keybindings = {
     "go_channel": "ALT+103",   # Alt+G
     "add_reaction": "ALT+101",   # Alt+E
     "record_audio": "ALT+114",   # Alt+R
+    "show_reactions": "ALT+119",   # Alt+W
     # extra line
     "attach_prev": "ALT+552",   # Alt+Left
     "attach_next": "ALT+567",   # Alt+Right

@@ -1046,6 +1046,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         else:
             name = action["username"]
         action_string = f"Reacting to {name}"
+    elif action["type"] == 12:   # select reaction to show details
+        action_string = "Select reaction (type a number)"
 
     if my_status["custom_status_emoji"]:
         custom_status_emoji = str(my_status["custom_status_emoji"]["name"])
@@ -1389,6 +1391,15 @@ def generate_extra_window_assist(found, assist_type, max_len):
         body.append(f"{prefix}{item[0]}"[:max_len])
     if not body:
         body = ["No matches"]
+    return title_line[:max_len], body
+
+
+def generate_extra_window_reactions(reaction, details, max_len):
+    """Generate extra window title and body for reactions"""
+    title_line = f"Users who reacted {reaction["emoji"]}: "
+    body = []
+    for user in details:
+        body.append(user["username"][:max_len])
     return title_line[:max_len], body
 
 

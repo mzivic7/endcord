@@ -585,6 +585,10 @@ class Endcord:
             "username": None,
             "global_name": None,
         }
+        self.view_reactions = {
+            "message_id": None,
+            "reactions": [],
+        }
         self.going_to_ch = None
         self.ignore_typing = False
         self.tui.typing = time.time() - 5
@@ -963,7 +967,7 @@ class Endcord:
                         self.viewing_user_data = self.discord.get_user_guild(user_id, guild_id)
                     else:
                         self.viewing_user_data = self.discord.get_user(user_id)
-                self.stop_assist(False)
+                self.stop_assist(close=False)
                 self.view_profile(self.viewing_user_data)
 
             # view channel info
@@ -974,7 +978,7 @@ class Endcord:
                     guild_id = self.tree_metadata[tree_sel]["id"]
                     for guild in self.guilds:
                         if guild["guild_id"] == guild_id:
-                            self.stop_assist(False)
+                            self.stop_assist(close=False)
                             self.view_channel(guild, True)
                             break
                 elif ch_type not in (1, 3, 4, 11, 12):
@@ -989,7 +993,7 @@ class Endcord:
                                     break
                             break
                     if channel_sel:
-                        self.stop_assist(False)
+                        self.stop_assist(close=False)
                         self.view_channel(channel_sel)
 
             # hide selected channel locally, with a prompt
@@ -1061,7 +1065,6 @@ class Endcord:
             # view summaries
             elif action == 28:
                 self.restore_input_text = [input_text, "standard"]
-                max_w = self.tui.get_dimensions()[2][1]
                 summaries = []
                 for guild in self.summaries:
                     if guild["guild_id"] == self.active_channel["guild_id"]:
@@ -1070,8 +1073,9 @@ class Endcord:
                                 summaries = channel["summaries"]
                                 break
                         break
+                self.stop_assist(close=False)
+                max_w = self.tui.get_dimensions()[2][1]
                 extra_title, extra_body, self.extra_indexes = formatter.generate_extra_window_summaries(summaries, max_w)
-                self.stop_assist(False)
                 self.tui.draw_extra_window(extra_title, extra_body, select=True)
                 self.extra_window_open = True
 
@@ -1084,7 +1088,7 @@ class Endcord:
                 self.ignore_typing = True
                 max_w = self.tui.get_dimensions()[2][1]
                 extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
-                self.stop_assist(False)
+                self.stop_assist(close=False)
                 self.tui.draw_extra_window(extra_title, extra_body)
                 self.extra_window_open = True
 
@@ -1168,7 +1172,7 @@ class Endcord:
                     self.discord.patch_settings_proto(1, settings)
                     self.update_status_line()
 
-            # record audio messgae
+            # record audio message
             elif action == 34 and self.messages and not self.disable_sending and not self.uploading:
                 self.restore_input_text = [input_text, "standard"]
                 if self.recording:   # stop recording
@@ -1202,7 +1206,7 @@ class Endcord:
                 else:
                     self.tui.remove_member_list()
 
-            # add reaction'
+            # add reaction
             elif action == 36 and self.messages:
                 msg_index = self.lines_to_msg(chat_sel)
                 self.add_to_store(self.active_channel["channel_id"], input_text)
@@ -1216,6 +1220,37 @@ class Endcord:
                         "global_name": self.messages[msg_index]["global_name"],
                     }
                     self.update_status_line()
+
+            # show detailed reactions
+            elif action == 37 and self.messages:
+                self.restore_input_text = [input_text, "standard"]
+                msg_index = self.lines_to_msg(chat_sel)
+                reactions = self.messages[msg_index]["reactions"]
+                if reactions:
+                    if len(self.messages[msg_index]["reactions"]) == 1:
+                        if reactions[0]["emoji_id"]:
+                            reaction = f"{reactions[0]["emoji"]}:{reactions[0]["emoji_id"]}"
+                        else:
+                            reaction = reactions[0]["emoji"]
+                        reaction_details = self.discord.get_reactions(
+                            self.active_channel["channel_id"],
+                            self.messages[msg_index]["id"],
+                            reaction,
+                            )
+                        self.stop_assist(close=False)
+                        max_w = self.tui.get_dimensions()[2][1]
+                        extra_title, extra_body = formatter.generate_extra_window_reactions(reactions[0], reaction_details, max_w)
+                        self.tui.draw_extra_window(extra_title, extra_body)
+                        self.extra_window_open = True
+                    else:
+                        self.ignore_typing = True
+                        self.view_reactions = {
+                            "message_id": self.messages[msg_index]["id"],
+                            "reactions": reactions,
+                        }
+                        self.add_to_store(self.active_channel["channel_id"], input_text)
+                        self.restore_input_text = [None, "prompt"]
+                        self.update_status_line()
 
             # escape in main UI
             elif action == 5:
@@ -1471,6 +1506,28 @@ class Endcord:
                         self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
                         if message_id:
                             self.go_to_message(message_id)
+
+                elif self.view_reactions:
+                    reactions = self.view_reactions["reactions"]
+                    try:
+                        num = max(int(input_text) - 1, 0)
+                        if num <= len(reactions):
+                            if reactions[num]["emoji_id"]:
+                                reaction = f"{reactions[num]["emoji"]}:{reactions[0]["emoji_id"]}"
+                            else:
+                                reaction = reactions[num]["emoji"]
+                            reaction_details = self.discord.get_reactions(
+                                self.active_channel["channel_id"],
+                                self.view_reactions["message_id"],
+                                reaction,
+                                )
+                            self.stop_assist(close=False)
+                            max_w = self.tui.get_dimensions()[2][1]
+                            extra_title, extra_body = formatter.generate_extra_window_reactions(reactions[num], reaction_details, max_w)
+                            self.tui.draw_extra_window(extra_title, extra_body)
+                            self.extra_window_open = True
+                    except ValueError:
+                        pass
 
                 else:
                     this_attachments = None
@@ -1967,6 +2024,8 @@ class Endcord:
                     self.assist_found.append((f"{item["en"]} - {key}", item["en"]))
                     if len(self.assist_found) >= 50:
                         break
+            # sort emoji so shorter are first
+            self.assist_found = sorted(self.assist_found, key=lambda x: len(x[0]))
 
         elif assist_type == 4:   # sticker
             stickers = []
@@ -2218,6 +2277,8 @@ class Endcord:
                 "username": self.reacting["username"],
                 "global_name": self.reacting["global_name"],
             }
+        elif self.view_reactions["message_id"]:
+            action["type"] = 12
         else:
             action["type"] = 0
 
