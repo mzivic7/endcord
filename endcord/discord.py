@@ -71,19 +71,26 @@ def prepare_messages(data, have_channel_id=False):
                     message["referenced_message"]["embeds"] = forwarded.get("embeds")
                     message["referenced_message"]["attachments"] = forwarded.get("attachments")
                 reference_embeds = []
-                for embed in message["referenced_message"]["embeds"]:
-                    content = embed.get("url")
-                    url = None
+                for embed in message["embeds"]:
+                    content = ""
+                    content += embed.get("url", "")  + "\n"
                     if "video" in embed and "url" in embed["video"]:
-                        url = embed["video"]["url"]
+                        content += embed["video"]["url"] + "\n"
                     elif "image" in embed and "url" in embed["image"]:
-                        content = embed["image"]["url"]
-                    if content:
+                        content += embed["image"]["url"] + "\n"
+                    elif "fields" in embed:
+                        for field in embed["fields"]:
+                            content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
+                        content = content.strip("\n")
+                    elif "title" in embed:
+                        content += embed["title"] + "\n"
+                        content += embed.get("description", "") + "\n"
+                    content = content.strip("\n")
+                    if content and content not in message["content"]:
                         reference_embeds.append({
                             "type": embed["type"],
                             "name": None,
-                            "url": url,
-
+                            "url": content,
                         })
                 for attachment in message["referenced_message"]["attachments"]:
                     reference_embeds.append({
@@ -133,20 +140,20 @@ def prepare_messages(data, have_channel_id=False):
             message["attachments"] = forwarded.get("attachments")
         embeds = []
         for embed in message["embeds"]:
-            content = embed.get("url")
+            content = ""
+            content += embed.get("url", "")  + "\n"
             if "video" in embed and "url" in embed["video"]:
-                content = embed["video"]["url"]
+                content += embed["video"]["url"] + "\n"
             elif "image" in embed and "url" in embed["image"]:
-                content = embed["image"]["url"]
+                content += embed["image"]["url"] + "\n"
             elif "fields" in embed:
-                content = ""
-                if "url" in embed:
-                    content = embed["url"]
                 for field in embed["fields"]:
-                    content = content + "\n" + field["name"] + "\n" + field["value"]
+                    content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
                 content = content.strip("\n")
-            else:
-                content = None
+            elif "title" in embed:
+                content += embed["title"] + "\n"
+                content += embed.get("description", "") + "\n"
+            content = content.strip("\n")
             if content and content not in message["content"]:
                 embeds.append({
                     "type": embed["type"],

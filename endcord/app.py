@@ -1258,7 +1258,7 @@ class Endcord:
                     self.recording = False
                     _ = recorder.stop()
                     self.update_extra_line()
-                elif self.reacting:
+                elif self.reacting["id"]:
                     self.reset_actions()
                     self.restore_input_text = [None, None]
                 elif self.assist_word:

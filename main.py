@@ -41,6 +41,7 @@ def sigint_handler(_signum, _frame):
 
 def main(args):
     """Main function"""
+    os.environ["ESCDELAY"] = "25"   # 25ms
     config_path = args.config
     theme_path = args.theme
     if args.keybinding:

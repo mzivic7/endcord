@@ -28,7 +28,7 @@ match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
 match_md_strikethrough = re.compile(r"(?<!\\)((?<=~))?~~[^~]+~~")   # unused
 match_md_spoiler = re.compile(r"(?<!\\)((?<=\|))?\|\|[^_]+\|\|")
 match_md_code_snippet = re.compile(r"(?<!`|\\)`[^`]+`")
-match_md_code_block = re.compile(r"(?s)```.+\n```")
+match_md_code_block = re.compile(r"(?s)```.*?```")
 match_md_italic = re.compile(r"\b(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)\b|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
 match_discord_channel_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)")

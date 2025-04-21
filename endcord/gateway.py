@@ -668,15 +668,20 @@ class Gateway():
                                 response["d"]["referenced_message"]["attachments"] = forwarded.get("attachments")
                             reference_embeds = []
                             for embed in response["d"]["referenced_message"]["embeds"]:
-                                content = embed.get("url")
+                                content = ""
+                                content += embed.get("url", "")  + "\n"
                                 if "video" in embed and "url" in embed["video"]:
-                                    content = embed["video"]["url"]
+                                    content += embed["video"]["url"] + "\n"
                                 elif "image" in embed and "url" in embed["image"]:
-                                    content = embed["image"]["url"]
+                                    content += embed["image"]["url"] + "\n"
                                 elif "fields" in embed:
-                                    content = f"{embed["fields"][0]["name"]}\n{embed["fields"][0]["value"]}"
-                                else:
-                                    content = None
+                                    for field in embed["fields"]:
+                                        content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
+                                    content = content.strip("\n")
+                                elif "title" in embed:
+                                    content += embed["title"] + "\n"
+                                    content += embed.get("description", "") + "\n"
+                                content = content.strip("\n")
                                 if content:
                                     reference_embeds.append({
                                         "type": embed["type"],
@@ -714,20 +719,20 @@ class Gateway():
                             response["d"]["embeds"] = forwarded.get("embeds")
                             response["d"]["attachments"] = forwarded.get("attachments")
                         for embed in response["d"]["embeds"]:
-                            content = embed.get("url")
+                            content = ""
+                            content += embed.get("url", "")  + "\n"
                             if "video" in embed and "url" in embed["video"]:
-                                content = embed["video"]["url"]
+                                content += embed["video"]["url"] + "\n"
                             elif "image" in embed and "url" in embed["image"]:
-                                content = embed["image"]["url"]
+                                content += embed["image"]["url"] + "\n"
                             elif "fields" in embed:
-                                content = ""
-                                if "url" in embed:
-                                    content = embed["url"]
                                 for field in embed["fields"]:
-                                    content = content + "\n" + field["name"] + "\n" + field["value"] + "\n"
+                                    content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
                                 content = content.strip("\n")
-                            else:
-                                content = None
+                            elif "title" in embed:
+                                content += embed["title"] + "\n"
+                                content += embed.get("description", "") + "\n"
+                            content = content.strip("\n")
                             if content and content not in response["d"]["content"]:
                                 embeds.append({
                                     "type": embed["type"],
@@ -802,20 +807,20 @@ class Gateway():
                 elif optext == "MESSAGE_UPDATE":
                     embeds = []
                     for embed in response["d"]["embeds"]:
-                        content = embed.get("url")
+                        content = ""
+                        content += embed.get("url", "")  + "\n"
                         if "video" in embed and "url" in embed["video"]:
-                            content = embed["video"]["url"]
+                            content += embed["video"]["url"] + "\n"
                         elif "image" in embed and "url" in embed["image"]:
-                            content = embed["image"]["url"]
+                            content += embed["image"]["url"] + "\n"
                         elif "fields" in embed:
-                            content = ""
-                            if "url" in embed:
-                                content = embed["url"]
                             for field in embed["fields"]:
-                                content = content + "\n" + field["name"] + "\n" + field["value"] + "\n"
+                                content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
                             content = content.strip("\n")
-                        else:
-                            content = None
+                        elif "title" in embed:
+                            content += embed["title"] + "\n"
+                            content += embed.get("description", "") + "\n"
+                        content = content.strip("\n")
                         if content and content not in response["d"]["content"]:
                             embeds.append({
                                 "type": embed["type"],
