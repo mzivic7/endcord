@@ -60,7 +60,7 @@ def search_string(text):
     min_id = []
     for match in re.findall(match_after, text):
         text = text.replace(match, "")
-        min_id.append(date_to_snowflake(match[6:]), end=True)
+        min_id.append(date_to_snowflake(match[6:], end=True))
     channel_id = []
     for match in re.findall(match_in, text):
         text = text.replace(match, "")

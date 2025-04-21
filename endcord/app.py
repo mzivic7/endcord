@@ -1507,7 +1507,7 @@ class Endcord:
                         if message_id:
                             self.go_to_message(message_id)
 
-                elif self.view_reactions:
+                elif self.view_reactions["message_id"]:
                     reactions = self.view_reactions["reactions"]
                     try:
                         num = max(int(input_text) - 1, 0)
