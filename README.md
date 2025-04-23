@@ -276,7 +276,7 @@ Audio is also played along with the video.
 Optional dependencies:
 - `xclip` - Clipboard support on X11  
 - `wl-clipboard` - Clipboard support on Wayland  
-- `aspell` - Spellchecking
+- `aspell` - Spellchecking (and `aspell-en` dictionary)
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
@@ -396,4 +396,4 @@ Go to [TODO](todo.txt).
 ### Features that will not be added
 Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned.  
 Therefore they will NOT be implemented in endcord.  
-Features: sending friend request, opening new DM.
+Features: sending friend request, opening new DM, creating new thread.

@@ -102,7 +102,8 @@ def load_config(path, default, section="main", gen_config=False):
     if not path:
         path = config_path + "config.ini"
     path = os.path.expanduser(path)
-    config.read(path)
+    with open(path, "r", encoding="utf-8") as f:
+        config.read_file(f)
     if not os.path.exists(path) or gen_config:
         os.makedirs(os.path.expanduser(os.path.dirname(log_path)), exist_ok=True)
         config.add_section(section)
@@ -111,7 +112,7 @@ def load_config(path, default, section="main", gen_config=False):
                 config.set(section, key, str(default[key]))
             else:
                 config.set(section, key, f'"{str(default[key]).replace("\\", "\\\\")}"')
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             config.write(f)
             if not gen_config:
                 print(f"Default config generated at: {path}")

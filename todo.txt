@@ -1,6 +1,8 @@
 HIGH PRIORITY:
+fix empty ready event
 commands
 fix "glitches"
+nuitka compiling
 
 LOW PRIORITY:
 tabs

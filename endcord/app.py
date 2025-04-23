@@ -175,7 +175,7 @@ class Endcord:
         self.run = False
 
 
-    def reset(self):
+    def reset(self, online=False):
         """Reset stored data from discord, should be run on startup and reconnect"""
         self.messages = []
         self.chat = []
@@ -212,19 +212,20 @@ class Endcord:
         self.search = False
         self.search_end = False
         self.ignore_typing = False
-        self.my_status = {
-            "status": "online",
-            "custom_status": None,
-            "custom_status_emoji": None,
-            "activities": [],
-            "client_state": "OFFLINE",
-        }
+        if not online:
+            self.my_status = {
+                "status": "online",
+                "custom_status": None,
+                "custom_status_emoji": None,
+                "activities": [],
+                "client_state": "OFFLINE",
+            }
 
 
     def reconnect(self):
         """Fetch updated data from gateway and rebuild chat after reconnecting"""
         self.add_running_task("Reconnecting", 1)
-        self.reset()
+        self.reset(online=True)
         self.premium = self.gateway.get_premium()
         self.guilds = self.gateway.get_guilds()
         # not initializing role colors again to avoid issues with media colors
