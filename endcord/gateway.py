@@ -450,10 +450,12 @@ class Gateway():
                                 if owned:   # cant hide channels in owned guild
                                     self.guilds[guild_num]["channels"][category_num]["hidden"] = False
                                 if not category["hidden"]:
+                                    # if category is not hidden, show its channels
                                     for channel in guild["channels"]:
                                         if channel["parent_id"] == category_id:
                                             channel["hidden"] = False
                                 else:
+                                    # if category is hidden - hide its channels
                                     for channel in guild["channels"]:
                                         if channel["parent_id"] == category_id:
                                             if not channel["hidden"]:

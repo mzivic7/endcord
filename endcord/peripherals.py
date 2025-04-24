@@ -98,12 +98,14 @@ def load_config(path, default, section="main", gen_config=False):
     Load settings and theme from config
     If some value is missing, it is replaced wih default value
     """
+    logger.info(f"{path}, {section}, {gen_config}")
     config = ConfigParser(interpolation=None)
     if not path:
         path = config_path + "config.ini"
     path = os.path.expanduser(path)
-    with open(path, "r", encoding="utf-8") as f:
-        config.read_file(f)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            config.read_file(f)
     if not os.path.exists(path) or gen_config:
         os.makedirs(os.path.expanduser(os.path.dirname(log_path)), exist_ok=True)
         config.add_section(section)
@@ -263,7 +265,7 @@ def copy_to_clipboard(text):
     elif sys.platform == "win32":
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()
-        win32clipboard.SetClipboard(text, win32clipboard.CF_UNICODETEXT)
+        win32clipboard.SetClipboardText(text)
         win32clipboard.CloseClipboard()
     elif sys.platform == "mac":
         proc = subprocess.Popen(

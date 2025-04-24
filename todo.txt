@@ -1,8 +1,8 @@
 HIGH PRIORITY:
-multiple keybinding
+multiple keybindings
 commands
 fix "glitches"
-nuitka compiling
+nuitka compiling (https://github.com/Nuitka/Nuitka/issues/3442)
 
 LOW PRIORITY:
 tabs

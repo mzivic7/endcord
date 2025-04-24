@@ -191,4 +191,5 @@ windows_override_keybindings = {
     "tree_select": 1,   # Ctrl+A
     "word_left": 443,   # Ctrl+Left
     "word_right": 444,   # Ctrl+Right
+    "copy_msg": "ALT+108",   # Alt+L
 }
