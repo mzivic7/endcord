@@ -1280,7 +1280,7 @@ class TUI():
                     self.mlist_selected += 1
                     self.draw_member_list(self.member_list, self.member_list_format)
 
-        elif key == self.keybindings["extra_select"]:
+        elif self.extra_select and key == self.keybindings["extra_select"]:
             return 27
 
         elif key == self.keybindings["channel_info"] and self.tree_selected > 0:

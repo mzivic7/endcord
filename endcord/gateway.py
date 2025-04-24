@@ -234,6 +234,9 @@ class Gateway():
                     self.my_id = response["d"]["user"]["id"]
                     self.premium = response["d"]["user"]["premium"]
                     # guilds and channels
+                    if ("guilds" not in response["d"]) and ("user_guild_settings" in response["d"]):
+                        logger.warn("Abnormal READY event received, if its always happening, report this")
+                        break
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
                         guild_channels = []
@@ -676,7 +679,7 @@ class Gateway():
                                     content += embed["image"]["url"] + "\n"
                                 elif "fields" in embed:
                                     for field in embed["fields"]:
-                                        content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
+                                        content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
                                     content = content.strip("\n")
                                 elif "title" in embed:
                                     content += embed["title"] + "\n"
@@ -727,7 +730,7 @@ class Gateway():
                                 content += embed["image"]["url"] + "\n"
                             elif "fields" in embed:
                                 for field in embed["fields"]:
-                                    content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
+                                    content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
                                 content = content.strip("\n")
                             elif "title" in embed:
                                 content += embed["title"] + "\n"
@@ -815,7 +818,7 @@ class Gateway():
                             content += embed["image"]["url"] + "\n"
                         elif "fields" in embed:
                             for field in embed["fields"]:
-                                content += content + "\n" + field["name"] + "\n" + field["value"]  + "\n"
+                                content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
                             content = content.strip("\n")
                         elif "title" in embed:
                             content += embed["title"] + "\n"

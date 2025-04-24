@@ -811,7 +811,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     newline_index_formatted = len(new_line_formatted[:max_length].rsplit(" ", 1)[0])
                     if newline_index < newline_index_formatted:
                         newline_index = len(" ".join(new_line.split(" ")[:len(new_line[:max_length].split(" "))]))
-                if newline_index <= newline_len:
+                if newline_index <= newline_len + 2*quote:
                     newline_index = max_length
                 if "\n" in new_line[:newline_index]:
                     newline_index = new_line.index("\n")

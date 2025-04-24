@@ -1,5 +1,5 @@
 HIGH PRIORITY:
-fix empty ready event
+multiple keybinding
 commands
 fix "glitches"
 nuitka compiling

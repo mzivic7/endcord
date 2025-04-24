@@ -316,7 +316,10 @@ class Endcord:
 
         # dont switch when offline
         if self.my_status["client_state"] in ("OFFLINE", "connecting"):
+            self.update_extra_line("Can't switch channel when offline.")
             return
+
+        logger.debug(f"Switching channel, has_id: {bool(channel_id)}, has_guild:{bool(guild_id)}, has hint: {bool(parent_hint)}")
 
         # save deleted
         if self.keep_deleted:
@@ -388,13 +391,13 @@ class Endcord:
                     if my_messages >= MSG_MIN:
                         break
             if my_messages < MSG_MIN:
-                self.disable_sending = f"Cant send a message: please send at least {MSG_MIN} messages with the official client"
+                self.disable_sending = f"Can't send a message: please send at least {MSG_MIN} messages with the official client"
 
         # if this is thread and is locked or archived, prevent sending messages
         elif self.current_channel.get("type") in (11, 12) and self.current_channel.get("locked"):
-            self.disable_sending = "Cant send a message: this thread is locked"
+            self.disable_sending = "Can't send a message: this thread is locked"
         elif not self.current_channel.get("allow_write", True):
-            self.disable_sending = "Cant send a message: No write permissions"
+            self.disable_sending = "Can't send a message: No write permissions"
         else:
             self.disable_sending = False
             self.tui.remove_extra_line()
@@ -656,6 +659,7 @@ class Endcord:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, reset=False, clear_delta=True)
                 else:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, clear_delta=True)
+            logger.debug(f"Input code: {action}")
 
             # switch channel
             if action == 4:
@@ -3100,7 +3104,11 @@ class Endcord:
             new_chat_dim = self.tui.get_dimensions()[0]
             if new_chat_dim != self.chat_dim:
                 self.chat_dim = new_chat_dim
-                self.update_chat()
+                if self.forum:
+                    self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
+                    self.tui.update_chat(self.chat, self.chat_format)
+                else:
+                    self.update_chat()
                 self.update_tree()
                 self.update_extra_line(update_only=True)
 
