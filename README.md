@@ -103,8 +103,9 @@ Note that some codes can be different across systems.
 `Ctrl+Shift+Key` combinations are not supported by most terminal emulators, but `Alt+Shift+Key` are.  
 On windows, default "expand categories and servers" is rebound to `Ctrl+A`, and "copy message" to `Alt+L`.  
 Kaybindings can also be chained like this (maximum 2 bindings in chain, separated with `-`):  
-`"25-97"` - for `Ctrl+X-A` which means: press `Ctrl+X` then `A`,  
-`"ALT+120-ALT+100"` - for `Alt+X-Alt+D` and so on.  
+`"25-97"` for `Ctrl+X-A` which means: press `Ctrl+X` then `A`,  
+`"ALT+120-ALT+100"` for `Alt+X-Alt+D` and so on.  
+To specify multiple keybindings for same action put them in a tuple, eg.: `(2, "25-97", "ALT+120")`.  
 
 See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 

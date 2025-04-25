@@ -1,7 +1,7 @@
 HIGH PRIORITY:
-multiple keybindings
-commands
 fix "glitches"
+option to store token with "keyring" library
+commands
 nuitka compiling (https://github.com/Nuitka/Nuitka/issues/3442)
 
 LOW PRIORITY:

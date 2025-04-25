@@ -76,7 +76,7 @@ class TUI():
         self.init_pair(config["color_extra_window"])   # 21
         self.color_default = self.last_free_id + 1
         self.role_color_start_id = self.last_free_id   # starting id for role colors
-        self.keybindings = keybindings
+        self.keybindings = {key: (val,) if not isinstance(val, tuple) else val for key, val in keybindings.items()}
         self.screen = screen
 
         # load config
@@ -1186,14 +1186,14 @@ class TUI():
                 self.chat_selected -= 1   # move selection down
                 self.draw_chat()
 
-        elif key == self.keybindings["tree_up"]:
+        elif key in self.keybindings["tree_up"]:
             if self.tree_selected >= 0:
                 if self.tree_index and self.tree_selected <= self.tree_index + 2:
                     self.tree_index -= 1
                 self.tree_selected -= 1
                 self.draw_tree()
 
-        elif key == self.keybindings["tree_down"]:
+        elif key in self.keybindings["tree_down"]:
             if self.tree_selected + 1 < self.tree_clean_len:
                 top_line = self.tree_index + self.tree_hw[0]
                 if top_line < self.tree_clean_len and self.tree_selected >= top_line - 3:
@@ -1201,7 +1201,7 @@ class TUI():
                 self.tree_selected += 1
                 self.draw_tree()
 
-        elif key == self.keybindings["tree_select"]:
+        elif key in self.keybindings["tree_select"]:
             # if selected tree entry is channel
             if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
                 # stop wait_input and return so new prompt can be loaded
@@ -1230,17 +1230,17 @@ class TUI():
                 self.draw_tree()
             self.tree_format_changed = True
 
-        elif key == self.keybindings["tree_collapse_threads"]:
+        elif key in self.keybindings["tree_collapse_threads"]:
             if (self.tree_format[self.tree_selected_abs] % 10):
                 self.tree_format[self.tree_selected_abs] -= 1
             else:
                 self.tree_format[self.tree_selected_abs] += 1
             self.draw_tree()
 
-        elif key == self.keybindings["tree_join_thread"]:
+        elif key in self.keybindings["tree_join_thread"]:
             return 21
 
-        elif key == self.keybindings["extra_up"]:
+        elif key in self.keybindings["extra_up"]:
             if self.extra_window_body:
                 if self.extra_select and self.extra_selected >= 0:
                     if self.extra_index and self.extra_selected <= self.extra_index:
@@ -1260,7 +1260,7 @@ class TUI():
                     self.mlist_index -= 1
                     self.draw_member_list(self.member_list, self.member_list_format)
 
-        elif key == self.keybindings["extra_down"]:
+        elif key in self.keybindings["extra_down"]:
             if self.extra_window_body:
                 if self.extra_select:
                     if self.extra_selected + 1 < len(self.extra_window_body):
@@ -1283,18 +1283,18 @@ class TUI():
         elif self.extra_select and key == self.keybindings["extra_select"]:
             return 27
 
-        elif key == self.keybindings["channel_info"] and self.tree_selected > 0:
+        elif key in self.keybindings["channel_info"] and self.tree_selected > 0:
             self.extra_index = 0
             self.extra_selected = -1
             return 25
 
-        elif key == self.keybindings["hide_channel"]:
+        elif key in self.keybindings["hide_channel"]:
             return 26
 
-        elif key == self.keybindings["cycle_status"]:
+        elif key in self.keybindings["cycle_status"]:
             return 33
 
-        elif key == self.keybindings["toggle_member_list"]:
+        elif key in self.keybindings["toggle_member_list"]:
             return 35
 
         return None
@@ -1355,15 +1355,15 @@ class TUI():
                         self.screen.nodelay(False)
                         return None, 0, 0, 100
                     self.screen.nodelay(False)
-                elif key == self.keybindings["media_pause"]:
+                elif key in self.keybindings["media_pause"]:
                     return None, 0, 0, 101
-                elif key == self.keybindings["media_replay"]:
+                elif key in self.keybindings["media_replay"]:
                     return None, 0, 0, 102
-                elif key == self.keybindings["media_seek_forward"]:
+                elif key in self.keybindings["media_seek_forward"]:
                     return None, 0, 0, 103
-                elif key == self.keybindings["media_seek_backward"]:
+                elif key in self.keybindings["media_seek_backward"]:
                     return None, 0, 0, 104
-                elif key == self.keybindings["redraw"]:
+                elif key in self.keybindings["redraw"]:
                     return None, 0, 0, 105
                 elif key == curses.KEY_RESIZE:
                     pass
@@ -1499,7 +1499,7 @@ class TUI():
                 self.input_index = len(self.input_buffer)
                 self.input_select_start = None
 
-            elif key == self.keybindings["word_left"]:
+            elif key in self.keybindings["word_left"]:
                 left_len = 0
                 for word in self.input_buffer[:self.input_index].split(" ")[::-1]:
                     if word == "":
@@ -1511,7 +1511,7 @@ class TUI():
                 self.input_index = max(self.input_index, 0)
                 self.input_select_start = None
 
-            elif key == self.keybindings["word_right"]:
+            elif key in self.keybindings["word_right"]:
                 left_len = 0
                 for word in self.input_buffer[self.input_index:].split(" "):
                     if word == "":
@@ -1523,7 +1523,7 @@ class TUI():
                 self.input_index = min(self.input_index, len(self.input_buffer))
                 self.input_select_start = None
 
-            elif key == self.keybindings["select_word_left"]:
+            elif key in self.keybindings["select_word_left"]:
                 if self.input_select_start is None:
                     self.input_select_end = self.input_select_start = self.input_index
                 left_len = 0
@@ -1538,7 +1538,7 @@ class TUI():
                 if self.input_select_start is not None:
                     self.input_select_end -= left_len
 
-            elif key == self.keybindings["select_word_right"]:
+            elif key in self.keybindings["select_word_right"]:
                 if self.input_select_start is None:
                     self.input_select_end = self.input_select_start = self.input_index
                 left_len = 0
@@ -1553,7 +1553,7 @@ class TUI():
                 if self.input_select_start is not None:
                     self.input_select_end += left_len
 
-            elif key == self.keybindings["undo"]:
+            elif key in self.keybindings["undo"]:
                 self.add_to_delta_store("UNDO")
                 if self.undo_index is None:
                     self.undo_index = len(self.delta_store) - 1
@@ -1578,7 +1578,7 @@ class TUI():
                         self.input_index = delta_index + 1
                 self.input_select_start = None
 
-            elif key == self.keybindings["redo"]:
+            elif key in self.keybindings["redo"]:
                 self.add_to_delta_store("REDO")
                 if self.undo_index is not None and self.undo_index < len(self.delta_store):
                     self.undo_index += 1
@@ -1595,7 +1595,7 @@ class TUI():
                         self.input_index = delta_index + 1
                 self.input_select_start = None
 
-            elif key == self.keybindings["select_left"]:
+            elif key in self.keybindings["select_left"]:
                 if self.input_select_start is None:
                     self.input_select_start = self.input_index
                 if self.input_index > 0:
@@ -1606,7 +1606,7 @@ class TUI():
                         self.input_index -= 1
                 self.input_select_end = self.input_index
 
-            elif key == self.keybindings["select_right"]:
+            elif key in self.keybindings["select_right"]:
                 if self.input_select_start is None:
                     self.input_select_start = self.input_index
                 if self.input_index < len(self.input_buffer):
@@ -1617,7 +1617,7 @@ class TUI():
                         self.input_index += 1
                 self.input_select_end = self.input_index
 
-            elif key == self.keybindings["select_all"]:
+            elif key in self.keybindings["select_all"]:
                 self.input_select_start = 0
                 self.input_select_end = len(self.input_buffer)
 
@@ -1641,97 +1641,97 @@ class TUI():
                         if selected_completion > len(completions) - 1:
                             selected_completion = 0
 
-            elif key == self.keybindings["attach_prev"]:
+            elif key in self.keybindings["attach_prev"]:
                 return self.return_input_code(14)
 
-            elif key == self.keybindings["attach_next"]:
+            elif key in self.keybindings["attach_next"]:
                 return self.return_input_code(15)
 
-            elif key == self.keybindings["ins_newline"]:
+            elif key in self.keybindings["ins_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.show_cursor()
 
-            elif key == self.keybindings["reply"] and self.chat_selected != -1:
+            elif key in self.keybindings["reply"] and self.chat_selected != -1:
                 return self.return_input_code(1)
 
-            elif key == self.keybindings["edit"] and self.chat_selected != -1:
+            elif key in self.keybindings["edit"] and self.chat_selected != -1:
                 return self.return_input_code(2)
 
-            elif key == self.keybindings["delete"] and self.chat_selected != -1:
+            elif key in self.keybindings["delete"] and self.chat_selected != -1:
                 return self.return_input_code(3)
 
-            elif key == self.keybindings["toggle_ping"]:
+            elif key in self.keybindings["toggle_ping"]:
                 return self.return_input_code(6)
 
-            elif key == self.keybindings["scroll_bottom"]:
+            elif key in self.keybindings["scroll_bottom"]:
                 return self.return_input_code(7)
 
 
-            elif key == self.keybindings["go_replied"] and self.chat_selected != -1:
+            elif key in self.keybindings["go_replied"] and self.chat_selected != -1:
                 return self.return_input_code(8)
 
-            elif key == self.keybindings["download"] and self.chat_selected != -1:
+            elif key in self.keybindings["download"] and self.chat_selected != -1:
                 return self.return_input_code(9)
 
-            elif key == self.keybindings["browser"] and self.chat_selected != -1:
+            elif key in self.keybindings["browser"] and self.chat_selected != -1:
                 return self.return_input_code(10)
 
-            elif key == self.keybindings["cancel"]:
+            elif key in self.keybindings["cancel"]:
                 return self.return_input_code(11)
 
-            elif key == self.keybindings["copy_msg"]:
+            elif key in self.keybindings["copy_msg"]:
                 return self.return_input_code(12)
 
-            elif key == self.keybindings["upload"]:
+            elif key in self.keybindings["upload"]:
                 self.enable_autocomplete = True
                 self.misspelled = []
                 return self.return_input_code(13)
 
-            elif key == self.keybindings["redraw"]:
+            elif key in self.keybindings["redraw"]:
                 self.screen.clear()
                 self.resize()
 
-            elif key == self.keybindings["attach_cancel"]:
+            elif key in self.keybindings["attach_cancel"]:
                 return self.return_input_code(16)
 
-            elif key == self.keybindings["view_media"] and self.chat_selected != -1:
+            elif key in self.keybindings["view_media"] and self.chat_selected != -1:
                 return self.return_input_code(17)
 
-            elif key == self.keybindings["spoil"] and self.chat_selected != -1:
+            elif key in self.keybindings["spoil"] and self.chat_selected != -1:
                 return self.return_input_code(18)
 
-            elif key == self.keybindings["profile_info"] and self.chat_selected != -1:
+            elif key in self.keybindings["profile_info"] and self.chat_selected != -1:
                 self.extra_index = 0
                 self.extra_selected = -1
                 return self.return_input_code(24)
 
-            elif key == self.keybindings["show_summaries"]:
+            elif key in self.keybindings["show_summaries"]:
                 self.extra_index = 0
                 self.extra_selected = -1
                 return self.return_input_code(28)
 
-            elif key == self.keybindings["search"]:
+            elif key in self.keybindings["search"]:
                 self.extra_index = 0
                 self.extra_selected = -1
                 return self.return_input_code(29)
 
-            elif key == self.keybindings["copy_channel_link"] and self.tree_selected > 0:
+            elif key in self.keybindings["copy_channel_link"] and self.tree_selected > 0:
                 return self.return_input_code(30)
 
-            elif key == self.keybindings["copy_message_link"] and self.chat_selected != -1:
+            elif key in self.keybindings["copy_message_link"] and self.chat_selected != -1:
                 return self.return_input_code(31)
 
-            elif key == self.keybindings["go_channel"] and self.chat_selected != -1:
+            elif key in self.keybindings["go_channel"] and self.chat_selected != -1:
                 return self.return_input_code(32)
 
-            elif key == self.keybindings["record_audio"]:
+            elif key in self.keybindings["record_audio"]:
                 return self.return_input_code(34)
 
-            elif key == self.keybindings["add_reaction"]:
+            elif key in self.keybindings["add_reaction"]:
                 return self.return_input_code(36)
 
-            elif key == self.keybindings["show_reactions"]:
+            elif key in self.keybindings["show_reactions"]:
                 return self.return_input_code(37)
 
             elif key == curses.KEY_RESIZE:
@@ -1825,13 +1825,13 @@ class TUI():
             if code:
                 return self.return_input_code(code)
 
-            if key == self.keybindings["cancel"]:
+            if key in self.keybindings["cancel"]:
                 return self.return_input_code(11)
 
-            if key == self.keybindings["forum_join_thread"]:
+            if key in self.keybindings["forum_join_thread"]:
                 return self.return_input_code(23)
 
-            if key == self.keybindings["redraw"]:
+            if key in self.keybindings["redraw"]:
                 self.screen.clear()
                 self.resize()
 

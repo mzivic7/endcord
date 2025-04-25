@@ -98,7 +98,6 @@ def load_config(path, default, section="main", gen_config=False):
     Load settings and theme from config
     If some value is missing, it is replaced wih default value
     """
-    logger.info(f"{path}, {section}, {gen_config}")
     config = ConfigParser(interpolation=None)
     if not path:
         path = config_path + "config.ini"
@@ -110,7 +109,7 @@ def load_config(path, default, section="main", gen_config=False):
         os.makedirs(os.path.expanduser(os.path.dirname(log_path)), exist_ok=True)
         config.add_section(section)
         for key in default:
-            if default[key] in (True, False, None) or isinstance(default[key], (list, int, float)):
+            if default[key] in (True, False, None) or isinstance(default[key], (list, tuple, int, float)):
                 config.set(section, key, str(default[key]))
             else:
                 config.set(section, key, f'"{str(default[key]).replace("\\", "\\\\")}"')

@@ -414,6 +414,9 @@ class Gateway():
                                 "message_notifications": guild["message_notifications"],
                                 "muted": guild["muted"],
                             })
+                            guild_flags = int(guild.get("flags", 0))
+                            # opt_in means: show all guild channels - when guild is joined
+                            guild_opt_in = not perms.decode_flag(guild_flags, 14) or perms.decode_flag(guild_flags, 13)
                             for channel in guild["channel_overrides"]:
                                 found = False
                                 for channel_num, channel_g in enumerate(self.guilds[guild_num]["channels"]):
@@ -425,6 +428,8 @@ class Gateway():
                                         flags = int(channel.get("flags", 0))
                                         hidden = not perms.decode_flag(flags, 12)
                                     else:
+                                        hidden = False
+                                    if guild_opt_in:
                                         hidden = False
                                     self.guilds[guild_num]["channels"][channel_num].update({
                                         "message_notifications": channel["message_notifications"],
