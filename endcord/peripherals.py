@@ -174,6 +174,15 @@ def merge_configs(custom_config_path, theme_path):
     return config, gen_config
 
 
+def convert_keybindings(keybindings):
+    """Convert keybinding codes to os-specific codes"""
+    if sys.platform == "win32":
+        for key, value in keybindings.items():
+            if isinstance(value, str):
+                keybindings[key] = re.sub(r"ALT\+(\d+)", lambda m: str(int(m.group(1)) + 320), value)
+    return keybindings
+
+
 def notify_send(title, message, sound="message", custom_sound=None):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":

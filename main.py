@@ -18,7 +18,7 @@ if not os.path.exists(log_path):
 logger = logging
 logging.basicConfig(
     level="INFO",
-    filename=os.path.expanduser(log_path + f"{APP_NAME}.log"),
+    filename=os.path.expanduser(f"{log_path}{APP_NAME}.log"),
     encoding="utf-8",
     filemode="w",
     format="{asctime} - {levelname}\n  [{module}]: {message}\n",
@@ -62,6 +62,7 @@ def main(args):
         section="keybindings",
         gen_config=gen_config,
     )
+    keybindings = peripherals.convert_keybindings(keybindings)
     if not token and not config["token"]:
         sys.exit("Token not provided in config nor as argument")
     if token:

@@ -11,6 +11,10 @@ INPUT_LINE_JUMP = 20   # jump size when moving input line
 MAX_DELTA_STORE = 50   # limit undo size
 MIN_ASSIST_LETTERS = 2
 ASSIST_TRIGGERS = ("#", "@", ":", ";")
+if sys.platform == "win32":
+    BACKSPACE = 8   # i cant belive this
+else:
+    BACKSPACE = curses.KEY_BACKSPACE
 
 
 def ctrl(x):
@@ -1446,7 +1450,7 @@ class TUI():
                     if chr(key) in ASSIST_TRIGGERS:
                         self.assist_start = self.input_index
 
-            elif key == curses.KEY_BACKSPACE:   # BACKSPACE
+            elif key == BACKSPACE:
                 if self.input_select_start is not None:
                     self.delete_selection()
                     self.input_select_start = None
@@ -1470,7 +1474,7 @@ class TUI():
                     self.add_to_delta_store("DELETE", removed_char)
                     self.show_cursor()
 
-            elif key == curses.KEY_LEFT:   # LEFT
+            elif key == curses.KEY_LEFT:
                 if self.input_index > 0:
                     # if index hits left screen edge, but there is more text to left, move line right
                     if self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index) == 0:
@@ -1480,7 +1484,7 @@ class TUI():
                     self.show_cursor()
                 self.input_select_start = None
 
-            elif key == curses.KEY_RIGHT:   # RIGHT
+            elif key == curses.KEY_RIGHT:
                 if self.input_index < len(self.input_buffer):
                     # if index hits right screen edge, but there is more text to right, move line right
                     if self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) == w:
@@ -1490,12 +1494,12 @@ class TUI():
                     self.show_cursor()
                 self.input_select_start = None
 
-            elif key == curses.KEY_HOME:   # HOME
+            elif key == curses.KEY_HOME:
                 self.input_index = 0
                 self.input_line_index = 0
                 self.input_select_start = None
 
-            elif key == curses.KEY_END:   # END
+            elif key == curses.KEY_END:
                 self.input_index = len(self.input_buffer)
                 self.input_select_start = None
 

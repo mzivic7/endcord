@@ -33,14 +33,15 @@ def prepare():
     if sys.platform == "linux":
         pass
     elif sys.platform == "win32":
-        try:   # python-magic-bin contains required dll
-            importlib.metadata.version("python-magic")
-            uninstall_magic = "pipenv uninstall python-magic"
-            os.system(uninstall_magic)
-        except importlib.metadata.PackageNotFoundError:
-            pass
-        install_windows_dependencies = "pipenv install pywin32 windows-toasts windows-curses python-magic-bin"
-        os.system(install_windows_dependencies)
+        if importlib.util.find_spec("curses") is None:
+            try:   # python-magic-bin contains required dll
+                importlib.metadata.version("python-magic")
+                uninstall_magic = "pipenv uninstall python-magic"
+                os.system(uninstall_magic)
+            except importlib.metadata.PackageNotFoundError:
+                pass
+            install_windows_dependencies = "pipenv install pywin32 pywin32-ctypes windows-toasts windows-curses python-magic-bin"
+            os.system(install_windows_dependencies)
     elif sys.platform == "mac":
         pass
     else:
@@ -49,6 +50,7 @@ def prepare():
 
 def build():
     """Build"""
+    prepare()
     if check_media_support():
         hidden_imports = "--hidden-import uuid "
         pkgname = "endcord"
