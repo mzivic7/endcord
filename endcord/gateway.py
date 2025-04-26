@@ -380,7 +380,13 @@ class Gateway():
                             "is_spam": dm.get("is_spam"),
                             "is_request": dm.get("is_message_request"),
                             "muted": False,
+                            "last_message_id": dm.get("last_message_id"),
                         })
+                    self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
+                    self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)
+                    for dm in self.dms:   # dont need it anymore
+                        dm.pop("last_message_id")
+                    for dm in self.dms:
                         self.dms_id.append(dm["id"])
                     time_log_string += f"    DMs - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
