@@ -237,9 +237,14 @@ class Gateway():
                     if ("guilds" not in response["d"]) and ("user_guild_settings" in response["d"]):
                         logger.warn("Abnormal READY event received, if its always happening, report this")
                         break
+                    abnormal = False
                     for guild in response["d"]["guilds"]:
                         guild_id = guild["id"]
                         guild_channels = []
+                        if "channels" not in guild:
+                            logger.warn("Abnormal READY event received, if its always happening, report this")
+                            abnormal = True
+                            break
                         # channels
                         for channel in guild["channels"]:
                             if channel["type"] in (0, 2, 4, 5, 15):
@@ -372,7 +377,7 @@ class Gateway():
                             name = dm["name"]
                         else:
                             name = recipients[0]["global_name"]
-                        last_message_id = int(dm.get("last_message_id", 0))
+                        last_message_id = dm.get("last_message_id", 0)
                         if last_message_id is None:
                             last_message_id = 0
                         self.dms.append({
@@ -383,7 +388,7 @@ class Gateway():
                             "is_spam": dm.get("is_spam"),
                             "is_request": dm.get("is_message_request"),
                             "muted": False,
-                            "last_message_id": last_message_id,
+                            "last_message_id": int(last_message_id),
                         })
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)
@@ -1144,6 +1149,9 @@ class Gateway():
 
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
+                break
+
+            if abnormal:
                 break
             # debug_events
             # if response.get("t"):
