@@ -372,6 +372,9 @@ class Gateway():
                             name = dm["name"]
                         else:
                             name = recipients[0]["global_name"]
+                        last_message_id = dm.get("last_message_id", 0)
+                        if last_message_id is None:
+                            last_message_id = 0
                         self.dms.append({
                             "id": dm["id"],
                             "type": dm["type"],
@@ -380,7 +383,7 @@ class Gateway():
                             "is_spam": dm.get("is_spam"),
                             "is_request": dm.get("is_message_request"),
                             "muted": False,
-                            "last_message_id": dm.get("last_message_id", 0),
+                            "last_message_id": last_message_id,
                         })
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)
