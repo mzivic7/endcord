@@ -380,7 +380,7 @@ class Gateway():
                             "is_spam": dm.get("is_spam"),
                             "is_request": dm.get("is_message_request"),
                             "muted": False,
-                            "last_message_id": dm.get("last_message_id"),
+                            "last_message_id": dm.get("last_message_id", 0),
                         })
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)
