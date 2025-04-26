@@ -44,15 +44,11 @@ def main(args):
     os.environ["ESCDELAY"] = "25"   # 25ms
     config_path = args.config
     theme_path = args.theme
-    if args.keybinding:
-        keybinding.picker()
-    elif args.colors:
+    if args.colors:
         curses.wrapper(color.show_all_colors)
         sys.exit(0)
     if config_path:
         config_path = os.path.expanduser(config_path)
-    token = args.token
-    logger.info(f"Started endcord {VERSION}")
     config, gen_config = peripherals.merge_configs(config_path, theme_path)
     if sys.platform == "win32":
         defaults.keybindings.update(defaults.windows_override_keybindings)
@@ -63,6 +59,11 @@ def main(args):
         gen_config=gen_config,
     )
     keybindings = peripherals.convert_keybindings(keybindings)
+    if args.keybinding:
+        keybinding.picker(keybindings)
+
+    token = args.token
+    logger.info(f"Started endcord {VERSION}")
     if not token and not config["token"]:
         sys.exit("Token not provided in config nor as argument")
     if token:

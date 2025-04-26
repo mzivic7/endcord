@@ -4,6 +4,9 @@ import importlib.util
 import os
 import sys
 
+APP_NAME = "endcord"
+VERSION = "0.9.0"
+
 
 def check_media_support():
     """Check if media is supported"""
@@ -48,16 +51,16 @@ def prepare():
         sys.exit(f"This platform is not supported: {sys.platform}")
 
 
-def build():
-    """Build"""
+def build_with_pyinstaller():
+    """Build with pyistaller"""
     prepare()
     if check_media_support():
         hidden_imports = "--hidden-import uuid "
-        pkgname = "endcord"
+        pkgname = APP_NAME
         print("ASCII media support is enabled")
     else:
         hidden_imports = ""
-        pkgname = "endcord-lite"
+        pkgname = f"{APP_NAME}-lite"
         print("ASCII media support is disabled")
 
     if sys.platform == "linux":
@@ -71,6 +74,33 @@ def build():
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
+
+
+def build_with_nuitka():
+    """Build with nuitka"""
+    sys.exit("Building with Nuitka is currently failing due to a bug: https://github.com/Nuitka/Nuitka/issues/3442")
+    prepare()
+    if check_media_support():
+        pkgname = APP_NAME
+        print("ASCII media support is enabled")
+    else:
+        pkgname = f"{APP_NAME}-lite"
+        print("ASCII media support is disabled")
+    if importlib.util.find_spec("nuitka") is None:
+        command = "pipenv install nuitka"
+        os.system(command)
+
+    if sys.platform == "linux":
+        command = f"pipenv run python -m nuitka --onefile --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        os.system(command)
+    elif sys.platform == "win32":
+        command = f"pipenv run python -m nuitka --onefile --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        os.system(command)
+    elif sys.platform == "mac":
+        command = f'pipenv run python -m nuitka --onefile --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
+        os.system(command)
+    else:
+        sys.exit("Building with Nuitka is currently only supported on Linux")
 
 
 def parser():
@@ -91,6 +121,11 @@ def parser():
         help="Build endcord, prepare should be ran atleast once before or or together with building",
     )
     parser.add_argument(
+        "--nuitka",
+        action="store_true",
+        help="Try building with nuitka",
+    )
+    parser.add_argument(
         "--lite",
         action="store_true",
         help="Change environment to build or run endcord-lite, by deleting media support depenencies",
@@ -106,7 +141,9 @@ if __name__ == "__main__":
         add_media()
     if args.prepare:
         prepare()
+    if args.nuitka:
+        build_with_nuitka()
     if args.build:
-        build()
+        build_with_pyinstaller()
     if not (args.prepare or args.build or args.lite):
         sys.exit("No arguments provided")

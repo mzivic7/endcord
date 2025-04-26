@@ -192,4 +192,5 @@ windows_override_keybindings = {
     "word_left": 443,   # Ctrl+Left
     "word_right": 444,   # Ctrl+Right
     "copy_msg": "ALT+108",   # Alt+L
+    "view_media": "ALT+98",   # Alt+B
 }

@@ -1,5 +1,4 @@
 commands
-nuitka compiling (https://github.com/Nuitka/Nuitka/issues/3442)
 tabs
 rpc on windows
 code blocks syntax highlighting
