@@ -372,7 +372,7 @@ class Gateway():
                             name = dm["name"]
                         else:
                             name = recipients[0]["global_name"]
-                        last_message_id = dm.get("last_message_id", 0)
+                        last_message_id = int(dm.get("last_message_id", 0))
                         if last_message_id is None:
                             last_message_id = 0
                         self.dms.append({
