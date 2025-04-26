@@ -53,7 +53,7 @@ class CursesMedia():
 
     def init_colrs(self):
         """Initialize 255 colors for drawing picture, from starting color ID"""
-        for i in range(0, 255):
+        for i in range(1, 255):
             curses.init_pair(self.start_color_id + i, i, self.color_media_bg)
 
 

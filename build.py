@@ -36,7 +36,9 @@ def prepare():
     if sys.platform == "linux":
         pass
     elif sys.platform == "win32":
-        if importlib.util.find_spec("curses") is None:
+        try:
+            _ = importlib.metadata.distribution("windows-curses")
+        except importlib.metadata.PackageNotFoundError:
             try:   # python-magic-bin contains required dll
                 importlib.metadata.version("python-magic")
                 uninstall_magic = "pipenv uninstall python-magic"
