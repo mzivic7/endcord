@@ -495,8 +495,6 @@ class Gateway():
                     # write debug data
                     if logger.getEffectiveLevel() == logging.DEBUG:
                         debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
-                    # debug_guilds_tree
-                    # self.guilds = debug.load_json("guilds.json")
                     # blocked users
                     time_log_string += f"    debug data - {round(time.time() - ready_time_mid, 3)}s\n"
                     # READY is huge so lets save some memory

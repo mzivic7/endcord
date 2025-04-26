@@ -12,7 +12,7 @@ MAX_DELTA_STORE = 50   # limit undo size
 MIN_ASSIST_LETTERS = 2
 ASSIST_TRIGGERS = ("#", "@", ":", ";")
 if sys.platform == "win32":
-    BACKSPACE = 8   # i cant belive this
+    BACKSPACE = 8   # i cant believe this
 else:
     BACKSPACE = curses.KEY_BACKSPACE
 
@@ -168,12 +168,28 @@ class TUI():
         self.win_prompt = None
         self.keybinding_chain = None
         self.assist_start = -1
+
+        # start drawing
+        self.need_update = threading.Event()
+        self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
+        self.screen_update_thread.start()
+
         self.resize()
 
-        # start blink cursor thread
         if self.enable_blink_cursor:
-            self.blink_cursor_thread = threading.Thread(target=self.blink_cursor, daemon=True, args=())
+            self.blink_cursor_thread = threading.Thread(target=self.blink_cursor, daemon=True)
             self.blink_cursor_thread.start()
+        self.need_update.set()
+
+
+    def screen_update(self):
+        """Thread that updates drawn content on physical screen"""
+        while True:
+            self.need_update.wait()
+            # here must be delay, otherwise output gets messed up
+            time.sleep(0.01)
+            curses.doupdate()
+            self.need_update.clear()
 
 
     def resize(self):
@@ -411,8 +427,9 @@ class TUI():
         self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
         if self.have_title and self.have_title_tree:
             # fill gap between titles
-            self.screen.insch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
-        self.screen.refresh()
+            self.screen.addch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
+        self.screen.noutrefresh()
+        self.need_update.set()
         self.draw_status_line()
         self.draw_chat()
         self.update_prompt(self.prompt)   # draw_input_line() is called in here
@@ -437,7 +454,8 @@ class TUI():
             # add spaces to end of line
             status_line = status_txt + " " * (w - len(status_txt))
         self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
-        self.win_status_line.refresh()
+        self.win_status_line.noutrefresh()
+        self.need_update.set()
 
 
     def draw_title_line(self):
@@ -449,7 +467,8 @@ class TUI():
         else:
             title_line = title_txt + " " * (w - len(title_txt))
         self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
-        self.win_title_line.refresh()
+        self.win_title_line.noutrefresh()
+        self.need_update.set()
 
 
     def draw_title_tree(self):
@@ -458,7 +477,8 @@ class TUI():
         title_txt = self.title_tree_txt[:w]
         title_line = title_txt + " " * (w - len(title_txt))
         self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
-        self.win_title_tree.refresh()
+        self.win_title_tree.noutrefresh()
+        self.need_update.set()
 
 
     def draw_input_line(self):
@@ -500,10 +520,11 @@ class TUI():
         # cursor at the end of string
         if not cursor_drawn and self.cursor_pos >= len(line_text):
             self.show_cursor()
-        self.win_input_line.refresh()
+        self.win_input_line.noutrefresh()
+        self.need_update.set()
 
 
-    def draw_chat(self):
+    def draw_chat(self, norefresh=False):
         """Draw chat with applied color formatting"""
         h, w = self.chat_hw
         # drawing from down to up
@@ -546,7 +567,9 @@ class TUI():
             while y >= 0:
                 self.win_chat.insstr(y, 0, "\n", curses.color_pair(0))
                 y -= 1
-            self.win_chat.refresh()
+            self.win_chat.noutrefresh()
+            if not norefresh:
+                self.need_update.set()
         except curses.error:
             # exception will happen when window is resized to smaller w dimensions
             if not self.disable_drawing:
@@ -638,7 +661,8 @@ class TUI():
             while y < h:
                 self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
                 y += 1
-            self.win_tree.refresh()
+            self.win_tree.noutrefresh()
+            self.need_update.set()
         except curses.error:
             # this exception will happen when window is resized to smaller h dimensions
             self.resize()
@@ -666,12 +690,13 @@ class TUI():
                 self.win_chat = self.screen.derwin(*chat_hwyx)
                 self.chat_hw = self.win_chat.getmaxyx()
                 if not self.member_list:
-                    self.draw_chat()
+                    self.draw_chat(norefresh=True)
                 extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
                 self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
                 self.draw_member_list(self.member_list, self.member_list_format, force=True)
             self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
-            self.win_extra_line.refresh()
+            self.win_extra_line.noutrefresh()
+            self.need_update.set()
 
 
     def remove_extra_line(self):
@@ -714,7 +739,7 @@ class TUI():
                 self.win_chat = self.screen.derwin(*chat_hwyx)
                 self.chat_hw = self.win_chat.getmaxyx()
                 if not self.member_list:
-                    self.draw_chat()
+                    self.draw_chat(norefresh=True)
                 extra_window_hwyx = (
                     self.extra_window_h + 1,
                     w - (self.tree_width + 1),
@@ -739,7 +764,8 @@ class TUI():
             while y < h:
                 self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
                 y += 1
-            self.win_extra_window.refresh()
+            self.win_extra_window.noutrefresh()
+            self.need_update.set()
 
 
     def remove_extra_window(self):
@@ -766,7 +792,6 @@ class TUI():
         if member_list and not self.disable_drawing:
             h, w = self.screen.getmaxyx()
             if not self.win_member_list or force:
-                del self.win_chat
                 if not force and self.win_member_list:
                     self.mlist_selected = -1
                     self.mlist_index = 0
@@ -784,7 +809,7 @@ class TUI():
                 )
                 self.win_chat = self.screen.derwin(*chat_hwyx)
                 self.chat_hw = self.win_chat.getmaxyx()
-                self.draw_chat()
+                self.draw_chat(norefresh=True)
                 member_list_hwyx = (
                     common_h,
                     self.member_list_width,
@@ -793,7 +818,7 @@ class TUI():
                 )
                 self.win_member_list = self.screen.derwin(*member_list_hwyx)
                 self.screen.vline(int(self.have_title), w - self.member_list_width - 1, self.vert_line, common_h)
-                self.screen.refresh()
+                self.screen.noutrefresh()
             h, w = self.win_member_list.getmaxyx()
             y = 0
             for num, line in enumerate(member_list):
@@ -821,7 +846,8 @@ class TUI():
             while y < h:
                 self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
                 y += 1
-            self.win_member_list.refresh()
+            self.win_member_list.noutrefresh()
+            self.need_update.set()
 
 
     def remove_member_list(self):
@@ -869,7 +895,8 @@ class TUI():
             self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
         else:
             self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
-        self.win_input_line.refresh()
+        self.win_input_line.noutrefresh()
+        self.need_update.set()
 
 
     def blink_cursor(self):
@@ -974,7 +1001,8 @@ class TUI():
             prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
             self.win_prompt = self.screen.derwin(*prompt_hwyx)
             self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
-            self.win_prompt.refresh()
+            self.win_prompt.noutrefresh()
+            self.need_update.set()
 
 
     def init_pair(self, color, force_id=None):

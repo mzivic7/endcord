@@ -2,6 +2,7 @@ import curses
 import logging
 import threading
 import time
+import traceback
 
 import av
 import magic
@@ -40,6 +41,7 @@ class CursesMedia():
         self.path = None
         self.media_type = None
 
+        self.need_update = threading.Event()
         self.show_ui()
 
         self.media_screen_size = self.media_screen.getmaxyx()
@@ -55,14 +57,14 @@ class CursesMedia():
             curses.init_pair(self.start_color_id + i, i, self.color_media_bg)
 
 
-    def cache_colors(self):
-        """Cache existing first 255 colors"""
-        pass
-
-
-    def restore_colors(self):
-        """Restore cached 255 colors"""
-        pass
+    def screen_update(self):
+        """Thread that updates drawn content on physical screen"""
+        while self.run:
+            self.need_update.wait()
+            # here must be delay, otherwise output gets messed up
+            time.sleep(0.005)   # lower delay so video is not late
+            curses.doupdate()
+            self.need_update.clear()
 
 
     def pil_img_to_curses(self, img, remove_alpha=True):
@@ -117,7 +119,8 @@ class CursesMedia():
                 self.media_screen.insstr(y + filler_h, x + filler_w + 1, " " * (screen_width - (x + filler_w + 1)) + "/n", curses.color_pair(self.start_color_id+1))
         for y_fill in range(filler_h + 1):
             self.media_screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
-        self.media_screen.refresh()
+        self.media_screen.noutrefresh()
+        self.need_update.set()
 
 
     def play_img(self, img_path):
@@ -133,7 +136,8 @@ class CursesMedia():
         self.init_colrs()
         self.pil_img_to_curses(img)
         while self.playing:
-            self.media_screen.refresh()
+            self.media_screen.noutrefresh()
+            self.need_update.set()
             screen_size = self.media_screen.getmaxyx()
             if self.media_screen_size != screen_size:
                 self.pil_img_to_curses(img)
@@ -177,7 +181,8 @@ class CursesMedia():
         h, w = self.media_screen.getmaxyx()
         for y in range(h):
             self.media_screen.insstr(y, 0, " " * w, curses.color_pair(self.start_color_id+1))
-        self.media_screen.refresh()
+        self.media_screen.noutrefresh()
+        self.need_update.set()
 
         all_audio_streams = container.streams.audio
         if not all_audio_streams:   # no audio?
@@ -308,6 +313,8 @@ class CursesMedia():
         file_type = magic.from_file(path, mime=True).split("/")
         self.path = path
         self.run = True
+        self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
+        self.screen_update_thread.start()
         self.playing = True
         try:
             if file_type[0] == "image":
@@ -329,15 +336,14 @@ class CursesMedia():
                 self.play_audio(path)
             else:
                 logger.warn(f"Unsupported media format: {file_type}")
-                self.run = False
-                self.playing = False
             while self.run:   # dont exit when video ends
                 time.sleep(0.2)
         except Exception as e:
-            self.run = False
-            self.playing = False
-            import traceback
             logger.error("".join(traceback.format_exception(e)))
+        self.run = False
+        self.playing = False
+        self.need_update.set()
+        self.screen_update_thread.join()
 
 
     def control_codes(self, code):
@@ -451,4 +457,5 @@ class CursesMedia():
             ui_line = f"   {pause} {current_time} {bar} {total_time}  "
             #logger.info(ui_line)
             self.ui_line.addstr(0, 0, ui_line, curses.color_pair(self.default_color))
-            self.ui_line.refresh()
+            self.ui_line.noutrefresh()
+            self.need_update.set()

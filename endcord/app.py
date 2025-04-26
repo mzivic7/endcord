@@ -304,7 +304,7 @@ class Endcord:
         logger.info("Reconnect complete")
 
 
-    def switch_channel(self, channel_id, channel_name, guild_id, guild_name, parent_hint=None):
+    def switch_channel(self, channel_id, channel_name, guild_id, guild_name, parent_hint=None, open_member_list=False):
         """
         All that should be done when switching channel.
         If it is DM, guild_id and guild_name should be None.
@@ -324,6 +324,11 @@ class Endcord:
         # save deleted
         if self.keep_deleted:
             self.cache_deleted()
+
+        # check if should open member list
+        if self.member_list_auto_open and guild_id != self.active_channel["guild_id"]:
+            open_member_list = True
+
 
         # update active channel
         self.active_channel["guild_id"] = guild_id
@@ -454,7 +459,7 @@ class Endcord:
         if not guild_id:   # no member list in DMs
             self.member_list_visible = False
             self.tui.remove_member_list()
-        elif self.member_list_visible or self.member_list_auto_open:
+        elif self.member_list_visible or open_member_list:
             self.member_list_visible = True
             self.update_member_list()
         self.close_extra_window()
@@ -2709,9 +2714,6 @@ class Endcord:
                 self.guild_positions += folder["guildIds"]
         if logger.getEffectiveLevel() == logging.DEBUG:
             debug.save_json(debug.anonymize_guild_positions(self.guild_positions), "guild_positions.json")
-        # debug_guilds_tree
-        # debug.save_json(self.guild_positions, "guild_positions.json", False)
-        # self.guild_positions = debug.load_json("guild_positions.json")
 
         # custom status
         self.update_presence_from_proto()
@@ -2834,7 +2836,7 @@ class Endcord:
                         channel_name = channel["name"]
                         break
             if channel_name:
-                self.switch_channel(channel_id, channel_name, guild_id, guild_name)
+                self.switch_channel(channel_id, channel_name, guild_id, guild_name, open_member_list=self.member_list_auto_open)
                 self.tui.tree_select_active()
 
         # generate and draw tree

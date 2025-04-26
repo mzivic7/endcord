@@ -33,7 +33,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `member_list = True`  
     Wether to download member activities. Disable for lower CPU, RAM and network usage. If disabled, member list will be empty and there will be no presences in profile view screen.
 - `member_list_auto_open = True`  
-    Automatically opem member list on startup and on channel switch, if enough space.
+    Automatically opem member list on startup and on channel switch to different guild, if enough space.
 - `use_nick_when_avail = True`  
     Replace global_name with nick when it is available.
 - `remember_state = True`  

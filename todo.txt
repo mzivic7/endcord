@@ -1,9 +1,5 @@
-HIGH PRIORITY:
-fix "glitches"
 commands
 nuitka compiling (https://github.com/Nuitka/Nuitka/issues/3442)
-
-LOW PRIORITY:
 tabs
 rpc on windows
 code blocks syntax highlighting
