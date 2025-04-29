@@ -211,6 +211,7 @@ class Endcord:
         self.extra_line = None
         self.search = False
         self.search_end = False
+        self.command = False
         self.ignore_typing = False
         if not online:
             self.my_status = {
@@ -648,7 +649,7 @@ class Endcord:
             elif self.restore_input_text[1] == "autocomplete":
                 self.restore_input_text = [None, None]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
-            elif self.restore_input_text[1] in ("search", "react", "edit"):
+            elif self.restore_input_text[1] in ("search", "command", "react", "edit"):
                 init_text = self.restore_input_text[0]
                 prompt_text = self.restore_input_text[1].upper()
                 self.restore_input_text = [None, None]
@@ -1057,6 +1058,9 @@ class Endcord:
                             if self.search and self.extra_bkp:
                                 self.restore_input_text = [new_input_text, "search"]
                                 self.ignore_typing = True
+                            elif self.command and self.extra_bkp:
+                                self.restore_input_text = [new_input_text, "command"]
+                                self.ignore_typing = True
                             else:
                                 self.restore_input_text = [new_input_text, "standard"]
                             self.tui.set_input_index(new_index)
@@ -1091,16 +1095,25 @@ class Endcord:
 
             # search
             elif action == 29:
-                self.reset_actions()
-                self.add_to_store(self.active_channel["channel_id"], input_text)
-                self.restore_input_text = [None, "search"]
-                self.search = True
-                self.ignore_typing = True
-                max_w = self.tui.get_dimensions()[2][1]
-                extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
-                self.stop_assist(close=False)
-                self.tui.draw_extra_window(extra_title, extra_body)
-                self.extra_window_open = True
+                if not self.search:
+                    self.reset_actions()
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.restore_input_text = [None, "search"]
+                    self.search = True
+                    self.ignore_typing = True
+                    max_w = self.tui.get_dimensions()[2][1]
+                    extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
+                    self.stop_assist(close=False)
+                    self.tui.draw_extra_window(extra_title, extra_body)
+                    self.extra_window_open = True
+                else:
+                    self.close_extra_window()
+                    self.reset_actions()
+                    self.search = False
+                    self.search_end = False
+                    self.search_messages = []
+                    self.update_status_line()
+                    self.stop_assist()
 
             # copy channel link
             elif action == 30:
@@ -1262,6 +1275,27 @@ class Endcord:
                         self.restore_input_text = [None, "prompt"]
                         self.update_status_line()
 
+            # command
+            elif action == 38:
+                if not self.command:
+                    self.update_extra_line()
+                    self.reset_actions()
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.restore_input_text = [None, "command"]
+                    self.command = True
+                    self.ignore_typing = True
+                    max_w = self.tui.get_dimensions()[2][1]
+                    extra_title, extra_body = formatter.generate_extra_window_text("Command:", "WIP", max_w)
+                    self.stop_assist(close=False)
+                    self.tui.draw_extra_window(extra_title, extra_body)
+                    self.extra_window_open = True
+                else:
+                    self.close_extra_window()
+                    self.reset_actions()
+                    self.command = False
+                    self.update_status_line()
+                    self.stop_assist()
+
             # escape in main UI
             elif action == 5:
                 if self.recording:
@@ -1272,14 +1306,20 @@ class Endcord:
                     self.reset_actions()
                     self.restore_input_text = [None, None]
                 elif self.assist_word:
-                    self.restore_input_text = [input_text, "standard"]
+                    if self.search:
+                        self.restore_input_text = [input_text, "search"]
+                    elif self.command:
+                        self.restore_input_text = [input_text, "command"]
+                    else:
+                        self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
                     self.close_extra_window()
-                    if self.search:
+                    if self.search or self.command:
                         self.reset_actions()
                     self.search = False
                     self.search_end = False
                     self.search_messages = []
+                    self.command = False
                 elif self.replying["id"]:
                     self.reset_actions()
                 elif self.editing:
@@ -1289,6 +1329,7 @@ class Endcord:
                     self.reset_actions()
                     self.restore_input_text = [None, None]
                 else:
+                    self.update_extra_line()
                     self.reset_actions()
                     self.restore_input_text = [input_text, "standard"]
                 self.update_status_line()
@@ -1314,6 +1355,9 @@ class Endcord:
                     if new_input_text:
                         if self.search and self.extra_bkp:
                             self.restore_input_text = [new_input_text, "search"]
+                            self.ignore_typing = True
+                        elif self.command and self.extra_bkp:
+                            self.restore_input_text = [new_input_text, "command"]
                             self.ignore_typing = True
                         elif self.reacting["id"]:
                             self.restore_input_text = [new_input_text, "react"]
@@ -1414,6 +1458,11 @@ class Endcord:
                     self.update_status_line()
                     self.remove_running_task("Searching", 4)
                     continue
+
+                elif self.command:
+                    command_type, command_args = parser.command_string(input_text)
+                    self.execute_command(command_type, command_args)
+                    self.restore_input_text = [None, None]
 
                 elif self.reacting["id"]:
                     first = input_text.split(" ")[0]
@@ -1969,10 +2018,9 @@ class Endcord:
 
     def assist(self, assist_word, assist_type, query_results=None):
         """Assist when typing: channel, username, role, emoji and sticker"""
-        self.assist_word = assist_word
-        self.assist_type = assist_type
         assist_word = assist_word.lower()
         assist_words = assist_word.split("_")
+        self.assist_type = assist_type
         self.assist_found = []
 
         if assist_type == 1:   # channel
@@ -2061,10 +2109,11 @@ class Endcord:
                 if len(self.assist_found) > 50:
                     break
         max_w = self.tui.get_dimensions()[2][1]
-        extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, self.assist_type, max_w)
+        extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
         self.extra_window_open = True
-        if self.search:
+        if (self.search or self.command) and not self.assist_word:
             self.extra_bkp = (self.tui.extra_window_title, self.tui.extra_window_body)
+        self.assist_word = assist_word
         self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
 
 
@@ -2078,7 +2127,8 @@ class Endcord:
             self.assist_found = []
             self.tui.assist_start = -1
             # if search was open, restore it
-            if self.search and self.extra_bkp:
+            if (self.search or self.command) and self.extra_bkp:
+                self.extra_window_open = True
                 self.tui.draw_extra_window(self.extra_bkp[0], self.extra_bkp[1], select=True)
 
 
@@ -2102,6 +2152,24 @@ class Endcord:
         new_pos = (len(input_text[:start-1] + insert_string))
         self.stop_assist()
         return new_text, new_pos
+
+
+    def execute_command(self, cmd_type, cmd_args):
+        """Execute custom command"""
+        logger.debug(f"Executig command, type: {cmd_type}, args: {cmd_args}")
+        if cmd_type == 0:
+            if cmd_args:
+                self.update_extra_line("Invalid command arguments.")
+            else:
+                self.update_extra_line("Unknown command.")
+        elif cmd_type == 1:
+            key = cmd_args["key"]
+            value = cmd_args["value"]
+            if key in self.config and key != "token":
+                self.update_extra_line("Restart needed for changes to take effect.")
+                self.config = peripherals.update_config(self.config, key, value)
+            else:
+                self.update_extra_line("Unknow settings key.")
 
 
     def cache_deleted(self):

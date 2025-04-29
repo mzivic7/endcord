@@ -1375,6 +1375,7 @@ def generate_extra_window_text(title_text, body_text, max_len):
 def generate_extra_window_assist(found, assist_type, max_len):
     """Generate extra window title and body for assist"""
     body = []
+    prefix = ""
     if assist_type == 1:
         title_line = "Channel assist:"
         prefix = "#"

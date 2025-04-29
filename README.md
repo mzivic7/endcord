@@ -6,6 +6,7 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
+<a href="https://github.com/mzivic7/endcord/blob/main/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
 <img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
 </div>
@@ -26,6 +27,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Member list
 - Toggle reply ping
 - Search messages
+- Client commands
 - View user prfile
 - Channel tree (Server/DM/Group)
     - Correct channel order
@@ -51,7 +53,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show who is typing
 - Send 'typing' (ON by default)
 - Insertable newline in input line
-- Copy message text to clipboard
+- Copy message text/url to clipboard
 - Hide or mask blocked/ignored users
 - No ghost pings (when client is running)
 - Role colors in chat
@@ -61,11 +63,11 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)
 - Customizable colors and ASCII art
-- Automatic recovery on network failure
-- Remember last open channel and tree state
-- Resizable
 - Show discord emoji as `:emoji_name:`
-- Show mentions as `@username`, `@role`, `@>channel_name`
+- Show mentions as `@username`, `@role`, `#channel_name`
+- Remember last open channel and tree state
+- Automatic recovery on network failure
+- Resizable
 - Quit on `Ctrl+C`
 
 
@@ -129,6 +131,8 @@ Show reactions details for selected message - `Alt+W`
 Go to replied message - `Ctrl+G`  
 View user profile (selected message) - `Alt+P`  
 View channel info (selected in tree) - `Alt+I`  
+Show summaries for current channel - `Alt+S`  
+Search messages in current channel - `Ctrl+F`  
 Copy message to clipboard - `Ctrl+B`  
 Open link in browser - `Ctrl+O`  
 Download attachment - `Ctrl+W`  
@@ -219,8 +223,11 @@ If reaction is already present it will be +1. Reaction is removed if current acc
 To add/remove one of already present reactions, only type its index (starts from 1).  
 Current account reactions have `*` prepended to reaction count.  
 
-### Escape key priority order:
+### Escape key priority order
 Stop recording, close extra window, stop replying, everything else.
+
+### Commands
+Press `Ctrl+/` to switch to command mode. Command mode has its own assist but can also trigger regular assist. [Commands list](commands.md).
 
 ### Emoji
 To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  
@@ -409,4 +416,5 @@ Go to [TODO](todo.txt).
 ### Features that will not be added
 Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned.  
 Therefore they will NOT be implemented in endcord.  
-Features: sending friend request, opening new DM, creating new thread.
+Features: sending friend request, opening new DM, creating new thread.  
+Also localization wont be added, its to much hassle.  

@@ -1329,6 +1329,9 @@ class TUI():
         elif key in self.keybindings["toggle_member_list"]:
             return 35
 
+        elif key in self.keybindings["command"]:
+            return 38
+
         return None
 
 

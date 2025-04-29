@@ -1,8 +1,8 @@
 settings = {
     "token": None,
     "debug": False,
-    "rpc": True,
     "theme": None,
+    "rpc": True,
     "downloads_path": None,
     "limit_chat_buffer": 100,
     "download_msg": 25,
@@ -182,6 +182,7 @@ keybindings = {
     "forum_join_thread": "ALT+107",   # Alt+K
     "cycle_status": "ALT+118",   # Alt+V
     "toggle_member_list": "ALT+109",   # Alt+M
+    "command": 31,   # Ctrl+/
 }
 
 

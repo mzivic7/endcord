@@ -93,32 +93,43 @@ elif sys.platform == "mac":
     runner = "open"
 
 
+def save_config(path, data, section):
+    """Save config sectin"""
+    path = os.path.expanduser(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    config = ConfigParser(interpolation=None)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            config.read_file(f)
+    if not config.has_section(section):
+        config.add_section(section)
+    for key in data:
+        if data[key] in (True, False, None) or isinstance(data[key], (list, tuple, int, float)):
+            config.set(section, key, str(data[key]))
+        else:
+            config.set(section, key, f'"{str(data[key]).replace("\\", "\\\\")}"')
+    with open(path, "w", encoding="utf-8") as f:
+        config.write(f)
+
+
 def load_config(path, default, section="main", gen_config=False):
     """
     Load settings and theme from config
     If some value is missing, it is replaced wih default value
     """
-    config = ConfigParser(interpolation=None)
     if not path:
         path = config_path + "config.ini"
     path = os.path.expanduser(path)
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            config.read_file(f)
+
     if not os.path.exists(path) or gen_config:
-        os.makedirs(os.path.expanduser(os.path.dirname(log_path)), exist_ok=True)
-        config.add_section(section)
-        for key in default:
-            if default[key] in (True, False, None) or isinstance(default[key], (list, tuple, int, float)):
-                config.set(section, key, str(default[key]))
-            else:
-                config.set(section, key, f'"{str(default[key]).replace("\\", "\\\\")}"')
-        with open(path, "w", encoding="utf-8") as f:
-            config.write(f)
-            if not gen_config:
-                print(f"Default config generated at: {path}")
+        save_config(path, default, section)
+        if not gen_config:
+            print(f"Default config generated at: {path}")
         config_data = default
     else:
+        config = ConfigParser(interpolation=None)
+        with open(path, "r", encoding="utf-8") as f:
+            config.read_file(f)
         if not config.has_section(section):
             return default
         config_data_raw = config._sections[section]
@@ -158,10 +169,12 @@ def merge_configs(custom_config_path, theme_path):
     elif not os.path.exists(os.path.expanduser(custom_config_path)):
         gen_config = True
     config = load_config(custom_config_path, defaults.settings)
-    if config["theme"]:
+    config["config_path"] = custom_config_path
+    if not theme_path and config["theme"]:
         theme_path = os.path.expanduser(config["theme"])
     saved_themes = get_themes()
     theme = load_config(custom_config_path, defaults.theme, section="theme", gen_config=gen_config)
+    theme["theme_path"] = None
     if theme_path:
         # if path is only file name without extension
         if os.path.splitext(os.path.basename(theme_path))[0] == theme_path:
@@ -170,6 +183,7 @@ def merge_configs(custom_config_path, theme_path):
                     theme_path = saved_theme
         theme_path = os.path.expanduser(theme_path)
         theme = load_config(theme_path, theme, section="theme")
+        theme["theme_path"] = theme_path
     config.update(theme)
     return config, gen_config
 
@@ -181,6 +195,34 @@ def convert_keybindings(keybindings):
             if isinstance(value, str):
                 keybindings[key] = re.sub(r"ALT\+(\d+)", lambda m: str(int(m.group(1)) + 320), value)
     return keybindings
+
+
+def update_config(config, key, value):
+    """Update and save config"""
+    if not value:
+        value = ""
+    else:
+        try:
+            value = literal_eval(value)
+        except ValueError:
+            pass
+    config[key] = value
+    config_path = config["config_path"]
+    saved_config = ConfigParser(interpolation=None)
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            saved_config.read_file(f)
+    new_config = {}
+    new_theme = {}
+    # split config and theme
+    for key_all, value_all in config.items():
+        if key_all in defaults.settings:
+            new_config[key_all] = value_all
+        elif key_all in defaults.theme:
+            new_theme[key_all] = value_all
+    save_config(config_path, new_config, "main")
+    save_config(config_path, new_theme, "theme")
+    return config
 
 
 def notify_send(title, message, sound="message", custom_sound=None):

@@ -1,7 +1,10 @@
-commands
-tabs
+add command assist
+add more commands
+    goto channel
+    set keybindings
+    ...
 rpc on windows
-code blocks syntax highlighting
-vi-like controls (???)
 mouse controls (select in tree/chat/extra/member)
+tabs
+code blocks syntax highlighting
 voice and video calls

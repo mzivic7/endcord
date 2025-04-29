@@ -6,10 +6,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Your discord token. Provide it here or as a command argument.
 - `debug = False`  
     Enable debug mode.
-- `rpc = True`  
-    Enable RPC server. For now Linux only.
 - `theme = None`  
     Custom theme path, or name of file in `Themes` directory.  Set to None to use theme from `config.ini` `[theme]` section or defaults.
+- `rpc = True`  
+    Enable RPC server. For now, Linux only.
 - `downloads_path = None`  
     Directory where to store downloaded files. Set to None to use 'Downloads' directory (cross platform).
 - `limit_chat_buffer = 100`  

@@ -194,6 +194,7 @@ class Gateway():
     def receiver(self):
         """Receive and handle all traffic from gateway, should be run in a thread"""
         logger.info("Receiver stared")
+        abnormal = False
         while self.run and not self.wait:
             try:
                 data = zlib_decompress(self.ws.recv())

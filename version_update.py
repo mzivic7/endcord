@@ -28,7 +28,7 @@ def get_file_list():
 
 
 def main():
-    """Update versions in all fies"""
+    """Update versions in all files"""
     print("Running version update script.")
     version = get_version_number()
     file_list = get_file_list()
@@ -39,19 +39,18 @@ def main():
             with open(filename, "r") as f:
                 lines = f.readlines()
                 for line in lines:
-                    if "VERSION = " in line:
-                        if line.split("VERSION = ")[-1] != '"' + version + '"' + "\n":
+                    if line.startswith("VERSION = "):
+                        if line.split("VERSION = ")[-1] != f'"{version}"\n':
                             update = True
             if update:
-                print("Version number updated in: " + filename)
                 any_updated = True
                 with open(filename, "w") as f:
                     for line in lines:
                         if "VERSION = " in line:
-                            f.write("VERSION = " + '"' + version + '"' + "\n")
+                            f.write(f'VERSION = "{version}"\n')
                         else:
                             f.write(line)
-
+                print(f"Version number updated in: {filename}")
     if any_updated:
         print(f"New version: {version}")
     else:

@@ -12,6 +12,8 @@ match_after = re.compile(r"after:\d{4}-\d{2}-\d{2}")
 match_in = re.compile(r"in:<#\d*>")
 match_pinned = re.compile(r"pinned:(?:true|false)")
 
+match_setting = re.compile(r"(\w+) ?= ?(.+)")
+
 
 def date_to_snowflake(date, end=False):
     """Convert date to discord snowflake, rounded to day start, if end=True then is rounded to day end"""
@@ -71,3 +73,30 @@ def search_string(text):
         pinned.append(match[7:])
     text = text.strip()
     return text, channel_id, author_id, mentions, has, max_id, min_id, pinned
+
+
+def command_string(text):
+    """Parse command string"""
+
+    # 0 - UNKNOWN
+    cmd_type = 0
+    cmd_args = {}
+
+    # 1 - SET
+    if text.lower().startswith("set"):
+        # "set [key] = [value]" / "set [key]=[value]"
+        cmd_type = 1
+        match = re.search(match_setting, text)
+        if match:
+            key = match.group(1)
+            value = match.group(2)
+            if not (key and value):
+                cmd_type = 0
+        else:
+            cmd_type = 0
+        cmd_args = {
+            "key": key,
+            "value": value,
+        }
+
+    return cmd_type, cmd_args
