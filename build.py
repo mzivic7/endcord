@@ -53,7 +53,7 @@ def prepare():
         sys.exit(f"This platform is not supported: {sys.platform}")
 
 
-def build_with_pyinstaller():
+def build_with_pyinstaller(onedir):
     """Build with pyistaller"""
     prepare()
     if check_media_support():
@@ -64,21 +64,25 @@ def build_with_pyinstaller():
         hidden_imports = ""
         pkgname = f"{APP_NAME}-lite"
         print("ASCII media support is disabled")
+    if onedir:
+        onedir = "--onedir"
+    else:
+        onedir = "--onefile"
 
     if sys.platform == "linux":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm --onefile --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm {onedir} --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "win32":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm --onefile --console --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "mac":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm --onefile --console --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
 
 
-def build_with_nuitka():
+def build_with_nuitka(onedir):
     """Build with nuitka"""
     sys.exit("Building with Nuitka is currently failing due to a bug: https://github.com/Nuitka/Nuitka/issues/3442")
     prepare()
@@ -91,15 +95,19 @@ def build_with_nuitka():
     if importlib.util.find_spec("nuitka") is None:
         command = "pipenv install nuitka"
         os.system(command)
+    if onedir:
+        onedir = "--standalone"
+    else:
+        onedir = "--onefile"
 
     if sys.platform == "linux":
-        command = f"pipenv run python -m nuitka --onefile --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"pipenv run python -m nuitka {onedir} --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "win32":
-        command = f"pipenv run python -m nuitka --onefile --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"pipenv run python -m nuitka {onedir} --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "mac":
-        command = f'pipenv run python -m nuitka --onefile --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
+        command = f'pipenv run python -m nuitka {onedir} --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
         os.system(command)
     else:
         sys.exit("Building with Nuitka is currently only supported on Linux")
@@ -143,9 +151,12 @@ if __name__ == "__main__":
         add_media()
     if args.prepare:
         prepare()
+    onedir = False
+    if args.onedir:
+        onedir = True
     if args.nuitka:
-        build_with_nuitka()
+        build_with_nuitka(onedir)
     if args.build:
-        build_with_pyinstaller()
+        build_with_pyinstaller(onedir)
     if not (args.prepare or args.build or args.lite):
         sys.exit("No arguments provided")

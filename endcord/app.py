@@ -632,16 +632,13 @@ class Endcord:
         logger.info("Input handler loop started")
 
         while self.run:
+            logger.info(self.restore_input_text)
             if self.forum:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input_forum(self.prompt)
                 input_text = ""
             elif self.restore_input_text[1] == "prompt":
                 self.restore_input_text = [None, "after_prompt"]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
-            elif self.restore_input_text[1] == "warp":
-                init_text = self.restore_input_text[0]
-                self.restore_input_text = [None, None]
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True, scroll_bot=True)
             elif self.restore_input_text[1] == "standard":
                 init_text = self.restore_input_text[0]
                 self.restore_input_text = [None, None]
@@ -728,22 +725,13 @@ class Endcord:
 
             # warping to chat bottom
             elif action == 7 and self.messages:
-                self.restore_input_text = [input_text, "warp"]
-                if self.messages[0]["id"] != self.last_message_id:
-                    self.add_running_task("Downloading chat", 4)
-                    self.messages = self.get_messages_with_members()
-                    self.update_chat()
-                    self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                    self.remove_running_task("Downloading chat", 4)
+                self.restore_input_text = [input_text, "standard"]
+                self.go_bottom()
 
             # go to replied message
             elif action == 8 and self.messages:
                 self.restore_input_text = [input_text, "standard"]
-                msg_index = self.lines_to_msg(chat_sel)
-                if self.messages[msg_index]["referenced_message"]:
-                    reference_id = self.messages[msg_index]["referenced_message"]["id"]
-                    if reference_id:
-                        self.go_to_message(reference_id)
+                self.go_replied(chat_sel)
 
             # download file
             elif action == 9:
@@ -753,11 +741,6 @@ class Endcord:
                     if embed["url"]:
                         urls.append(embed["url"])
                 if len(urls) == 1:
-                    self.downloading_file = {
-                        "urls": urls,
-                        "web": False,
-                        "open": False,
-                    }
                     self.restore_input_text = [input_text, "standard"]
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], )))
                     self.download_threads[-1].start()
@@ -774,42 +757,11 @@ class Endcord:
 
             # open link in browser
             elif action == 10:
-                msg_index = self.lines_to_msg(chat_sel)
-                urls = []
-                code_snippets = []
-                code_blocks = []
-                message_text = self.messages[msg_index]["content"]
-                for match in re.finditer(formatter.match_md_code_snippet, message_text):
-                    code_snippets.append([match.start(), match.end()])
-                for match in re.finditer(formatter.match_md_code_block, message_text):
-                    code_blocks.append([match.start(), match.end()])
-                except_ranges = code_snippets + code_blocks
-                for match in re.finditer(formatter.match_url, message_text):
-                    start = match.start()
-                    end = match.end()
-                    skip = False
-                    for except_range in except_ranges:
-                        start_r = except_range[0]
-                        end_r = except_range[1]
-                        if start > start_r and start < end_r and end > start_r and end <= end_r:
-                            skip = True
-                            break
-                    if not skip:
-                        urls.append(match.group())
-                for embed in self.messages[msg_index]["embeds"]:
-                    if embed["url"]:
-                        urls.append(embed["url"])
-                if not urls:
-                    continue
+                urls = self.get_msg_urls(chat_sel)
                 if len(urls) == 1:
-                    self.downloading_file = {
-                        "urls": urls,
-                        "web": False,
-                        "open": False,
-                    }
                     self.restore_input_text = [input_text, "standard"]
                     webbrowser.open(urls[0], new=0, autoraise=True)
-                else:
+                elif len(urls) > 1:
                     self.ignore_typing = True
                     self.downloading_file = {
                         "urls": urls,
@@ -822,30 +774,13 @@ class Endcord:
 
             # download and open media attachment
             elif action == 17 and support_media:
-                msg_index = self.lines_to_msg(chat_sel)
-                urls = []
-                media_type = None
-                for embed in self.messages[msg_index]["embeds"]:
-                    media_type = embed["type"].split("/")[0]
-                    if embed["url"] and media_type in MEDIA_EMBEDS:
-                        urls.append(embed["url"])
-                for sticker in self.messages[msg_index]["stickers"]:
-                    media_type = f"sticker_{sticker["format_type"]}"
-                    sticker_url = discord.get_sticker_url(sticker)
-                    if sticker_url:
-                        urls.append(sticker_url)
+                urls, media_type = self.get_msg_media(chat_sel)
                 if len(urls) == 1:
                     logger.debug(f"Trying to play attachment with type: {media_type}")
-                    self.downloading_file = {
-                        "urls": urls,
-                        "web": False,
-                        "open": True,
-                    }
                     self.restore_input_text = [input_text, "standard"]
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], False, True)))
                     self.download_threads[-1].start()
                 elif len(urls) > 1:
-                    self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.downloading_file = {
                         "urls": urls,
                         "web": False,
@@ -866,8 +801,8 @@ class Endcord:
 
             # copy message to clipboard
             elif action == 12 and self.messages:
-                msg_index = self.lines_to_msg(chat_sel)
                 self.restore_input_text = [input_text, "standard"]
+                msg_index = self.lines_to_msg(chat_sel)
                 peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
 
             # upload attachment
@@ -1388,7 +1323,8 @@ class Endcord:
                         message_id=self.deleting,
                     )
 
-                elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
+                elif self.downloading_file["urls"]:
+                    urls = self.downloading_file["urls"]
                     if self.downloading_file["web"]:
                         try:
                             num = max(int(input_text) - 1, 0)
@@ -1461,8 +1397,10 @@ class Endcord:
 
                 elif self.command:
                     command_type, command_args = parser.command_string(input_text)
-                    self.execute_command(command_type, command_args)
-                    self.restore_input_text = [None, None]
+                    self.execute_command(command_type, command_args, chat_sel, tree_sel)
+                    self.close_extra_window()
+                    self.command = False
+                    continue
 
                 elif self.reacting["id"]:
                     first = input_text.split(" ")[0]
@@ -1679,6 +1617,109 @@ class Endcord:
                 self.update_status_line()
 
 
+    def execute_command(self, cmd_type, cmd_args, chat_sel, tree_sel):   #noqa
+        """Execute custom command"""
+        logger.debug(f"Executig command, type: {cmd_type}, args: {cmd_args}")
+        reset = True
+        self.restore_input_text = [None, None]
+        if cmd_type == 0:
+            if cmd_args:
+                self.update_extra_line("Invalid command arguments.")
+            else:
+                self.update_extra_line("Unknown command.")
+        elif cmd_type == 1:
+            key = cmd_args["key"]
+            value = cmd_args["value"]
+            if key in self.config and key != "token":
+                self.update_extra_line("Restart needed for changes to take effect.")
+                self.config = peripherals.update_config(self.config, key, value)
+            else:
+                self.update_extra_line("Unknow settings key.")
+        elif cmd_type == 2:
+            self.go_bottom()
+        elif cmd_type == 3:
+            self.go_replied(chat_sel)
+        elif cmd_type == 4:
+            msg_index = self.lines_to_msg(chat_sel)
+            urls = []
+            for embed in self.messages[msg_index]["embeds"]:
+                if embed["url"]:
+                    urls.append(embed["url"])
+            select_num = cmd_args.get("num", 0)
+            if select_num > 0 and select_num <= len(urls):
+                select_num -= 1
+            else:
+                select_num = None
+            if len(urls) == 1 or select_num is not None:
+                if select_num is None:
+                    select_num = 0
+                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[select_num], )))
+                self.download_threads[-1].start()
+            elif len(urls) > 1:
+                self.ignore_typing = True
+                self.downloading_file = {
+                    "urls": urls,
+                    "web": False,
+                    "open": False,
+                }
+                self.restore_input_text = [None, "prompt"]
+                reset = False
+        elif cmd_type == 5:
+            urls = self.get_msg_urls(chat_sel)
+            select_num = cmd_args.get("num", 0)
+            if select_num > 0 and select_num <= len(urls):
+                select_num -= 1
+            else:
+                select_num = None
+            if len(urls) == 1 or select_num is not None:
+                if select_num is None:
+                    select_num = 0
+                webbrowser.open(urls[select_num], new=0, autoraise=True)
+            elif len(urls) > 1:
+                self.ignore_typing = True
+                self.downloading_file = {
+                    "urls": urls,
+                    "web": True,
+                    "open": False,
+                }
+                self.restore_input_text = [None, "prompt"]
+                reset = False
+        elif cmd_type == 6 and support_media:
+            urls, media_type = self.get_msg_media(chat_sel)
+            select_num = cmd_args.get("num", 0)
+            if select_num > 0 and select_num <= len(urls):
+                select_num -= 1
+            else:
+                select_num = None
+            if len(urls) == 1 or select_num is not None:
+                if select_num is None:
+                    select_num = 0
+                logger.debug(f"Trying to play attachment with type: {media_type}")
+                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[select_num], False, True)))
+                self.download_threads[-1].start()
+            elif len(urls) > 1:
+                self.downloading_file = {
+                    "urls": urls,
+                    "web": False,
+                    "open": True,
+                }
+                self.restore_input_text = [None, "prompt"]
+                reset = False
+        elif cmd_type == 7:
+            reset = False
+            self.restore_input_text = [None, "prompt"]
+            self.reset_actions()
+            self.ignore_typing = True
+            self.cancel_download = True
+        elif cmd_type == 8:
+            msg_index = self.lines_to_msg(chat_sel)
+            peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
+
+        if reset:
+            self.reset_actions()
+        self.update_status_line()
+
+
     def find_parents(self, tree_sel):
         """Find object parents from its tree index"""
         guild_id = None
@@ -1694,6 +1735,73 @@ class Endcord:
             if i == 0 and self.tree_metadata[tree_sel]["type"] in (11, 12):
                 parent_id = guild_id
         return guild_id, parent_id, guild_name
+
+
+    def go_bottom(self):
+        """Go to chat bottom"""
+        self.tui.scroll_bot()
+        if self.messages[0]["id"] != self.last_message_id:
+            self.add_running_task("Downloading chat", 4)
+            self.messages = self.get_messages_with_members()
+            self.update_chat()
+            self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
+            self.remove_running_task("Downloading chat", 4)
+
+
+    def go_replied(self, chat_sel):
+        """Go to replied message from selected message in chat"""
+        msg_index = self.lines_to_msg(chat_sel)
+        if self.messages[msg_index]["referenced_message"]:
+            reference_id = self.messages[msg_index]["referenced_message"]["id"]
+            if reference_id:
+                self.go_to_message(reference_id)
+
+
+    def get_msg_urls(self, chat_sel):
+        """Get all urls from selected message in chat"""
+        msg_index = self.lines_to_msg(chat_sel)
+        urls = []
+        code_snippets = []
+        code_blocks = []
+        message_text = self.messages[msg_index]["content"]
+        for match in re.finditer(formatter.match_md_code_snippet, message_text):
+            code_snippets.append([match.start(), match.end()])
+        for match in re.finditer(formatter.match_md_code_block, message_text):
+            code_blocks.append([match.start(), match.end()])
+        except_ranges = code_snippets + code_blocks
+        for match in re.finditer(formatter.match_url, message_text):
+            start = match.start()
+            end = match.end()
+            skip = False
+            for except_range in except_ranges:
+                start_r = except_range[0]
+                end_r = except_range[1]
+                if start > start_r and start < end_r and end > start_r and end <= end_r:
+                    skip = True
+                    break
+            if not skip:
+                urls.append(match.group())
+        for embed in self.messages[msg_index]["embeds"]:
+            if embed["url"]:
+                urls.append(embed["url"])
+        return urls
+
+
+    def get_msg_media(self, chat_sel):
+        """Get all palyable media embeds from selected message in chat"""
+        msg_index = self.lines_to_msg(chat_sel)
+        urls = []
+        media_type = None
+        for embed in self.messages[msg_index]["embeds"]:
+            media_type = embed["type"].split("/")[0]
+            if embed["url"] and media_type in MEDIA_EMBEDS:
+                urls.append(embed["url"])
+        for sticker in self.messages[msg_index]["stickers"]:
+            media_type = f"sticker_{sticker["format_type"]}"
+            sticker_url = discord.get_sticker_url(sticker)
+            if sticker_url:
+                urls.append(sticker_url)
+        return urls, media_type
 
 
     def download_file(self, url, move=True, open_media=False):
@@ -2154,24 +2262,6 @@ class Endcord:
         return new_text, new_pos
 
 
-    def execute_command(self, cmd_type, cmd_args):
-        """Execute custom command"""
-        logger.debug(f"Executig command, type: {cmd_type}, args: {cmd_args}")
-        if cmd_type == 0:
-            if cmd_args:
-                self.update_extra_line("Invalid command arguments.")
-            else:
-                self.update_extra_line("Unknown command.")
-        elif cmd_type == 1:
-            key = cmd_args["key"]
-            value = cmd_args["value"]
-            if key in self.config and key != "token":
-                self.update_extra_line("Restart needed for changes to take effect.")
-                self.config = peripherals.update_config(self.config, key, value)
-            else:
-                self.update_extra_line("Unknow settings key.")
-
-
     def cache_deleted(self):
         """Cache all deleted messages from current channel"""
         if not self.active_channel["channel_id"]:
@@ -2334,7 +2424,7 @@ class Endcord:
             action["type"] = 2
         elif self.deleting:
             action["type"] = 3
-        elif self.downloading_file["urls"] and len(self.downloading_file["urls"]) > 1:
+        elif self.downloading_file["urls"]:
             if self.downloading_file["web"]:
                 action["type"] = 4
             elif self.downloading_file["open"]:

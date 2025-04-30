@@ -182,7 +182,7 @@ keybindings = {
     "forum_join_thread": "ALT+107",   # Alt+K
     "cycle_status": "ALT+118",   # Alt+V
     "toggle_member_list": "ALT+109",   # Alt+M
-    "command": 31,   # Ctrl+/
+    "command_pallete": 31,   # Ctrl+/
 }
 
 

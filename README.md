@@ -6,7 +6,6 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
-<a href="https://github.com/mzivic7/endcord/blob/main/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
 <img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
 </div>
@@ -118,6 +117,7 @@ Go to [configuration](configuration.md).
 ### Keybindings
 Navigating messages - `Arrow-Up/Down`  
 Navigating channel tree - `Ctrl+Up/Down`  
+Open command palette - `Ctrl+/`
 Insert newline - `Ctrl+N`  
 Scroll back to bottom - `Ctrl+H`  
 Expand selected categories and servers - `Ctrl+Space`  
@@ -126,7 +126,7 @@ Reply to selected message - `Ctrl+R`
 Edit selected message - `Ctrl+E`  
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
-Add reaction with assist to selected message - `Alt+E`
+Add reaction with assist to selected message - `Alt+E`  
 Show reactions details for selected message - `Alt+W`
 Go to replied message - `Ctrl+G`  
 View user profile (selected message) - `Alt+P`  
@@ -307,15 +307,15 @@ Never tested on macOS. Feedback is welcome.
 
 ## Building
 To see build script options, run: `pipenv run python build.py -h`.  
+To build endcord-lite, add `--lite` flag.  
+To build into directory, not as a single executable, add `--onedir` flag. Will speed up startup.  
 
 ### Linux
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
 2. Install [pipenv](https://docs.pipenv.org/install/)
 3. `cd endcord`
 4. Setup virtual environment: `pipenv install`
-5. run build script
-    - to build endcord: `pipenv run python build.py --build`
-    - to build endcord-lite: `pipenv run python build.py --build --lite`
+5. run build script: `pipenv run python build.py --build`
 
 ### Windows
 1. Install [Python](https://www.python.org/) 3.13 or later
@@ -324,9 +324,7 @@ To see build script options, run: `pipenv run python build.py -h`.
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
 4. Setup virtual environment: `pipenv install`
-5. run build script
-    - to build endcord: `pipenv run python build.py --build`
-    - to build endcord-lite: `pipenv run python build.py --build --lite`
+5. run build script: `pipenv run python build.py --build`
 
 ### macOS
 1. Install [Python](https://www.python.org/) 3.13 or later
@@ -335,9 +333,7 @@ To see build script options, run: `pipenv run python build.py -h`.
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
 4. Setup virtual environment: `pipenv install`
-5. run build script
-    - to build endcord: `pipenv run python build.py --build`
-    - to build endcord-lite: `pipenv run python build.py --build --lite`
+5. run build script: `pipenv run python build.py --build`
 
 ### Nuitka
 Building with Nuitka is currently failing due to a bug: https://github.com/Nuitka/Nuitka/issues/3442  

@@ -340,6 +340,13 @@ class TUI():
         self.show_cursor()
 
 
+    def scroll_bot(self):
+        """Scroll to chat bottom"""
+        self.chat_selected = -1
+        self.chat_index = 0
+        self.draw_chat()
+
+
     def store_input_selected(self):
         """Get selected text from imput line"""
         input_select_start = self.input_select_start
@@ -1329,7 +1336,7 @@ class TUI():
         elif key in self.keybindings["toggle_member_list"]:
             return 35
 
-        elif key in self.keybindings["command"]:
+        elif key in self.keybindings["command_pallete"]:
             return 38
 
         return None
@@ -1342,7 +1349,7 @@ class TUI():
         return tmp, self.chat_selected, self.tree_selected_abs, code
 
 
-    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, scroll_bot=False, autocomplete=False, clear_delta=False):
+    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, autocomplete=False, clear_delta=False):
         """
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and whether channel is changed
@@ -1361,10 +1368,6 @@ class TUI():
                 self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
                 self.cursor_pos = max(self.cursor_pos, 0)
                 self.cursor_pos = min(w - 1, self.cursor_pos)
-        if scroll_bot:
-            self.chat_selected = -1
-            self.chat_index = 0
-            self.draw_chat()
         if not self.disable_drawing:
             self.spellcheck()
             self.update_prompt(prompt)   # draw_input_line() is called in heren

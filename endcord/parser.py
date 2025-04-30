@@ -99,4 +99,47 @@ def command_string(text):
             "value": value,
         }
 
+    # 2 - BOTTOM
+    elif text.lower().startswith("bottom"):
+        cmd_type = 2
+
+    # 3 - GO_REPLY
+    elif text.lower().startswith("go_reply"):
+        cmd_type = 3
+
+    # 4 - DOWNLOAD
+    elif text.lower().startswith("download"):
+        cmd_type = 4
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except (IndexError, ValueError):
+            pass
+
+    # 5 - OPEN_LINK
+    elif text.lower().startswith("open_link"):
+        cmd_type = 5
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except (IndexError, ValueError):
+            pass
+
+    # 6 - PLAY
+    elif text.lower().startswith("play"):
+        cmd_type = 6
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except (IndexError, ValueError):
+            pass
+
+    # 7 - CANCEL
+    elif text.lower().startswith("cancel"):
+        cmd_type = 7
+
+    # 8 - COPY_MESSAGE
+    elif text.lower().startswith("copy_message"):
+        cmd_type = 8
+
     return cmd_type, cmd_args

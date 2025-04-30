@@ -117,8 +117,9 @@ class CursesMedia():
                 self.media_screen.insch(y + filler_h, x + filler_w, character, curses.color_pair(color))
             if x + filler_w + 1 < screen_width:
                 self.media_screen.insstr(y + filler_h, x + filler_w + 1, " " * (screen_width - (x + filler_w + 1)) + "/n", curses.color_pair(self.start_color_id+1))
-        for y_fill in range(filler_h + 1):
-            self.media_screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
+        if screen_height != height:
+            for y_fill in range(filler_h + 1):
+                self.media_screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
         self.media_screen.noutrefresh()
         self.need_update.set()
 

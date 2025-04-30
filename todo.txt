@@ -1,6 +1,8 @@
+Add standard commands
 add command assist
-add more commands
+add advanced commands
     goto channel
+    send msg in dm/channel
     set keybindings
     ...
 rpc on windows
