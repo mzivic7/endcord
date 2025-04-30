@@ -140,6 +140,11 @@ def parser():
         action="store_true",
         help="Change environment to build or run endcord-lite, by deleting media support depenencies",
     )
+    parser.add_argument(
+        "--onedir",
+        action="store_true",
+        help="Build into directory instead single executable",
+    )
     return parser.parse_args()
 
 
