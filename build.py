@@ -57,26 +57,25 @@ def build_with_pyinstaller(onedir):
     """Build with pyistaller"""
     prepare()
     if check_media_support():
-        hidden_imports = "--hidden-import uuid "
         pkgname = APP_NAME
         print("ASCII media support is enabled")
     else:
-        hidden_imports = ""
         pkgname = f"{APP_NAME}-lite"
         print("ASCII media support is disabled")
     if onedir:
         onedir = "--onedir"
     else:
         onedir = "--onefile"
+    hidden_imports = "--hidden-import uuid"
 
     if sys.platform == "linux":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm {onedir} --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports} --collect-data=emoji --noconfirm {onedir} --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "win32":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports} --collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "mac":
-        command = f'pipenv run python -m PyInstaller {hidden_imports}--collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
+        command = f'pipenv run python -m PyInstaller {hidden_imports} --collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
@@ -99,15 +98,16 @@ def build_with_nuitka(onedir):
         onedir = "--standalone"
     else:
         onedir = "--onefile"
+    hidden_imports = "--include-module=uuid"
 
     if sys.platform == "linux":
-        command = f"pipenv run python -m nuitka {onedir} --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "win32":
-        command = f"pipenv run python -m nuitka {onedir} --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "mac":
-        command = f'pipenv run python -m nuitka {onedir} --include-module=uuid --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
+        command = f'pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
         os.system(command)
     else:
         sys.exit("Building with Nuitka is currently only supported on Linux")

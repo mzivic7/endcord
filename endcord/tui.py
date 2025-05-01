@@ -782,6 +782,7 @@ class TUI():
             self.extra_window_title = ""
             self.extra_window_body = ""
             self.win_extra_window = None
+            self.extra_selected = -1
             h, w = self.screen.getmaxyx()
             chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
             self.win_chat = self.screen.derwin(*chat_hwyx)

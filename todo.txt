@@ -1,4 +1,5 @@
-Add standard commands
+add standard commands
+allow channel assist to use other guilds
 add command assist
 add advanced commands
     goto channel
@@ -10,3 +11,4 @@ mouse controls (select in tree/chat/extra/member)
 tabs
 code blocks syntax highlighting
 voice and video calls
+localization (maybe)

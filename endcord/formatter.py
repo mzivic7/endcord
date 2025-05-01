@@ -1251,9 +1251,12 @@ def generate_extra_window_guild(guild, max_len):
     return title_line, body
 
 
-def generate_extra_window_summaries(summaries, max_len):
+def generate_extra_window_summaries(summaries, max_len, channel_name=None):
     """Generate extra window title and body for summaries list view"""
-    title_line = "Summaries:"
+    if channel_name:
+        title_line = f"[{channel_name}] Summaries:"
+    else:
+        title_line = "Summaries:"
     body = []
     indexes = []
     if summaries:

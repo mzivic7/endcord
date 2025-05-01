@@ -291,24 +291,24 @@ def copy_to_clipboard(text):
     text = str(text)
     if sys.platform == "linux":
         if os.getenv("WAYLAND_DISPLAY"):
-            proc = subprocess.Popen(
-                ["wl-copy"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.STDOUT,
-            )
             try:
+                proc = subprocess.Popen(
+                    ["wl-copy"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.STDOUT,
+                )
                 proc.communicate(input=text.encode("utf-8"))
             except FileNotFoundError:
                 logger.warn("Cant copy: wl-copy not foud on system")
         else:
-            proc = subprocess.Popen(
-                ["xclip"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.STDOUT,
-            )
             try:
+                proc = subprocess.Popen(
+                    ["xclip"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.STDOUT,
+                )
                 proc.communicate(input=text.encode("utf-8"))
             except FileNotFoundError:
                 logger.warn("Cant copy: xclip not foud on system")

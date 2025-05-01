@@ -412,5 +412,4 @@ Go to [TODO](todo.txt).
 ### Features that will not be added
 Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned.  
 Therefore they will NOT be implemented in endcord.  
-Features: sending friend request, opening new DM, creating new thread.  
-Also localization wont be added, its to much hassle.  
+Features: sending friend request, opening new DM, creating new thread, command macros.  

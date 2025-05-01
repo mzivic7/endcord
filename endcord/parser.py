@@ -13,6 +13,10 @@ match_in = re.compile(r"in:<#\d*>")
 match_pinned = re.compile(r"pinned:(?:true|false)")
 
 match_setting = re.compile(r"(\w+) ?= ?(.+)")
+match_profile = re.compile(r"profile *<@(\d*)>")
+match_channel = re.compile(r"channel *<#(\d*)>")
+match_summaries = re.compile(r"summaries *<#(\d*)>")
+match_hide = re.compile(r"hide *<#(\d*)>")
 
 
 def date_to_snowflake(date, end=False):
@@ -141,5 +145,52 @@ def command_string(text):
     # 8 - COPY_MESSAGE
     elif text.lower().startswith("copy_message"):
         cmd_type = 8
+
+    # 9 - UPLOAD
+    elif text.lower().startswith("upload"):
+        cmd_type = 9
+        cmd_args = {"path": text[7:]}
+
+    # 10 - SPOIL
+    elif text.lower().startswith("spoil"):
+        cmd_type = 10
+
+    # 11 - TOGGLE_THREAD
+    elif text.lower().startswith("toggle_thread"):
+        cmd_type = 11
+
+    # 12 - PROFILE
+    elif text.lower().startswith("profile"):
+        cmd_type = 12
+        match = re.search(match_profile, text)
+        if match:
+            cmd_args = {"user_id": match.group(1)}
+
+    # 13 - CHANNEL
+    elif text.lower().startswith("channel"):
+        cmd_type = 13
+        match = re.search(match_channel, text)
+        if match:
+            cmd_args = {"channel_id": match.group(1)}
+
+    # 14 - SUMMARIES
+    elif text.lower().startswith("summaries"):
+        cmd_type = 14
+        match = re.search(match_summaries, text)
+        if match:
+            cmd_args = {"channel_id": match.group(1)}
+
+    # 15 - HIDE
+    elif text.lower().startswith("hide"):
+        cmd_type = 15
+        match = re.search(match_hide, text)
+        if match:
+            cmd_args = {"channel_id": match.group(1)}
+
+    # 16 - SEARCH
+    elif text.lower().startswith("search"):
+        cmd_type = 16
+        search_text = text[7:].strip(" ")
+        cmd_args = {"search_text": search_text}
 
     return cmd_type, cmd_args
