@@ -32,3 +32,19 @@
     Prompt to hide selected channel in tree or specified channel.
 - `search` / `search [search_string]`  
     Show message search prompt or perform search with provided string.
+- `link_channel` / `link_channel <#[channel_id]>`  
+    Copy link of selected channel in tree to clipboard, or from provided channel id.
+- `link_message`  
+    Copy link of selected message to clipboard,
+- `goto_mention` / `goto_mention [num]`  
+    Go to channel/message mentioned in this message.
+- `status` / `status [type]`, types: 1 - "online", 2 - "idle", 3 - "dnd", 4 - "invisible"  
+    Cycle statuses, or set it by specifying its type name or index.  
+- `record` / `record cancel`  
+    Toggle recording, will send when stopped.
+- `member_list`  
+    Toggle member list.
+- `react` / `react [reaction]`  
+    Propt to type reaction or send provided reaction to selected message.
+- `show_reactions`  
+    Show reactions details for selected message.

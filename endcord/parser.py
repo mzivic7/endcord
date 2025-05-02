@@ -3,6 +3,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 DISCORD_EPOCH_MS = 1420070400000
+STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
 
 match_from = re.compile(r"from:<@\d*>")
 match_mentions = re.compile(r"mentions:<@\d*>")
@@ -192,5 +193,59 @@ def command_string(text):
         cmd_type = 16
         search_text = text[7:].strip(" ")
         cmd_args = {"search_text": search_text}
+
+    # 17 - LINK_CHANNEL
+    elif text.lower().startswith("link_channel"):
+        cmd_type = 17
+        match = re.search(match_channel, text)
+        if match:
+            cmd_args = {"channel_id": match.group(1)}
+
+    # 18 - LINK_MESSAGE
+    elif text.lower().startswith("link_message"):
+        cmd_type = 18
+
+    # 19 - GOTO_MENTION
+    elif text.lower().startswith("goto_mention"):
+        cmd_type = 19
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except (IndexError, ValueError):
+            pass
+
+    # 20 - STATUS
+    elif text.lower().startswith("status"):
+        cmd_type = 20
+        text += " "
+        if text.split(" ")[1].lower() in STATUS_STRINGS:
+            cmd_args = {"status": text.split(" ")[1].lower()}
+        else:
+            try:
+                num = int(text.split(" ")[1].lower()) - 1
+                if num < len(STATUS_STRINGS) - 1:
+                    cmd_args = {"status": STATUS_STRINGS[num]}
+            except ValueError:
+                pass
+
+    # 21 - RECORD
+    elif text.lower().startswith("record"):
+        cmd_type = 21
+        text += " "
+        cmd_args = {"cancel": text.split(" ")[1].lower() == "cancel"}
+
+    # 22 - MEMBER_LIST
+    elif text.lower().startswith("member_list"):
+        cmd_type = 22
+
+    # 23 - REACT
+    elif text.lower().startswith("react"):
+        cmd_type = 23
+        react_text = text[6:].strip(" ")
+        cmd_args = {"react_text": react_text}
+
+    # 24 - SHOW_REACTIONS
+    elif text.lower().startswith("show_reactions"):
+        cmd_type = 24
 
     return cmd_type, cmd_args

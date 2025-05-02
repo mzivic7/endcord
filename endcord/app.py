@@ -730,7 +730,8 @@ class Endcord:
             # go to replied message
             elif action == 8 and self.messages:
                 self.restore_input_text = [input_text, "standard"]
-                self.go_replied(chat_sel)
+                msg_index = self.lines_to_msg(chat_sel)
+                self.go_replied(msg_index)
 
             # download file
             elif action == 9:
@@ -843,7 +844,8 @@ class Endcord:
             # reveal one-by-one spoiler in a message
             elif action == 18:
                 self.restore_input_text = [input_text, "standard"]
-                self.spoil(chat_sel)
+                msg_index = self.lines_to_msg(chat_sel)
+                self.spoil(msg_index)
 
             # open guild in tree
             elif action == 19:
@@ -1020,18 +1022,15 @@ class Endcord:
                 self.restore_input_text = [input_text, "standard"]
                 guild_id = self.active_channel["guild_id"]
                 channel_id = self.tree_metadata[tree_sel]["id"]
-                url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
-                peripherals.copy_to_clipboard(url)
+                if guild_id:
+                    url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
+                    peripherals.copy_to_clipboard(url)
 
             # copy message link
             elif action == 31 and self.messages:
                 self.restore_input_text = [input_text, "standard"]
-                guild_id = self.active_channel["guild_id"]
-                channel_id = self.active_channel["channel_id"]
                 msg_index = self.lines_to_msg(chat_sel)
-                msg_id = self.messages[msg_index]["id"]
-                url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}/{msg_id}"
-                peripherals.copy_to_clipboard(url)
+                self.copy_msg_url(msg_index)
 
             # go to channel/message mentioned in this message
             elif action == 32:
@@ -1072,62 +1071,24 @@ class Endcord:
                     for num, status in enumerate(STATUS_STRINGS):
                         if status == self.my_status["status"]:
                             if num == len(STATUS_STRINGS) - 1:
-                                self.my_status["status"] = STATUS_STRINGS[0]
+                                new_status = STATUS_STRINGS[0]
                             else:
-                                self.my_status["status"] = STATUS_STRINGS[num+1]
+                                new_status = STATUS_STRINGS[num+1]
                             break
-                    self.gateway.update_presence(
-                        self.my_status["status"],
-                        custom_status=self.my_status["custom_status"],
-                        custom_status_emoji=self.my_status["custom_status_emoji"],
-                        rpc=self.my_rpc,
-                    )
-                    settings = {
-                        "status":{
-                            "status": self.my_status["status"],
-                            "custom_status": {
-                                "text": self.my_status["custom_status"],
-                                "emoji_name": self.my_status["custom_status_emoji"]["name"],
-                            },
-                            "show_current_game": True,
-                        },
-                    }
-                    self.discord.patch_settings_proto(1, settings)
-                    self.update_status_line()
+                    self.set_status(new_status)
 
             # record audio message
             elif action == 34 and self.messages and not self.disable_sending and not self.uploading:
                 self.restore_input_text = [input_text, "standard"]
-                if self.recording:   # stop recording
-                    self.recording = False
-                    file_path = recorder.stop()
-                    self.update_extra_line()
-                    self.add_running_task("Uploading file", 2)
-                    self.discord.send_voice_message(
-                        self.active_channel["channel_id"],
-                        file_path,
-                        reply_id=self.replying["id"],
-                        reply_channel_id=self.active_channel["channel_id"],
-                        reply_guild_id=self.active_channel["guild_id"],
-                        reply_ping=self.replying["mention"],
-                    )
-                    self.remove_running_task("Uploading file", 2)
-                else:   # start recording
-                    recorder.start()
-                    self.recording = True
-                    self.update_extra_line("RECORDING, Esc to cancel, Enter to send")
+                if self.recording:
+                    self.stop_recording()
+                else:
+                    self.start_recording()
 
             # toggle member list
-            elif self.get_members and action == 35 and self.active_channel["guild_id"]:
+            elif self.get_members and action == 35:
                 self.restore_input_text = [input_text, "standard"]
-                if self.screen.getmaxyx()[1] - self.config["tree_width"] - self.member_list_width - 2 < 32:
-                    self.update_extra_line("Not enough space to draw member list")
-                    continue
-                self.member_list_visible = not self.member_list_visible
-                if self.member_list_visible:
-                    self.update_member_list()
-                else:
-                    self.tui.remove_member_list()
+                self.toggle_member_list()
 
             # add reaction
             elif action == 36 and self.messages:
@@ -1148,32 +1109,10 @@ class Endcord:
             elif action == 37 and self.messages:
                 self.restore_input_text = [input_text, "standard"]
                 msg_index = self.lines_to_msg(chat_sel)
-                reactions = self.messages[msg_index]["reactions"]
-                if reactions:
-                    if len(self.messages[msg_index]["reactions"]) == 1:
-                        if reactions[0]["emoji_id"]:
-                            reaction = f"{reactions[0]["emoji"]}:{reactions[0]["emoji_id"]}"
-                        else:
-                            reaction = reactions[0]["emoji"]
-                        reaction_details = self.discord.get_reactions(
-                            self.active_channel["channel_id"],
-                            self.messages[msg_index]["id"],
-                            reaction,
-                            )
-                        self.stop_assist(close=False)
-                        max_w = self.tui.get_dimensions()[2][1]
-                        extra_title, extra_body = formatter.generate_extra_window_reactions(reactions[0], reaction_details, max_w)
-                        self.tui.draw_extra_window(extra_title, extra_body)
-                        self.extra_window_open = True
-                    else:
-                        self.ignore_typing = True
-                        self.view_reactions = {
-                            "message_id": self.messages[msg_index]["id"],
-                            "reactions": reactions,
-                        }
-                        self.add_to_store(self.active_channel["channel_id"], input_text)
-                        self.restore_input_text = [None, "prompt"]
-                        self.update_status_line()
+                multiple = self.do_view_reactions(msg_index)
+                if multiple:
+                    self.add_to_store(self.active_channel["channel_id"], input_text)
+                    self.restore_input_text = [None, "prompt"]
 
             # command
             elif action == 38:
@@ -1199,9 +1138,7 @@ class Endcord:
             # escape in main UI
             elif action == 5:
                 if self.recording:
-                    self.recording = False
-                    _ = recorder.stop()
-                    self.update_extra_line()
+                    self.stop_recording(cancel=True)
                 elif self.reacting["id"]:
                     self.reset_actions()
                     self.restore_input_text = [None, None]
@@ -1341,79 +1278,7 @@ class Endcord:
                     continue
 
                 elif self.reacting["id"]:
-                    first = input_text.split(" ")[0]
-                    all_reactions = self.messages[self.reacting["msg_index"]]["reactions"]
-                    my_present_emojis = []
-                    my_present_ids = []
-                    for reaction in all_reactions:
-                        if reaction["me"]:
-                            if reaction["emoji_id"]:
-                                my_present_ids.append(reaction["emoji_id"])
-                            else:
-                                my_present_emojis.append(reaction["emoji"])
-                    add_to_existing = False
-                    try:  # existing emoji index
-                        num = max(int(first) - 1, 0)
-                        if num < len(all_reactions) and num >= 0:
-                            # get reaction from existing emoji
-                            selected_reaction = all_reactions[num]
-                            if selected_reaction["emoji_id"]:
-                                emoji_string = f"<:{selected_reaction["emoji"]}:{selected_reaction["emoji_id"]}>"
-                            else:
-                                emoji_string = selected_reaction["emoji"]
-                            add_to_existing = True
-                    except ValueError:   # new emoji
-                        emoji_string = emoji.emojize(first)
-                    if emoji.is_emoji(emoji_string):   # standard emoji
-                        if emoji_string not in my_present_emojis:
-                            if len(all_reactions) < 20 or add_to_existing:
-                                self.discord.send_reaction(
-                                    self.active_channel["channel_id"],
-                                    self.reacting["id"],
-                                    emoji_string,
-                                )
-                            else:
-                                self.update_extra_line("Maximum number of reactions reached.")
-                        else:
-                            self.discord.remove_reaction(
-                                self.active_channel["channel_id"],
-                                self.reacting["id"],
-                                emoji_string,
-                            )
-                    else:   # discord emoji
-                        match = re.match(match_emoji, emoji_string)
-                        if match:
-                            emoji_name = match.group(1)
-                            emoji_id = match.group(2)
-                            if emoji_id not in my_present_ids:
-                                if len(all_reactions) < 20 or add_to_existing:
-                                    # validate discord emoji before adding it
-                                    valid = False
-                                    guild_emojis = []
-                                    for guild in self.gateway.get_emojis():
-                                        if guild["guild_id"] == self.active_channel["guild_id"]:
-                                            guild_emojis += guild["emojis"]
-                                            if not self.premium:
-                                                break
-                                    for guild_emoji in guild_emojis:
-                                        if guild_emoji["id"] == emoji_id:
-                                            valid = True
-                                            break
-                                    if valid:
-                                        self.discord.send_reaction(
-                                            self.active_channel["channel_id"],
-                                            self.reacting["id"],
-                                            f"{emoji_name}:{emoji_id}",
-                                        )
-                                else:
-                                    self.update_extra_line("Maximum number of reactions reached.")
-                            else:
-                                self.discord.remove_reaction(
-                                    self.active_channel["channel_id"],
-                                    self.reacting["id"],
-                                    f"{emoji_name}:{emoji_id}",
-                                )
-                    self.restore_input_text = [None, None]
+                    self.build_reaction(input_text)
 
                 elif self.hiding_ch["channel_id"] and input_text.lower() == "y":
                     channel_id = self.hiding_ch["channel_id"]
@@ -1434,9 +1299,9 @@ class Endcord:
                         self.reset_actions()
                         self.update_status_line()
                         continue
-                    if num <= len(channels):
-                        channel_id = channels[num][0]
-                        message_id = channels[num][1]
+                    if num <= len(self.going_to_ch):
+                        channel_id = self.going_to_ch[num][0]
+                        message_id = self.going_to_ch[num][1]
                         channel_name = self.channel_name_from_id(channel_id)
                         self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
                         if message_id:
@@ -1579,7 +1444,8 @@ class Endcord:
             self.go_bottom()
 
         elif cmd_type == 3:   # GO_REPLY
-            self.go_replied(chat_sel)
+            msg_index = self.lines_to_msg(chat_sel)
+            self.go_replied(msg_index)
 
         elif cmd_type == 4:   # DOWNLOAD
             msg_index = self.lines_to_msg(chat_sel)
@@ -1679,7 +1545,8 @@ class Endcord:
                     reset = False
 
         elif cmd_type == 10:   # SPOIL
-            self.spoil(chat_sel)
+            msg_index = self.lines_to_msg(chat_sel)
+            self.spoil(msg_index)
 
         elif cmd_type == 11 and self.tree_metadata[tree_sel]["type"] in (11, 12):   # TOGGLE_THREAD
             thread_id = self.tree_metadata[tree_sel]["id"]
@@ -1761,6 +1628,110 @@ class Endcord:
                 self.tui.draw_extra_window(extra_title, extra_body)
                 self.extra_window_open = True
 
+        elif cmd_type == 17:   # LINK_CHANNEL
+            channel_id = cmd_args.get("channel_id")
+            guild_id = None
+            found = False
+            if channel_id:
+                for guild in self.guilds:
+                    for channel in guild["channels"]:
+                        if channel["id"] == channel_id:
+                            guild_id = guild["guild_id"]
+                            found = True
+                            break
+                    if found:
+                        break
+            else:
+                guild_id = self.active_channel["guild_id"]
+                channel_id = self.tree_metadata[tree_sel]["id"]
+            if guild_id:
+                url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
+                peripherals.copy_to_clipboard(url)
+
+        elif cmd_type == 18:   # LINK_MESSAGE
+            msg_index = self.lines_to_msg(chat_sel)
+            self.copy_msg_url(msg_index)
+
+        elif cmd_type == 19:   # GOTO_MENTION
+            select_num = cmd_args.get("num", 0)
+            if select_num > 0 and select_num <= len(urls):
+                select_num -= 1
+            else:
+                select_num = None
+            msg_index = self.lines_to_msg(chat_sel)
+            channels = []
+            message_text = self.messages[msg_index]["content"]
+            mention_msg = self.messages[msg_index].get("mention_msg")
+            msg_num = 0
+            for match in re.finditer(formatter.match_channel_id_msg_group, message_text):
+                if match.group(2) and msg_num < len(mention_msg):
+                    message_id = mention_msg[msg_num]
+                    msg_num += 1
+                else:
+                    message_id = None
+                channels.append([match.group(1), message_id])
+            if len(channels) == 1 or select_num is not None:
+                if select_num is None:
+                    select_num = 0
+                channel_id = channels[select_num][0]
+                message_id = channels[select_num][1]
+                channel_name = self.channel_name_from_id(channel_id)
+                if channel_name:
+                    self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
+                    if message_id:
+                        self.go_to_message(message_id)
+            elif channels:
+                self.ignore_typing = True
+                self.going_to_ch = channels
+                self.update_status_line()
+
+        elif cmd_type == 20:   # STATUS
+            new_status = cmd_args.get("status")
+            if self.my_status["client_state"] == "online":
+                if not new_status:
+                    for num, status in enumerate(STATUS_STRINGS):
+                        if status == self.my_status["status"]:
+                            if num == len(STATUS_STRINGS) - 1:
+                                new_status = STATUS_STRINGS[0]
+                            else:
+                                new_status = STATUS_STRINGS[num+1]
+                            break
+                self.set_status(new_status)
+
+        elif cmd_type == 21:   # RECORD
+            cancel = cmd_args.get("cancel")
+            if self.recording:
+                self.stop_recording(cancel=cancel)
+            else:
+                self.start_recording()
+
+        elif cmd_type == 22:   # MEMBER_LIST
+            self.toggle_member_list()
+
+        elif cmd_type == 23:   # REACT
+            react_text = cmd_args.get("react_text")
+            msg_index = self.lines_to_msg(chat_sel)
+            if not react_text:
+                reset = False
+                if "deleted" not in self.messages[msg_index]:
+                    self.restore_input_text = [None, "react"]
+                    self.ignore_typing = True
+                    self.reacting = {
+                        "id": self.messages[msg_index]["id"],
+                        "msg_index": msg_index,
+                        "username": self.messages[msg_index]["username"],
+                        "global_name": self.messages[msg_index]["global_name"],
+                    }
+                    self.update_status_line()
+            else:
+                self.build_reaction(react_text, msg_index=msg_index)
+
+        elif cmd_type == 24:   # SHOW_REACTIONS
+            msg_index = self.lines_to_msg(chat_sel)
+            multiple = self.do_view_reactions(msg_index)
+            if multiple:
+                self.restore_input_text = [None, "prompt"]
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -1794,9 +1765,8 @@ class Endcord:
             self.remove_running_task("Downloading chat", 4)
 
 
-    def go_replied(self, chat_sel):
+    def go_replied(self, msg_index):
         """Go to replied message from selected message in chat"""
-        msg_index = self.lines_to_msg(chat_sel)
         if self.messages[msg_index]["referenced_message"]:
             reference_id = self.messages[msg_index]["referenced_message"]["id"]
             if reference_id:
@@ -1831,6 +1801,14 @@ class Endcord:
                 urls.append(embed["url"])
         return urls
 
+    def copy_msg_url(self, msg_index):
+        """Copy message url to clipboard"""
+        guild_id = self.active_channel["guild_id"]
+        channel_id = self.active_channel["channel_id"]
+        msg_id = self.messages[msg_index]["id"]
+        url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}/{msg_id}"
+        peripherals.copy_to_clipboard(url)
+
 
     def get_msg_media(self, msg_index):
         """Get all palyable media embeds from message in chat"""
@@ -1848,9 +1826,8 @@ class Endcord:
         return urls, media_type
 
 
-    def spoil(self, chat_sel):
+    def spoil(self, msg_index):
         """Reveal one-by-one spoiler in selected messgae in chat"""
-        msg_index = self.lines_to_msg(chat_sel)
         if "spoiled" in self.messages[msg_index]:
             self.messages[msg_index]["spoiled"] += 1
         else:
@@ -1975,6 +1952,32 @@ class Endcord:
                 break
 
 
+    def start_recording(self):
+        """Start recording audio message"""
+        recorder.start()
+        self.recording = True
+        self.update_extra_line("RECORDING, Esc to cancel, Enter to send")
+
+
+    def stop_recording(self, cancel=False):
+        """Stop recording audio message and send it"""
+        if self.recording:
+            self.recording = False
+            file_path = recorder.stop()
+            self.update_extra_line()
+            if not cancel:
+                self.add_running_task("Uploading file", 2)
+                self.discord.send_voice_message(
+                    self.active_channel["channel_id"],
+                    file_path,
+                    reply_id=self.replying["id"],
+                    reply_channel_id=self.active_channel["channel_id"],
+                    reply_guild_id=self.active_channel["guild_id"],
+                    reply_ping=self.replying["mention"],
+                )
+                self.remove_running_task("Uploading file", 2)
+
+
     def get_messages_with_members(self, num=50, before=None, after=None, around=None):
         """Get messages, check for missing members, request and wait for member chunk, and update local member list"""
         channel_id = self.active_channel["channel_id"]
@@ -2085,6 +2088,43 @@ class Endcord:
                     self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
                     self.tui.set_selected(self.msg_to_lines(num))
                     break
+
+
+    def toggle_member_list(self):
+        """Toggle member list if there is enough space"""
+        if self.member_list_visible:
+            if self.screen.getmaxyx()[1] - self.config["tree_width"] - self.member_list_width - 2 < 32:
+                self.update_extra_line("Not enough space to draw member list")
+            else:
+                self.tui.remove_member_list()
+                self.member_list_visible = False
+        else:
+            self.update_member_list()
+            self.member_list_visible = True
+
+
+    def set_status(self, status):
+        """Set my status: online, idle, dnd, invisible"""
+        if status in STATUS_STRINGS:
+            self.my_status["status"] = status
+            self.gateway.update_presence(
+                status,
+                custom_status=self.my_status["custom_status"],
+                custom_status_emoji=self.my_status["custom_status_emoji"],
+                rpc=self.my_rpc,
+            )
+            settings = {
+                "status":{
+                    "status": status,
+                    "custom_status": {
+                        "text": self.my_status["custom_status"],
+                        "emoji_name": self.my_status["custom_status_emoji"]["name"],
+                    },
+                    "show_current_game": True,
+                },
+            }
+            self.discord.patch_settings_proto(1, settings)
+            self.update_status_line()
 
 
     def view_profile(self, user_data):
@@ -2202,6 +2242,116 @@ class Endcord:
         self.extra_window_open = True
 
 
+    def do_view_reactions(self, msg_index):
+        """Format and show extra window with this or specified message reactions details"""
+        reactions = self.messages[msg_index]["reactions"]
+        if reactions:
+            if len(self.messages[msg_index]["reactions"]) == 1:
+                if reactions[0]["emoji_id"]:
+                    reaction = f"{reactions[0]["emoji"]}:{reactions[0]["emoji_id"]}"
+                else:
+                    reaction = reactions[0]["emoji"]
+                reaction_details = self.discord.get_reactions(
+                    self.active_channel["channel_id"],
+                    self.messages[msg_index]["id"],
+                    reaction,
+                    )
+                self.stop_assist(close=False)
+                max_w = self.tui.get_dimensions()[2][1]
+                extra_title, extra_body = formatter.generate_extra_window_reactions(reactions[0], reaction_details, max_w)
+                self.tui.draw_extra_window(extra_title, extra_body)
+                self.extra_window_open = True
+            else:
+                self.ignore_typing = True
+                self.view_reactions = {
+                    "message_id": self.messages[msg_index]["id"],
+                    "reactions": reactions,
+                }
+                self.update_status_line()
+                return True
+
+
+    def build_reaction(self, text, msg_index=None):
+        """Build and send reaction from provided text"""
+        first = text.split(" ")[0]
+        if msg_index is None:
+            msg_index = self.reacting["msg_index"]
+        if msg_index is None or msg_index < 0:
+            return
+        all_reactions = self.messages[msg_index]["reactions"]
+        my_present_emojis = []
+        my_present_ids = []
+        for reaction in all_reactions:
+            if reaction["me"]:
+                if reaction["emoji_id"]:
+                    my_present_ids.append(reaction["emoji_id"])
+                else:
+                    my_present_emojis.append(reaction["emoji"])
+        add_to_existing = False
+        try:  # existing emoji index
+            num = max(int(first) - 1, 0)
+            if num < len(all_reactions) and num >= 0:
+                # get reaction from existing emoji
+                selected_reaction = all_reactions[num]
+                if selected_reaction["emoji_id"]:
+                    emoji_string = f"<:{selected_reaction["emoji"]}:{selected_reaction["emoji_id"]}>"
+                else:
+                    emoji_string = selected_reaction["emoji"]
+                add_to_existing = True
+        except ValueError:   # new emoji
+            emoji_string = emoji.emojize(first)
+        if emoji.is_emoji(emoji_string):   # standard emoji
+            if emoji_string not in my_present_emojis:
+                if len(all_reactions) < 20 or add_to_existing:
+                    self.discord.send_reaction(
+                        self.active_channel["channel_id"],
+                        self.messages[msg_index]["id"],
+                        emoji_string,
+                    )
+                else:
+                    self.update_extra_line("Maximum number of reactions reached.")
+            else:
+                self.discord.remove_reaction(
+                    self.active_channel["channel_id"],
+                    self.messages[msg_index]["id"],
+                    emoji_string,
+                )
+        else:   # discord emoji
+            match = re.match(match_emoji, emoji_string)
+            if match:
+                emoji_name = match.group(1)
+                emoji_id = match.group(2)
+                if emoji_id not in my_present_ids:
+                    if len(all_reactions) < 20 or add_to_existing:
+                        # validate discord emoji before adding it
+                        valid = False
+                        guild_emojis = []
+                        for guild in self.gateway.get_emojis():
+                            if guild["guild_id"] == self.active_channel["guild_id"]:
+                                guild_emojis += guild["emojis"]
+                                if not self.premium:
+                                    break
+                        for guild_emoji in guild_emojis:
+                            if guild_emoji["id"] == emoji_id:
+                                valid = True
+                                break
+                        if valid:
+                            self.discord.send_reaction(
+                                self.active_channel["channel_id"],
+                                self.messages[msg_index]["id"],
+                                f"{emoji_name}:{emoji_id}",
+                            )
+                    else:
+                        self.update_extra_line("Maximum number of reactions reached.")
+                else:
+                    self.discord.remove_reaction(
+                        self.active_channel["channel_id"],
+                        self.messages[msg_index]["id"],
+                        f"{emoji_name}:{emoji_id}",
+                    )
+        self.restore_input_text = [None, None]
+
+
     def close_extra_window(self):
         """Close extra window and toggle its state"""
         self.tui.remove_extra_window()
@@ -2283,20 +2433,39 @@ class Endcord:
         self.assist_type = assist_type
         self.assist_found = []
 
-        if assist_type == 1:   # channel
-            for channel in self.current_channels:
-                # skip categories (type 4)
-                channel_name = channel["name"].lower()
-                if channel["type"] != 4 and all(x in channel_name for x in assist_words):
-                    if channel["type"] == 2:
-                        name = f"{channel["name"]} - voice"
-                    elif channel["type"] in (11, 12):
-                        name = f"{channel["name"]} - thread"
-                    elif channel["type"] == 15:
-                        name = f"{channel["name"]} - forum"
-                    else:
-                        name = channel["name"]
-                    self.assist_found.append((name, channel["id"]))
+        if assist_type == 1:   # channels
+            if not self.command:   # current guild channels
+                for channel in self.current_channels:
+                    # skip categories (type 4)
+                    channel_name = channel["name"].lower()
+                    if channel["type"] != 4 and all(x in channel_name for x in assist_words):
+                        if channel["type"] == 2:
+                            name = f"{channel["name"]} - voice"
+                        elif channel["type"] in (11, 12):
+                            name = f"{channel["name"]} - thread"
+                        elif channel["type"] == 15:
+                            name = f"{channel["name"]} - forum"
+                        else:
+                            name = channel["name"]
+                        self.assist_found.append((name, channel["id"]))
+            else:   # all guilds channels
+                for guild in self.guilds:
+                    guild_name = guild["name"]
+                    guild_name_lower = guild_name.lower()
+                    for channel in guild["channels"]:
+                        # skip categories (type 4)
+                        channel_name = channel["name"].lower()
+                        check_string = f"{channel_name} {guild_name_lower}"
+                        if channel["type"] != 4 and all(x in check_string for x in assist_words):
+                            if channel["type"] == 2:
+                                name = f"{channel["name"]} - voice ({guild["name"]})"
+                            elif channel["type"] in (11, 12):
+                                name = f"{channel["name"]} - thread ({guild["name"]})"
+                            elif channel["type"] == 15:
+                                name = f"{channel["name"]} - forum ({guild["name"]})"
+                            else:
+                                name = f"{channel["name"]} ({guild["name"]})"
+                            self.assist_found.append((name, channel["id"]))
 
         elif assist_type == 2:   # username/role
             # roles first
@@ -2332,7 +2501,7 @@ class Endcord:
                 guild_name = guild["guild_name"]
                 guild_name_lower = guild_name.lower()
                 for guild_emoji in guild["emojis"]:
-                    check_string = guild_emoji["name"].lower() + guild_name_lower
+                    check_string = f"{guild_emoji["name"].lower()} {guild_name_lower}"
                     if all(x in check_string for x in assist_words):
                         self.assist_found.append((
                             f"{guild_emoji["name"]} ({guild_name})",
@@ -2368,7 +2537,7 @@ class Endcord:
                 pack_name = pack["pack_name"]
                 pack_name_lower = pack_name.lower()
                 for sticker in pack["stickers"]:
-                    check_string = sticker["name"].lower() + pack_name_lower
+                    check_string = f"{sticker["name"].lower()} {pack_name_lower}"
                     if all(x in check_string for x in assist_words):
                         sticker_name = f"{sticker["name"]} ({pack_name})"
                         self.assist_found.append((sticker_name, sticker["id"]))

@@ -1,11 +1,12 @@
-add standard commands
-allow channel assist to use other guilds
-add command assist
 add advanced commands
     goto channel
     send msg in dm/channel
     set keybindings
-    ...
+    show pfp
+add command assist
+rework media player (dont open 2 containers)
+add youtube support to ascii media player and playing with mpv
+
 rpc on windows
 mouse controls (select in tree/chat/extra/member)
 tabs
