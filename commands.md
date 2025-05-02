@@ -48,3 +48,9 @@
     Propt to type reaction or send provided reaction to selected message.
 - `show_reactions`  
     Show reactions details for selected message.
+
+## Special commands (no keybinding)
+- `goto <#[channel_id]>`  
+    Go to specified channel from any server
+- `view_pfp` / `view_pfp <@[user_id]>`  
+    View prfile picure of user from currently selected message or specified user.

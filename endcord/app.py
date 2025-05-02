@@ -457,7 +457,7 @@ class Endcord:
             self.update_chat(keep_selected=False)
         else:
             self.tui.update_chat(self.chat, self.chat_format)
-        if not guild_id:   # no member list in DMs
+        if not guild_id:   # no member list in dms
             self.member_list_visible = False
             self.tui.remove_member_list()
         elif self.member_list_visible or open_member_list:
@@ -1583,15 +1583,7 @@ class Endcord:
             channel_id = cmd_args.get("channel_id", None)
             channel_sel = None
             if channel_id:
-                found = False
-                for guild in self.guilds:
-                    for channel in guild["channels"]:
-                        if channel["id"] == channel_id:
-                            channel_sel = channel
-                            found = True
-                            break
-                    if found:
-                        break
+                _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
             else:
                 channel_sel = self.tree_metadata[tree_sel]["type"]
             if channel_sel and channel_sel["type"] not in (-1, 1, 11, 12):
@@ -1631,16 +1623,8 @@ class Endcord:
         elif cmd_type == 17:   # LINK_CHANNEL
             channel_id = cmd_args.get("channel_id")
             guild_id = None
-            found = False
             if channel_id:
-                for guild in self.guilds:
-                    for channel in guild["channels"]:
-                        if channel["id"] == channel_id:
-                            guild_id = guild["guild_id"]
-                            found = True
-                            break
-                    if found:
-                        break
+                _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
             else:
                 guild_id = self.active_channel["guild_id"]
                 channel_id = self.tree_metadata[tree_sel]["id"]
@@ -1732,6 +1716,34 @@ class Endcord:
             if multiple:
                 self.restore_input_text = [None, "prompt"]
 
+        elif cmd_type == 25:   # GOTO
+            channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(cmd_args["channel_id"])
+            self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
+
+        elif cmd_type == 26:   # VIEW_PFP
+            user_id = cmd_args.get("user_id", None)
+            if not user_id:
+                msg_index = self.lines_to_msg(chat_sel)
+                user_id = self.messages[msg_index]["user_id"]
+            avatar_id = None
+            if user_id == self.my_id:
+                avatar_id = self.my_user_data["extra"]["avatar"]
+            if not avatar_id:
+                for dm in self.dms:
+                    if dm["id"] == user_id:
+                        avatar_id = dm["avatar"]
+                        break
+            if not avatar_id:
+                avatar_id = self.discord.get_user(user_id, extra=True)["extra"]["avatar"]
+            if avatar_id:
+                if self.config["native_media_player"]:
+                    size = 160
+                else:
+                    size = None
+                pfp_path = self.discord.get_pfp(user_id, avatar_id, size)
+                if pfp_path:
+                    self.open_media(pfp_path)
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -1752,6 +1764,23 @@ class Endcord:
             if i == 0 and self.tree_metadata[tree_sel]["type"] in (11, 12):
                 parent_id = guild_id
         return guild_id, parent_id, guild_name
+
+
+    def find_parents_from_id(self, channel_id):
+        """Find channel parents from its id"""
+        for guild in self.guilds:
+            for channel in guild["channels"]:
+                if channel["id"] == channel_id:
+                    return channel_id, channel["name"], guild["guild_id"], guild["name"], None
+        # check dms
+        for dm in self.dms:
+            if dm["id"] == channel_id:
+                if dm["name"]:
+                    name = dm["name"]
+                else:
+                    name = dm["recipients"][0]["username"]
+                return channel_id, name, None, None, None
+        return None, None, None, None, None
 
 
     def go_bottom(self):
@@ -1992,7 +2021,7 @@ class Endcord:
         current_guild = self.active_channel["guild_id"]
         missing_members = []
         if not current_guild:
-            # skipping DMs
+            # skipping dms
             return messages
 
         # find missing members
@@ -2448,7 +2477,15 @@ class Endcord:
                         else:
                             name = channel["name"]
                         self.assist_found.append((name, channel["id"]))
-            else:   # all guilds channels
+            else:   # all guilds channels and dms
+                for dm in self.dms:
+                    if dm["name"]:
+                        name = dm["name"]
+                    else:
+                        name = dm["recipients"][0]["username"]
+                    if all(x in name.lower() for x in assist_words):
+                        self.assist_found.append((f"{name} (DM)", dm["id"]))
+                logger.info(self.assist_found)
                 for guild in self.guilds:
                     guild_name = guild["name"]
                     guild_name_lower = guild_name.lower()
@@ -3507,7 +3544,7 @@ class Endcord:
                                 if dm["id"] == new_typing["channel_id"]:
                                     new_typing["username"] = dm["recipients"][0]["username"]
                                     new_typing["global_name"] = dm["recipients"][0]["global_name"]
-                                    # no nick in DMs
+                                    # no nick in dms
                                     break
                         for num, user in enumerate(self.typing):
                             if user["user_id"] == new_typing["user_id"]:

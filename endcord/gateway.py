@@ -128,12 +128,16 @@ class Gateway():
             # subscribe works differently in v10
             connection.request("GET", "/api/v9/gateway")
         except (socket.gaierror, TimeoutError):
+            connection.close()
             logger.warn("No internet connection. Exiting...")
             raise SystemExit("No internet connection. Exiting...")
         response = connection.getresponse()
         if response.status == 200:
-            self.gateway_url = json.loads(response.read())["url"]
+            data = response.read()
+            connection.close()
+            self.gateway_url = json.loads(data)["url"]
         else:
+            connection.close()
             logger.error(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
             raise SystemExit(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
         self.ws = websocket.WebSocket()
@@ -390,6 +394,7 @@ class Gateway():
                             "is_request": dm.get("is_message_request"),
                             "muted": False,
                             "last_message_id": int(last_message_id),
+                            "avatar": dm.get("avatar"),
                         })
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)

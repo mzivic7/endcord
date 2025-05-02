@@ -14,6 +14,7 @@ from endcord import peripherals
 
 CLIENT_NAME = "endcord"
 DISCORD_HOST = "discord.com"
+DISCORD_CDN_HOST = "cdn.discordapp.com"
 DISCORD_EPOCH = 1420070400
 SEARCH_PARAMS = ("content", "channel_id", "author_id", "mentions", "has", "max_id", "min_id", "pinned", "offset")
 SEARCH_HAS_OPTS = ("link", "embed", "poll", "file", "video", "image", "sound", "sticker", "forward")
@@ -202,8 +203,10 @@ class Discord():
     def __init__(self, host, token):
         if host:
             self.host = urllib.parse.urlparse(host).netloc
+            self.cdn_host = f"cdn.{urllib.parse.urlparse(host).netloc}"
         else:
             self.host = DISCORD_HOST
+            self.cdn_host = DISCORD_CDN_HOST
         self.token = token
         self.header = {
             "content-type": "application/json",
@@ -227,13 +230,17 @@ class Discord():
             if exit_on_error:
                 logger.warn("No internet connection. Exiting...")
                 raise SystemExit("No internet connection. Exiting...")
+            connection.close()
             return None
         if response.status == 200:
-            return json.loads(response.read())["id"]
+            data = json.loads(response.read())
+            connection.close()
+            return data["id"]
         if response.status == 401:   # unauthorized
             logger.error("unauthorized access. Probably invalid token. Exiting...")
             raise SystemExit("unauthorized access. Probably invalid token. Exiting...")
         logger.error(f"Failed to get my id. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -246,9 +253,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             if "guild_member" in data:
                 nick = data["guild_member"]["nick"]
             else:
@@ -283,6 +292,7 @@ class Discord():
                 "roles": None,
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -295,9 +305,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             if "guild_member" in data:
                 nick = data["guild_member"]["nick"]
                 roles = data["guild_member"]["roles"]
@@ -331,6 +343,7 @@ class Discord():
                 "roles": roles,
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -344,11 +357,16 @@ class Discord():
         """
         message_data = None
         url = f"/api/v9/users/{self.my_id}/channels"
-        connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
-        connection.request("GET", url, message_data, self.header)
-        response = connection.getresponse()
+        try:
+            connection = http.client.HTTPSConnection(self.host, 443, timeout=5)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             dms = []
             dms_id = []
             for dm in data:
@@ -372,6 +390,7 @@ class Discord():
                 dms_id.append(dm["id"])
             return dms, dms_id
         logger.error(f"Failed to fetch dm list. Response code: {response.status}")
+        connection.close()
         return None, None
 
 
@@ -393,9 +412,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             channels = []
             for channel in data:
                 channels.append({
@@ -408,6 +429,7 @@ class Discord():
                 })
             return channels
         logger.error(f"Failed to fetch guild channels. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -426,14 +448,17 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             # debug
             # with open("messages.json", "w") as f:
             #     json.dump(data, f, indent=2)
             return prepare_messages(data)
         logger.error(f"Failed to fetch messages. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -447,9 +472,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             reaction = []
             for user in data:
                 reaction.append({
@@ -458,6 +485,7 @@ class Discord():
                 })
             return reaction
         logger.error(f"Failed to fetch reaction details: {reaction}. Response code: {response.status}")
+        connection.close()
         return False
 
 
@@ -474,9 +502,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             mentions = []
             for mention in data:
                 mentions.append({
@@ -490,6 +520,7 @@ class Discord():
                 })
             return mentions
         logger.error(f"Failed to fetch mentions. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -504,9 +535,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             for pack in data["sticker_packs"]:
                 pack_stickers = []
                 for sticker in pack["stickers"]:
@@ -522,6 +555,7 @@ class Discord():
             del (data, pack_stickers)
             return self.stickers
         logger.error(f"Failed to fetch stickers. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -540,9 +574,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())["settings"]
+            connection.close()
             if num == 1:
                 decoded = PreloadedUserSettings.FromString(base64.b64decode(data))
             elif num == 2:
@@ -552,6 +588,7 @@ class Discord():
             self.protos[num-1] = MessageToDict(decoded)
             return self.protos[num-1]
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -577,10 +614,13 @@ class Discord():
             connection.request("PATCH", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return False
         if response.status == 200:
+            connection.close()
             return True
         logger.error(f"Failed to patch protobuf {num}. Response code: {response.status}")
+        connection.close()
         return False
 
 
@@ -593,15 +633,18 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             return {
                 "id": data["id"],
                 "name": data["name"],
                 "description": data["description"],
             }
         logger.error(f"Failed to fetch application rpc data. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -614,9 +657,11 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             assets = []
             for asset in data:
                 assets.append({
@@ -625,6 +670,7 @@ class Discord():
                 })
             return assets
         logger.error(f"Failed to fetch application assets. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -638,10 +684,14 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
-            return json.loads(response.read())
+            data = json.loads(response.read())
+            connection.close()
+            return data
         logger.error(f"Failed to fetch application external assets. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -710,9 +760,11 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             if "referenced_message" in data:
                 reference = {
                     "id": data["referenced_message"]["id"],
@@ -742,6 +794,7 @@ class Discord():
                 "stickers": data.get("sticker_items", []),
             }
         logger.error(f"Failed to send message. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -754,9 +807,11 @@ class Discord():
             connection.request("PATCH", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             mentions = []
             if data["mentions"]:
                 for mention in data["mentions"]:
@@ -777,6 +832,7 @@ class Discord():
             }
 
         logger.error(f"Failed to edit the message. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -789,10 +845,13 @@ class Discord():
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 204:
             logger.error(f"Failed to delete the message. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -810,10 +869,13 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 200:
             logger.error(f"Failed to set the message as seen. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -826,10 +888,13 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 204:
             logger.error(f"Failed to set typing. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -843,10 +908,13 @@ class Discord():
             connection.request("PUT", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 204:
             logger.error(f"Failed to send reaction: {reaction}. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -860,10 +928,13 @@ class Discord():
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 204:
             logger.error(f"Failed to delete reaction: {reaction}. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -877,10 +948,13 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 204:
             logger.error(f"Failed to join a thread. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -894,10 +968,13 @@ class Discord():
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status != 204:
             logger.error(f"Failed to leave a thread. Response code: {response.status}")
+            connection.close()
             return False
+        connection.close()
         return True
 
 
@@ -935,15 +1012,18 @@ class Discord():
             connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return 0, []
         if response.status == 200:
             data = json.loads(response.read())
+            connection.close()
             messages = []
             total = data["total_results"]
             for message in data["messages"]:
                 messages.append(message[0])
             return total, prepare_messages(messages, have_channel_id=True)
         logger.error(f"Failed to perform a message search. Response code: {response.status}")
+        connection.close()
         return 0, []
 
 
@@ -974,13 +1054,18 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None, 1
         if response.status == 200:
-            return json.loads(response.read())["attachments"][0], 0
+            data = json.loads(response.read())
+            connection.close()
+            return data["attachments"][0], 0
         if response.status == 413:
             logger.warn("Failed to get attachment upload link: 413 - File too large.")
+            connection.close()
             return None, 2   # file too large
         logger.error(f"Failed to get attachment upload link. Response code: {response.status}")
+        connection.close()
         return None, 1
 
 
@@ -1007,11 +1092,14 @@ class Discord():
                 response = connection.getresponse()
                 self.uploading.remove((upload_url, connection))
             except (socket.gaierror, TimeoutError):
+                connection.close()
                 return False
             if response.status == 200:
+                connection.close()
                 return True
             # discord client is also performing OPTIONS request, idk why, not needed here
             logger.error(f"Failed to upload attachment. Response code: {response.status}")
+            connection.close()
             return False
 
 
@@ -1043,15 +1131,19 @@ class Discord():
             connection.request("DELETE", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return None
         if response.status == 204:
+            connection.close()
             return True
         if response.status == 429:
             # discord usually returns 429 for this request, but original client does not retry after some time
             # so this wont retry either, file wont be sent in the message anyway
             logger.debug("Failed to delete attachemnt. Response code: 429 - Too Many Requests")
+            connection.close()
             return True
         logger.error(f"Failed to delete attachemnt. Response code: {response.status}")
+        connection.close()
         return None
 
 
@@ -1106,8 +1198,39 @@ class Discord():
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
+            connection.close()
             return False
         if response.status == 200:
+            connection.close()
             return True
         logger.error(f"Failed to send voice message. Response code: {response.status}")
+        connection.close()
         return False
+
+
+    def get_pfp(self, user_id, pfp_id, size=80):
+        """Download pfp for specified user"""
+        message_data = None
+        url = f"/avatars/{user_id}/{pfp_id}.webp?size={size}"
+        header = {
+            "Origin": "https://discord.com",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "cross-site",
+            "user-agent": CLIENT_NAME,
+        }
+        try:
+            connection = http.client.HTTPSConnection(self.cdn_host, 443, timeout=5)
+            connection.request("GET", url, message_data, header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            destination = os.path.join(peripherals.temp_path, f"{pfp_id}.webp")
+            with open(destination, "wb") as f:
+                f.write(response.read())
+            connection.close()
+            return destination
+        logger.error(f"Failed to download pfp. Response code: {response.status}")
+        connection.close()
+        return None

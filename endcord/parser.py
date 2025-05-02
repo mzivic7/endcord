@@ -1,9 +1,11 @@
+import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
 
 DISCORD_EPOCH_MS = 1420070400000
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
+logger = logging.getLogger(__name__)
 
 match_from = re.compile(r"from:<@\d*>")
 match_mentions = re.compile(r"mentions:<@\d*>")
@@ -14,10 +16,8 @@ match_in = re.compile(r"in:<#\d*>")
 match_pinned = re.compile(r"pinned:(?:true|false)")
 
 match_setting = re.compile(r"(\w+) ?= ?(.+)")
-match_profile = re.compile(r"profile *<@(\d*)>")
-match_channel = re.compile(r"channel *<#(\d*)>")
-match_summaries = re.compile(r"summaries *<#(\d*)>")
-match_hide = re.compile(r"hide *<#(\d*)>")
+match_channel = re.compile(r"<#(\d*)>")
+match_profile = re.compile(r"<@(\d*)>")
 
 
 def date_to_snowflake(date, end=False):
@@ -177,14 +177,14 @@ def command_string(text):
     # 14 - SUMMARIES
     elif text.lower().startswith("summaries"):
         cmd_type = 14
-        match = re.search(match_summaries, text)
+        match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 15 - HIDE
     elif text.lower().startswith("hide"):
         cmd_type = 15
-        match = re.search(match_hide, text)
+        match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
@@ -247,5 +247,21 @@ def command_string(text):
     # 24 - SHOW_REACTIONS
     elif text.lower().startswith("show_reactions"):
         cmd_type = 24
+
+    # 25 - GOTO
+    elif text.lower().startswith("goto"):
+        cmd_type = 25
+        match = re.search(match_channel, text)
+        if match:
+            cmd_args = {"channel_id": match.group(1)}
+        else:
+            cmd_type = 0
+
+    # 26 - VIEW_PFP
+    elif text.lower().startswith("view_pfp"):
+        cmd_type = 26
+        match = re.search(match_profile, text)
+        if match:
+            cmd_args = {"user_id": match.group(1)}
 
     return cmd_type, cmd_args

@@ -135,6 +135,8 @@ class CursesMedia():
             self.play_anim(img_path)
             return
         self.init_colrs()
+        self.hide_ui()
+        self.hide_ui()
         self.pil_img_to_curses(img)
         while self.playing:
             self.media_screen.noutrefresh()
@@ -149,6 +151,7 @@ class CursesMedia():
     def play_anim(self, gif_path):
         """Convert animated image to colored ascii art and draw it with curses"""
         self.init_colrs()
+        self.hide_ui()
         gif = Image.open(gif_path)
         frame = 0
         loop = bool(gif.info.get("loop", 1))

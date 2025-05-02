@@ -1,8 +1,3 @@
-add advanced commands
-    goto channel
-    send msg in dm/channel
-    set keybindings
-    show pfp
 add command assist
 rework media player (dont open 2 containers)
 add youtube support to ascii media player and playing with mpv
