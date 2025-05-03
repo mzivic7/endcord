@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 import traceback
+from queue import Queue
 
 import av
 import magic
@@ -226,15 +227,40 @@ class CursesMedia():
         self.ended = True
 
 
+    def audio_player(self, audio_queue, stream):
+        """Play audio frames from the queue"""
+        stream.start()
+        while True:
+            frame = audio_queue.get()
+            if frame is None:
+                break
+            stream.write(frame.to_ndarray().astype("float32").T.flatten())
+            while self.pause:
+                time.sleep(0.1)
+        stream.close()
+
+
+    def video_player(self, video_queue):
+        """Play video frames from the queue"""
+        while True:
+            frame = video_queue.get()
+            if frame is None:
+                break
+            img = frame.to_image()
+            self.pil_img_to_curses(img, remove_alpha=False)
+            while self.pause:
+                time.sleep(0.1)
+
+
     def play_video(self, path, seek=None):
-        """Play video"""
+        """Decode video and audio frames and manage queues."""
         self.init_colrs()
         container = av.open(path)
         self.ended = False
         if seek is None:
             self.seek = None
+        self.video_time = 0
 
-        # prepare video
         video_stream = container.streams.video[0]
         if container.streams.video[0].duration:
             self.video_duration = float(video_stream.duration * video_stream.time_base)
@@ -242,17 +268,11 @@ class CursesMedia():
             self.video_duration = video_stream.frames / video_stream.average_rate * video_stream.time_base
         if self.video_duration == 0:
             self.video_duration = 1   # just in case
-        self.video_fps = container.streams.video[0].guessed_rate
-        frame_duration = 1 / self.video_fps
-        self.target_fps = self.cap_fps
-        self.target_frames = max(int(self.video_fps / self.target_fps), 1)
-        self.audio_time = 0
-        self.video_time = 0
+        frame_duration = 1 / container.streams.video[0].guessed_rate
 
         # prepare audio
         if not self.mute_video:
-            audio_container = av.open(path)
-            all_audio_streams = audio_container.streams.audio
+            all_audio_streams = container.streams.audio
             if all_audio_streams:   # in case of a muted video
                 audio_stream = all_audio_streams[0]
                 stream = sounddevice.RawOutputStream(
@@ -260,10 +280,15 @@ class CursesMedia():
                     channels=audio_stream.channels,
                     dtype="float32",
                 )
-                self.audio_thread = threading.Thread(target=self.play_sync_audio, daemon=True, args=(audio_container, stream))
-                self.audio_thread.start()
 
-        for index, frame in enumerate(container.decode(video=0)):
+        audio_queue = Queue(maxsize=5)
+        video_queue = Queue(maxsize=5)
+        audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, stream))
+        video_thread = threading.Thread(target=self.video_player, args=(video_queue,))
+        audio_thread.start()
+        video_thread.start()
+
+        for frame in container.decode():
             if self.seek and self.seek > self.video_time:
                 self.video_time += frame_duration
                 if self.pause_after_seek:
@@ -273,43 +298,21 @@ class CursesMedia():
             if not self.playing:
                 container.close()
                 break
-            start_time = time.time()
-            if not index % self.target_frames:
-                img = frame.to_image()
-                self.pil_img_to_curses(img, remove_alpha=False)
-            if self.video_time >= self.audio_time:
-                # if all is fine or video is ahead of audio
-                time.sleep(max(max(frame_duration, self.video_time - self.audio_time) - (time.time() - start_time), 0))
-                self.target_fps = min(self.target_fps + 1, self.cap_fps)   # increase fps
-                self.target_frames = max(int(self.video_fps / self.target_fps), 1)
-            self.video_time += frame_duration
+            if isinstance(frame, av.audio.frame.AudioFrame):
+                audio_queue.put(frame)
+            if isinstance(frame, av.video.frame.VideoFrame):
+                video_queue.put(frame)
+                self.video_time += frame_duration
             if self.pause:
                 self.draw_ui()
                 while self.pause:
                     time.sleep(0.1)
-        self.audio_thread.join()
+
+        audio_queue.put(None)
+        video_queue.put(None)
+        audio_thread.join()
+        video_thread.join()
         self.ended = True
-
-
-    def play_sync_audio(self, container, stream):
-        """Play audio synchronized with video"""
-        stream.start()
-        frame_duration = 1 / container.streams.audio[0].codec_context.sample_rate
-        for frame in container.decode(audio=0):
-            if self.seek and self.seek > self.audio_time:
-                self.audio_time += frame.samples * frame_duration
-                continue
-            if not self.playing:
-                break
-            if self.audio_time - self.video_time > 0.1:
-                # if audio is ahead of video
-                self.target_fps = max(self.target_fps - 1, 1)   # decrease fps
-                self.target_frames = max(int(self.video_fps / self.target_fps), 1)
-            stream.write(frame.to_ndarray().astype("float32").T.flatten())
-            self.audio_time += frame.samples * frame_duration
-            while self.pause:
-                time.sleep(0.1)
-        stream.close()
 
 
     def play(self, path):

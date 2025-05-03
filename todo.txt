@@ -1,8 +1,6 @@
-rework media player (dont open 2 containers)
 add youtube support to ascii media player and playing with mpv
-
 rpc on windows
-mouse controls (select in tree/chat/extra/member)
+mouse controls (select in tree/chat/extra/member/input)
 tabs
 code blocks syntax highlighting
 voice and video calls
