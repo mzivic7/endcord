@@ -10,6 +10,44 @@ DAY_MS = 24*60*60*1000
 DISCORD_EPOCH_MS = 1420070400000
 TREE_EMOJI_REPLACE = "▮"
 
+SEARCH_HELP_TEXT = """from:user_id
+mentions:user_id
+has:link/embed/file/video/image/sound/sticker
+before:date (format: 2015-01-01)
+after:date (format: 2015-01-01)
+in:channel_id
+pinned:true/false"""
+
+COMMAND_ASSISTS = (
+    ("goto <#[channel_id]>", "goto"),
+    ("view_pfp <@[user_id]>", "view_pfp"),
+    ("react [reaction]", "react"),
+    ("status *[type]", "status"),
+    ("download *[num]", "download"),
+    ("open_link *[num]", "open_link"),
+    ("play *[num]", "play"),
+    ("search *[search_string]", "search"),
+    ("record / record cancel", "record"),
+    ("upload *[path]", "upload"),
+    ("profile *<@[user_id]>", "profile"),
+    ("channel *<#[channel_id]>", "channel"),
+    ("summaries *<#[channel_id]>", "summaries"),
+    ("hide *<#[channel_id]>", "hide"),
+    ("copy_message", "copy_message"),
+    ("spoil", "spoil"),
+    ("link_channel *<#[channel_id]>", "link_channel"),
+    ("link_message", "link_message"),
+    ("goto_mention *[num]", "goto_mention"),
+    ("cancel (up/download)", "cancel"),
+    ("member_list", "member_list"),
+    ("toggle_thread", "toggle_thread"),
+    ("bottom", "bottom"),
+    ("go_reply", "go_reply"),
+    ("show_reactions", "show_reactions"),
+    ("set [key] = [value]", "set"),
+
+)
+
 match_emoji_string = re.compile(r"(?<!\\):.+:")
 match_d_emoji_string = re.compile(r"<.*?:.*?:\d*?>")
 match_d_emoji_name = re.compile(r"(?<=<:).*?(?=:)")
@@ -1390,6 +1428,9 @@ def generate_extra_window_assist(found, assist_type, max_len):
         prefix = ""   # handled externally
     elif assist_type == 4:
         title_line = "Sticker assist:"
+        prefix = ""
+    elif assist_type == 5:
+        title_line = "Command:"
         prefix = ""
     for item in found:
         body.append(f"{prefix}{item[0]}"[:max_len])

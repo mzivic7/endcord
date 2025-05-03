@@ -41,13 +41,7 @@ ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
 LIMIT_SUMMARIES = 5   # max number of summaries per channel
-SEARCH_HELP_TEXT = """from:user_id
-mentions:user_id
-has:link/embed/file/video/image/sound/sticker
-before:date (format: 2015-01-01)
-after:date (format: 2015-01-01)
-in:channel_id
-pinned:true/false"""
+
 match_emoji = re.compile(r"<:(.*):(\d*)>")
 
 download = downloader.Downloader()
@@ -1004,7 +998,7 @@ class Endcord:
                     self.search = True
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
-                    extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
+                    extra_title, extra_body = formatter.generate_extra_window_text("Search:", formatter.SEARCH_HELP_TEXT, max_w)
                     self.stop_assist(close=False)
                     self.tui.draw_extra_window(extra_title, extra_body)
                     self.extra_window_open = True
@@ -1124,11 +1118,16 @@ class Endcord:
                     self.command = True
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
-                    extra_title, extra_body = formatter.generate_extra_window_text("Command:", "WIP", max_w)
+                    extra_title, extra_body = formatter.generate_extra_window_assist(formatter.COMMAND_ASSISTS, 5, max_w)
                     self.stop_assist(close=False)
-                    self.tui.draw_extra_window(extra_title, extra_body)
+                    self.assist_found = formatter.COMMAND_ASSISTS
+                    self.assist_word = " "
+                    self.assist_type = 5
+                    self.tui.instant_assist = True
+                    self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
                     self.extra_window_open = True
                 else:
+                    self.tui.instant_assist = False
                     self.close_extra_window()
                     self.reset_actions()
                     self.command = False
@@ -1142,7 +1141,7 @@ class Endcord:
                 elif self.reacting["id"]:
                     self.reset_actions()
                     self.restore_input_text = [None, None]
-                elif self.assist_word:
+                elif self.assist_word and not self.tui.instant_assist:
                     if self.search:
                         self.restore_input_text = [input_text, "search"]
                     elif self.command:
@@ -1150,6 +1149,7 @@ class Endcord:
                     else:
                         self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
+                    self.tui.instant_assist = False
                     self.close_extra_window()
                     if self.search or self.command:
                         self.reset_actions()
@@ -1177,7 +1177,7 @@ class Endcord:
                 self.curses_media.control_codes(action)
 
             # enter
-            elif action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]:
+            elif (action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]) or self.command:
                 if self.assist_word and self.assist_found:
                     self.restore_input_text = [input_text, "standard"]
                     new_input_text, new_index = self.insert_assist(
@@ -1271,6 +1271,7 @@ class Endcord:
                     continue
 
                 elif self.command:
+                    self.tui.instant_assist = False
                     command_type, command_args = parser.command_string(input_text)
                     self.close_extra_window()
                     self.execute_command(command_type, command_args, chat_sel, tree_sel)
@@ -1615,7 +1616,7 @@ class Endcord:
                 self.search = True
                 self.ignore_typing = True
                 max_w = self.tui.get_dimensions()[2][1]
-                extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
+                extra_title, extra_body = formatter.generate_extra_window_text("Search:", formatter.SEARCH_HELP_TEXT, max_w)
                 self.stop_assist(close=False)
                 self.tui.draw_extra_window(extra_title, extra_body)
                 self.extra_window_open = True
@@ -2485,7 +2486,6 @@ class Endcord:
                         name = dm["recipients"][0]["username"]
                     if all(x in name.lower() for x in assist_words):
                         self.assist_found.append((f"{name} (DM)", dm["id"]))
-                logger.info(self.assist_found)
                 for guild in self.guilds:
                     guild_name = guild["name"]
                     guild_name_lower = guild_name.lower()
@@ -2582,6 +2582,22 @@ class Endcord:
                             break
                 if len(self.assist_found) > 50:
                     break
+        elif assist_type == 5:   # command
+            if assist_word.lower().startswith("set "):
+                assist_words = assist_word[4:].split("_")
+                if assist_words:
+                    for key, value in self.config.items():
+                        if all(x in key for x in assist_words) and key != "token":
+                            self.assist_found.append((f"set {key} = {value}", f"set {key} = {value}"))
+                else:
+                    for key, value in self.config.items():
+                        if key != "token":
+                            self.assist_found.append((f"set {key} = {value}", f"set {key} = {value}"))
+            else:
+                for command in formatter.COMMAND_ASSISTS:
+                    if all(x in command[1] for x in assist_words):
+                        self.assist_found.append(command)
+
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
         self.extra_window_open = True
@@ -2593,6 +2609,7 @@ class Endcord:
 
     def stop_assist(self, close=True):
         """Stop assisting and hide assist UI"""
+        self.tui.instant_assist = False
         if self.assist_word:
             if close:
                 self.close_extra_window()
@@ -2622,8 +2639,15 @@ class Endcord:
             insert_string = self.assist_found[index][1]
         elif self.assist_type == 4:   # sticker
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
+        elif self.assist_type == 5:   # search
+            insert_string = self.assist_found[index][1]
+            new_text = insert_string + " "
+            new_pos = len(new_text)
+            self.stop_assist()
+            self.tui.instant_assist = False
+            return new_text, new_pos
         new_text = input_text[:start-1] + insert_string + input_text[end:]
-        new_pos = (len(input_text[:start-1] + insert_string))
+        new_pos = len(input_text[:start-1] + insert_string)
         self.stop_assist()
         return new_text, new_pos
 
@@ -3717,7 +3741,7 @@ class Endcord:
             # check if assist is needed
             assist_word, assist_type = self.tui.get_assist()
             if assist_type:
-                if assist_type == 100 or " " in assist_word:
+                if assist_type == 100 or (" " in assist_word and assist_type != 5):
                     self.stop_assist()
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)
