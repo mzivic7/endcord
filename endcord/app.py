@@ -1871,6 +1871,17 @@ class Endcord:
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
         destination = None
         from_cache = False
+        match = re.search(media.match_youtube, url)
+        if match:
+            url = match.group()
+            if open_media:
+                self.add_running_task("Loading video", 2)
+                self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(url, ))
+                self.media_thread.start()
+                self.remove_running_task("Loading video", 2)
+            else:
+                self.update_extra_line("Can only play YouTube video")
+                return
 
         # check if file is already downloaded
         if open_media:
@@ -1895,7 +1906,7 @@ class Endcord:
             except Exception as e:
                 logger.error(f"Failed downloading file: {e}")
 
-        self.remove_running_task("Downloading file", 2)
+            self.remove_running_task("Downloading file", 2)
 
         # open media
         if open_media:
@@ -2712,10 +2723,14 @@ class Endcord:
     def open_media(self, path):
         """
         If TUI mode: prevent other UI updates, draw media and wait for input, after quitting - update UI
-        If native mode: just open the file
+        If native mode: just open the file/url
         """
         if self.config["native_media_player"]:
-            peripherals.native_open(path)
+            if shutil.which(self.config["yt_dlp_path"]) and shutil.which(self.config["mpv_path"]):
+                mpv_path = self.config["mpv_path"]
+            else:
+                mpv_path = ""
+            peripherals.native_open(path, mpv_path)
         elif support_media:
             self.tui.lock_ui(True)
             self.curses_media.play(path)
@@ -3293,13 +3308,15 @@ class Endcord:
             self.hide_channel(hidden["channel_id"], hidden["guild_id"])
 
         # init media
+        have_yt_dlp = ", have yt-dlp" if shutil.which(self.config["yt_dlp_path"]) else ""
+        have_mpv = ", have mpv" if shutil.which(self.config["mpv_path"]) else ""
         if support_media:
             # must be run after all colors are initialized in endcord.tui
-            logger.info("ASCII media is supported")
+            logger.info(f"ASCII media is supported{have_yt_dlp}{have_mpv}")
             self.curses_media = media.CursesMedia(self.screen, self.config, last_free_color_id)
         else:
             self.curses_media = None
-            logger.info("ASCII media is not supported")
+            logger.info("ASCII media is not supported{have_yt_dlp}{have_mpv}")
 
         # load dms
         self.dms, self.dms_vis_id = self.gateway.get_dms()

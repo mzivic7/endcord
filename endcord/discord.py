@@ -76,9 +76,9 @@ def prepare_messages(data, have_channel_id=False):
                     content = ""
                     content += embed.get("url", "")  + "\n"
                     if "video" in embed and "url" in embed["video"]:
-                        content += embed["video"]["url"] + "\n"
+                        content = embed["video"]["url"] + "\n"
                     elif "image" in embed and "url" in embed["image"]:
-                        content += embed["image"]["url"] + "\n"
+                        content = embed["image"]["url"] + "\n"
                     elif "fields" in embed:
                         for field in embed["fields"]:
                             content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
@@ -144,9 +144,9 @@ def prepare_messages(data, have_channel_id=False):
             content = ""
             content += embed.get("url", "")  + "\n"
             if "video" in embed and "url" in embed["video"]:
-                content += embed["video"]["url"] + "\n"
+                content = embed["video"]["url"] + "\n"
             elif "image" in embed and "url" in embed["image"]:
-                content += embed["image"]["url"] + "\n"
+                content = embed["image"]["url"] + "\n"
             elif "fields" in embed:
                 for field in embed["fields"]:
                     content += "\n" + field["name"] + "\n" + field["value"]  + "\n"

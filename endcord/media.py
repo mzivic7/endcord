@@ -1,5 +1,9 @@
 import curses
 import logging
+import os
+import re
+import shutil
+import subprocess
 import threading
 import time
 import traceback
@@ -13,6 +17,8 @@ from PIL import Image, ImageEnhance
 from endcord import xterm256
 
 logger = logging.getLogger(__name__)
+
+match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
 
 
 class CursesMedia():
@@ -29,6 +35,8 @@ class CursesMedia():
         self.mute_video = config["media_mute"]   # false
         self.bar_ch = config["media_bar_ch"]
         self.default_color = config["color_default"][0]   # all 255 colors already init in order
+        self.yt_dlp_path = config["yt_dlp_path"]
+        self.yt_dlp_format = config["yt_dlp_format"]
         if self.default_color == -1:
             self.default_color = 0
         self.start_color_id = start_color_id
@@ -137,7 +145,6 @@ class CursesMedia():
             return
         self.init_colrs()
         self.hide_ui()
-        self.hide_ui()
         self.pil_img_to_curses(img)
         while self.playing:
             self.media_screen.noutrefresh()
@@ -175,6 +182,7 @@ class CursesMedia():
     def play_audio(self, path, seek=None):
         """Play only audio"""
         self.init_colrs()
+        self.show_ui()
         container = av.open(path)
         self.ended = False
         self.video_time = 0   # using video_time to simplify controls
@@ -240,21 +248,26 @@ class CursesMedia():
         stream.close()
 
 
-    def video_player(self, video_queue):
+    def video_player(self, video_queue, audio_queue, frame_duration):
         """Play video frames from the queue"""
         while True:
             frame = video_queue.get()
             if frame is None:
                 break
+            start_time = time.time()
             img = frame.to_image()
-            self.pil_img_to_curses(img, remove_alpha=False)
+            if audio_queue.qsize() >= 1:
+                self.pil_img_to_curses(img, remove_alpha=False)
+            if audio_queue.qsize() >= 3:
+                time.sleep(max(frame_duration - (time.time() - start_time), 0))
             while self.pause:
                 time.sleep(0.1)
 
 
     def play_video(self, path, seek=None):
-        """Decode video and audio frames and manage queues."""
+        """Decode video and audio frames and manage queues"""
         self.init_colrs()
+        self.show_ui()
         container = av.open(path)
         self.ended = False
         if seek is None:
@@ -271,6 +284,7 @@ class CursesMedia():
         frame_duration = 1 / container.streams.video[0].guessed_rate
 
         # prepare audio
+        have_audio = False
         if not self.mute_video:
             all_audio_streams = container.streams.audio
             if all_audio_streams:   # in case of a muted video
@@ -280,17 +294,20 @@ class CursesMedia():
                     channels=audio_stream.channels,
                     dtype="float32",
                 )
+                have_audio = True
 
-        audio_queue = Queue(maxsize=5)
-        video_queue = Queue(maxsize=5)
-        audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, stream))
-        video_thread = threading.Thread(target=self.video_player, args=(video_queue,))
+        audio_queue = Queue(maxsize=10)
+        video_queue = Queue(maxsize=10)
+        audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, stream), daemon=True)
+        if have_audio:
+            video_thread = threading.Thread(target=self.video_player, args=(video_queue, audio_queue, frame_duration), daemon=True)
         audio_thread.start()
         video_thread.start()
 
         for frame in container.decode():
             if self.seek and self.seek > self.video_time:
-                self.video_time += frame_duration
+                if isinstance(frame, av.video.frame.VideoFrame):
+                    self.video_time += frame_duration
                 if self.pause_after_seek:
                     self.pause_after_seek = False
                     self.pause = True
@@ -298,7 +315,7 @@ class CursesMedia():
             if not self.playing:
                 container.close()
                 break
-            if isinstance(frame, av.audio.frame.AudioFrame):
+            if isinstance(frame, av.audio.frame.AudioFrame) and have_audio:
                 audio_queue.put(frame)
             if isinstance(frame, av.video.frame.VideoFrame):
                 video_queue.put(frame)
@@ -310,39 +327,47 @@ class CursesMedia():
 
         audio_queue.put(None)
         video_queue.put(None)
-        audio_thread.join()
+        if have_audio:
+            audio_thread.join()
         video_thread.join()
         self.ended = True
 
 
     def play(self, path):
         """Select runner based on file type"""
-        file_type = magic.from_file(path, mime=True).split("/")
         self.path = path
         self.run = True
         self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
         self.screen_update_thread.start()
         self.playing = True
         try:
-            if file_type[0] == "image":
-                if file_type[1] == "gif":
-                    self.media_type = "gif"
-                    self.play_anim(path)
-                else:
-                    self.media_type = "img"
-                    self.play_img(path)
-            elif file_type[0] == "video":
+            yt_match = re.search(match_youtube, path)
+            if yt_match:
+                self.play_youtube(yt_match.group())
+            elif "https://" in path:
                 self.media_type = "video"
-                self.show_ui()
                 self.start_ui_thread()
                 self.play_video(path)
-            elif file_type[0] == "audio":
-                self.media_type = "audio"
-                self.show_ui()
-                self.start_ui_thread()
-                self.play_audio(path)
             else:
-                logger.warn(f"Unsupported media format: {file_type}")
+                file_type = magic.from_file(path, mime=True).split("/")
+                if file_type[0] == "image":
+                    if file_type[1] == "gif":
+                        self.media_type = "gif"
+                        self.play_anim(path)
+                    else:
+                        self.media_type = "img"
+                        self.play_img(path)
+                elif file_type[0] == "video":
+                    self.media_type = "video"
+                    self.start_ui_thread()
+                    self.play_video(path)
+                elif file_type[0] == "audio":
+                    self.media_type = "audio"
+                    self.start_ui_thread()
+                    self.play_audio(path)
+                else:
+                    logger.warn(f"Unsupported media format: {file_type}")
+                    self.run = False
             while self.run:   # dont exit when video ends
                 time.sleep(0.2)
         except Exception as e:
@@ -351,6 +376,25 @@ class CursesMedia():
         self.playing = False
         self.need_update.set()
         self.screen_update_thread.join()
+
+
+    def play_youtube(self, url):
+        """Get youtube video stream and play video"""
+        if shutil.which(self.yt_dlp_path):
+            command = [self.yt_dlp_path, "-f", str(self.yt_dlp_format), "-g", url]
+            proc = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            stream_url = proc.communicate()[0].decode().strip("\n")
+            self.path = stream_url
+            self.media_type = "video"
+            self.start_ui_thread()
+            self.play_video(stream_url)
+        else:
+            logger.warn("Cant play youtube link, yt-dlp path is invalid")
 
 
     def control_codes(self, code):
@@ -462,7 +506,46 @@ class CursesMedia():
             else:
                 pause = ">"
             ui_line = f"   {pause} {current_time} {bar} {total_time}  "
-            #logger.info(ui_line)
             self.ui_line.addstr(0, 0, ui_line, curses.color_pair(self.default_color))
             self.ui_line.noutrefresh()
             self.need_update.set()
+
+
+def wait_input(screen, keybindings, curses_media):
+    """Handle input from user"""
+    keybindings = {key: (val,) if not isinstance(val, tuple) else val for key, val in keybindings.items()}
+    run = True
+    while run:
+        key = screen.getch()
+        if key == 27:   # ESCAPE
+            screen.nodelay(True)
+            key = screen.getch()
+            if key in (-1, 27):
+                screen.nodelay(False)
+                curses_media.control_codes(100)
+            screen.nodelay(False)
+            run = False
+        elif key in keybindings["media_pause"]:
+            curses_media.control_codes(101)
+        elif key in keybindings["media_replay"]:
+            curses_media.control_codes(102)
+        elif key in keybindings["media_seek_forward"]:
+            curses_media.control_codes(103)
+        elif key in keybindings["media_seek_backward"]:
+            curses_media.control_codes(104)
+        elif key in keybindings["redraw"]:
+            curses_media.control_codes(105)
+        elif key == curses.KEY_RESIZE:
+            pass
+
+
+def ascii_runner(screen, path, config, keybindings):
+    """Main function"""
+    path = os.path.expanduser(path)
+    curses.curs_set(0)
+    curses.start_color()
+    curses.use_default_colors()
+    curses_media = CursesMedia(screen, config, 0)
+    input_thread = threading.Thread(target=wait_input, args=(screen, keybindings, curses_media), daemon=True)
+    input_thread.start()
+    curses_media.play(path)

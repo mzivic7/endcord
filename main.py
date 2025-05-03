@@ -5,7 +5,7 @@ import signal
 import sys
 import traceback
 
-from endcord import app, arg, color, defaults, keybinding, peripherals
+from endcord import app, arg, color, defaults, keybinding, media, peripherals
 
 APP_NAME = "endcord"
 VERSION = "0.9.0"
@@ -61,6 +61,9 @@ def main(args):
     keybindings = peripherals.convert_keybindings(keybindings)
     if args.keybinding:
         keybinding.picker(keybindings)
+    elif args.media:
+        curses.wrapper(media.ascii_runner, args.media, config, keybindings)
+        sys.exit(0)
 
     token = args.token
     logger.info(f"Started endcord {VERSION}")

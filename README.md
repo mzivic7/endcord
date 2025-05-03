@@ -19,6 +19,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 ## Features
 - Extremely low CPU and and RAM usage (values greatly depend on number of servers and channels)
 - View images, gifs, videos, audio and stickers in terminal with ASCII art or external app
+- YouTube video and stream support
 - Integrated RPC (only Rich Presence)
 - Desktop notifications
 - Download/upload attachments
@@ -281,9 +282,11 @@ Audio is also played along with the video.
     `sudo cp dist/endcord /usr/local/bin/`
 
 Optional dependencies:
-- `xclip` - Clipboard support on X11  
-- `wl-clipboard` - Clipboard support on Wayland  
+- `xclip` - Clipboard support on X11
+- `wl-clipboard` - Clipboard support on Wayland
 - `aspell` - Spellchecking (and `aspell-en` dictionary)
+- `yt-dlp` - youtube support
+- `mpv` - Play youtube videos in native player (non-ascii)
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
@@ -291,7 +294,8 @@ Build, standalone executable can be found in `./dist/endcord.exe`.
 Run exe from wt or cmder. In cmder settings, under "Font" check "Treat font height as device units", so font is always monospace.  
 Optional dependency, for spellchecking: [aspell](https://github.com/adamyg/aspell-win32). It is expected to be installed in `C:\Program Files (x86)\`. If it is not, please open an issue and provide the actual install path. Alongside with base aspell, dictionary must be installed, even en_US.  
 Emoji and Ctrl+key support depends on terminal.  
-To run code from source on windows, there are extra depencencies needed to prepare environment (automatically installed when building). Install them by providing `--prepare` flag to build script.
+To run code from source on windows, there are extra depencencies needed to prepare environment (automatically installed when building). Install them by providing `--prepare` flag to build script.  
+To enable youtube support, download [yt-dlp](https://github.com/yt-dlp/yt-dlp) and provide its executable path in config.  
 
 ### macOS
 Build, standalone executable can be found in `./dist/`.  

@@ -38,6 +38,9 @@ settings = {
     "save_summaries": True,
     "default_stickers": True,
     "only_one_open_server": False,
+    "yt_dlp_path": "yt-dlp",
+    "yt_dlp_format": 18,
+    "mpv_path": "mpv",
     "custom_host": None,
     "disable_easter_eggs": False,
 }

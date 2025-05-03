@@ -48,6 +48,15 @@ def parser(app_name, version, default_config_path, log_path):
         help="show all available colors and their codes",
     )
     parser.add_argument(
+        "-m",
+        "--media",
+        type=str,
+        action="store",
+        help="\
+        local path to media file or youtube url; \
+        if provided, will play it without starting endcord discord",
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",

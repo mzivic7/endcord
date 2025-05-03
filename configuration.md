@@ -92,6 +92,12 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Download discord default stickers and add them to sticker search. Disable to save some RAM.
 - `only_one_open_server = False`  
     Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.
+- `yt_dlp_path = "yt-dlp"`  
+    Path to [yt-dlp](https://github.com/yt-dlp/yt-dlp) executable or command. Used for playing youtube videos.
+- `yt_dlp_format = 18`  
+    [Format code](https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#format-selection) for youtube video to play.
+- `mpv_path = "mpv"`  
+    Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
 - `custom_host = None`  
     Custom host to connect to, like `spacebar.chat`. Set to None to use default host (`discord.com`)
 - `"disable_easter_eggs = False`  

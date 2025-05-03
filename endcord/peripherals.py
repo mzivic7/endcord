@@ -376,10 +376,17 @@ def get_audio_waveform(path):
     return waveform, duration
 
 
-def native_open(path):
+def native_open(path, mpv_path=""):
     """Open media file in native application, cross-system"""
+    if path.startswith("https://") and "youtu" in path:
+        if mpv_path:
+            current_runner = mpv_path
+        else:
+            return
+    else:
+        current_runner = runner
     _ = subprocess.Popen(
-        [runner, path],
+        [current_runner, path],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
