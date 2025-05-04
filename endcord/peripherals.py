@@ -185,7 +185,7 @@ def merge_configs(custom_config_path, theme_path):
                     break
             else:
                 error = f"Theme {theme_path} not found in themes directory."
-        else:
+        if not error:
             theme_path = os.path.expanduser(theme_path)
             theme = load_config(theme_path, theme, section="theme")
             theme["theme_path"] = theme_path
