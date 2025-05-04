@@ -295,6 +295,11 @@ class Gateway():
                             "guild_id": guild_id,
                             "roles": guild_roles,
                         })
+                        community = False
+                        for feature in guild["properties"]["features"]:
+                            if feature in ("COMMUNITY", "COMMUNITY_CANARY"):
+                                community = True
+                                break
                         self.guilds.append({
                             "guild_id": guild_id,
                             "owned": self.my_id == guild["properties"]["owner_id"],
@@ -303,6 +308,7 @@ class Gateway():
                             "member_count": guild["member_count"],
                             "channels": guild_channels,
                             "base_permissions": base_permissions,
+                            "community": community,
                         })
                         # threads
                         threads = []
@@ -469,10 +475,11 @@ class Gateway():
                     # process hidden channels and categories
                     for guild_num, guild in enumerate(self.guilds):
                         owned = guild["owned"]
+                        community = guild["community"]
                         for category_num, category in enumerate(guild["channels"]):
                             if category["type"] == 4:
                                 category_id = category["id"]
-                                if owned:   # cant hide channels in owned guild
+                                if owned or not community:   # cant hide channels in owned and non-community guild
                                     self.guilds[guild_num]["channels"][category_num]["hidden"] = False
                                 if not category["hidden"]:
                                     # if category is not hidden, show its channels

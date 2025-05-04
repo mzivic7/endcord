@@ -508,13 +508,13 @@ class Endcord:
                     collapsed.append(collapsed_id)
         elif restore:
             # copy over all
-            collapsed = self.state["collapsed"]
+            collapsed = self.state["collapsed"][:]
         # toggle only this guild
         elif collapse and guild_id not in self.state["collapsed"]:
-            collapsed = self.state["collapsed"]
+            collapsed = self.state["collapsed"][:]
             collapsed.append(guild_id)
         elif not collapse and guild_id in self.state["collapsed"]:
-            collapsed = self.state["collapsed"]
+            collapsed = self.state["collapsed"][:]
             collapsed.remove(guild_id)
 
         self.update_tree(collapsed=collapsed)
