@@ -182,6 +182,7 @@ def merge_configs(custom_config_path, theme_path):
             for saved_theme in saved_themes:
                 if os.path.splitext(os.path.basename(saved_theme))[0] == theme_path:
                     theme_path = saved_theme
+                    break
             else:
                 error = f"Theme {theme_path} not found in themes directory."
         else:

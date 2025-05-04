@@ -281,8 +281,6 @@ class TUI():
 
     def get_assist(self):
         """Return word to be assisted with completing and type of asssist needed"""
-        if self.instant_assist and self.input_buffer:
-            return self.input_buffer, 5
         if self.assist_start >= 0:
             if self.assist_start < self.input_index - (MIN_ASSIST_LETTERS - 1):
                 if (
@@ -300,6 +298,8 @@ class TUI():
                 return None, 100
             if self.assist_start > self.input_index:
                 return None, 100
+        if self.instant_assist and self.input_buffer:
+            return self.input_buffer, 5
         return None, None
 
 
