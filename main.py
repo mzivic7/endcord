@@ -49,7 +49,9 @@ def main(args):
         sys.exit(0)
     if config_path:
         config_path = os.path.expanduser(config_path)
-    config, gen_config = peripherals.merge_configs(config_path, theme_path)
+    config, gen_config, error = peripherals.merge_configs(config_path, theme_path)
+    if error:
+        sys.exit(error)
     if sys.platform == "win32":
         defaults.keybindings.update(defaults.windows_override_keybindings)
     keybindings = peripherals.load_config(

@@ -969,6 +969,7 @@ class Endcord:
                             elif self.command and self.extra_bkp:
                                 self.restore_input_text = [new_input_text, "command"]
                                 self.ignore_typing = True
+                                self.tui.instant_assist = True
                             else:
                                 self.restore_input_text = [new_input_text, "standard"]
                             self.tui.set_input_index(new_index)
@@ -1126,6 +1127,7 @@ class Endcord:
                     self.tui.instant_assist = True
                     self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
                     self.extra_window_open = True
+                    self.extra_bkp = (self.tui.extra_window_title, self.tui.extra_window_body)
                 else:
                     self.tui.instant_assist = False
                     self.close_extra_window()
@@ -1743,7 +1745,8 @@ class Endcord:
                     size = None
                 pfp_path = self.discord.get_pfp(user_id, avatar_id, size)
                 if pfp_path:
-                    self.open_media(pfp_path)
+                    self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(pfp_path, ))
+                    self.media_thread.start()
 
         if reset:
             self.reset_actions()
@@ -1881,7 +1884,7 @@ class Endcord:
                 self.remove_running_task("Loading video", 2)
             else:
                 self.update_extra_line("Can only play YouTube video")
-                return
+            return
 
         # check if file is already downloaded
         if open_media:
@@ -2612,7 +2615,7 @@ class Endcord:
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
         self.extra_window_open = True
-        if (self.search or self.command) and not self.assist_word:
+        if (self.search or self.command) and not (self.assist_word or self.assist_word == " "):
             self.extra_bkp = (self.tui.extra_window_title, self.tui.extra_window_body)
         self.assist_word = assist_word
         self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
@@ -2650,12 +2653,10 @@ class Endcord:
             insert_string = self.assist_found[index][1]
         elif self.assist_type == 4:   # sticker
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
-        elif self.assist_type == 5:   # search
+        elif self.assist_type == 5:   # command
             insert_string = self.assist_found[index][1]
             new_text = insert_string + " "
             new_pos = len(new_text)
-            self.stop_assist()
-            self.tui.instant_assist = False
             return new_text, new_pos
         new_text = input_text[:start-1] + insert_string + input_text[end:]
         new_pos = len(input_text[:start-1] + insert_string)

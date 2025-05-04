@@ -161,6 +161,7 @@ def get_themes():
 def merge_configs(custom_config_path, theme_path):
     """Merge config and themes, from varios locations"""
     gen_config = False
+    error = None
     if not custom_config_path:
         if not os.path.exists(os.path.expanduser(config_path) + "config.ini"):
             logger.info("Using default config")
@@ -181,11 +182,14 @@ def merge_configs(custom_config_path, theme_path):
             for saved_theme in saved_themes:
                 if os.path.splitext(os.path.basename(saved_theme))[0] == theme_path:
                     theme_path = saved_theme
-        theme_path = os.path.expanduser(theme_path)
-        theme = load_config(theme_path, theme, section="theme")
-        theme["theme_path"] = theme_path
+            else:
+                error = f"Theme {theme_path} not found in themes directory."
+        else:
+            theme_path = os.path.expanduser(theme_path)
+            theme = load_config(theme_path, theme, section="theme")
+            theme["theme_path"] = theme_path
     config.update(theme)
-    return config, gen_config
+    return config, gen_config, error
 
 
 def convert_keybindings(keybindings):
