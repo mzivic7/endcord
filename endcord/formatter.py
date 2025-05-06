@@ -1530,6 +1530,9 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
                 this_format.append([20, 0, 2])
             elif member["status"] == "idle":
                 this_format.append([19, 0, 2])
+            elif member["status"] == "offline":
+                text = f"  {global_name_nick}"
+                #this_format.append([])
             else:   # online
                 this_format.append([18, 0, 2])
 
@@ -1545,6 +1548,8 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
             text = "Unknown group"
             if member["group"] == "online":
                 text = "Online"
+            elif member["group"] == "offline":
+                text = "Offline"
             group_id = member["group"]
             for role in guild_roles:
                 if role["id"] == group_id:

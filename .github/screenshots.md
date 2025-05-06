@@ -9,14 +9,14 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
 <br><br>
 <b>Standard theme:<b><br>
-<img src="./.github/screenshots/01.png" alt="Standard theme" width="864">
+<img src="./screenshots/01.png" alt="Standard theme" width="864">
 <br><br>
 <b>Alternate theme with better lines:<b><br>
-<img src="./.github/screenshots/02.png" alt="Alternate theme with better lines" width="800">
+<img src="./screenshots/02.png" alt="Alternate theme with better lines" width="800">
 <br><br>
 <b>Viewing user profile:<b><br>
-<img src="./.github/screenshots/03.png" alt="Viewing user profile" width="800">
+<img src="./screenshots/03.png" alt="Viewing user profile" width="800">
 <br><br>
 <b>Media with ASCII art:<b><br>
-<img src="./.github/screenshots/04.png" alt="Media with ASCII art" width="800">
+<img src="./screenshots/04.png" alt="Media with ASCII art" width="800">
 </div>

@@ -3,6 +3,7 @@ import json
 import logging
 import random
 import socket
+import struct
 import sys
 import threading
 import time
@@ -86,6 +87,7 @@ class Gateway():
         self.error = None
         self.querying_members = False
         self.member_query_results = []
+        self.resumable = False
         threading.Thread(target=self.thread_guard, daemon=True, args=()).start()
 
 
@@ -198,10 +200,18 @@ class Gateway():
     def receiver(self):
         """Receive and handle all traffic from gateway, should be run in a thread"""
         logger.info("Receiver stared")
+        self.resumable = False
         abnormal = False
         while self.run and not self.wait:
+            ws_opcode, data = self.ws.recv_data()
+            if ws_opcode == 8 and len(data) >= 2:
+                code = struct.unpack("!H", data[0:2])[0]
+                reason = data[2:].decode("utf-8", "replace")
+                logger.warn(f"Gateway error code: {code}, reason: {reason}")
+                self.resumable = code in (4000, 4009)
+                break
             try:
-                data = zlib_decompress(self.ws.recv())
+                data = zlib_decompress(data)
                 if data:
                     try:
                         response = json.loads(data)
@@ -214,6 +224,7 @@ class Gateway():
                     opcode = None
             except Exception as e:
                 logger.warn(f"Receiver error: {e}")
+                self.resumable = True
                 break
             logger.debug(f"Received: opcode={opcode}, optext={response["t"] if (response and "t" in response and response["t"] and "LIST" not in response["t"]) else 'None'}")
 
@@ -241,6 +252,7 @@ class Gateway():
                     # guilds and channels
                     if ("guilds" not in response["d"]) and ("user_guild_settings" in response["d"]):
                         logger.warn("Abnormal READY event received, if its always happening, report this")
+                        self.resumable = True
                         break
                     abnormal = False
                     for guild in response["d"]["guilds"]:
@@ -249,6 +261,7 @@ class Gateway():
                         if "channels" not in guild:
                             logger.warn("Abnormal READY event received, if its always happening, report this")
                             abnormal = True
+                            self.resumable = True
                             break
                         # channels
                         for channel in guild["channels"]:
@@ -452,7 +465,7 @@ class Gateway():
                                 if found:
                                     if channel_g["type"] in (0, 2, 4, 5, 15):
                                         flags = int(channel.get("flags", 0))
-                                        hidden = not perms.decode_flag(flags, 12)
+                                        hidden = not perms.decode_flag(flags, 12)   # manually hidden
                                     else:
                                         hidden = False
                                     if guild_opt_in:
@@ -477,10 +490,11 @@ class Gateway():
                         owned = guild["owned"]
                         community = guild["community"]
                         for category_num, category in enumerate(guild["channels"]):
+                            if owned or not community:   # cant hide channels in owned and non-community guild
+                                self.guilds[guild_num]["channels"][category_num]["hidden"] = False
+                                continue
                             if category["type"] == 4:
                                 category_id = category["id"]
-                                if owned or not community:   # cant hide channels in owned and non-community guild
-                                    self.guilds[guild_num]["channels"][category_num]["hidden"] = False
                                 if not category["hidden"]:
                                     # if category is not hidden, show its channels
                                     for channel in guild["channels"]:
@@ -1162,10 +1176,18 @@ class Gateway():
 
             elif opcode == 7:
                 logger.info("Discord requested reconnect")
+                self.resumable = True
                 break
 
+            elif opcode == 9:
+                logger.info("Session invalidated, reconnecting")
+                if response["d"]:
+                    break
+
             if abnormal:
+                self.resumable = True
                 break
+
             # debug_events
             # if response.get("t"):
             #     debug.save_json(response, f"{response["t"]}.json", False)
@@ -1239,8 +1261,8 @@ class Gateway():
 
     def resume(self):
         """
-        Tries to resume discord gateway session on url provided by Discord in READY event.
-        Returns gateway response code, 9 means resumming has failed
+        Try to resume discord gateway session on url provided by Discord in READY event.
+        Return gateway response code, 9 means resumming has failed
         """
         self.ws.close(timeout=0)   # this will stop receiver
         time.sleep(1)   # so receiver ends before opening new socket
@@ -1249,7 +1271,7 @@ class Gateway():
         self.ws.connect(self.resume_gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
         _ = zlib_decompress(self.ws.recv())
         logger.info("Trying to resume connection")
-        payload = {"op": 6, "d": {"token": self.token, "session_id": self.session_id, "sequence": self.sequence}}
+        payload = {"op": 6, "d": {"token": self.token, "session_id": self.session_id, "seq": self.sequence}}
         self.send(payload)
         try:
             return json.loads(zlib_decompress(self.ws.recv()))["op"]
@@ -1258,12 +1280,14 @@ class Gateway():
 
 
     def reconnect(self):
-        """Try to resume session, if failed, create new one"""
+        """Try to resume session, if cant, create new one"""
         if not self.wait:
             self.state = 2
             logger.info("Trying to reconnect")
         try:
-            code = self.resume()
+            if self.resumable:
+                self.resumable = False
+                code = self.resume()
             if code == 9:
                 self.ws.close(timeout=0)   # this will stop receiver
                 time.sleep(1)   # so receiver ends before opening new socket
@@ -1272,7 +1296,7 @@ class Gateway():
                 self.ws = websocket.WebSocket()
                 self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
                 self.authenticate()
-                logger.info("restarting connection")
+                logger.info("Restarting connection")
             self.wait = False
             # restarting threads
             if not self.receiver_thread.is_alive():
@@ -1282,7 +1306,7 @@ class Gateway():
                 self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
                 self.heartbeat_thread.start()
             self.state = 1
-            logger.info("Connection restart done")
+            logger.info("Connection established")
         except websocket._exceptions.WebSocketAddressException:
             if not self.wait:   # if not running from wait_oline
                 logger.warn("No internet connection")

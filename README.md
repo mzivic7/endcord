@@ -1,12 +1,14 @@
 <div align="center">
 <h1>Endcord</h1>
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#features">Features</a> |
-<a href="https://github.com/mzivic7/endcord/blob/main/screenshots.md">Screenshots</a> |
+<a href="https://github.com/mzivic7/endcord/blob/main/.github/screenshots.md">Screenshots</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#configuration">Config</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a>
+<a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
+<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#support">Support</a>
 <img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
 </div>
 
@@ -408,6 +410,11 @@ Note: `Ctrl+Up/Down/Left/Right` have different key codes in tty.
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to prefered host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
 Then endcord will connect only to that domain instead discord.  Token is diffeerent on different hosts!  
 Note that using custom host is completely untested, and support depends on how differnet the api is to original discord api, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+
+
+## Support
+Open an issue in [issue tracker](https://github.com/mzivic7/endcord/issues).  
+Or, if you dont have a github account, want more interactive support, to share a theme or have a question: [Endcord Discord Server](https://discord.gg/judQSxw5K2).
 
 
 ## Planned features
