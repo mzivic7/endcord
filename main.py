@@ -67,6 +67,9 @@ def main(args):
         curses.wrapper(media.ascii_runner, args.media, config, keybindings)
         sys.exit(0)
 
+    if args.proxy:
+        config["proxy"] = args.proxy
+
     token = args.token
     logger.info(f"Started endcord {VERSION}")
     if not token and not config["token"]:

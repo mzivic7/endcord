@@ -1,11 +1,14 @@
+import logging
 import os
 import urllib.parse
 
 import urllib3
+from urllib3.contrib.socks import SOCKSProxyManager
 
 from endcord import peripherals
 
 CHUNK_SIZE = 1024 * 1024   # load max 1MB data in RAM when downloading
+logger = logging.getLogger(__name__)
 
 
 def convert_tenor_gif_type(url, content_type):
@@ -25,9 +28,10 @@ def convert_tenor_gif_type(url, content_type):
 class Downloader:
     """Downloader class"""
 
-    def __init__(self):
+    def __init__(self, proxy=None):
         self.downloading = True
         self.active = 0
+        self.proxy = proxy
 
 
     def download(self, url):
@@ -36,7 +40,16 @@ class Downloader:
             os.makedirs(os.path.expanduser(os.path.dirname(peripherals.temp_path)), exist_ok=True)
         url_object = urllib.parse.urlparse(url)
         filename = os.path.basename(url_object.path)
-        http = urllib3.PoolManager()
+        proxy = urllib.parse.urlparse(self.proxy)
+        if proxy.scheme.lower() == "http":
+            http = urllib3.ProxyManager(self.proxy)
+        elif proxy.scheme and "socks" in proxy.scheme.lower():
+            # socket is replaced with PySocks globally in app.py
+            http = SOCKSProxyManager(self.proxy)
+        else:
+            http = urllib3.PoolManager()
+            if self.proxy.scheme:
+                logger.warn("Invalid proxy, continuing without proxy")
         response = http.request("GET", url, preload_content=False)
         extension = response.headers.get("Content-Type", None).split("/")[-1].replace("jpeg", "jpg")
         destination = os.path.join(peripherals.temp_path, filename)

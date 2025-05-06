@@ -32,8 +32,18 @@ def parser(app_name, version, default_config_path, log_path):
         action="store",
         help=f"\
         custom path to theme file; If file does not exist, \
-        theme from config then defaults wil be created; \
+        theme from config with defaults wil be created; \
         Default config is in {default_config_path}",
+    )
+    parser.add_argument(
+        "-p",
+        "--proxy",
+        type=str,
+        action="store",
+        help="\
+        proxy URL to use, it must be this format: 'protocol://host:port'; \
+        Supported proxy protocols: http, socks5; \
+        Be careful, using proxy might make you more suspicious to discord",
     )
     parser.add_argument(
         "-k",

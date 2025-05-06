@@ -41,6 +41,7 @@ settings = {
     "yt_dlp_path": "yt-dlp",
     "yt_dlp_format": 18,
     "mpv_path": "mpv",
+    "proxy": None,
     "custom_host": None,
     "disable_easter_eggs": False,
 }

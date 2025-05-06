@@ -98,6 +98,10 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     [Format code](https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#format-selection) for youtube video to play.
 - `mpv_path = "mpv"`  
     Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
+- `proxy = None`  
+    Proxy URL to use, it must be this format: `protocol://host:port`, example: `socks5://localhost:1080`.  
+    Supported proxy protocols: `http`, `socks5`.  
+    Be careful, using proxy (especially TOR) might make you more suspicious to discord.
 - `custom_host = None`  
     Custom host to connect to, like `spacebar.chat`. Set to None to use default host (`discord.com`)
 - `"disable_easter_eggs = False`  

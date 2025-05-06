@@ -1,17 +1,20 @@
 import base64
+import http.client
 import json
 import logging
 import random
 import socket
+import ssl
 import struct
 import sys
 import threading
 import time
 import traceback
 import urllib
+import urllib.parse
 import zlib
-from http.client import HTTPSConnection
 
+import socks
 import websocket
 from discord_protos import PreloadedUserSettings
 from google.protobuf.json_format import MessageToDict
@@ -49,12 +52,13 @@ def reset_inflator():
 class Gateway():
     """Methods for fetching and sending data to Discord using Discord's gateway through websocket"""
 
-    def __init__(self, host, token):
+    def __init__(self, token, host, proxy=None):
         if host:
             self.host = urllib.parse.urlparse(host).netloc
         else:
             self.host = DISCORD_HOST
         self.token = token
+        self.proxy = urllib.parse.urlparse(proxy)
         self.run = True
         self.wait = False
         self.state = 0
@@ -125,7 +129,26 @@ class Gateway():
 
     def connect(self):
         """Create initial connection to Discord gateway"""
-        connection = HTTPSConnection(self.host, 443)
+        # get proxy
+        if self.proxy.scheme:
+            if self.proxy.scheme.lower() == "http":
+                connection = http.client.HTTPSConnection(self.proxy.hostname, self.proxy.port)
+                connection.set_tunnel(self.host, port=443)
+            elif "socks" in self.proxy.scheme.lower():
+                proxy_sock = socks.socksocket()
+                proxy_sock.set_proxy(socks.SOCKS5, self.proxy.hostname, self.proxy.port)
+                proxy_sock.connect((self.host, 443))
+                proxy_sock = ssl.create_default_context().wrap_socket(proxy_sock, server_hostname=self.host)
+                proxy_sock.do_handshake()   # seems like its not needed
+                connection = http.client.HTTPSConnection(self.host, 443)
+                connection.sock = proxy_sock
+            else:
+                logger.warn("Invalid proxy, continuing without proxy")
+                connection = http.client.HTTPSConnection(self.host, 443)
+        else:
+            connection = http.client.HTTPSConnection(self.host, 443)
+
+        # get gateway url
         try:
             # subscribe works differently in v10
             connection.request("GET", "/api/v9/gateway")
@@ -142,8 +165,18 @@ class Gateway():
             connection.close()
             logger.error(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
             raise SystemExit(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
+
+        # setup websocket
         self.ws = websocket.WebSocket()
-        self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
+        if self.proxy.scheme:
+            self.ws.connect(
+                self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream",
+                proxy_type=self.proxy.scheme,
+                http_proxy_host=self.proxy.hostname,
+                http_proxy_port=self.proxy.port,
+            )
+        else:
+            self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
         self.state = 1
         self.heartbeat_interval = int(json.loads(zlib_decompress(self.ws.recv()))["d"]["heartbeat_interval"])
         self.receiver_thread = threading.Thread(target=self.safe_function_wrapper, daemon=True, args=(self.receiver, ))
@@ -205,6 +238,9 @@ class Gateway():
         while self.run and not self.wait:
             ws_opcode, data = self.ws.recv_data()
             if ws_opcode == 8 and len(data) >= 2:
+                if not data:
+                    self.resumable = True
+                    break
                 code = struct.unpack("!H", data[0:2])[0]
                 reason = data[2:].decode("utf-8", "replace")
                 logger.warn(f"Gateway error code: {code}, reason: {reason}")
@@ -1219,6 +1255,7 @@ class Gateway():
                 logger.debug("Heartbeat sent")
                 if not self.heartbeat_received:
                     logger.warn("Heartbeat reply not received")
+                    self.resumable = True
                     break
                 self.heartbeat_received = False
                 heartbeat_interval_rand = self.heartbeat_interval * (0.8 - 0.6 * random.random()) / 1000

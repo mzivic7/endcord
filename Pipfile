@@ -13,6 +13,8 @@ pyinstaller = ">=6"
 emoji = "*"
 sounddevice = "*"
 soundfile = "*"
+pysocks = "*"
+python-socks = "*"
 
 [dev-packages]
 pillow = "*"

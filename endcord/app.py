@@ -44,7 +44,7 @@ LIMIT_SUMMARIES = 5   # max number of summaries per channel
 
 match_emoji = re.compile(r"<:(.*):(\d*)>")
 
-download = downloader.Downloader()
+
 recorder = peripherals.Recorder()
 
 
@@ -119,8 +119,17 @@ class Endcord:
         self.last_summary_save = time.time() - SUMMARY_SAVE_INTERVAL - 1
 
         # initialize stuff
-        self.discord = discord.Discord(config["custom_host"], config["token"])
-        self.gateway = gateway.Gateway(config["custom_host"], config["token"])
+        self.discord = discord.Discord(
+            config["token"],
+            config["custom_host"],
+            config["proxy"],
+        )
+        self.gateway = gateway.Gateway(
+            config["token"],
+            config["custom_host"],
+            config["proxy"],
+        )
+        self.downloader = downloader.Downloader(config["proxy"])
         self.tui = tui.TUI(self.screen, self.config, keybindings)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
@@ -187,7 +196,7 @@ class Endcord:
         self.last_message_id = 0
         self.my_rpc = []
         self.chat_end = False
-        download.cancel()
+        self.downloader.cancel()
         self.download_threads = []
         self.upload_threads = []
         self.ready_attachments = []
@@ -1255,7 +1264,7 @@ class Endcord:
                             pass
 
                 elif self.cancel_download and input_text.lower() == "y":
-                    download.cancel()
+                    self.downloader.cancel()
                     self.download_threads = []
                     self.cancel_upload()
                     self.upload_threads = []
@@ -1373,7 +1382,7 @@ class Endcord:
                         message_id=self.deleting,
                     )
                 elif self.cancel_download:
-                    download.cancel()
+                    self.downloader.cancel()
                     self.download_threads = []
                     self.cancel_upload()
                     self.upload_threads = []
@@ -1897,7 +1906,7 @@ class Endcord:
         if not open_media or not destination:
             self.add_running_task("Downloading file", 2)
             try:
-                path = download.download(url)
+                path = self.downloader.download(url)
                 if path:
                     if move:
                         if not os.path.exists(self.downloads_path):
@@ -3318,6 +3327,9 @@ class Endcord:
         else:
             self.curses_media = None
             logger.info("ASCII media is not supported{have_yt_dlp}{have_mpv}")
+
+        if self.config["proxy"]:
+            logger.info(f"Using proxy: {self.config["proxy"]}")
 
         # load dms
         self.dms, self.dms_vis_id = self.gateway.get_dms()

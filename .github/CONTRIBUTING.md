@@ -2,7 +2,7 @@
 Better dont contribute. You'll save your mental health, and I will save time trying to understand your code.  
 But if you insist:  
 First have a look at the code, if you can navigate through that mess and keep your sanity: try to maintain same writing style, and explain in detail what is done in a PR.  
-If the code makes you scream, just open an issue, and Ill get to it.  
+If the code makes you scream, just open an issue, and I will get to it.  
 
 
 ## **LLM generated code is strongly prohibited**
@@ -48,12 +48,11 @@ sudo socat -t100 -x -v UNIX-LISTEN:/run/user/1000/discord-ipc-0,mode=777,reusead
 ### Log discord events to console
 Install discord-development  
 Or regular discord:  
-    in .config/discord/config.json put:  
-    "DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING": true  
+    in `.config/discord/config.json` put:  
+    `"DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING": true`  
 Open dev tools: `Ctrl+Shift+I`  
 Type: `allow pasting`  
-Paste this: https://gist.github.com/JohannesMP/afdf27383608c3b6f20a6a072d0be93c?permalink_comment_id=5512869#gistcomment-5512869  
-In developer options enable "Logging Gateway Events to Console"  
+Paste code from [here](https://gist.github.com/JohannesMP/afdf27383608c3b6f20a6a072d0be93c?permalink_comment_id=5512869#gistcomment-5512869) in developer options enable "Logging Gateway Events to Console"  
 In dev tools console select "Verbose" level  
 
 ### Full API documentation
