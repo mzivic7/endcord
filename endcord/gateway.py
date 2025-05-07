@@ -490,8 +490,9 @@ class Gateway():
                                 "muted": guild["muted"],
                             })
                             guild_flags = int(guild.get("flags", 0))
-                            # opt_in means: show all guild channels - when guild is joined
-                            guild_opt_in = not perms.decode_flag(guild_flags, 14) or perms.decode_flag(guild_flags, 13)
+                            # opt_in_channels means: show all guild channels - when guild is joined
+                            opt_in_channels = not perms.decode_flag(guild_flags, 14) or perms.decode_flag(guild_flags, 13)
+                            self.guilds[guild_num]["opt_in_channels"] = opt_in_channels
                             for channel in guild["channel_overrides"]:
                                 found = False
                                 for channel_num, channel_g in enumerate(self.guilds[guild_num]["channels"]):
@@ -503,8 +504,6 @@ class Gateway():
                                         flags = int(channel.get("flags", 0))
                                         hidden = not perms.decode_flag(flags, 12)   # manually hidden
                                     else:
-                                        hidden = False
-                                    if guild_opt_in:
                                         hidden = False
                                     self.guilds[guild_num]["channels"][channel_num].update({
                                         "message_notifications": channel["message_notifications"],
@@ -525,8 +524,9 @@ class Gateway():
                     for guild_num, guild in enumerate(self.guilds):
                         owned = guild["owned"]
                         community = guild["community"]
+                        opt_in_channels = guild.pop("opt_in_channels", False)
                         for category_num, category in enumerate(guild["channels"]):
-                            if owned or not community:   # cant hide channels in owned and non-community guild
+                            if owned or not community or opt_in_channels:   # cant hide channels in owned and non-community guild
                                 self.guilds[guild_num]["channels"][category_num]["hidden"] = False
                                 continue
                             if category["type"] == 4:

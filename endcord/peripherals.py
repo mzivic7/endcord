@@ -442,7 +442,7 @@ class SpellCheck():
         self.proc.delaybeforesend = None
         try:
             self.proc.expect("Ispell", timeout=0.5)
-            logger.info("Aspell initialised")
+            logger.info("Aspell initialized")
         except pexpect.exceptions.EOF:
             logger.info("Aspell initialization error")
             self.enable = False
