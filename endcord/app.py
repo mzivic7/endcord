@@ -3062,17 +3062,24 @@ class Endcord:
         """Compute permissions for all guilds. Run after roles have been obtained."""
         for guild in self.guilds:
             guild_id = guild["guild_id"]
-            my_roles = None   # user has no roles in dm
+            # get my roles
+            my_roles = None
             for roles in self.my_roles:
                 if roles["guild_id"] == guild_id:
                     my_roles = roles["roles"]
                     break
             if my_roles is None:
                 return
+            # get guild roles
+            this_guild_roles = []
+            for roles in self.all_roles:
+                if roles["guild_id"] == guild_id:
+                    this_guild_roles = roles["roles"]
+                    break
             # get permissions
             self.guilds = perms.compute_permissions(
                 self.guilds,
-                self.current_roles,
+                this_guild_roles,
                 guild_id,
                 my_roles,
                 self.my_id,
