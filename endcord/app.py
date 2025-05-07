@@ -1757,6 +1757,10 @@ class Endcord:
                     self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(pfp_path, ))
                     self.media_thread.start()
 
+        elif cmd_type == 27:   # CHECK_STANDING
+            standing = self.discord.get_my_standing()
+            self.update_extra_line(f"Account standing: {standing}/100")
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -2808,8 +2812,8 @@ class Endcord:
 
     def update_member_list(self, last_index=None):
         """Generate member list and update it in TUI"""
-        if last_index is not None and self.tui.mlist_index < last_index < self.tui.mlist_index + self.screen.getmaxyx()[0]:
-            return   # dont regenerate for changes that are not vidible
+        if last_index is not None and not self.tui.mlist_index < last_index < self.tui.mlist_index + self.screen.getmaxyx()[0]:
+            return   # dont regenerate for changes that are not visible
         member_list, member_list_format = formatter.generate_member_list(
             self.current_members,
             self.current_roles,

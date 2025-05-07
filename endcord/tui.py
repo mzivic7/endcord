@@ -95,7 +95,7 @@ class TUI():
         self.tree_dm_status = config["tree_dm_status"]
         self.member_list_width = config["member_list_width"]
         self.assist = config["assist"]
-        self.instant_assist = False
+        self.wrap_around = config["wrap_around"]
 
         # find all first chain parts
         self.chainable = []
@@ -169,6 +169,7 @@ class TUI():
         self.win_prompt = None
         self.keybinding_chain = None
         self.assist_start = -1
+        self.instant_assist = False
 
         # start drawing
         self.need_update = threading.Event()
@@ -367,8 +368,12 @@ class TUI():
         self.dont_hide_chat_selection = not(allow)
 
 
-    def tree_select_active(self):
-        """Move tree selection to active channel"""
+    def get_tree_index(self, position):
+        """
+        Get indexes of various tree positions:
+        0 - tree end
+        1 - active channel
+        """
         skipped = 0
         drop_down_skip_guild = False
         drop_down_skip_category = False
@@ -396,10 +401,16 @@ class TUI():
                 drop_down_skip_category = True
             elif first_digit == 0 and 500 <= code <= 599:
                 drop_down_skip_channel = True
-            if (code % 100) // 10 in (4, 5):
-                self.tree_selected = num - skipped
-                self.tree_index = max(self.tree_selected - self.tree_hw[0] + 3, 0)
-                break
+            if position and (code % 100) // 10 in (4, 5):   # active channels
+                return num - skipped
+        return num - skipped
+
+
+    def tree_select_active(self):
+        """Move tree selection to active channel"""
+        active_channel_index = self.get_tree_index(1)
+        self.tree_selected = active_channel_index
+        self.tree_index = max(self.tree_selected - self.tree_hw[0] + 3, 0)
         self.draw_tree()
 
 
@@ -1235,6 +1246,11 @@ class TUI():
                     self.tree_index -= 1
                 self.tree_selected -= 1
                 self.draw_tree()
+            elif self.wrap_around:
+                tree_end_index = self.get_tree_index(0)
+                self.tree_selected = tree_end_index
+                self.tree_index = max(self.tree_selected - (self.tree_hw[0] - 1), 0)
+                self.draw_tree()
 
         elif key in self.keybindings["tree_down"]:
             if self.tree_selected + 1 < self.tree_clean_len:
@@ -1242,6 +1258,10 @@ class TUI():
                 if top_line < self.tree_clean_len and self.tree_selected >= top_line - 3:
                     self.tree_index += 1
                 self.tree_selected += 1
+                self.draw_tree()
+            elif self.wrap_around:
+                self.tree_selected = 0
+                self.tree_index = 0
                 self.draw_tree()
 
         elif key in self.keybindings["tree_select"]:
@@ -1293,6 +1313,10 @@ class TUI():
                 elif self.extra_index > 0:
                     self.extra_index -= 1
                     self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+                elif self.wrap_around:
+                    self.extra_selected = len(self.extra_window_body) - 1
+                    self.extra_index = max(len(self.extra_window_body) - (self.win_extra_window.getmaxyx()[0] - 1), 0)
+                    self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
             elif self.win_member_list:
                 if self.mlist_selected >= 0:
                     if self.mlist_index and self.mlist_selected <= self.mlist_index:
@@ -1311,6 +1335,10 @@ class TUI():
                         if top_line < len(self.extra_window_body) and self.extra_selected >= top_line - 1:
                             self.extra_index += 1
                         self.extra_selected += 1
+                        self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+                    elif self.wrap_around:
+                        self.extra_selected = 0
+                        self.extra_index = 0
                         self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
                 elif self.extra_index + 1 < len(self.extra_window_body):
                     self.extra_index += 1

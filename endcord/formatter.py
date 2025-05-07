@@ -44,6 +44,7 @@ COMMAND_ASSISTS = (
     ("bottom", "bottom"),
     ("go_reply", "go_reply"),
     ("show_reactions", "show_reactions"),
+    ("check_standing", "check_standing"),
     ("set [key] = [value]", "set"),
 
 )

@@ -1,5 +1,12 @@
+Fix missing channels
+
 commands color in input line
-check_standing command
+    tui has self.command which is range that shoild be colored
+    app needs to generate that reange and pass it to tui
+        get first word check if ha space after it
+        go through all formatter.COMMAND_ASSISTS
+        check if it is in, if yes, return its range to tui: (0, len()-1)
+    tui receives that and redraws input line
 rpc on windows
 mouse controls (select in tree/chat/extra/member/input)
 tabs

@@ -1262,3 +1262,22 @@ class Discord():
         logger.error(f"Failed to download pfp. Response code: {response.status}")
         connection.close()
         return None
+
+
+    def get_my_standing(self):
+        """Get my account standing"""
+        message_data = None
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", "/api/v9/safety-hub/@me", message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            return data["account_standing"]["state"]
+        logger.error(f"Failed to fetch account standing. Response code: {response.status}")
+        connection.close()
+        return None

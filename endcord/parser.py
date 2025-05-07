@@ -264,4 +264,8 @@ def command_string(text):
         if match:
             cmd_args = {"user_id": match.group(1)}
 
+    # 27 - CHECK_STANDING
+    elif text.lower().startswith("check_standing"):
+        cmd_type = 27
+
     return cmd_type, cmd_args
