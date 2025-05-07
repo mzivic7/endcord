@@ -47,7 +47,7 @@ def prepare():
                 pass
             install_windows_dependencies = "pipenv install pywin32 pywin32-ctypes windows-toasts windows-curses python-magic-bin"
             os.system(install_windows_dependencies)
-    elif sys.platform == "mac":
+    elif sys.platform == "darwin":
         pass
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
@@ -74,7 +74,7 @@ def build_with_pyinstaller(onedir):
     elif sys.platform == "win32":
         command = f'pipenv run python -m PyInstaller {hidden_imports} --collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
         os.system(command)
-    elif sys.platform == "mac":
+    elif sys.platform == "darwin":
         command = f'pipenv run python -m PyInstaller {hidden_imports} --collect-data=emoji --noconfirm {onedir} --console --clean --name {pkgname} "main.py"'
         os.system(command)
     else:
@@ -106,7 +106,7 @@ def build_with_nuitka(onedir):
     elif sys.platform == "win32":
         command = f"pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
-    elif sys.platform == "mac":
+    elif sys.platform == "darwin":
         command = f'pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
         os.system(command)
     else:

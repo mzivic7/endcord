@@ -69,7 +69,7 @@ elif sys.platform == "win32":
     log_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
     temp_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"), "")
     downloads_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/Downloads"), "")
-elif sys.platform == "mac":
+elif sys.platform == "darwin":
     config_path = f"~/Library/Application Support/{APP_NAME}/"
     log_path = f"~/Library/Application Support/{APP_NAME}/"
     temp_path = f"~/Library/Caches/TemporaryItems{APP_NAME}"
@@ -89,7 +89,7 @@ if sys.platform == "linux":
     runner = "xdg-open"
 elif sys.platform == "win32":
     runner = "explorer"
-elif sys.platform == "mac":
+elif sys.platform == "darwin":
     runner = "open"
 
 
@@ -251,7 +251,7 @@ def notify_send(title, message, sound="message", custom_sound=None):
         notification = Toast()
         notification.text_fields = [message]
         toaster.show_toast(notification)
-    elif sys.platform == "mac":
+    elif sys.platform == "darwin":
         if custom_sound:
             threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
         cmd = f"osascript -e 'display notification \"{message}\" with title \"{title}\"'"
@@ -322,7 +322,7 @@ def copy_to_clipboard(text):
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardText(text)
         win32clipboard.CloseClipboard()
-    elif sys.platform == "mac":
+    elif sys.platform == "darwin":
         proc = subprocess.Popen(
             ["pbcopy", "w"],
             stdin=subprocess.PIPE,
