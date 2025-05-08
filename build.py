@@ -27,7 +27,7 @@ def add_media():
 def remove_media():
     """Remove media support"""
     if check_media_support():
-        command = "pipenv run python -m pip uninstall -y pillow pyav numpy"
+        command = "pipenv run python -m pip uninstall -y pillow av numpy"
         os.system(command)
 
 

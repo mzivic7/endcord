@@ -18,7 +18,7 @@ python-socks = "*"
 
 [dev-packages]
 pillow = "*"
-pyav = "*"
+av = "*"
 numpy = "*"
 
 [requires]
