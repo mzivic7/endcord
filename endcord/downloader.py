@@ -48,7 +48,7 @@ class Downloader:
             http = SOCKSProxyManager(self.proxy)
         else:
             http = urllib3.PoolManager()
-            if self.proxy.scheme:
+            if proxy.scheme:
                 logger.warn("Invalid proxy, continuing without proxy")
         response = http.request("GET", url, preload_content=False)
         extension = response.headers.get("Content-Type", None).split("/")[-1].replace("jpeg", "jpg")
@@ -71,6 +71,7 @@ class Downloader:
             self.downloading = True
         if complete:
             return destination
+        logger.erorr("Error downloading file")
         return None
 
     def cancel(self):

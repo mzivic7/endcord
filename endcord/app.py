@@ -1919,6 +1919,8 @@ class Endcord:
                         shutil.move(path, destination)
                     else:
                         destination = path
+                else:
+                    return
             except Exception as e:
                 logger.error(f"Failed downloading file: {e}")
 

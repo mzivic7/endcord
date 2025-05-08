@@ -15,7 +15,7 @@
 Endcord is a third-party feature rich Discord client, running entirely in terminal.  
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](#token).  
-[More screenshots](https://github.com/mzivic7/endcord/blob/main/screenshots.md).  
+[More screenshots](https://github.com/mzivic7/endcord/blob/main/.github/screenshots.md).  
 
 
 ## Features

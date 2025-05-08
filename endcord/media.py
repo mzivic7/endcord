@@ -335,6 +335,8 @@ class CursesMedia():
 
     def play(self, path):
         """Select runner based on file type"""
+        if not path:
+            return
         self.path = path
         self.run = True
         self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
