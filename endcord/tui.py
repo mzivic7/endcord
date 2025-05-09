@@ -1022,7 +1022,7 @@ class TUI():
             self.need_update.set()
 
 
-    def init_pair(self, color, force_id=None):
+    def init_pair(self, color, force_id=-1):
         """Initialize color pair while keeping track of last unused id, and store its attribute in attr_map"""
         if len(color) == 2:
             fg, bg = color
@@ -1038,14 +1038,14 @@ class TUI():
                 attribute = curses.A_ITALIC
             else:
                 attribute = 0
-        if force_id:
+        if force_id > 0:
             curses.init_pair(force_id, fg, bg)
             self.color_cache = set_list_item(self.color_cache, (fg, bg), force_id)   # 255_curses_bug
             self.attrib_map = set_list_item(self.attrib_map, attribute, force_id)
-        else:
-            curses.init_pair(self.last_free_id, fg, bg)
-            self.color_cache.append((fg, bg))   # 255_curses_bug
-            self.attrib_map.append(attribute)
+            return force_id
+        curses.init_pair(self.last_free_id, fg, bg)
+        self.color_cache.append((fg, bg))   # 255_curses_bug
+        self.attrib_map.append(attribute)
         self.last_free_id += 1
         return self.last_free_id - 1
 
@@ -1096,25 +1096,29 @@ class TUI():
             if guild_id:
                 if guild["guild_id"] != guild_id:
                     continue
+            num = self.last_free_id
             for role in guild["roles"]:
                 color = role["ansi"]
                 found = False
-                for guild_i in all_roles:
-                    for role_i in guild_i["roles"]:
-                        if "color_id" not in role_i:
+                if not guild_id:
+                    num = 0
+                    # all guilds roles init at once
+                    for guild_i in all_roles:
+                        for role_i in guild_i["roles"]:
+                            if "color_id" not in role_i:
+                                break
+                            if role_i["ansi"] == color:
+                                role["color_id"] = role_i["color_id"]
+                                role["alt_color_id"] = role_i["alt_color_id"]
+                                found = True
+                                break
+                        if found:
                             break
-                        if role_i["ansi"] == color:
-                            role["color_id"] = role_i["color_id"]
-                            role["alt_color_id"] = role_i["alt_color_id"]
-                            found = True
-                            break
-                    if found:
-                        break
+                else:   # replacing colors from previous guild
+                    num += 2
                 if not found:
-                    pair_id = self.init_pair((color, bg, selected_id))
-                    role["color_id"] = pair_id
-                    pair_id = self.init_pair((color, alt_bg, selected_id))
-                    role["alt_color_id"] = pair_id
+                    role["color_id"] = self.init_pair((color, bg, selected_id), force_id=num-1)
+                    role["alt_color_id"] = self.init_pair((color, alt_bg, selected_id), force_id=num)
                     if guild_id:
                         selected_id += 1
             if guild_id:

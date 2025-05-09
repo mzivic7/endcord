@@ -13,7 +13,7 @@
 <b>Standard theme:<b><br>
 <img src="./screenshots/02.png" alt="Standard theme" width="864">
 <br><br>
-<b>Alternate theme with better lines:<b><br>
+<b>Legacy theme for terminals without extended character support:<b><br>
 <img src="./screenshots/01.png" alt="Legacy theme" width="800">
 <br><br>
 <b>Viewing user profile:<b><br>

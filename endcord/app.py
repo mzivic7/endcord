@@ -333,6 +333,9 @@ class Endcord:
         if self.member_list_auto_open and guild_id != self.active_channel["guild_id"]:
             open_member_list = True
 
+        # clear member roles when switching guild so there are no issues with same members in both guilds
+        if guild_id != self.active_channel["guild_id"]:
+            self.current_member_roles = []
 
         # update active channel
         self.active_channel["guild_id"] = guild_id
@@ -559,6 +562,8 @@ class Endcord:
                                     break
                 self.current_member_roles = guild["members"]
                 break
+        else:
+            self.current_member_roles = []
 
 
     def add_to_store(self, channel_id, text):
