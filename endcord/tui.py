@@ -54,7 +54,7 @@ class TUI():
         curses.curs_set(0)   # using custom cursor
         print("\x1b[?2004h")   # enable bracketed paste mode
         self.last_free_id = 1   # last free color pair id
-        self.color_cache = []   # for restoring colors
+        self.color_cache = []   # for restoring colors   # 255_curses_bug
         self.attrib_map = [0]   # has 0 so its index starts from 1 to be matched with color pairs
         tree_bg = config["color_tree_default"][1]
         self.init_pair((255, -1))   # white on default
@@ -307,11 +307,6 @@ class TUI():
     def get_last_free_color_id(self):
         """Return last free color id. Should be run at the end of all color initializations in endcord.tui."""
         return self.last_free_id
-
-
-    def get_color_cache(self):
-        """Return first 255 cached colors"""
-        return self.color_cache[:255]
 
 
     def set_selected(self, selected, change_amount=0):
@@ -1045,11 +1040,11 @@ class TUI():
                 attribute = 0
         if force_id:
             curses.init_pair(force_id, fg, bg)
-            self.color_cache = set_list_item(self.color_cache, (fg, bg), force_id)
+            self.color_cache = set_list_item(self.color_cache, (fg, bg), force_id)   # 255_curses_bug
             self.attrib_map = set_list_item(self.attrib_map, attribute, force_id)
         else:
             curses.init_pair(self.last_free_id, fg, bg)
-            self.color_cache.append((fg, bg))
+            self.color_cache.append((fg, bg))   # 255_curses_bug
             self.attrib_map.append(attribute)
         self.last_free_id += 1
         return self.last_free_id - 1
@@ -1115,7 +1110,7 @@ class TUI():
                             break
                     if found:
                         break
-                else:
+                if not found:
                     pair_id = self.init_pair((color, bg, selected_id))
                     role["color_id"] = pair_id
                     pair_id = self.init_pair((color, alt_bg, selected_id))
@@ -1127,7 +1122,7 @@ class TUI():
         return all_roles
 
 
-    def restore_colors(self):
+    def restore_colors(self):   # 255_curses_bug
         """Re-initialize cached colors"""
         for num, color in enumerate(self.color_cache):
             curses.init_pair(num + 1, *color)

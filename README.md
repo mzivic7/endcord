@@ -9,7 +9,7 @@
 <a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#support">Support</a>
-<img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
+<img src="./.github/screenshots/02.png" alt="Screenshot 1" width="864">
 </div>
 
 Endcord is a third-party feature rich Discord client, running entirely in terminal.  

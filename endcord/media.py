@@ -54,10 +54,8 @@ class CursesMedia():
         self.show_ui()
 
         self.media_screen_size = self.media_screen.getmaxyx()
-        # self.init_colrs()
-        # https://github.com/python/cpython/issues/119138
-        # as temporary fix, old color pairs are cached and replaced, later restored
-        self.start_color_id = 0
+        # self.init_colrs()   # 255_curses_bug - enable this
+        self.start_color_id = 0   # 255_curses_bug
 
 
     def init_colrs(self):
@@ -143,7 +141,7 @@ class CursesMedia():
             self.media_type = "gif"
             self.play_anim(img_path)
             return
-        self.init_colrs()
+        self.init_colrs()   # 255_curses_bug
         self.hide_ui()
         self.pil_img_to_curses(img)
         while self.playing:
@@ -158,7 +156,7 @@ class CursesMedia():
 
     def play_anim(self, gif_path):
         """Convert animated image to colored ascii art and draw it with curses"""
-        self.init_colrs()
+        self.init_colrs()   # 255_curses_bug
         self.hide_ui()
         gif = Image.open(gif_path)
         frame = 0
@@ -181,7 +179,7 @@ class CursesMedia():
 
     def play_audio(self, path, seek=None):
         """Play only audio"""
-        self.init_colrs()
+        self.init_colrs()   # 255_curses_bug
         self.show_ui()
         container = av.open(path)
         self.ended = False
@@ -266,7 +264,7 @@ class CursesMedia():
 
     def play_video(self, path, seek=None):
         """Decode video and audio frames and manage queues"""
-        self.init_colrs()
+        self.init_colrs()   # 255_curses_bug
         self.show_ui()
         container = av.open(path)
         self.ended = False

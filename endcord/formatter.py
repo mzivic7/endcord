@@ -1969,7 +1969,8 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
             if code == 1300 and (tree_format[num - 1] // 100) % 10 == 4:   # thread end if there are threads
                 tree[num - 1] = f"{pass_by}{pass_by}{end_thread}{tree[num - 1][9:]}"
             elif tree[num - 1][:4] != f"{intersection}{dd_pointer}":
-                if tree[num][:3] == pass_by:
+                if (tree_format[num - 1] < 500 or tree_format[num - 1] > 599) and tree[num][:3] == pass_by:
+                    # skipping colapsed forums
                     tree[num - 1] = pass_by_end + tree[num - 1][6:]
                 elif tree[num - 1][:3] == intersection:
                     tree[num - 1] = intersection_end + tree[num - 1][3:]

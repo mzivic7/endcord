@@ -236,7 +236,11 @@ class Gateway():
         self.resumable = False
         abnormal = False
         while self.run and not self.wait:
-            ws_opcode, data = self.ws.recv_data()
+            try:
+                ws_opcode, data = self.ws.recv_data()
+            except ConnectionResetError:
+                self.resumable = True
+                break
             if ws_opcode == 8 and len(data) >= 2:
                 if not data:
                     self.resumable = True

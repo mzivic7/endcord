@@ -430,13 +430,18 @@ class Endcord:
                     if guild["guild_id"] == self.active_channel["guild_id"]:
                         self.current_members = guild["members"]
                         break
+                else:
+                    self.current_members = []
             for guild in self.subscribed_members:
                 if guild["guild_id"] == self.active_channel["guild_id"]:
                     self.current_subscribed_members = guild["members"]
                     break
+                else:
+                    self.current_subscribed_members = []
 
         # manage roles
         if guild_id:   # for guilds only
+            # 255_curses_bug - make it run on init only
             self.all_roles = self.tui.init_role_colors(
                 self.all_roles,
                 self.default_msg_color[1],
@@ -2751,7 +2756,7 @@ class Endcord:
             self.tui.lock_ui(True)
             self.curses_media.play(path)
             # restore first 255 colors, attributes were not modified
-            self.tui.restore_colors()
+            self.tui.restore_colors()   # 255_curses_bug
             self.tui.lock_ui(False)
 
 
@@ -2814,7 +2819,7 @@ class Endcord:
 
     def update_member_list(self, last_index=None):
         """Generate member list and update it in TUI"""
-        if last_index is not None and not self.tui.mlist_index < last_index < self.tui.mlist_index + self.screen.getmaxyx()[0]:
+        if last_index is not None and not self.tui.mlist_index-1 < last_index < self.tui.mlist_index-1 + self.screen.getmaxyx()[0]:
             return   # dont regenerate for changes that are not visible
         member_list, member_list_format = formatter.generate_member_list(
             self.current_members,

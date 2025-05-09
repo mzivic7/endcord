@@ -34,6 +34,7 @@ So, before even thinking about putting it through LLM, open an issue and save yo
 ### Debug points in code
 - `debug_events` - save all received events from gateway
 - `debug_guilds_tree` - print all tree data in jsons
+- `255_curses_bug` - this part of the code should be changed after [ncurses bug](https://github.com/python/cpython/issues/119138) is fixed. If there is no note, just remove the code
 
 ### Network tab filter
 Filter for network tab in dev tool:  
@@ -113,7 +114,7 @@ https://github.com/discord-userdoccers/discord-userdoccers
 |  |--> CHANNEL
 |  |  |-< THREAD
 |  |  \-< THREAD
-|  |  end_channel 1100
+|  |  end_channel 1300
 |  \--> CHANNEL
 |  end_category 1200
 |--> CATEGORY

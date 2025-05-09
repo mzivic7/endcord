@@ -120,9 +120,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
     Formatting for each newline string after message base. See [format_newline](#format_newline) for more info.
-- `format_reply = "[REPLY] <%username> | /--> [%timestamp] %content"`  
+- `format_reply = [REPLY] <%username> | ┌──> [%timestamp] %content"`  
     Formatting for replied message string. It is above message base. See [format_reply](#format_reply) for more info.
-- `format_reactions = "[REACT]                \\--< %reactions"`  
+- `format_reactions = "[REACT]                └──< %reactions"`  
     Formatting for message reactions string. It is bellow last newline string. See [format_reactions](#format_reactions) for more info.
 - `format_one_reaction = "%count:%reaction"`  
     Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](#format_one_reaction) for more info.
@@ -150,11 +150,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for message line in extra window when searching. See [format_search_message](#format_search_message) for more info.
 - `edited_string = "(edited)"`  
     A string added to the end of the message when it is edsited.
-- `quote_character = "|"`  
+- `quote_character = "║"`  
     A character that is prepended to each line of songle or multiline quote.
 - `reactions_separator = "; "`  
     A string placed between two reactions.
-- `chat_date_separator = "-"`  
+- `chat_date_separator = "─"`  
     A single character used to draw horizontal line for separating messages sent on different days. Set to None to disable date separator.
 - `format_date = " %B %d, %Y "`  
     Format for timestamps in `chat_date_separator`. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
@@ -168,15 +168,15 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Limit to the thread name string length.
 - `limit_thread_name = 0`  
     Limit to `%username`, `%global_name`, `%server` and ``%channel` length in `format_prompt`.
-- `tree_vert_line = "|"`  
+- `tree_vert_line = "│"`  
     A single character used to draw vertical line separating channel tree and the chat.
-- `tree_drop_down_vline = "|"`  
+- `tree_drop_down_vline = "│"`  
     A single character used to draw vertical line in tree drop down menus.
-- `tree_drop_down_hline = "-"`  
+- `tree_drop_down_hline = "─"`  
     A single character used to draw horizontal line in tree drop down menus.
-- `tree_drop_down_intersect = "|"`  
+- `tree_drop_down_intersect = "├"`  
     A single character used to draw intersections in tree drop down menus.
-- `tree_drop_down_corner = "\\"`  
+- `tree_drop_down_corner = "└"`  
     A single character used to draw corners in tree drop down menus.
 - `tree_drop_down_pointer = ">"`  
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
@@ -184,7 +184,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw thread pointer in tree drop down menus.
 - `tree_drop_down_forum = "◆"`  
     A single character used to draw forum pointer in tree drop down menus.
-- `tree_dm_status = "◆"`  
+- `tree_dm_status = "●"`  
     A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd. Also used in member list.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
