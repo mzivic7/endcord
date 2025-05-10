@@ -56,7 +56,7 @@ class Endcord:
         self.config = config
 
         # load often used values from config
-        self.enable_rpc = config["rpc"] and sys.platform == "linux"
+        self.enable_rpc = config["rpc"]
         self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
         self.msg_num = max(min(config["download_msg"], 100), 20)
         self.limit_typing = max(config["limit_typing_string"], 25)
@@ -3469,8 +3469,6 @@ class Endcord:
         # start RPC server
         if self.enable_rpc:
             self.rpc = rpc.RPC(self.discord, self.my_user_data, self.config)
-            self.rpc_thread = threading.Thread(target=self.rpc.server_thread, daemon=True, args=())
-            self.rpc_thread.start()
 
         logger.info("Main loop started")
 

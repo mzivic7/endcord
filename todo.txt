@@ -1,4 +1,3 @@
-rpc on windows
 mouse controls (select in tree/chat/extra/member/input)
 tabs
 code blocks syntax highlighting

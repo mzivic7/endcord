@@ -3,10 +3,21 @@ import logging
 import os
 import socket
 import struct
+import sys
 import threading
 
+if sys.platform == "win32":
+    import pywintypes
+    import win32file
+    import win32pipe
+
+
 logger = logging.getLogger(__name__)
-DISCORD_SOCKET = "/run/user/1000/discord-ipc-0"
+if sys.platform == "linux":
+    DISCORD_SOCKET = f"/run/user/{os.getuid()}/discord-ipc-0"
+else:
+    DISCORD_SOCKET = ""
+DISCORD_WIN_PIPE = r"\\?\pipe\discord-ipc-0"
 DISCORD_ASSETS_WHITELIST = (   # assets passed from RPC app to discord as text
     "large_text",
     "small_text",
@@ -14,10 +25,11 @@ DISCORD_ASSETS_WHITELIST = (   # assets passed from RPC app to discord as text
     "small_image",
 )
 
-def receive_data(connection):
+
+def receive_data_linux(connection):
     """Receive and decode nicely packed json data"""
-    header = connection.recv(8)
     try:
+        header = connection.recv(8)
         op, length = struct.unpack("<II", header)
         data = connection.recv(length)
         final_data = json.loads(data)
@@ -27,9 +39,9 @@ def receive_data(connection):
         return None, None
 
 
-def send_data(connection, op, data):
+def send_data_linux(connection, op, data):
     """
-    Nicely encode and send json data.
+    Nicely encode and send json data
     op codes:
     0 - handshake
     1 - payload
@@ -39,14 +51,46 @@ def send_data(connection, op, data):
     connection.sendall(package)
 
 
+def receive_data_win(pipe):
+    """Receive and decode nicely packed json data from windows named pipe"""
+    try:
+        header = win32file.ReadFile(pipe, 8)[1]
+        op, length = struct.unpack("<II", header)
+        data = win32file.ReadFile(pipe, length)[1]
+        final_data = json.loads(data.decode("utf-8"))
+        return op, final_data
+    except (struct.error, pywintypes.error) as e:
+        logger.error(e)
+        return None, None
+
+
+def send_data_win(pipe, op, data):
+    """
+    Nicely encode and send json data to windows named pipe
+    op codes:
+    0 - handshake
+    1 - payload
+    """
+    try:
+        payload = json.dumps(data, separators=(",", ":"))
+        package = struct.pack("<ii", op, len(payload)) + payload.encode("utf-8")
+        win32file.WriteFile(pipe, package)
+    except pywintypes.error as e:
+        logger.error(e)
+
+
+if sys.platform == "win32":
+    receive_data = receive_data_win
+    send_data = send_data_win
+else:
+    receive_data = receive_data_linux
+    send_data = send_data_linux
+
+
 class RPC:
     """Main RPC class"""
 
     def __init__(self, discord, user, config):
-        if os.path.exists(DISCORD_SOCKET):
-            os.unlink(DISCORD_SOCKET)
-        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.server.bind(DISCORD_SOCKET)
         self.discord = discord
         self.run = True
         self.changed = False
@@ -77,13 +121,27 @@ class RPC:
             "nonce": None,
         }
 
+        # start server thread
+        if sys.platform == "win32":
+            self.rpc_thread = threading.Thread(target=self.server_thread_win, daemon=True, args=())
+            self.rpc_thread.start()
+        elif sys.platform == "linux":
+            self.rpc_thread = threading.Thread(target=self.server_thread_linux, daemon=True, args=())
+            self.rpc_thread.start()
+        else:
+            logger.warn(f"RPC server cannot be started on this platform: {sys.platform}")
+            return
+
 
     def client_thread(self, connection):
         """Thread that handles receiving and sending data from one client"""
         app_id = None
+
         try:   # lets keep server running even if there is error in one thread
             logger.info("RPC client connected")
             op, init_data = receive_data(connection)
+            if op is None or init_data is None:
+                return
             app_id = init_data["client_id"]
             logger.debug(f"RPC app id: {app_id}")
             rpc_data = self.discord.get_rpc_app(app_id)
@@ -99,11 +157,13 @@ class RPC:
                     if data["cmd"] == "SET_ACTIVITY":
                         activity = data["args"]["activity"]
                         activity_type = activity.get("type", 0)
+
                         # add everything thats missing
                         activity["application_id"] = app_id
                         activity["name"] = rpc_data["name"]
                         assets = {}
                         for asset_client in activity["assets"]:
+
                             # check if asset is external link
                             if activity["assets"][asset_client][:8] == "https://":
                                 if self.external:
@@ -112,6 +172,7 @@ class RPC:
                                 else:
                                     external_asset = activity["assets"][asset_client]
                                 continue
+
                             # check if asset is an image
                             elif "image" in asset_client:
                                 for asset_app in rpc_assets:
@@ -119,9 +180,10 @@ class RPC:
                                         assets[asset_client] = asset_app["id"]
                                         break
                             elif asset_client in DISCORD_ASSETS_WHITELIST:
-                                    assets[asset_client] = activity["assets"][asset_client]
-                                    continue
-                        # multiply timestamps by 1000
+                                assets[asset_client] = activity["assets"][asset_client]
+                                continue
+
+                        # prepare other data
                         if "timestamps" in activity:
                             if "start" in activity["timestamps"]:
                                 activity["timestamps"]["start"] *= 1000
@@ -177,12 +239,41 @@ class RPC:
                     self.presences.pop(num)
                     self.changed = True
                     break
+        if sys.platform == "win32":
+            win32file.CloseHandle(connection)
+        else:
+            connection.close()
         logger.info("RPC client disconnected")
-        connection.close()
 
 
-    def server_thread(self):
+    def server_thread_win(self):
+        """Thread that listens for new connections on the named pipe and starts new client_thread for each connection"""
+        logger.info("RPC server started")
+        while self.run:
+            try:
+                pipe = win32pipe.CreateNamedPipe(
+                    DISCORD_WIN_PIPE,   # pipeName
+                    win32pipe.PIPE_ACCESS_DUPLEX,   # openMode
+                    win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,   # pipeMode
+                    win32pipe.PIPE_UNLIMITED_INSTANCES,   # nMaxInstances
+                    65536,   # nOutBufferSize in bytes   # = 64KiB
+                    65536,   # nInBufferSize
+                    0,   # nDefaultTimeOut
+                    None,   # lpSecurityAttributes
+                )
+                win32pipe.ConnectNamedPipe(pipe, None)
+                threading.Thread(target=self.client_thread, daemon=True, args=(pipe,)).start()
+            except pywintypes.error as e:
+                logger.error(f"Named pipe error: {e}")
+
+
+    def server_thread_linux(self):
         """Thread that listens for new connections on socket and starts new client_thread for each connection"""
+        if sys.platform in ("linux", "darwin"):
+            if os.path.exists(DISCORD_SOCKET):
+                os.unlink(DISCORD_SOCKET)
+            self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.server.bind(DISCORD_SOCKET)
         logger.info("RPC server started")
         while self.run:
             self.server.listen(1)

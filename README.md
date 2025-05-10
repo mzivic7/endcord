@@ -239,11 +239,10 @@ For now, there is no emoji assist, but it is planned.
 Emoji names can be found [here](https://unicode.org/emoji/charts/full-emoji-list.html) and aliases [here](https://www.webfx.com/tools/emoji-cheat-sheet/).  
 
 ### RPC
-For now RPC is only implemented for Linux, it is automatically disabled on other platforms.  
-And only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
+For now RPC only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
 Usually RPC app must be started after RPC server (endcord).  
-More info about whats going on can be found in log, when endcord is in debug mode.  
+If it doesnt work, more info about whats going on can be found in log, when endcord is in debug mode.  
 
 ### Forums
 Forums in tree can be opened just like a channel (`Ctrl+Space`). It will load only the most recent posts (unarchived) and show them in chat buffer.  
