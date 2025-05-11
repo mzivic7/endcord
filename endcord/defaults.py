@@ -28,6 +28,7 @@ settings = {
     "deleted_cache_limit": 30,
     "tree_show_invisible": False,
     "wrap_around": True,
+    "mouse": True,
     "tenor_gif_type": 1,
     "aspell_mode": "normal",
     "aspell_lang": "en_US",

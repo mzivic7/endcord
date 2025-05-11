@@ -238,7 +238,11 @@ class Gateway():
         while self.run and not self.wait:
             try:
                 ws_opcode, data = self.ws.recv_data()
-            except ConnectionResetError:
+            except (
+                ConnectionResetError,
+                websocket._exceptions.WebSocketConnectionClosedException,
+                OSError,
+            ):
                 self.resumable = True
                 break
             if ws_opcode == 8 and len(data) >= 2:
@@ -487,6 +491,8 @@ class Gateway():
                             for guild_num, guild_g in enumerate(self.guilds):
                                 if guild_g["guild_id"] == guild["guild_id"]:
                                     break
+                            else:
+                                continue
                             self.guilds[guild_num].update({
                                 "suppress_everyone": guild["suppress_everyone"],
                                 "suppress_roles": guild["suppress_roles"],
@@ -1326,6 +1332,7 @@ class Gateway():
             self.state = 2
             logger.info("Trying to reconnect")
         try:
+            code = None
             if self.resumable:
                 self.resumable = False
                 code = self.resume()

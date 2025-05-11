@@ -64,6 +64,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Probably a discord bug, might get removed in the future.  
 - `wrap_around = True`  
     Wether to wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
+- `mouse = True`  
+    Disable if there are issues with mouse controls.  
 - `tenor_gif_type = 1`  
     Type of the media when gif is downloaded from tenor:  
     0 - gif HD  

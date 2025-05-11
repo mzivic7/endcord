@@ -1207,7 +1207,7 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
         if add_newline:
             body_line += "\n"
 
-    # activity and string
+    # activity
     if presence:
         status = presence["status"].capitalize().replace("Dnd", "DnD")
         if presence["custom_status"]:
@@ -1219,6 +1219,8 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
         body_line += "Could not fetch status\n"
 
     # build body
+    if user_data["tag"]:
+        body_line += f"Tag: {user_data["tag"]}\n"
     body_line += f"Member since: {member_since}\n"
     if user_data["joined_at"]:
         body_line += f"Joined: {user_data["joined_at"]}\n"
@@ -1820,7 +1822,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
             "id": guild["guild_id"],
             "type": -1,
             "name": guild["name"],
-            "muted": muted,
+            "muted": muted_guild,
             "parent_index": None,
         })
 

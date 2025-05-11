@@ -307,6 +307,9 @@ class Discord():
                     bio = data["user_profile"].get("bio")
                 if data["user_profile"].get("pronouns"):
                     pronouns = data["user_profile"].get("pronouns")
+            tag = None
+            if data["user"]["primary_guild"] and "tag" in data["user"]["primary_guild"]:
+                tag = data["user"]["primary_guild"]["tag"]
             return {
                 "id": data["user"]["id"],
                 "guild_id": None,
@@ -316,6 +319,7 @@ class Discord():
                 "bio": bio,
                 "pronouns": pronouns,
                 "joined_at": None,
+                "tag": tag,
                 "extra": extra_data,
                 "roles": None,
             }
@@ -359,6 +363,9 @@ class Discord():
                     pronouns = data["guild_member_profile"]["pronouns"]
                 if "bio" in guild_profile and guild_profile["bio"]:
                     bio = data["guild_member_profile"]["bio"]
+            tag = None
+            if data["user"]["primary_guild"] and "tag" in data["user"]["primary_guild"]:
+                tag = data["user"]["primary_guild"]["tag"]
             return {
                 "id": data["user"]["id"],
                 "guild_id": guild_id,
@@ -368,6 +375,7 @@ class Discord():
                 "bio": bio,
                 "pronouns": pronouns,
                 "joined_at": joined_at,
+                "tag": tag,
                 "roles": roles,
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")

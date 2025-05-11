@@ -1,5 +1,6 @@
 import curses
 import logging
+import re
 import sys
 import threading
 import time
@@ -15,6 +16,7 @@ if sys.platform == "win32":
     BACKSPACE = 8   # i cant believe this
 else:
     BACKSPACE = curses.KEY_BACKSPACE
+match_word = re.compile(r"\w")
 
 
 def ctrl(x):
@@ -44,6 +46,19 @@ def safe_insch(screen, y, x, character, color):
         screen.insstr(y, x, character, color)
 
 
+def select_word(text, index):
+    """Select word at index positon"""
+    if index < 0 or index >= len(text):
+        return None, None
+    start = index
+    while start > 0 and re.match(match_word, text[start - 1]):
+        start -= 1
+    end = index
+    while end < len(text) - 1 and re.match(match_word, text[end + 1]):
+        end += 1
+    return start, end
+
+
 class TUI():
     """Methods used to draw terminal user interface"""
 
@@ -52,6 +67,9 @@ class TUI():
         acs_map = acs.get_map()
         curses.use_default_colors()
         curses.curs_set(0)   # using custom cursor
+        curses.curs_set(0)
+        curses.mousemask(curses.ALL_MOUSE_EVENTS)
+        curses.mouseinterval(0)
         print("\x1b[?2004h")   # enable bracketed paste mode
         self.last_free_id = 1   # last free color pair id
         self.color_cache = []   # for restoring colors   # 255_curses_bug
@@ -96,6 +114,7 @@ class TUI():
         self.member_list_width = config["member_list_width"]
         self.assist = config["assist"]
         self.wrap_around = config["wrap_around"]
+        self.mouse = config["mouse"]
 
         # find all first chain parts
         self.chainable = []
@@ -170,6 +189,7 @@ class TUI():
         self.keybinding_chain = None
         self.assist_start = -1
         self.instant_assist = False
+        self.first_click = (0, 0, 0)
 
         # start drawing
         self.need_update = threading.Event()
@@ -336,6 +356,7 @@ class TUI():
         self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
         self.cursor_pos = max(self.cursor_pos, 0)
         self.cursor_pos = min(w - 1, self.cursor_pos)
+        self.input_select_start = None
         self.show_cursor()
 
 
@@ -802,12 +823,15 @@ class TUI():
             self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
-    def draw_member_list(self, member_list, member_list_format, force=False):
+    def draw_member_list(self, member_list, member_list_format, force=False, reset=False):
         """Draw member list and resize chat"""
         self.member_list = member_list
         self.member_list_format = member_list_format
         if member_list and not self.disable_drawing:
             h, w = self.screen.getmaxyx()
+            if reset:
+                self.mlist_selected = -1
+                self.mlist_index = 0
             if not self.win_member_list or force:
                 if not force and self.win_member_list:
                     self.mlist_selected = -1
@@ -1038,6 +1062,10 @@ class TUI():
                 attribute = curses.A_ITALIC
             else:
                 attribute = 0
+        if force_id >= curses.COLOR_PAIRS:
+            return 0
+        if self.last_free_id >= curses.COLOR_PAIRS:
+            return 0
         if force_id > 0:
             curses.init_pair(force_id, fg, bg)
             self.color_cache = set_list_item(self.color_cache, (fg, bg), force_id)   # 255_curses_bug
@@ -1222,7 +1250,7 @@ class TUI():
             self.add_to_delta_store("BACKSPACE", letter)
 
 
-    def common_keybindings(self, key):
+    def common_keybindings(self, key, member=False):
         """Handle keybinding events that are common for all buffers"""
         if key == curses.KEY_UP:   # UP
             if self.chat_selected + 1 < len(self.chat_buffer):
@@ -1303,7 +1331,7 @@ class TUI():
             return 21
 
         elif key in self.keybindings["extra_up"]:
-            if self.extra_window_body:
+            if self.extra_window_body and not member:
                 if self.extra_select and self.extra_selected >= 0:
                     if self.extra_index and self.extra_selected <= self.extra_index:
                         self.extra_index -= 1
@@ -1327,7 +1355,7 @@ class TUI():
                     self.draw_member_list(self.member_list, self.member_list_format)
 
         elif key in self.keybindings["extra_down"]:
-            if self.extra_window_body:
+            if self.extra_window_body and not member:
                 if self.extra_select:
                     if self.extra_selected + 1 < len(self.extra_window_body):
                         top_line = self.extra_index + self.win_extra_window.getmaxyx()[0] - 1
@@ -1350,7 +1378,7 @@ class TUI():
                     self.mlist_selected += 1
                     self.draw_member_list(self.member_list, self.member_list_format)
 
-        elif self.extra_select and key == self.keybindings["extra_select"]:
+        elif key in self.keybindings["extra_select"]:
             return 27
 
         elif key in self.keybindings["channel_info"] and self.tree_selected > 0:
@@ -1413,6 +1441,12 @@ class TUI():
         key = -1
         while self.run:
             key = self.screen.getch()
+
+            if self.mouse and key == curses.KEY_MOUSE:
+                code = self.mouse_events(key)
+                if code:
+                    return self.return_input_code(code)
+                continue
 
             w = self.input_hw[1]
             if self.disable_drawing:
@@ -1690,11 +1724,11 @@ class TUI():
                 self.input_select_start = 0
                 self.input_select_end = len(self.input_buffer)
 
-            elif self.input_select_start and key == self.keybindings["copy_sel"]:
+            elif self.input_select_start is not None and key in self.keybindings["copy_sel"]:
                 self.store_input_selected()
                 return self.return_input_code(20)
 
-            elif self.input_select_start and key == self.keybindings["cut_sel"]:
+            elif self.input_select_start is not None and key in self.keybindings["cut_sel"]:
                 self.delete_selection()
                 return self.return_input_code(20)
 
@@ -1841,6 +1875,12 @@ class TUI():
         while self.run:
             key = self.screen.getch()
 
+            if self.mouse and key == curses.KEY_MOUSE:
+                code = self.mouse_events(key)
+                if code:
+                    return self.return_input_code(code)
+                continue
+
             if self.disable_drawing:
                 if key == 27:   # ESCAPE
                     self.screen.nodelay(True)
@@ -1908,3 +1948,114 @@ class TUI():
                 self.resize()
 
         return None, None, None, None
+
+
+    def mouse_events(self, key):
+        """Handle mouse events on terminal screen"""
+        if key == curses.KEY_MOUSE:
+            try:
+                _, x, y, _, bstate = curses.getmouse()
+            except curses.error:
+                return None
+            if bstate & curses.BUTTON1_PRESSED:
+                new_click = (time.time(), x, y)
+                self.mouse_single_click(x, y)
+                if new_click[0] - self.first_click[0] < 0.5 and new_click[1:] == self.first_click[1:]:
+                    return self.mouse_double_click(x, y)
+                self.first_click = new_click
+            elif bstate & curses.BUTTON4_PRESSED:
+                self.mouse_scroll(x, y, True)
+            elif bstate & curses.BUTTON5_PRESSED:
+                self.mouse_scroll(x, y, False)
+            return None
+
+
+    def mouse_in_window(self, x, y, win):
+        """Check if mouse is inside specified window"""
+        win_y, win_x = win.getbegyx()
+        win_h, win_w = win.getmaxyx()
+        return (win_x <= x < win_x + win_w) and (win_y <= y < win_y + win_h)
+
+
+    def mouse_rel_pos(self, x, y, win):
+        """Get mouse position relative to specified window"""
+        win_y, win_x = win.getbegyx()
+        return (x - win_x, y - win_y)
+
+    def mouse_single_click(self, x, y):
+        """Handle mouse single click events"""
+        if self.mouse_in_window(x, y, self.win_tree):
+            x, y = self.mouse_rel_pos(x, y, self.win_tree)
+            self.tree_selected = self.tree_index + y
+            self.draw_tree()
+
+        elif self.mouse_in_window(x, y, self.win_chat):
+            x, y = self.mouse_rel_pos(x, y, self.win_chat)
+            self.chat_selected = self.chat_index + self.win_chat.getmaxyx()[0] - y - 1
+            self.draw_chat()
+
+        elif self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
+            x, y = self.mouse_rel_pos(x, y, self.win_extra_window)
+            self.extra_selected = self.extra_index + y - 1
+            self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+
+        elif self.win_member_list and self.mouse_in_window(x, y, self.win_member_list):
+            x, y = self.mouse_rel_pos(x, y, self.win_member_list)
+            self.mlist_selected = self.mlist_index + y
+            self.draw_member_list(self.member_list, self.member_list_format)
+
+        elif self.mouse_in_window(x, y, self.win_input_line):
+            x, y = self.mouse_rel_pos(x, y, self.win_input_line)
+            input_index = min(self.input_line_index + x, len(self.input_buffer))
+            self.set_input_index(input_index)
+            self.draw_input_line()
+
+
+    def mouse_double_click(self, x, y):
+        """Handle mouse double click events"""
+        if self.mouse_in_window(x, y, self.win_tree):
+            return self.common_keybindings(self.keybindings["tree_select"][0])
+
+        if self.mouse_in_window(x, y, self.win_chat):
+            return 1   # reply
+
+        if self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
+            return 27   # select in extra window
+
+        if self.win_member_list and self.mouse_in_window(x, y, self.win_member_list):
+            return 39   # select in member list
+
+        if self.mouse_in_window(x, y, self.win_input_line):
+            start, end = select_word(self.input_buffer, self.input_index)
+            self.input_select_start = start
+            self.input_select_end = end + 1
+            self.draw_input_line()
+            self.set_input_index(self.input_select_end)
+            self.input_select_start = start
+
+
+    def mouse_scroll(self, x, y, up):
+        """Handle mouse scroll events"""
+        if self.mouse_in_window(x, y, self.win_tree):
+            if up:
+                self.common_keybindings(self.keybindings["tree_up"][0])
+            else:
+                self.common_keybindings(self.keybindings["tree_down"][0])
+
+        elif self.mouse_in_window(x, y, self.win_chat):
+            if up:
+                self.common_keybindings(curses.KEY_UP)
+            else:
+                self.common_keybindings(curses.KEY_DOWN)
+
+        elif self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
+            if up:
+                self.common_keybindings(self.keybindings["extra_up"][0])
+            else:
+                self.common_keybindings(self.keybindings["extra_down"][0])
+
+        elif self.win_member_list and self.mouse_in_window(x, y, self.win_member_list):
+            if up:
+                self.common_keybindings(self.keybindings["extra_up"][0], member=True)
+            else:
+                self.common_keybindings(self.keybindings["extra_down"][0], member=True)

@@ -1,5 +1,9 @@
-mouse controls (select in tree/chat/extra/member/input)
-tabs
-code blocks syntax highlighting
-voice and video calls
-localization (maybe)
+Advanced mouse controls:
+    double click on message body
+    double click on username
+    double click on replied message
+    double click on reaction
+Tabs
+Code blocks syntax highlighting
+Voice and video calls
+Localization (maybe)

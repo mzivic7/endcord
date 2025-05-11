@@ -8,7 +8,7 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
 <a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#support">Support</a>
+<a href="https://discord.gg/judQSxw5K2">Discord</a>
 <img src="./.github/screenshots/02.png" alt="Screenshot 1" width="864">
 </div>
 
@@ -23,6 +23,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - View images, gifs, videos, audio and stickers in terminal with ASCII art or external app
 - YouTube video and stream support
 - Integrated RPC (only Rich Presence)
+- Mouse controls
 - Desktop notifications
 - Download/upload attachments
 - Select message and: reply, edit, delete, go to replied, react
@@ -80,25 +81,25 @@ Settings, log, state and themes location:
 - On windows: `%USERPROFILE%/AppData/Local/endcord/`  
 - On mac: `~/Library/Application Support/endcord/`  
 
-Run `endcord -h` or `endcord --help` to see possible command arguments.  
+Run `endcord -h` or `endcord --help` to see available command arguments.  
 
 ### Providing config
 Custom config path can be provided with `-c [PATH_TO_CONFIG]` flag.  
 If config is not found at that path, default will be written.  
 There can be missing entries in config, they will be filled with defaults.  
 
-### Debug mode
-Debug mode can be enabled with `-d` flag.  
-It will cause extra messages to be written to log file.  
-Endcord will periodically write to drive and log file will quickly grow in size.  
-Log is overwritten on each run.
+### Config options
+Go to [configuration](configuration.md).
 
 ### Token
 Token is used to access Discord through your account without logging-in.  
 It is required to to use endcord.  
 After obtaining token, you can either:  
 - Pass token to endcord as command argument: `endcord -t [YOUR_TOKEN]`  
-- Save token in config - recommended  
+- Save token in config  
+Note that if you save it as argument, it might get saved in your terminal history file.  
+**Do not share your token!** Remove it form config before sharing it.  
+See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 
 ### Keybinding
 Keybindings are configured in separate section in `config.ini`.  
@@ -111,10 +112,11 @@ Kaybindings can also be chained like this (maximum 2 bindings in chain, separate
 `"ALT+120-ALT+100"` for `Alt+X-Alt+D` and so on.  
 To specify multiple keybindings for same action put them in a tuple, eg.: `(2, "25-97", "ALT+120")`.  
 
-See [FAQ](#FAQ) for more info on obtaining your Discord token.  
-
-### Config options
-Go to [configuration](configuration.md).
+### Debug mode
+Debug mode can be enabled with `-d` flag.  
+It will cause extra messages to be written to log file.  
+Endcord will periodically write to drive and log file will quickly grow in size.  
+Log is overwritten on each run.
 
 
 ## Usage
@@ -160,6 +162,17 @@ Media player: quit - `escape`, pause - `Space`, seek - `Left/Right`, replay - `Z
 Cancel action, leave media viewer - `Escape`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
+
+### Mouse controls
+- Scroll up/down in all windows
+- Single click to select in all windows
+- Double click in:
+    - tree to un/collapse or enter channel
+    - chat to start replying to message
+    - extra window to select item
+    - member list to view member profile
+    - input line to select a word
+If mouse controls are causing any issues, they can be disabled in config: `mouse = False`.
 
 ### Channel Tree
 If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
@@ -207,7 +220,6 @@ Extra window is drawn for viewing:
 - Channel/server info - from selected tree channel (`Alt+I`)
 - Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that sumamry topic.
 - Search and search results (`Ctrl+F`), `Alt+Enter` will jump to selected message.  
-
 `Alt+Enter` in member list will whow user profile of the selected member.  
 
 ### Assist with mention, role, channel, emoji, sticker
@@ -359,7 +371,7 @@ Nuitka requres compiler:
 4. In the 'Filter URLs' text box, search `discord.com/api`.
 5. Click on any filtered entry. On the right side, switch to `Header` tab search for the `authorization`.
 6. Copy value of `Authorization: ...` found under `Request Headers` (right click -> Copy Value)
-7. This is your discord token. Do not share it!
+7. This is your discord token. **Do not share it!**
 
 ### To further decrease probability of getting banned
 - MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
@@ -409,10 +421,9 @@ Note: `Ctrl+Up/Down/Left/Right` have different key codes in tty.
 ### Spacebar and other custom hosts
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to prefered host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
 Then endcord will connect only to that domain instead discord.  Token is diffeerent on different hosts!  
-Note that using custom host is completely untested, and support depends on how differnet the api is to original discord api, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+Note that using custom host is completely untested, and support depends on how differnet the api is from original discord api, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
 
-
-## Support
+### Support
 Open an issue in [issue tracker](https://github.com/mzivic7/endcord/issues).  
 Or, if you dont have a github account, want more interactive support, to share a theme or have a question: [Endcord Discord Server](https://discord.gg/judQSxw5K2).
 

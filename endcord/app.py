@@ -473,7 +473,7 @@ class Endcord:
             self.tui.remove_member_list()
         elif self.member_list_visible or open_member_list:
             self.member_list_visible = True
-            self.update_member_list()
+            self.update_member_list(reset=True)
         self.close_extra_window()
         if self.disable_sending:
             self.update_extra_line(self.disable_sending)
@@ -951,9 +951,9 @@ class Endcord:
                     self.restore_input_text = [input_text, "standard"]
 
             # select in extra window / memeber list
-            elif action == 27:
+            elif action in (27, 39):
                 self.restore_input_text = [input_text, "standard"]
-                if self.extra_window_open:
+                if self.extra_window_open and action == 27:
                     if self.extra_indexes:
                         extra_selected = self.tui.get_extra_selected()
                         if extra_selected < 0:
@@ -993,7 +993,7 @@ class Endcord:
                                 self.restore_input_text = [new_input_text, "standard"]
                             self.tui.set_input_index(new_index)
                 elif self.member_list_visible:   # controls for memeber list when no extra window
-                    member = self.current_members[self.tui.get_extra_selected()]
+                    member = self.current_members[self.tui.get_mlist_selected()]
                     if "id" in member:
                         user_id = member["id"]
                         guild_id = self.active_channel["guild_id"]
@@ -2822,7 +2822,7 @@ class Endcord:
         )
 
 
-    def update_member_list(self, last_index=None):
+    def update_member_list(self, last_index=None, reset=False):
         """Generate member list and update it in TUI"""
         if last_index is not None and not self.tui.mlist_index-1 < last_index < self.tui.mlist_index-1 + self.screen.getmaxyx()[0]:
             return   # dont regenerate for changes that are not visible
@@ -2833,7 +2833,7 @@ class Endcord:
             self.use_nick,
             self.status_char,
         )
-        self.tui.draw_member_list(member_list, member_list_format)
+        self.tui.draw_member_list(member_list, member_list_format, reset=reset)
 
 
     def update_status_line(self):
