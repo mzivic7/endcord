@@ -133,7 +133,7 @@ Edit selected message - `Ctrl+E`
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
 Add reaction with assist to selected message - `Alt+E`  
-Show reactions details for selected message - `Alt+W`
+Show reactions details for selected message - `Alt+W`  
 Go to replied message - `Ctrl+G`  
 View user profile (selected message) - `Alt+P`  
 View channel info (selected in tree) - `Alt+I`  
@@ -164,15 +164,14 @@ If UI ever gets messed up, redraw it - `Ctrl+L`
 Quit - `Ctrl+C`  
 
 ### Mouse controls
-- Scroll up/down in all windows
-- Single click to select in all windows
-- Double click in:
-    - tree to un/collapse or enter channel
-    - chat to start replying to message
-    - extra window to select item
-    - member list to view member profile
-    - input line to select a word
-If mouse controls are causing any issues, they can be disabled in config: `mouse = False`.
+Scroll up/down in all windows  
+Single click to select in all windows  
+Double click in:  
+Tree - un/collapse or enter channel  
+Chat - start replying to message  
+Extra window - select item  
+Member list - view member profile  
+Input line - select a word  
 
 ### Channel Tree
 If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
@@ -223,7 +222,7 @@ Extra window is drawn for viewing:
 `Alt+Enter` in member list will whow user profile of the selected member.  
 
 ### Assist with mention, role, channel, emoji, sticker
-When typing eg. username prepended with `@` assist will open as extra window with search results for typed text after `@` (search is case-insensitive).  
+When typing eg. username prepended with `@`, assist will open as extra window with search results for typed text after `@` (search is case-insensitive).  
 Assist triggers are (the first character): `@username`, `@role`, `#channel`, `:emoji:`, `;sticker;`.  
 Press `Esc` to stop assist. Re-type trigger to start it again.  
 Navigation: `Alt+Up/Down` - Go up/down, `Alt+Enter` or `Enter` - insert selected item.  
@@ -234,10 +233,10 @@ Sticker will also be added to message text and removed when sending.
 
 ### Adding/Removing reactions
 To start reaction assist, press `Alt+E`.  
-Then type emoji name prepended with `:` just like with regular assist then enter.  
+Then type emoji name prepended with `:`, just like with regular assist then enter.  
 If reaction is already present it will be +1. Reaction is removed if current account already reacted (reactions are toggled).  
 To add/remove one of already present reactions, only type its index (starts from 1).  
-Current account reactions have `*` prepended to reaction count.  
+If this account reacted to the message, that reaction will have `*` prepended to reaction count.  
 
 ### Escape key priority order
 Stop recording, close extra window, stop replying, everything else.
@@ -253,8 +252,7 @@ Emoji names can be found [here](https://unicode.org/emoji/charts/full-emoji-list
 ### RPC
 For now RPC only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
-Usually RPC app must be started after RPC server (endcord).  
-If it doesnt work, more info about whats going on can be found in log, when endcord is in debug mode.  
+If this happens, more info about whats going on can be found in log, when endcord is in debug mode.  
 
 ### Forums
 Forums in tree can be opened just like a channel (`Ctrl+Space`). It will load only the most recent posts (unarchived) and show them in chat buffer.  
@@ -277,7 +275,7 @@ Theme can also be changed in `config.ini` under section `[theme]`.
 Loading order: argument theme -> `config.ini` theme -> builtin default theme. There can be missing settings.  
 If theme is not found at provided path, default theme will be written to it.  
 If only file name is provided, without `.ini` extension, theme will be searched in `Themes` directory, see [Configuration](#configuration) for path.  
-There are 2 default themes: `default` and `better_lines`, they are assumed to be drawn on dark background (preferably black).  
+Default themes are assumed to be drawn on dark terminal background (preferably black).  
 
 ### Media support
 Very large number of image and video formats are supported thanks to pillow and PyAV.  
