@@ -37,6 +37,8 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
         for num, channel in enumerate(guild["channels"]):
             guild["channels"][num]["permitted"] = True
             guild["channels"][num]["allow_attach"] = True
+            guild["channels"][num]["allow_write"] = True
+        return guilds
 
     # base permissions
     base_permissions = int(guild["base_permissions"])
