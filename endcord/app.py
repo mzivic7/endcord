@@ -185,6 +185,7 @@ class Endcord:
         self.chat_format = []
         self.unseen_scrolled = False
         self.chat_indexes = []
+        self.chat_map = []
         self.update_prompt()
         self.typing = []
         self.unseen = []
@@ -1154,6 +1155,58 @@ class Endcord:
                     self.command = False
                     self.update_status_line()
                     self.stop_assist()
+
+            # mouse double click on message
+            elif action == 40:
+                self.restore_input_text = [input_text, "standard"]
+                clicked_chat, mouse_x = self.tui.get_clicked_chat()
+                if clicked_chat is not None and mouse_x is not None:
+                    chat_line_map = self.chat_map[clicked_chat]
+                    if chat_line_map:
+                        msg_index = chat_line_map[0]
+                        clicked_type = 1
+                        selected = None
+                        if len(chat_line_map) == 1:
+                            clicked_type = 1   # msg body
+                        elif chat_line_map[1] and chat_line_map[1][0] < mouse_x < chat_line_map[1][1]:
+                            clicked_type = 2   # username
+                        elif chat_line_map[2]:
+                            clicked_type = 3   # replied line
+                        elif chat_line_map[3]:
+                            for num, reaction in enumerate(chat_line_map[3]):
+                                if reaction[0] < mouse_x < reaction[1]:
+                                    clicked_type = 4   # reaction
+                                    selected = num
+                                    break
+                        # execute
+                        if clicked_type == 1 and "deleted" not in self.messages[msg_index]:   # start reply
+                            if self.messages[msg_index]["user_id"] == self.my_id:
+                                mention = None
+                            else:
+                                mention = self.reply_mention
+                            self.replying = {
+                                "id": self.messages[msg_index]["id"],
+                                "username": self.messages[msg_index]["username"],
+                                "global_name": self.messages[msg_index]["global_name"],
+                                "mention": mention,
+                            }
+                            self.update_status_line()
+                        elif clicked_type == 2:   # show profile
+                            user_id = self.messages[msg_index]["user_id"]
+                            guild_id = self.active_channel["guild_id"]
+                            if self.viewing_user_data["id"] != user_id or self.viewing_user_data["guild_id"] != guild_id:
+                                if guild_id:
+                                    self.viewing_user_data = self.discord.get_user_guild(user_id, guild_id)
+                                else:
+                                    self.viewing_user_data = self.discord.get_user(user_id)
+                            self.stop_assist(close=False)
+                            self.view_profile(self.viewing_user_data)
+                            pass
+                        elif clicked_type == 3:   # go to replied
+                            self.go_replied(msg_index)
+                        elif clicked_type == 4 and selected is not None:   # add/remove reaction
+                            self.build_reaction(str(selected + 1), msg_index=msg_index)
+
 
             # escape in main UI
             elif action == 5:
@@ -2778,7 +2831,7 @@ class Endcord:
         else:
             self.unseen_scrolled = False
             self.update_status_line()
-        self.chat, self.chat_format, self.chat_indexes = formatter.generate_chat(
+        self.chat, self.chat_format, self.chat_indexes, self.chat_map = formatter.generate_chat(
             self.messages,
             self.current_roles,
             self.current_channels,

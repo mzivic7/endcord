@@ -190,6 +190,7 @@ class TUI():
         self.assist_start = -1
         self.instant_assist = False
         self.first_click = (0, 0, 0)
+        self.mouse_chat_x = None
 
         # start drawing
         self.need_update = threading.Event()
@@ -298,6 +299,11 @@ class TUI():
             self.tree_format_changed = False
             return self.tree_format
         return None
+
+
+    def get_clicked_chat(self):
+        """Get index of clicked line in chat buffer and xcoordinate"""
+        return self.chat_selected, self.mouse_chat_x
 
 
     def get_assist(self):
@@ -1250,7 +1256,7 @@ class TUI():
             self.add_to_delta_store("BACKSPACE", letter)
 
 
-    def common_keybindings(self, key, member=False):
+    def common_keybindings(self, key, mouse=False, switch=False):
         """Handle keybinding events that are common for all buffers"""
         if key == curses.KEY_UP:   # UP
             if self.chat_selected + 1 < len(self.chat_buffer):
@@ -1293,26 +1299,26 @@ class TUI():
 
         elif key in self.keybindings["tree_select"]:
             # if selected tree entry is channel
-            if 300 <= self.tree_format[self.tree_selected_abs] <= 399:
+            if 300 <= self.tree_format[self.tree_selected_abs] <= 399 and not mouse:
                 # stop wait_input and return so new prompt can be loaded
                 return 4
             # if selected tree entry is dms drop down
-            if self.tree_selected_abs == 0:   # for dms
+            if self.tree_selected_abs == 0 and not switch:   # for dms
                 if (self.tree_format[self.tree_selected_abs] % 10):
                     self.tree_format[self.tree_selected_abs] -= 1
                 else:
                     self.tree_format[self.tree_selected_abs] += 1
                 self.draw_tree()
             # if selected tree entry is guild drop-down
-            elif 100 <= self.tree_format[self.tree_selected_abs] <= 199:
+            elif 100 <= self.tree_format[self.tree_selected_abs] <= 199 and not switch:
                 # this will trrigger open_guild() in app.py that will update and expand tree
                 return 19
             # if selected tree entry is threads drop-down
-            elif 400 <= self.tree_format[self.tree_selected_abs] <= 599:
+            elif 400 <= self.tree_format[self.tree_selected_abs] <= 599 and not mouse:
                 # stop wait_input and return so new prompt can be loaded
                 return 4
             # if selected tree entry is category drop-down
-            elif self.tree_selected_abs >= 0:
+            elif self.tree_selected_abs >= 0 and not switch:
                 if (self.tree_format[self.tree_selected_abs] % 10):
                     self.tree_format[self.tree_selected_abs] -= 1
                 else:
@@ -1331,7 +1337,7 @@ class TUI():
             return 21
 
         elif key in self.keybindings["extra_up"]:
-            if self.extra_window_body and not member:
+            if self.extra_window_body and not mouse:
                 if self.extra_select and self.extra_selected >= 0:
                     if self.extra_index and self.extra_selected <= self.extra_index:
                         self.extra_index -= 1
@@ -1355,7 +1361,7 @@ class TUI():
                     self.draw_member_list(self.member_list, self.member_list_format)
 
         elif key in self.keybindings["extra_down"]:
-            if self.extra_window_body and not member:
+            if self.extra_window_body and not mouse:
                 if self.extra_select:
                     if self.extra_selected + 1 < len(self.extra_window_body):
                         top_line = self.extra_index + self.win_extra_window.getmaxyx()[0] - 1
@@ -1959,11 +1965,12 @@ class TUI():
                 return None
             if bstate & curses.BUTTON1_PRESSED:
                 new_click = (time.time(), x, y)
-                self.mouse_single_click(x, y)
                 if new_click[0] - self.first_click[0] < 0.5 and new_click[1:] == self.first_click[1:]:
+                    self.first_click = (0, 0, 0)
                     return self.mouse_double_click(x, y)
                 self.first_click = new_click
-            elif bstate & curses.BUTTON4_PRESSED:
+                return self.mouse_single_click(x, y)
+            if bstate & curses.BUTTON4_PRESSED:
                 self.mouse_scroll(x, y, True)
             elif bstate & curses.BUTTON5_PRESSED:
                 self.mouse_scroll(x, y, False)
@@ -1988,8 +1995,9 @@ class TUI():
             x, y = self.mouse_rel_pos(x, y, self.win_tree)
             self.tree_selected = self.tree_index + y
             self.draw_tree()
+            return self.common_keybindings(self.keybindings["tree_select"][0], mouse=True)
 
-        elif self.mouse_in_window(x, y, self.win_chat):
+        if self.mouse_in_window(x, y, self.win_chat):
             x, y = self.mouse_rel_pos(x, y, self.win_chat)
             self.chat_selected = self.chat_index + self.win_chat.getmaxyx()[0] - y - 1
             self.draw_chat()
@@ -2014,10 +2022,11 @@ class TUI():
     def mouse_double_click(self, x, y):
         """Handle mouse double click events"""
         if self.mouse_in_window(x, y, self.win_tree):
-            return self.common_keybindings(self.keybindings["tree_select"][0])
+            return self.common_keybindings(self.keybindings["tree_select"][0], switch=True)
 
         if self.mouse_in_window(x, y, self.win_chat):
-            return 1   # reply
+            self.mouse_chat_x = self.mouse_rel_pos(x, y, self.win_chat)[0]
+            return 40   # special handling
 
         if self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
             return 27   # select in extra window
@@ -2056,6 +2065,6 @@ class TUI():
 
         elif self.win_member_list and self.mouse_in_window(x, y, self.win_member_list):
             if up:
-                self.common_keybindings(self.keybindings["extra_up"][0], member=True)
+                self.common_keybindings(self.keybindings["extra_up"][0], mouse=True)
             else:
-                self.common_keybindings(self.keybindings["extra_down"][0], member=True)
+                self.common_keybindings(self.keybindings["extra_down"][0], mouse=True)

@@ -467,6 +467,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     chat = []
     chat_format = []
     indexes = []
+    chat_map = []   # ((num, username:(start, end), is_reply, reactions:((start, end), ...)), ...)
     len_edited = len(edited_string)
     enable_separator = format_date and date_separator
     # load colors
@@ -509,7 +510,11 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         .replace("%timestamp", placeholder_timestamp)
         .replace("%content", ""),
         )
-
+    pre_reaction_len = len(
+        format_reactions
+        .replace("%timestamp", placeholder_timestamp)
+        .replace("%reactions", ""),
+    ) - 1
     if format_message.find("%username") > format_message.find("%global_name"):
         end_name = pre_name_len + limit_username + 1
     else:
@@ -518,6 +523,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     for num, message in enumerate(messages):
         temp_chat = []   # stores only one multiline message
         temp_format = []
+        temp_chat_map = []
         mentioned = False
         edited = message["edited"]
         user_id = message["user_id"]
@@ -569,6 +575,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 color_base = color_blocked
             else:
                 indexes.append(0)
+                temp_chat_map.append(None)
                 continue   # to not break message-to-chat conversion
 
         # date separator
@@ -582,6 +589,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 filler_r = filler - filler_l
                 temp_chat.append(f"{date_separator * filler_l}{date}{date_separator * filler_r}")
                 temp_format.append([color_separator])
+                temp_chat_map.append(None)
         except IndexError:
             pass
 
@@ -641,6 +649,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(color_mention_reply)
             else:
                 temp_format.append(color_reply)
+            temp_chat_map.append((num, None, True, None))
 
         # main message
         quote = False
@@ -781,6 +790,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             message_line = message_line.ljust(max_length-1)
 
         temp_chat.append(message_line)
+        temp_chat_map.append((num, (pre_name_len, end_name), False, None))
 
         # formatting
         if disable_formatting:
@@ -898,6 +908,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 new_line = new_line.ljust(max_length-1)
 
             temp_chat.append(new_line)
+            temp_chat_map.append((num, ))
 
             # formatting
             if disable_formatting:
@@ -939,11 +950,10 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     .replace("%reaction", emoji_str)
                     .replace("%count", f"{my_reaction}{reaction["count"]}"),
                 )
-            reactions = reactions_separator.join(reactions)
             reactions_line = (
                 format_reactions
                 .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
-                .replace("%reactions", reactions)
+                .replace("%reactions", reactions_separator.join(reactions))
             )
             if len(reactions_line) > max_length:
                 reactions_line = reactions_line[:max_length]
@@ -954,13 +964,20 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(color_mention_reactions)
             else:
                 temp_format.append(color_reactions)
+            reactions_map = []
+            offset = 0
+            for reaction in reaction:
+                reactions_map.append([pre_reaction_len + offset, pre_reaction_len + len(reaction) + offset])
+                offset += len(reactions_separator) + len(reaction)
+            temp_chat_map.append((num, None, False, reactions_map))
         indexes.append(len(temp_chat))
 
         # invert message lines order and append them to chat
         # it is inverted because chat is drawn from down to upside
         chat.extend(temp_chat[::-1])
         chat_format.extend(temp_format[::-1])
-    return chat, chat_format, indexes
+        chat_map.extend(temp_chat_map[::-1])
+    return chat, chat_format, indexes, chat_map
 
 
 def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, format_status_line, format_rich, limit_typing=30, use_nick=True, fun=True):

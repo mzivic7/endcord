@@ -165,13 +165,18 @@ Quit - `Ctrl+C`
 
 ### Mouse controls
 Scroll up/down in all windows  
-Single click to select in all windows  
+Single click to select in all windows, in tree also: un/collapse  
 Double click in:  
-Tree - un/collapse or enter channel  
-Chat - start replying to message  
+Tree - or enter channel  
 Extra window - select item  
 Member list - view member profile  
 Input line - select a word  
+Double click in chat:  
+On mesage - start replying to message  
+On replied message - go to that message  
+On username - view profile
+On reaction - toggle that reaction
+
 
 ### Channel Tree
 If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
@@ -280,8 +285,7 @@ Default themes are assumed to be drawn on dark terminal background (preferably b
 ### Media support
 Very large number of image and video formats are supported thanks to pillow and PyAV.  
 All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
-Optionally in config can be set to open media in external app (cross-system, will use default system app for that file format).  
-Audio is also played along with the video.  
+But there is also setting in config to open media in external app (cross-system, will use default system app for that file format).  
 "endcord-lite", without ASCII media support, can be built by not specifying `--lite` flag to build script. Lite version is significantly smaller in size, but still can open media in external app.  
 
 
