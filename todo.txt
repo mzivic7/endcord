@@ -1,8 +1,10 @@
 Paste image from clipboard as attachment
+Dont colapse threads
 Mute/unmute server/channel
 Cache last N channel messages and update them
 Discord slash commands ???
 More channels missing
+Add safe way to keep token
 
 Tabs
 Code blocks syntax highlighting
