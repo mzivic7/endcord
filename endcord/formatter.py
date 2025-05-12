@@ -1584,7 +1584,7 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
     return member_list, member_list_format
 
 
-def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dm_status_char, init_uncollapse=False, safe_emoji=False, show_invisible=False):
+def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, uncollapsed_threads, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dm_status_char, safe_emoji=False, show_invisible=False):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -1592,8 +1592,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         2XX - category (second level drop down menu)
         3XX - channel (not drop-down)
         4XX - thread
-        5XX - channel (third level drop down menu)
-        6XX - forum (third level drop down menu)
+        5XX - channel/forum (third level drop down menu)
         X0X - normal
         X1X - muted
         X2X - mentioned
@@ -1780,7 +1779,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         if not hidden_ch and category["hidden"] != 2:
                             category["hidden"] = False
                         active = (channel["id"] == active_channel_id)
-                        if active and init_uncollapse:
+                        if active:
                             # unwrap top level guild
                             active_guild = True
                         category["channels"].append({
@@ -1803,7 +1802,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                     if not channel.get("permitted", False):
                         hidden_ch = True
                     active = channel["id"] == active_channel_id
-                    if active and init_uncollapse:
+                    if active:
                         # unwrap top level guild
                         active_guild = True
                     bare_channels.append({
@@ -1912,6 +1911,8 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                                 code += 20
                             elif channel["unseen"]:
                                 code += 30
+                            if channel_threads and (channel["id"] in uncollapsed_threads):
+                                code += 1
                             tree_format.append(code)
                             tree_metadata.append({
                                 "id": channel["id"],

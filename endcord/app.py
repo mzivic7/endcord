@@ -150,6 +150,7 @@ class Endcord:
         self.tree = []
         self.tree_format = []
         self.tree_metadata = []
+        self.uncollapsed_threads = []
         self.my_roles = []
         self.deleted_cache = []
         self.extra_window_open = False
@@ -3070,7 +3071,7 @@ class Endcord:
                 self.tui.remove_extra_line()
 
 
-    def update_tree(self, collapsed=None, init_uncollapse=False):
+    def update_tree(self, collapsed=None):
         """Generate channel tree"""
         if collapsed is None:
             collapsed = self.state["collapsed"]
@@ -3083,6 +3084,7 @@ class Endcord:
             self.guild_positions,
             self.activities,
             collapsed,
+            self.uncollapsed_threads,
             self.active_channel["channel_id"],
             self.config["tree_drop_down_vline"],
             self.config["tree_drop_down_hline"],
@@ -3092,7 +3094,6 @@ class Endcord:
             self.config["tree_drop_down_thread"],
             self.config["tree_drop_down_forum"],
             self.status_char,
-            init_uncollapse=init_uncollapse,
             safe_emoji=self.config["emoji_as_text"],
             show_invisible = self.config["tree_show_invisible"],
         )
@@ -3287,15 +3288,18 @@ class Endcord:
 
 
     def check_tree_format(self):
-        """Check tree format for collapsed guilds and categories and save it"""
+        """Check tree format for collapsed guilds, categories, channels (with threads) and forums and save it"""
         new_tree_format = self.tui.get_tree_format()
         if new_tree_format:
             self.tree_format = new_tree_format
-            # get all collapsed channels/guilds and save them
+            # get all collapsed guilds/categories/channels/forums and save them
             collapsed = []
+            self.uncollapsed_threads = []
             for num, code in enumerate(self.tree_format):
-                if code < 300 and (code % 10) == 0:
+                if code < 300 and (code % 10) == 0:   # guild/category
                     collapsed.append(self.tree_metadata[num]["id"])
+                elif 499 < code < 700 and (code % 10) == 1:   # channel (with threads) and forum
+                    self.uncollapsed_threads.append(self.tree_metadata[num]["id"])
             if self.state["collapsed"] != collapsed:
                 self.state["collapsed"] = collapsed
                 peripherals.save_json(self.state, "state.json")
@@ -3516,7 +3520,7 @@ class Endcord:
             if not self.summaries:
                 self.summaries = []
 
-        # open uncollapsed guilds
+        # open uncollapsed guilds, generate and draw tree
         self.open_guild(guild["guild_id"], restore=True)
 
         # load messages
@@ -3543,10 +3547,7 @@ class Endcord:
             if channel_name:
                 self.switch_channel(channel_id, channel_name, guild_id, guild_name, open_member_list=self.member_list_auto_open)
                 self.tui.tree_select_active()
-
-        # generate and draw tree
-        if not self.tree_format:
-            self.update_tree(init_uncollapse=True)
+        else:
             self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
 
         # auto open member list if enough space

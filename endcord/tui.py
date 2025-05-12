@@ -1332,6 +1332,7 @@ class TUI():
             else:
                 self.tree_format[self.tree_selected_abs] += 1
             self.draw_tree()
+            self.tree_format_changed = True
 
         elif key in self.keybindings["tree_join_thread"]:
             return 21
