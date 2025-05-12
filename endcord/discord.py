@@ -974,6 +974,119 @@ class Discord():
         return True
 
 
+    def send_mute_guild(self, mute, guild_id):
+        """Mute/unmute channel, category, server or DM"""
+        guild_id = str(guild_id)
+
+        message_dict = {
+            "guilds": {
+                guild_id: {
+                    "muted": bool(mute),
+                },
+            },
+        }
+
+        if mute:
+            message_dict["guilds"][guild_id]["mute_config"] = {
+                "end_time": None,
+                "selected_time_window": -1,
+            }
+
+        url = "/api/v9/users/@me/guilds/settings"
+        message_data = json.dumps(message_dict)
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PATCH", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            connection.close()
+            return True
+        logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+        connection.close()
+        return False
+
+
+    def send_mute_channel(self, mute, channel_id, guild_id):
+        """Mute/unmute channel, category, server or DM"""
+        channel_id = str(channel_id)
+        guild_id = str(guild_id)
+
+        channel_overrides = {
+            channel_id: {
+                "muted": mute,
+            },
+        }
+
+        if mute:
+            channel_overrides[channel_id]["mute_config"] = {
+                "end_time": None,
+                "selected_time_window": -1,
+            }
+
+        message_dict = {
+            "guilds": {
+                guild_id: {
+                    "channel_overrides": channel_overrides,
+                },
+            },
+        }
+
+        url = "/api/v9/users/@me/guilds/settings"
+        message_data = json.dumps(message_dict)
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PATCH", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            connection.close()
+            return True
+        logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+        connection.close()
+        return False
+
+
+    def send_mute_dm(self, mute, dm_id):
+        """Mute/unmute channel, category, server or DM"""
+        dm_id = str(dm_id)
+
+        message_dict = {
+            "channel_overrides": {
+                dm_id: {
+                    "muted": bool(mute),
+                },
+            },
+        }
+
+        if mute:
+            message_dict["channel_overrides"][dm_id]["mute_config"] = {
+                "end_time": None,
+                "selected_time_window": -1,
+            }
+
+        url = "/api/v9/users/@me/guilds/%40me/settings"
+        logger.info(message_dict)
+        message_data = json.dumps(message_dict)
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PATCH", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            connection.close()
+            return True
+        logger.error(f"Failed to set DM mute config. Response code: {response.status}")
+        connection.close()
+        return False
+
+
     def join_thread(self, thread_id):
         """Join a thread"""
         message_data = None

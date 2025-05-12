@@ -272,4 +272,11 @@ def command_string(text):
     elif text.lower().startswith("paste_clipboard_image"):
         cmd_type = 28
 
+    # 29 - TOGGLE_MUTE
+    elif text.lower().startswith("toggle_mute"):
+        cmd_type = 29
+        match = re.search(match_channel, text)
+        if match:
+            cmd_args = {"channel_id": match.group(1)}
+
     return cmd_type, cmd_args

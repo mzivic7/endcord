@@ -1,4 +1,3 @@
-Mute/unmute server/channel
 Dont auto colapse threads
 Try to work on 8-color terminals
 Add safe way to keep token

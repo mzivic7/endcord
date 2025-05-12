@@ -133,7 +133,6 @@ keybindings = {
     "tree_collapse_threads": "ALT+116",   # Alt+T
     "tree_join_thread": "ALT+106",   # Alt+J
     "channel_info": "ALT+105",   # Alt+I
-    "hide_channel": "ALT+104",   # Alt+H
     "copy_channel_link": "ALT+85",   # Alt+Shift+U
     # input line
     "word_left": 554,   # Ctrl+Left

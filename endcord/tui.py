@@ -1392,9 +1392,6 @@ class TUI():
             self.extra_selected = -1
             return 25
 
-        elif key in self.keybindings["hide_channel"]:
-            return 26
-
         elif key in self.keybindings["cycle_status"]:
             return 33
 

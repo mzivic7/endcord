@@ -933,24 +933,6 @@ class Endcord:
                 self.restore_input_text = [input_text, "standard"]
                 self.view_selected_channel(tree_sel=tree_sel)
 
-            # hide selected channel locally, with a prompt
-            elif action == 26:
-                ch_type = self.tree_metadata[tree_sel]["type"]
-                if ch_type not in (-1, 1, 11, 12):
-                    self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "prompt"]
-                    self.reset_actions()
-                    self.ignore_typing = True
-                    guild_id = self.find_parents(tree_sel)[0]
-                    self.hiding_ch = {
-                        "channel_name": self.tree_metadata[tree_sel]["name"],
-                        "channel_id": self.tree_metadata[tree_sel]["id"],
-                        "guild_id": guild_id,
-                    }
-                    self.update_status_line()
-                else:
-                    self.restore_input_text = [input_text, "standard"]
-
             # select in extra window / memeber list
             elif action in (27, 39):
                 self.restore_input_text = [input_text, "standard"]
@@ -1701,8 +1683,8 @@ class Endcord:
             if channel_id:
                 _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
             else:
-                guild_id = self.active_channel["guild_id"]
                 channel_id = self.tree_metadata[tree_sel]["id"]
+                guild_id = self.find_parents(tree_sel)[0]
             if guild_id:
                 url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
                 peripherals.copy_to_clipboard(url)
@@ -1834,6 +1816,33 @@ class Endcord:
                     self.update_extra_line("Image not found in cliboard")
             else:
                 self.update_extra_line("No media support")
+
+        elif cmd_type == 29:   # TOGGLE_MUTE
+            channel_id = cmd_args.get("channel_id")
+            guild_id = None
+            if channel_id:
+                _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
+            else:
+                channel_id = self.tree_metadata[tree_sel]["id"]
+                guild_id = self.find_parents(tree_sel)[0]
+            if guild_id:   # mute channel/category
+                mute = self.toggle_mute(channel_id, guild_id=guild_id)
+                if mute is not None:
+                    self.discord.send_mute_channel(mute, channel_id, guild_id)
+            else:
+                is_dm = False
+                for dm in self.dms:
+                    if dm["id"] == channel_id:
+                        is_dm = True
+                        break
+                if is_dm:   # mute DM
+                    mute = self.toggle_mute(channel_id, is_dm=True)
+                    if mute is not None:
+                        self.discord.send_mute_dm(mute, channel_id)
+                else:   # mute guild
+                    mute = self.toggle_mute(channel_id)
+                    if mute is not None:
+                        self.discord.send_mute_guild(mute, channel_id)
 
         if reset:
             self.reset_actions()
@@ -3244,6 +3253,37 @@ class Endcord:
                                     discord.join_thread(thread_id)
                         break
                 break
+
+
+    def toggle_mute(self, channel_id, guild_id=None, is_dm=False):
+        """Toggle mute setitng of channel, category, guild or DM"""
+        if is_dm:   # dm
+            for dm in self.dms:
+                if dm["id"] == channel_id:
+                    if dm.get("muted"):
+                        dm["muted"] = False
+                        self.dms_vis_id.remove(channel_id)
+                    else:
+                        dm["muted"] = True
+                        self.dms_vis_id.append(channel_id)
+                    self.update_tree()
+                    return dm["muted"]
+        elif guild_id:   # channel/category
+            for guild in self.guilds:
+                if guild["guild_id"] == guild_id:
+                    for channel in guild["channels"]:
+                        if channel["id"] == channel_id:
+                            channel["muted"] = not channel.get("muted")
+                            self.update_tree()
+                            return channel["muted"]
+                    break
+        else:   # guild
+            for guild in self.guilds:
+                if guild["guild_id"] == channel_id:
+                    guild["muted"] = not guild.get("muted")
+                    self.update_tree()
+                    return guild["muted"]
+
 
 
     def check_tree_format(self):

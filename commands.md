@@ -21,8 +21,6 @@
     View info of currently selected channel in tree or specified channel.
 - `summaries` / `summaries <#[channel_id]>`  
     View summaries of currently active channel or specified channel.
-- `hide` / `hide <#[channel_id]>`  
-    Prompt to hide selected channel in tree or specified channel.
 - `copy_message`  
     Copy selected message contents to clipboard.
 - `spoil`  
@@ -45,13 +43,7 @@
     Go to replied message from currently selected message.
 - `show_reactions`  
     Show reactions details for selected message.
-- `paste_clipboard_imange`  
-    Paste image from clipboard as attachment.
-- `check_standing`  
-    Check account standing. 0-100 value, anything non-100 is concerning.  
-- `set [key] = [value]` / `set [key]=[value]`  
-    Change settings and save them. Usually restart is required.  
-    External theme wont be changed and it can override changed settings.  
+
 
 
 ## Special commands (no keybinding)
@@ -59,3 +51,14 @@
     Go to specified channel from any server
 - `view_pfp` / `view_pfp <@[user_id]>`  
     View prfile picure of user from currently selected message or specified user.
+- `paste_clipboard_image`  
+    Paste image from clipboard as attachment.
+- `check_standing`  
+    Check account standing. 0-100 value, anything non-100 is concerning.  
+- `set [key] = [value]` / `set [key]=[value]`  
+    Change settings and save them. Usually restart is required.  
+    External theme wont be changed and it can override changed settings.  
+- `hide` / `hide <#[channel_id]>`  
+    Prompt to hide selected channel in tree or specified channel.
+- `toggle_mute` / `toggle_mute <#[channel_id]>`  
+    Mute/unmute selected channel in tree or specified channel.
