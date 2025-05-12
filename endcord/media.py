@@ -17,7 +17,6 @@ from PIL import Image, ImageEnhance
 from endcord import xterm256
 
 logger = logging.getLogger(__name__)
-
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
 
 

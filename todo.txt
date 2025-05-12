@@ -1,9 +1,9 @@
-Paste image from clipboard as attachment
-Dont colapse threads
 Mute/unmute server/channel
-Cache last N channel messages and update them
-Discord slash commands ???
+Dont auto colapse threads
+Try to work on 8-color terminals
 Add safe way to keep token
+Discord slash commands ???
+Cache last N channel messages and update them
 
 Tabs
 Code blocks syntax highlighting

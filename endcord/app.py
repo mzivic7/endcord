@@ -30,7 +30,7 @@ support_media = (
     importlib.util.find_spec("numpy") is not None
 )
 if support_media:
-    from endcord import media
+    from endcord import clipboard, media
 
 logger = logging.getLogger(__name__)
 APP_NAME = "endcord"
@@ -1823,6 +1823,17 @@ class Endcord:
         elif cmd_type == 27:   # CHECK_STANDING
             standing = self.discord.get_my_standing()
             self.update_extra_line(f"Account standing: {standing}/100")
+
+        elif cmd_type == 28:   # PASTE_CLIPBOARD_IMAGE
+            if support_media:
+                path = clipboard.save_image()
+                if path:
+                    self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(path, )))
+                    self.upload_threads[-1].start()
+                else:
+                    self.update_extra_line("Image not found in cliboard")
+            else:
+                self.update_extra_line("No media support")
 
         if reset:
             self.reset_actions()

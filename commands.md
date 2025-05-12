@@ -45,6 +45,8 @@
     Go to replied message from currently selected message.
 - `show_reactions`  
     Show reactions details for selected message.
+- `paste_clipboard_imange`  
+    Paste image from clipboard as attachment.
 - `check_standing`  
     Check account standing. 0-100 value, anything non-100 is concerning.  
 - `set [key] = [value]` / `set [key]=[value]`  

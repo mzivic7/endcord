@@ -268,4 +268,8 @@ def command_string(text):
     elif text.lower().startswith("check_standing"):
         cmd_type = 27
 
+    # 28 - PASTE_CLIPBOARD_IMAGE
+    elif text.lower().startswith("paste_clipboard_image"):
+        cmd_type = 28
+
     return cmd_type, cmd_args
