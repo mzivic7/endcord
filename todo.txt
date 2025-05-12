@@ -1,6 +1,6 @@
 Dont auto colapse threads
-Try to work on 8-color terminals
-Add safe way to keep token
+Compatibility with 8-color terminals
+Add safe way to store token
 Discord slash commands ???
 Cache last N channel messages and update them
 

@@ -1796,6 +1796,10 @@ class TUI():
 
             elif key in self.keybindings["redraw"]:
                 self.screen.clear()
+                self.screen.redrawwin()
+                if sys.platform == "win32":
+                    self.screen.noutrefresh()   # ??? needed only with windows-curses
+                    self.need_update.set()
                 self.resize()
 
             elif key in self.keybindings["attach_cancel"]:
