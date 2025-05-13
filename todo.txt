@@ -1,8 +1,6 @@
-Add safe way to store token
-Discord slash commands ???
 Cache messages for last N channel and keep them updated
-
 Tabs
+Discord slash commands ???
 Code blocks syntax highlighting
 Voice and video calls
 Localization (maybe)

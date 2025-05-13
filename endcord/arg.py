@@ -9,13 +9,6 @@ def parser(app_name, version, default_config_path, log_path):
     )
     parser._positionals.title = "arguments"
     parser.add_argument(
-        "-t",
-        "--token",
-        type=str,
-        action="store",
-        help="Discord user authentication token, see readme for more info",
-    )
-    parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -56,6 +49,25 @@ def parser(app_name, version, default_config_path, log_path):
         "--colors",
         action="store_true",
         help="show all available colors and their codes",
+    )
+    parser.add_argument(
+        "-t",
+        "--token",
+        type=str,
+        action="store",
+        help="\
+        Discord user authentication token, see readme for more info; \
+        It is recommended to pprovide it in token manager that will show only when token is not found in config nor as argument",
+    )
+    parser.add_argument(
+        "--remove-token",
+        action="store_true",
+        help="Remove token from keyring, if it is saved there",
+    )
+    parser.add_argument(
+        "--update-token",
+        action="store_true",
+        help="Update token in keyring, works only if token is not provided in config nor as argument",
     )
     parser.add_argument(
         "-m",

@@ -5,7 +5,16 @@ import signal
 import sys
 import traceback
 
-from endcord import app, arg, color, defaults, keybinding, media, peripherals
+from endcord import (
+    app,
+    arg,
+    color,
+    defaults,
+    keybinding,
+    media,
+    peripherals,
+    token_manager,
+)
 
 APP_NAME = "endcord"
 VERSION = "0.9.0"
@@ -74,10 +83,15 @@ def main(args):
     if args.proxy:
         config["proxy"] = args.proxy
 
+    if args.remove_token:
+        token_manager.remove_token()
+        sys.exit("Token removed from keyring")
     token = args.token
     logger.info(f"Started endcord {VERSION}")
     if not token and not config["token"]:
-        sys.exit("Token not provided in config nor as argument")
+        token = token_manager.get_token(force=args.update_token)
+        if not token:
+            sys.exit("Token not provided in config, as argument, nor in token manager")
     if token:
         config["token"] = token
     if args.debug or config["debug"]:

@@ -69,9 +69,10 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show discord emoji as `:emoji_name:`
 - Show mentions as `@username`, `@role`, `#channel_name`
 - Remember last open channel and tree state
+- Resizable
 - Automatic recovery on network failure
 - Proxy support
-- Resizable
+- Store token in system keyring
 - Quit on `Ctrl+C`
 
 
@@ -95,6 +96,9 @@ Go to [configuration](configuration.md).
 Token is used to access Discord through your account without logging-in.  
 It is required to to use endcord.  
 After obtaining token, you can either:  
+- Provide token in token manager (recommended) - token will be stored in secure system keyring  
+  Token mamager will be shown only if token is not provided in config nor as command argument  
+  To remove token from keyring: `endcord --remove-token`; to update it: `endcord --update-token`
 - Pass token to endcord as command argument: `endcord -t [YOUR_TOKEN]`  
 - Save token in config  
 Note that if you save it as argument, it might get saved in your terminal history file.  
@@ -305,6 +309,7 @@ Optional dependencies:
 - `aspell` - Spellchecking (and `aspell-en` dictionary)
 - `yt-dlp` - youtube support
 - `mpv` - Play youtube videos in native player (non-ascii)
+- `libsecret` - Store token in system keyring (running keyring deamon is also required like gnome-keyring)
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
@@ -373,7 +378,7 @@ Nuitka requres compiler:
 2. Open developer tools (`F12` or `Ctrl+Shift+I` on Chrome and Firefox).
 3. Go to the `Network` tab then refresh the page.
 4. In the 'Filter URLs' text box, search `discord.com/api`.
-5. Click on any filtered entry. On the right side, switch to `Header` tab search for the `authorization`.
+5. Click on any filtered entry. On the right side, switch to `Header` tab, look for `Authorization`.
 6. Copy value of `Authorization: ...` found under `Request Headers` (right click -> Copy Value)
 7. This is your discord token. **Do not share it!**
 
@@ -414,7 +419,7 @@ The client will refuse to send message in newly-created DM channels. This measur
 Custom notification sound can be set in config: `custom_notification_sound = /path/to/file.mp3`.
 
 ### No colors in headless Linux tty
-If there are no colors in linux tty (but there should be), endcord can be run inside fbterm [fbterm](https://salsa.debian.org/debian/fbterm).  
+If there are no colors in linux tty (but there should be), endcord can run inside [fbterm](https://salsa.debian.org/debian/fbterm).  
 Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Installation), then set environment variable: `export TERM=fbterm` and run endcord.  
 Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.  
 
