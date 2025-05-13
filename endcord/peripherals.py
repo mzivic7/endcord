@@ -195,10 +195,21 @@ def merge_configs(custom_config_path, theme_path):
 
 def convert_keybindings(keybindings):
     """Convert keybinding codes to os-specific codes"""
-    if sys.platform == "win32":
+    if sys.platform == "win32":   # windows has different codes for Alt+Key
         for key, value in keybindings.items():
             if isinstance(value, str):
                 keybindings[key] = re.sub(r"ALT\+(\d+)", lambda m: str(int(m.group(1)) + 320), value)
+    elif os.environ.get("TERM", "") == "xterm":   # xterm has different codes for Alt+Key
+        # for ALT+Key it actually sends 195 then Key+64
+        # but this is simpler since key should already be uniquely shifted
+        for key, value in keybindings.items():
+            if isinstance(value, str):
+                val = re.sub(r"ALT\+(\d+)", lambda m: str(int(m.group(1)) + 64), value)
+                try:
+                    val = int(val)
+                except ValueError:
+                    pass
+                keybindings[key] = val
     return keybindings
 
 

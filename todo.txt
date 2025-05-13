@@ -1,4 +1,3 @@
-Compatibility with 8-color terminals
 Add safe way to store token
 Discord slash commands ???
 Cache messages for last N channel and keep them updated

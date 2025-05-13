@@ -41,12 +41,8 @@ def sigint_handler(_signum, _frame):
 
 def main(args):
     """Main function"""
-    os.environ["ESCDELAY"] = "25"   # 25ms
     config_path = args.config
     theme_path = args.theme
-    if args.colors:
-        curses.wrapper(color.show_all_colors)
-        sys.exit(0)
     if config_path:
         config_path = os.path.expanduser(config_path)
     config, gen_config, error = peripherals.merge_configs(config_path, theme_path)
@@ -61,7 +57,15 @@ def main(args):
         gen_config=gen_config,
     )
     keybindings = peripherals.convert_keybindings(keybindings)
-    if args.keybinding:
+
+    os.environ["ESCDELAY"] = "25"   # 25ms
+    if os.environ.get("TERM", "") in ("xterm", "linux"):
+        os.environ["TERM"] = "xterm-256color"
+
+    if args.colors:
+        curses.wrapper(color.show_all_colors)
+        sys.exit(0)
+    elif args.keybinding:
         keybinding.picker(keybindings)
     elif args.media:
         curses.wrapper(media.ascii_runner, args.media, config, keybindings)

@@ -67,7 +67,6 @@ class TUI():
         acs_map = acs.get_map()
         curses.use_default_colors()
         curses.curs_set(0)   # using custom cursor
-        curses.curs_set(0)
         curses.mousemask(curses.ALL_MOUSE_EVENTS)
         curses.mouseinterval(0)
         print("\x1b[?2004h")   # enable bracketed paste mode
@@ -1068,6 +1067,10 @@ class TUI():
                 attribute = curses.A_ITALIC
             else:
                 attribute = 0
+        if fg > curses.COLORS:
+            fg = -1
+        if bg > curses.COLORS:
+            bg = -1
         if force_id >= curses.COLOR_PAIRS:
             return 0
         if self.last_free_id >= curses.COLOR_PAIRS:
