@@ -74,7 +74,7 @@ class CursesMedia():
 
 
     def pil_img_to_curses(self, img, remove_alpha=True):
-        """Convert pillow inage to ascii art and display it with curses"""
+        """Convert pillow image to ascii art and display it with curses"""
         screen_height, screen_width = self.media_screen.getmaxyx()
         height, width = self.media_screen.getmaxyx()
 

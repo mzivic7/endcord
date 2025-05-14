@@ -94,7 +94,7 @@ elif sys.platform == "darwin":
 
 
 def save_config(path, data, section):
-    """Save config sectin"""
+    """Save config section"""
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     config = ConfigParser(interpolation=None)
@@ -115,7 +115,7 @@ def save_config(path, data, section):
 def load_config(path, default, section="main", gen_config=False):
     """
     Load settings and theme from config
-    If some value is missing, it is replaced wih default value
+    If some value is missing, it is replaced with default value
     """
     if not path:
         path = config_path + "config.ini"
@@ -159,7 +159,7 @@ def get_themes():
 
 
 def merge_configs(custom_config_path, theme_path):
-    """Merge config and themes, from varios locations"""
+    """Merge config and themes, from various locations"""
     gen_config = False
     error = None
     if not custom_config_path:
@@ -316,7 +316,7 @@ def copy_to_clipboard(text):
                 )
                 proc.communicate(input=text.encode("utf-8"))
             except FileNotFoundError:
-                logger.warn("Cant copy: wl-copy not foud on system")
+                logger.warn("Cant copy: wl-copy not found on system")
         else:
             try:
                 proc = subprocess.Popen(
@@ -327,7 +327,7 @@ def copy_to_clipboard(text):
                 )
                 proc.communicate(input=text.encode("utf-8"))
             except FileNotFoundError:
-                logger.warn("Cant copy: xclip not foud on system")
+                logger.warn("Cant copy: xclip not found on system")
     elif sys.platform == "win32":
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()
@@ -423,7 +423,7 @@ def find_aspell():
                     aspell_path = None
                 break
         return aspell_path
-    logger.info("Spellchecking not supproted on this platform")
+    logger.info("Spellchecking not supported on this platform")
 
 
 class SpellCheck():

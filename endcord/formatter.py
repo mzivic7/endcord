@@ -348,7 +348,7 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
 
 def split_long_line(line, max_len, align=0):
     """
-    Split long line into list, on nearest spece to left or on newline
+    Split long line into list, on nearest space to left or on newline
     optionally align newline to specified length
     """
     lines_list = []
@@ -390,7 +390,7 @@ def clean_type(embed_type):
 
 
 def replace_discord_url(message, current_guild):
-    """Replace discord url only from this guild, for channelor message"""
+    """Replace discord url only from this guild, for channel or message"""
     text = message["content"]
     mention_msg = []
     for match in re.finditer(match_discord_message_url, text):
@@ -1796,7 +1796,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         })
                         break
                 else:
-                    # top level channles can be inaccessible
+                    # top level channels can be inaccessible
                     muted_ch = channel.get("muted", False)
                     hidden_ch = channel.get("hidden", False)
                     if not channel.get("permitted", False):

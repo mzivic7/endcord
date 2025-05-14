@@ -47,7 +47,7 @@ def safe_insch(screen, y, x, character, color):
 
 
 def select_word(text, index):
-    """Select word at index positon"""
+    """Select word at index position"""
     if index < 0 or index >= len(text):
         return None, None
     start = index
@@ -302,12 +302,12 @@ class TUI():
 
 
     def get_clicked_chat(self):
-        """Get index of clicked line in chat buffer and xcoordinate"""
+        """Get index of clicked line in chat buffer and x coordinate"""
         return self.chat_selected, self.mouse_chat_x
 
 
     def get_assist(self):
-        """Return word to be assisted with completing and type of asssist needed"""
+        """Return word to be assisted with completing and type of assist needed"""
         if self.assist_start >= 0:
             if self.assist_start < self.input_index - (MIN_ASSIST_LETTERS - 1):
                 if (
@@ -331,7 +331,7 @@ class TUI():
 
 
     def get_last_free_color_id(self):
-        """Return last free color id. Should be run at the end of all color initializations in endcord.tui."""
+        """Return last free color id. Should be run at the end of all color initialization in endcord.tui."""
         return self.last_free_id
 
 
@@ -367,7 +367,7 @@ class TUI():
 
 
     def disable_wrap_around(self, disable):
-        """Explicitly disable wrap aroud in extra window"""
+        """Explicitly disable wrap around in extra window"""
         self.wrap_around_disable = disable
 
 
@@ -442,7 +442,7 @@ class TUI():
 
 
     def tree_select(self, tree_pos):
-        """Select specific irem in tree by its index"""
+        """Select specific item in tree by its index"""
         skipped = 0
         drop_down_skip_guild = False
         drop_down_skip_category = False
@@ -628,7 +628,7 @@ class TUI():
         """Draw channel tree"""
         try:
             h, w = self.tree_hw
-            # drawinf from top to down
+            # drawing from top to down
             skipped = 0   # skipping drop-down ends (code 1000)
             drop_down_skip_guild = False
             drop_down_skip_category = False
@@ -1320,7 +1320,7 @@ class TUI():
                 self.draw_tree()
             # if selected tree entry is guild drop-down
             elif 100 <= self.tree_format[self.tree_selected_abs] <= 199 and not switch:
-                # this will trrigger open_guild() in app.py that will update and expand tree
+                # this will trigger open_guild() in app.py that will update and expand tree
                 return 19
             # if selected tree entry is threads drop-down
             elif 400 <= self.tree_format[self.tree_selected_abs] <= 599 and not mouse:
@@ -1408,7 +1408,7 @@ class TUI():
         elif key in self.keybindings["toggle_member_list"]:
             return 35
 
-        elif key in self.keybindings["command_pallete"]:
+        elif key in self.keybindings["command_palette"]:
             return 38
 
         return None
@@ -1531,7 +1531,7 @@ class TUI():
                 self.keybinding_chain = None
 
             if key == 10:   # ENTER
-                # wehen pasting, dont return, but insert newline character
+                # when pasting, dont return, but insert newline character
                 if bracket_paste:
                     self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                     self.input_index += 1

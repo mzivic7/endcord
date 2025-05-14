@@ -273,7 +273,7 @@ class Discord():
 
 
     def get_user(self, user_id, extra=False):
-        """Get relevant informations about specified user"""
+        """Get relevant information about specified user"""
         message_data = None
         url = f"/api/v9/users/{user_id}/profile"
         try:
@@ -329,7 +329,7 @@ class Discord():
 
 
     def get_user_guild(self, user_id, guild_id):
-        """Get relevant informations about specified user in a guild"""
+        """Get relevant information about specified user in a guild"""
         message_data = None
         url = f"/api/v9/users/{user_id}/profile?with_mutual_guilds=true&with_mutual_friends=true&guild_id={guild_id}"
         try:
@@ -630,7 +630,7 @@ class Discord():
 
     def patch_settings_proto(self, num, data):
         """
-        Patch acount settings
+        Patch account settings
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things"""
         if not self.protos[num-1]:
@@ -1110,7 +1110,7 @@ class Discord():
     def leave_thread(self, thread_id):
         """Leave a thread"""
         message_data = None
-        # location is not necesarily "Sidebar Overflow"
+        # location is not necessarily "Sidebar Overflow"
         url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Sidebar%20Overflow"
         try:
             connection = self.get_connection(self.host, 443)
@@ -1290,10 +1290,10 @@ class Discord():
         if response.status == 429:
             # discord usually returns 429 for this request, but original client does not retry after some time
             # so this wont retry either, file wont be sent in the message anyway
-            logger.debug("Failed to delete attachemnt. Response code: 429 - Too Many Requests")
+            logger.debug("Failed to delete attachment. Response code: 429 - Too Many Requests")
             connection.close()
             return True
-        logger.error(f"Failed to delete attachemnt. Response code: {response.status}")
+        logger.error(f"Failed to delete attachment. Response code: {response.status}")
         connection.close()
         return None
 
@@ -1302,7 +1302,7 @@ class Discord():
         """Send voice message from file path, file must be ogg"""
         waveform, duration = peripherals.get_audio_waveform(path)
         if not duration:
-            logger.warn(f"Couldnt read voice message file: {path}")
+            logger.warn(f"Couldn't read voice message file: {path}")
         upload_data, status = self.request_attachment_link(channel_id, path, custom_name="voice-message.ogg")
         if status != 0:
             logger.warn("Cant send voice message, attachment error")

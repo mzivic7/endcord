@@ -2,7 +2,6 @@ import curses
 
 from endcord import xterm256
 
-pallete = xterm256.palette
 colors = xterm256.colors
 
 

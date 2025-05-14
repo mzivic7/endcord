@@ -323,7 +323,7 @@ class Gateway():
                                 "permission_overwrites": channel["permission_overwrites"],
                                 "hidden": hidden,
                             })
-                            # build list of last mesages from each channel
+                            # build list of last messages from each channel
                             if "last_message_id" in channel:
                                 last_messages.append({
                                     "message_id": channel["last_message_id"],   # really last message id
@@ -391,7 +391,7 @@ class Gateway():
                                 "muted": thread["member"]["muted"],
                                 "joined": True,
                             })
-                            # add threads to list of last mesages from channes
+                            # add threads to list of last messages from channes
                             if "last_message_id" in thread:
                                 last_messages.append({
                                     "message_id": thread["last_message_id"],   # really last message id
@@ -1120,7 +1120,7 @@ class Gateway():
                         self.activities.append({"guild_id": guild_id, "members": []})
                         guild_index = -1
                     for memlist in response["d"]["ops"]:
-                        # keeping only necessary data, bacause the rest can be fetched with discord.get_user_guild()
+                        # keeping only necessary data, because the rest can be fetched with discord.get_user_guild()
                         if memlist["op"] == "SYNC":
                             if memlist["range"][0] != 0:
                                 # keeping only first chunk (first 99)
@@ -1363,7 +1363,7 @@ class Gateway():
 
 
     def wait_online(self):
-        """Wait for network, try to recconect every 5s"""
+        """Wait for network, try to reconnect every 5s"""
         self.wait = True
         while self.run and self.wait:
             self.reconnect_requested = True
@@ -1375,7 +1375,7 @@ class Gateway():
         Return current state of gateway:
         0 - gateway is disconnected
         1 - gateway is connected
-        2 - gateway is reconecting
+        2 - gateway is reconnecting
         """
         return self.state
 
@@ -1679,7 +1679,7 @@ class Gateway():
 
 
     def get_member_query_resuts(self):
-        """Get memner query results, updated after request_members() with query is called"""
+        """Get member query results, updated after request_members() with query is called"""
         if self.member_query_results:
             cache = self.member_query_results
             self.member_query_results = []
@@ -1714,7 +1714,7 @@ class Gateway():
 
     def get_typing(self):
         """
-        Get typing accross guilds.
+        Get typing across guilds.
         Returns 1 by 1 event as an update for list of typing.
         """
         if len(self.typing_buffer) == 0:

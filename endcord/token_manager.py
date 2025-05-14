@@ -40,7 +40,7 @@ def has_secret_tool():
 
 
 def load_token():
-    """Try to load token from sustem keyring"""
+    """Try to load token from system keyring"""
     if sys.platform == "linux":
         try:
             result = subprocess.run([
@@ -108,7 +108,7 @@ def save_token(token):
 
 
 def remove_token():
-    """Remove token from sustem keyring"""
+    """Remove token from system keyring"""
     if sys.platform == "linux":
         try:
             subprocess.run([

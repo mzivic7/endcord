@@ -215,7 +215,7 @@ class RPC:
                         }
                         send_data(connection, op, response)
                     else:
-                        # all other commands are curerntly unimplemented
+                        # all other commands are currently unimplemented
                         # returning them to client so it can keep running with rich presence only
                         # this will probably create some errors with edge-case clients
                         response = {

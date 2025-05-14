@@ -1,7 +1,7 @@
 import curses
 import sys
 
-message = """ Press key combination, its code wil be printed in terminal.
+message = """ Press key combination, its code will be printed in terminal.
  Use this code to set this key combination in config.ini keybinding section.
  Some key combinations are reserved by terminal: Ctrl+ C/I/J/M/Q/S/Z.
  Ctrl+Shift+Key combinations are not supported, but Alt+Shift+Key are.

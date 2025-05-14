@@ -1,4 +1,3 @@
-Better selection in chat
 Tabs
 Discord slash commands
 Code blocks syntax highlighting

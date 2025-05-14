@@ -15,7 +15,7 @@ def parser(app_name, version, default_config_path, log_path):
         action="store",
         help=f"\
         custom path to config file; If file does not exist, \
-        config with defaults wil be created; \
+        config with defaults will be created; \
         Default config is in {default_config_path}",
     )
     parser.add_argument(
@@ -25,7 +25,7 @@ def parser(app_name, version, default_config_path, log_path):
         action="store",
         help=f"\
         custom path to theme file; If file does not exist, \
-        theme from config with defaults wil be created; \
+        theme from config with defaults will be created; \
         Default config is in {default_config_path}",
     )
     parser.add_argument(
@@ -57,7 +57,7 @@ def parser(app_name, version, default_config_path, log_path):
         action="store",
         help="\
         Discord user authentication token, see readme for more info; \
-        It is recommended to pprovide it in token manager that will show only when token is not found in config nor as argument",
+        It is recommended to provide it in token manager that will show only when token is not found in config nor as argument",
     )
     parser.add_argument(
         "--remove-token",

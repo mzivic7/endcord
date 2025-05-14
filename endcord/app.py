@@ -536,7 +536,7 @@ class Endcord:
             collapsed = []
         guild_ids = []
         if self.config["only_one_open_server"]:
-            # collapse all othre guilds
+            # collapse all other guilds
             for guild_1 in self.guilds:
                 if collapse or guild_1["guild_id"] != guild_id:
                     collapsed.append(guild_1["guild_id"])
@@ -619,7 +619,7 @@ class Endcord:
 
 
     def load_from_channel_cache(self, num):
-        """Load messages from canel cache"""
+        """Load messages from channel cache"""
         self.messages = self.channel_cache.pop(num)[1]
         # restore deleted
         if self.keep_deleted and self.messages:
@@ -1221,7 +1221,7 @@ class Endcord:
                     self.update_status_line()
                     self.stop_assist()
 
-            # mouse double click on message
+            # mouse double-click on message
             elif action == 40:
                 self.restore_input_text = [input_text, "standard"]
                 clicked_chat, mouse_x = self.tui.get_clicked_chat()
@@ -1232,7 +1232,7 @@ class Endcord:
                         clicked_type = 1
                         selected = None
                         if len(chat_line_map) == 1:
-                            clicked_type = 1   # msg body
+                            clicked_type = 1   # message body
                         elif chat_line_map[1] and chat_line_map[1][0] < mouse_x < chat_line_map[1][1]:
                             clicked_type = 2   # username
                         elif chat_line_map[2]:
@@ -1478,7 +1478,7 @@ class Endcord:
                             self.update_extra_line()
                             break
                     if not self.disable_sending:
-                        # if this is unjoined thread, join it (locally only)
+                        # if this thread is not joined, join it (locally only)
                         if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
                             self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
                         # search for stickers
@@ -1589,7 +1589,7 @@ class Endcord:
 
     def execute_command(self, cmd_type, cmd_args, chat_sel, tree_sel):
         """Execute custom command"""
-        logger.debug(f"Executig command, type: {cmd_type}, args: {cmd_args}")
+        logger.debug(f"Executing command, type: {cmd_type}, args: {cmd_args}")
         reset = True
         self.restore_input_text = [None, None]
         if cmd_type == 0:
@@ -1925,7 +1925,7 @@ class Endcord:
                     self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(path, )))
                     self.upload_threads[-1].start()
                 else:
-                    self.update_extra_line("Image not found in cliboard")
+                    self.update_extra_line("Image not found in clipboard")
             else:
                 self.update_extra_line("No media support")
 
@@ -2145,7 +2145,7 @@ class Endcord:
 
 
     def upload(self, path):
-        """Thread that uploads file to curently open channel"""
+        """Thread that uploads file to currently open channel"""
         path = os.path.expanduser(path)
         if os.path.exists(path) and not os.path.isdir(path):
 
@@ -2302,7 +2302,7 @@ class Endcord:
         if past:
             logger.debug(f"Requesting chat chunk before {start_id}")
             new_chunk = self.get_messages_with_members(before=start_id)
-            if self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
+            if new_chunk and self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
                 self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
             self.messages = self.messages + new_chunk
             all_msg = len(self.messages)
@@ -2311,7 +2311,7 @@ class Endcord:
             self.messages = self.messages[-self.limit_chat_buffer:]
             if new_chunk:
                 self.update_chat(keep_selected=None)
-                # when messages are trimmed, keep same selecteed position
+                # when messages are trimmed, keep same selected position
                 if len(self.messages) != all_msg:
                     selected_msg_new = selected_msg - (all_msg - len(self.messages))
                     selected_line = self.msg_to_lines(selected_msg_new)
@@ -2326,13 +2326,13 @@ class Endcord:
             if new_chunk is not None:   # if its None - its network error
                 selected_line = 0
                 selected_msg = self.lines_to_msg(selected_line)
-                if self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
+                if new_chunk and self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
                     self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
                 self.messages = new_chunk + self.messages
                 all_msg = len(self.messages)
                 self.messages = self.messages[:self.limit_chat_buffer]
                 self.update_chat(keep_selected=True)
-                # keep same selecteed position
+                # keep same selected position
                 selected_msg_new = selected_msg + len(new_chunk)
                 selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
@@ -2403,7 +2403,7 @@ class Endcord:
 
 
     def view_profile(self, user_data):
-        """Format and show extra window with profile informations"""
+        """Format and show extra window with profile information"""
         max_w = self.tui.get_dimensions()[2][1]
         roles = []
         if user_data["roles"]:
@@ -2479,7 +2479,7 @@ class Endcord:
 
 
     def view_channel(self, channel, guild=False):
-        """Format and show extra window with channel/guild informations"""
+        """Format and show extra window with channel/guild information"""
         max_w = self.tui.get_dimensions()[2][1]
         if guild:
             extra_title, extra_body = formatter.generate_extra_window_guild(channel, max_w)
@@ -2490,7 +2490,7 @@ class Endcord:
 
 
     def view_summaries(self, channel_id=None):
-        """Format and show extra window with this or specified channel sumamries"""
+        """Format and show extra window with this or specified channel summaries"""
         summaries = []
         if not channel_id:
             for guild in self.summaries:
@@ -2980,7 +2980,7 @@ class Endcord:
             if change_amount > 0:
                 self.unseen_scrolled = bool(text_index)
                 self.update_status_line()
-            selected_msg = self.lines_to_msg(selected_line)
+            selected_msg, remainder = self.lines_to_msg_with_remainder(selected_line)
         else:
             self.unseen_scrolled = False
             self.update_status_line()
@@ -2999,7 +2999,7 @@ class Endcord:
         )
         if keep_selected:
             selected_msg = selected_msg + change_amount
-            selected_line_new = self.msg_to_lines(selected_msg)
+            selected_line_new = self.msg_to_lines(selected_msg) - remainder
             change_amount_lines = selected_line_new - selected_line
             self.tui.set_selected(selected_line_new, change_amount=change_amount_lines)
         elif keep_selected is not None:
@@ -3179,7 +3179,7 @@ class Endcord:
 
 
     def update_extra_line(self, custom_text=None, update_only=False):
-        """Genearate extra line and update it in TUI"""
+        """Generate extra line and update it in TUI"""
         if custom_text:
             if custom_text == self.extra_line:
                 self.extra_line = None
@@ -3246,6 +3246,16 @@ class Endcord:
         return 0
 
 
+    def lines_to_msg_with_remainder(self, lines):
+        """Convert line index from formatted chat to message index and remainder"""
+        total_len = 0
+        for num, msg_len in enumerate(self.chat_indexes):
+            total_len += msg_len
+            if total_len >= lines + 1:
+                return num, total_len - (lines + 1)
+        return 0, 0
+
+
     def msg_to_lines(self, msg):
         """Convert message index to line index from formatted chat"""
         return sum(self.chat_indexes[:msg + 1]) - 1
@@ -3277,7 +3287,7 @@ class Endcord:
 
 
     def compute_permissions(self):
-        """Compute permissions for all guilds. Run after roles have been obtained."""
+        """Compute permissions for all guilds. Run after roles have been obtained"""
         for guild in self.guilds:
             guild_id = guild["guild_id"]
             # get my roles
@@ -3389,7 +3399,7 @@ class Endcord:
 
 
     def toggle_mute(self, channel_id, guild_id=None, is_dm=False):
-        """Toggle mute setitng of channel, category, guild or DM"""
+        """Toggle mute settitng of channel, category, guild or DM"""
         if is_dm:   # dm
             for dm in self.dms:
                 if dm["id"] == channel_id:
@@ -3478,7 +3488,12 @@ class Endcord:
                             loaded_message["spoiled"] = 0
                         self.update_chat()
                     elif op == "MESSAGE_DELETE":
-                        self.messages[num]["deleted"] = True
+                        if self.keep_deleted:
+                            self.messages[num]["deleted"] = True
+                        else:
+                            self.messages.pop(num)
+                            if num == 0:
+                                self.last_message_id = self.messages[0]["id"]
                         if num < selected_line and not self.keep_deleted:
                             self.update_chat(change_amount=-1)
                         else:
@@ -3560,7 +3575,6 @@ class Endcord:
 
     def process_msg_events_other_channels(self, new_message):
         """Process message events for channels that are not cached and not active"""
-        # ignore messages sent by other clients
         data = new_message["d"]
         op = new_message["op"]
         new_message_channel_id = data["channel_id"]
@@ -3760,7 +3774,7 @@ class Endcord:
         for hidden in self.hidden_channels:
             self.hide_channel(hidden["channel_id"], hidden["guild_id"])
 
-        # init media
+        # initialize media
         have_yt_dlp = ", have yt-dlp" if shutil.which(self.config["yt_dlp_path"]) else ""
         have_mpv = ", have mpv" if shutil.which(self.config["mpv_path"]) else ""
         if support_media:
