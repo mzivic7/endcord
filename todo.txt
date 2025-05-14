@@ -1,6 +1,6 @@
-Cache messages for last N channel and keep them updated
+Better selection in chat
 Tabs
-Discord slash commands ???
+Discord slash commands
 Code blocks syntax highlighting
 Voice and video calls
 Localization (maybe)

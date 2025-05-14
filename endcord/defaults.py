@@ -5,6 +5,7 @@ settings = {
     "rpc": True,
     "downloads_path": None,
     "limit_chat_buffer": 100,
+    "limit_channel_cache": 5,
     "download_msg": 25,
     "convert_timezone": True,
     "send_typing": True,

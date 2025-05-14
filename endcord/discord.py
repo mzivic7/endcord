@@ -1150,6 +1150,8 @@ class Discord():
             if one_has not in SEARCH_HAS_OPTS:
                 return 0, []
         content = [content]
+        if offset:
+            offset = str(offset)
         offset = [offset]
         for num, items in enumerate([content, channel_id, author_id, mentions, has, max_id, min_id, pinned, offset]):
             for item in items:

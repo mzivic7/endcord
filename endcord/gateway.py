@@ -23,7 +23,7 @@ from endcord import debug, perms
 
 CLIENT_NAME = "endcord"
 DISCORD_HOST = "discord.com"
-LOCAL_MEMBER_COUNT = 50   # CPU-RAM intensive
+LOCAL_MEMBER_COUNT = 50   # members per guild, CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
 inflator = zlib.decompressobj()
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ class Gateway():
         self.activities_changed = []
         self.subscribed_activities = []
         self.subscribed_activities_changed = []
-        self.active_channel = None
+        self.subscribed_channels = []
         self.emojis = []
         self.stickers = []
         self.premium = False
@@ -741,7 +741,7 @@ class Gateway():
                     })
 
                 elif optext == "MESSAGE_CREATE" and "content" in response["d"]:
-                    if response["d"]["channel_id"] == self.active_channel:
+                    if response["d"]["channel_id"] in self.subscribed_channels:
                         if "referenced_message" in response["d"]:
                             reference_nick = None
                             for mention in response["d"]["mentions"]:
@@ -848,7 +848,7 @@ class Gateway():
                                     "id": mention["id"],
                                 })
                         if "member" in response["d"] and "roles" in response["d"]["member"]:
-                            if response["d"]["member"]["roles"]:
+                            if "roles" in response["d"]["member"]:
                                 # for now, saving only first role, used for username color
                                 self.add_member_roles(
                                     guild_id,
@@ -1060,7 +1060,7 @@ class Gateway():
                     else:
                         guild_id = response["d"]["guild_id"]
                         for member in response["d"]["members"]:
-                            if "roles" in member and member["roles"]:
+                            if "roles" in member and "roles" in member:
                                 # for now, saving only first role, used for username color
                                 self.add_member_roles(
                                     guild_id,
@@ -1521,9 +1521,9 @@ class Gateway():
             logger.debug("Requesting guild members chunk")
 
 
-    def set_active_channel(self, channel_id):
-        """Set currently active cannel so MESSAGE_CREATE event can be faster prcessed for non-active channels"""
-        self.active_channel = channel_id
+    def set_subscribed_channels(self, subscribed_channels):
+        """Set currently subscribed channels and so MESSAGE_ events can be faster prcessed for other channels"""
+        self.subscribed_channels = subscribed_channels
 
 
     def set_want_member_list(self, want):

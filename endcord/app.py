@@ -58,6 +58,7 @@ class Endcord:
         # load often used values from config
         self.enable_rpc = config["rpc"]
         self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
+        self.limit_channle_cache = config["limit_channel_cache"]
         self.msg_num = max(min(config["download_msg"], 100), 20)
         self.limit_typing = max(config["limit_typing_string"], 25)
         self.send_my_typing = config["send_typing"]
@@ -184,6 +185,7 @@ class Endcord:
         self.messages = []
         self.chat = []
         self.chat_format = []
+        self.channel_cache = []
         self.unseen_scrolled = False
         self.chat_indexes = []
         self.chat_map = []
@@ -238,10 +240,10 @@ class Endcord:
         self.dms, self.dms_vis_id = self.gateway.get_dms()
         if self.hide_spam:
             for dm in self.dms:
-                if dm["is_spam"]:
+                if dm["is_spam"] and dm["id"] in self.dms_vis_id:
                     self.dms_vis_id.remove(dm["id"])
                     self.dms.remove(dm)
-                elif dm["muted"]:
+                elif dm["muted"] and dm["id"] in self.dms_vis_id:
                     self.dms_vis_id.remove(dm["id"])
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
@@ -315,7 +317,6 @@ class Endcord:
         All that should be done when switching channel.
         If it is DM, guild_id and guild_name should be None.
         """
-
         # dont switch to same channel
         if channel_id == self.active_channel["channel_id"]:
             return
@@ -338,6 +339,10 @@ class Endcord:
         # clear member roles when switching guild so there are no issues with same members in both guilds
         if guild_id != self.active_channel["guild_id"]:
             self.current_member_roles = []
+
+        # cache previous channel chat (if not forum)
+        if not self.forum and self.messages:
+            self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
 
         # update active channel
         self.active_channel["guild_id"] = guild_id
@@ -377,17 +382,32 @@ class Endcord:
             self.forum = True
             self.update_forum(guild_id, channel_id)
 
-        # fetch messages
-        # also used to check network
+        # fetch messages or load them from cache
         else:
             self.forum = False
-            self.messages = self.get_messages_with_members(num=self.msg_num)
-            if self.messages:
-                self.last_message_id = self.messages[0]["id"]
-            elif self.messages is None:
-                self.remove_running_task("Switching channel", 1)
-                logger.warn("Channel switching failed")
-                return
+
+            # check if this channel chat is in cache and remove it
+            from_cache = False
+            if self.limit_channle_cache:
+                for num, channel in enumerate(self.channel_cache):
+                    if channel[0] == channel_id:
+                        from_cache = True
+                        break
+
+            # load from cache
+            if from_cache:
+                self.load_from_channel_cache(num)
+                self.update_chat()
+
+            # download messages
+            else:
+                self.messages = self.get_messages_with_members(num=self.msg_num)
+                if self.messages:
+                    self.last_message_id = self.messages[0]["id"]
+                elif self.messages is None:
+                    self.remove_running_task("Switching channel", 1)
+                    logger.warn("Channel switching failed")
+                    return
 
         # if not failed
         self.current_channels = current_channels
@@ -421,7 +441,7 @@ class Endcord:
         self.chat_end = False
         self.selected_attachment = 0
         self.gateway.subscribe(channel_id, guild_id)
-        self.gateway.set_active_channel(channel_id)
+        self.gateway.set_subscribed_channels([x[0] for x in self.channel_cache] + [channel_id])
         if not self.forum:
             self.set_seen(channel_id)
         if self.recording:
@@ -580,6 +600,65 @@ class Endcord:
                     "id": channel_id,
                     "content": text,
                 })
+
+
+    def add_to_channel_cache(self, channel_id, messages):
+        """Add messages to channel cache"""
+        # format: channel_cache = [[channel_id, messages], ...]
+        # skipping deleted because they are separately cached
+        messages = [x for x in messages if not x.get("deleted")]
+        if self.limit_channle_cache:
+            for num, channel in enumerate(self.channel_cache):
+                if channel[0] == channel_id:
+                    self.channel_cache[num] = [channel_id, messages[:self.msg_num]]
+                    break
+            else:
+                self.channel_cache.append([channel_id, messages[:self.msg_num]])
+                if len(self.channel_cache) > self.limit_channle_cache:
+                    self.channel_cache.pop(0)
+
+
+    def load_from_channel_cache(self, num):
+        """Load messages from canel cache"""
+        self.messages = self.channel_cache.pop(num)[1]
+        # restore deleted
+        if self.keep_deleted and self.messages:
+            self.messages = self.restore_deleted(self.messages)
+
+        current_guild = self.active_channel["guild_id"]
+        if not current_guild:
+            # skipping dms
+            return
+
+        # find missing member roles
+        self.select_current_member_roles()
+        missing_members = []
+        for message in self.messages:
+            message_user_id = message["user_id"]
+            if message_user_id in missing_members:
+                continue
+            for member in self.current_member_roles:
+                if member["user_id"] == message_user_id:
+                    break
+            else:
+                missing_members.append(message_user_id)
+
+        # request missing members
+        if missing_members:
+            self.gateway.request_members(current_guild, missing_members)
+            for _ in range(10):   # wait max 1s
+                new_member_roles = self.gateway.get_member_roles()
+                if new_member_roles:
+                    # update member list
+                    self.member_roles = new_member_roles
+                    self.select_current_member_roles()
+                else:
+                    # wait to receive
+                    time.sleep(0.1)
+
+        # replace discord links
+        for msg_num, message in enumerate(self.messages):
+            self.messages[msg_num] = formatter.replace_discord_url(message, current_guild)
 
 
     def reset_actions(self):
@@ -956,6 +1035,7 @@ class Endcord:
                             guild_name = self.active_channel["guild_name"]
                             channel_name = self.channel_name_from_id(channel_id)
                             self.switch_channel(channel_id, channel_name, guild_id, guild_name)
+                        self.tui.disable_wrap_around(False)
                         self.go_to_message(message_id)
                         self.close_extra_window()
                     elif self.assist_found:
@@ -1000,6 +1080,7 @@ class Endcord:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.restore_input_text = [None, "search"]
                     self.search = True
+                    self.tui.disable_wrap_around(True)
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
                     extra_title, extra_body = formatter.generate_extra_window_text("Search:", formatter.SEARCH_HELP_TEXT, max_w)
@@ -1010,6 +1091,7 @@ class Endcord:
                     self.close_extra_window()
                     self.reset_actions()
                     self.search = False
+                    self.tui.disable_wrap_around(False)
                     self.search_end = False
                     self.search_messages = []
                     self.update_status_line()
@@ -1211,6 +1293,7 @@ class Endcord:
                     if self.search or self.command:
                         self.reset_actions()
                     self.search = False
+                    self.tui.disable_wrap_around(False)
                     self.search_end = False
                     self.search_messages = []
                     self.command = False
@@ -1427,11 +1510,13 @@ class Endcord:
                         channel_id=self.active_channel["channel_id"],
                         message_id=self.deleting,
                     )
+
                 elif self.cancel_download:
                     self.downloader.cancel()
                     self.download_threads = []
                     self.cancel_upload()
                     self.upload_threads = []
+
                 elif self.ready_attachments:
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
@@ -1448,6 +1533,29 @@ class Endcord:
                         reply_ping=self.replying["mention"],
                         attachments=this_attachments,
                     )
+
+                elif self.search and self.extra_window_open and self.extra_indexes:
+                    extra_selected = self.tui.get_extra_selected()
+                    if extra_selected < 0:
+                        continue
+                    total_len = 0
+                    for num, item in enumerate(self.extra_indexes):
+                        total_len += item["lines"]
+                        if total_len >= extra_selected + 1:
+                            message_id = item["message_id"]
+                            channel_id = item.get("channel_id")
+                            break
+                    else:
+                        continue
+                    if channel_id and channel_id != self.active_channel["channel_id"]:
+                        guild_id = self.active_channel["guild_id"]
+                        guild_name = self.active_channel["guild_name"]
+                        channel_name = self.channel_name_from_id(channel_id)
+                        self.switch_channel(channel_id, channel_name, guild_id, guild_name)
+                    self.tui.disable_wrap_around(False)
+                    self.go_to_message(message_id)
+                    self.close_extra_window()
+
                 elif self.hiding_ch["channel_id"]:
                     channel_id = self.hiding_ch["channel_id"]
                     guild_id = self.hiding_ch["guild_id"]
@@ -1459,6 +1567,7 @@ class Endcord:
                         })
                     peripherals.save_json(self.hidden_channels, "hidden_channels.json")
                     self.update_tree()
+
                 elif self.recording:
                     self.recording = False
                     file_path = recorder.stop()
@@ -1665,12 +1774,14 @@ class Endcord:
                 self.reset_actions()
                 self.extra_window_open = True
                 self.search = True
+                self.tui.disable_wrap_around(True)
                 self.ignore_typing = True
             elif not self.search:
                 reset = False
                 self.reset_actions()
                 self.restore_input_text = [None, "search"]
                 self.search = True
+                self.tui.disable_wrap_around(True)
                 self.ignore_typing = True
                 max_w = self.tui.get_dimensions()[2][1]
                 extra_title, extra_body = formatter.generate_extra_window_text("Search:", formatter.SEARCH_HELP_TEXT, max_w)
@@ -1888,11 +1999,26 @@ class Endcord:
         """Go to chat bottom"""
         self.tui.scroll_bot()
         if self.messages[0]["id"] != self.last_message_id:
-            self.add_running_task("Downloading chat", 4)
-            self.messages = self.get_messages_with_members()
-            self.update_chat()
-            self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-            self.remove_running_task("Downloading chat", 4)
+            # check if this channel chat is in cache and remove it
+            from_cache = False
+            if self.limit_channle_cache:
+                for num, channel in enumerate(self.channel_cache):
+                    if channel[0] == self.active_channel["channel_id"]:
+                        from_cache = True
+                        break
+
+            # load from cache
+            if from_cache:
+                self.load_from_channel_cache(num)
+                self.update_chat()
+
+            # downlaod messages
+            else:
+                self.add_running_task("Downloading chat", 4)
+                self.messages = self.get_messages_with_members()
+                self.update_chat()
+                self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
+                self.remove_running_task("Downloading chat", 4)
 
 
     def go_replied(self, msg_index):
@@ -1990,7 +2116,7 @@ class Endcord:
                     destination = file[1]
                     break
 
-        # downlaod
+        # download
         if not open_media or not destination:
             self.add_running_task("Downloading file", 2)
             try:
@@ -2133,12 +2259,12 @@ class Endcord:
             messages = self.restore_deleted(messages)
 
         current_guild = self.active_channel["guild_id"]
-        missing_members = []
         if not current_guild:
             # skipping dms
             return messages
 
         # find missing members
+        missing_members = []
         for message in messages:
             message_user_id = message["user_id"]
             if message_user_id in missing_members:
@@ -2176,6 +2302,8 @@ class Endcord:
         if past:
             logger.debug(f"Requesting chat chunk before {start_id}")
             new_chunk = self.get_messages_with_members(before=start_id)
+            if self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
+                self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
             self.messages = self.messages + new_chunk
             all_msg = len(self.messages)
             selected_line = len(self.chat) - 1
@@ -2198,6 +2326,8 @@ class Endcord:
             if new_chunk is not None:   # if its None - its network error
                 selected_line = 0
                 selected_msg = self.lines_to_msg(selected_line)
+                if self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
+                    self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
                 self.messages = new_chunk + self.messages
                 all_msg = len(self.messages)
                 self.messages = self.messages[:self.limit_chat_buffer]
@@ -2222,9 +2352,11 @@ class Endcord:
             self.add_running_task("Downloading chat", 4)
             new_messages = self.get_messages_with_members(around=message_id)
             if new_messages:
+                if self.messages[0]["id"] == self.last_message_id and new_messages[0]["id"] != self.last_message_id:
+                    self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
                 self.messages = new_messages
             self.update_chat(keep_selected=False)
-            self.add_running_task("Downloading chat", 4)
+            self.remove_running_task("Downloading chat", 4)
 
             for num, message in enumerate(self.messages):
                 if message["id"] == message_id:
@@ -3286,7 +3418,6 @@ class Endcord:
                     return guild["muted"]
 
 
-
     def check_tree_format(self):
         """Check tree format for collapsed guilds, categories, channels (with threads) and forums and save it"""
         new_tree_format = self.tui.get_tree_format()
@@ -3303,6 +3434,186 @@ class Endcord:
             if self.state["collapsed"] != collapsed:
                 self.state["collapsed"] = collapsed
                 peripherals.save_json(self.state, "state.json")
+
+
+    def process_msg_events_active_channel(self, new_message, selected_line):
+        """Process message events for currently active channel"""
+        data = new_message["d"]
+        op = new_message["op"]
+        if op == "MESSAGE_CREATE":
+            # if latest message is loaded - not viewing old message chunks
+            data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
+            if self.messages[0]["id"] == self.last_message_id:
+                self.messages.insert(0, data)
+            self.last_message_id = data["id"]
+            # limit chat size
+            if len(self.messages) > self.limit_chat_buffer:
+                self.messages.pop(-1)
+            self.update_chat(change_amount=1)
+            if not self.unseen_scrolled:
+                if time.time() - self.sent_ack_time > self.ack_throttling:
+                    self.set_seen(self.active_channel["channel_id"], force=True)
+                    self.sent_ack_time = time.time()
+                    self.pending_ack = False
+                else:
+                    self.pending_ack = True
+            # remove user from typing
+            for num, user in enumerate(self.typing):
+                if user["user_id"] == data["user_id"]:
+                    self.typing.pop(num)
+                    self.update_status_line()
+                    break
+            new_member_roles = self.gateway.get_member_roles()
+            if new_member_roles:
+                self.member_roles = new_member_roles
+                self.select_current_member_roles()
+                self.update_chat()
+        else:
+            for num, loaded_message in enumerate(self.messages):
+                if data["id"] == loaded_message["id"]:
+                    if op == "MESSAGE_UPDATE":
+                        data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
+                        for element in MESSAGE_UPDATE_ELEMENTS:
+                            loaded_message[element] = data[element]
+                            loaded_message["spoiled"] = 0
+                        self.update_chat()
+                    elif op == "MESSAGE_DELETE":
+                        self.messages[num]["deleted"] = True
+                        if num < selected_line and not self.keep_deleted:
+                            self.update_chat(change_amount=-1)
+                        else:
+                            self.update_chat()
+                    elif op == "MESSAGE_REACTION_ADD":
+                        for num2, reaction in enumerate(loaded_message["reactions"]):
+                            if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
+                                loaded_message["reactions"][num2]["count"] += 1
+                                if data["user_id"] == self.my_id:
+                                    loaded_message["reactions"][num2]["me"] = True
+                                break
+                        else:
+                            loaded_message["reactions"].append({
+                                "emoji": data["emoji"],
+                                "emoji_id": data["emoji_id"],
+                                "count": 1,
+                                "me": data["user_id"] == self.my_id,
+                            })
+                        self.update_chat()
+                    elif op == "MESSAGE_REACTION_REMOVE":
+                        for num2, reaction in enumerate(loaded_message["reactions"]):
+                            if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
+                                if reaction["count"] <= 1:
+                                    loaded_message["reactions"].pop(num2)
+                                else:
+                                    loaded_message["reactions"][num2]["count"] -= 1
+                                    if data["user_id"] == self.my_id:
+                                        loaded_message["reactions"][num2]["me"] = False
+                                break
+                        self.update_chat()
+
+
+    def process_msg_events_cached_channel(self, new_message, ch_num):
+        """Process message events for currently active channel"""
+        data = new_message["d"]
+        op = new_message["op"]
+        if op == "MESSAGE_CREATE":
+            data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
+            self.channel_cache[ch_num][1].insert(0, data)
+            if len(self.channel_cache[ch_num][1]) > self.msg_num:
+                self.channel_cache[ch_num][1].pop(-1)
+        else:
+            for num, loaded_message in enumerate(self.channel_cache[ch_num][1]):
+                if data["id"] == loaded_message["id"]:
+                    if op == "MESSAGE_UPDATE":
+                        data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
+                        for element in MESSAGE_UPDATE_ELEMENTS:
+                            loaded_message[element] = data[element]
+                    elif op == "MESSAGE_DELETE":
+                        if self.keep_deleted:
+                            self.channel_cache[ch_num][1][num]["deleted"] = True
+                        else:
+                            self.channel_cache[ch_num][1].pop(num)
+                    elif op == "MESSAGE_REACTION_ADD":
+                        for num2, reaction in enumerate(loaded_message["reactions"]):
+                            if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
+                                loaded_message["reactions"][num2]["count"] += 1
+                                if data["user_id"] == self.my_id:
+                                    loaded_message["reactions"][num2]["me"] = True
+                                break
+                        else:
+                            loaded_message["reactions"].append({
+                                "emoji": data["emoji"],
+                                "emoji_id": data["emoji_id"],
+                                "count": 1,
+                                "me": data["user_id"] == self.my_id,
+                            })
+                    elif op == "MESSAGE_REACTION_REMOVE":
+                        for num2, reaction in enumerate(loaded_message["reactions"]):
+                            if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
+                                if reaction["count"] <= 1:
+                                    loaded_message["reactions"].pop(num2)
+                                else:
+                                    loaded_message["reactions"][num2]["count"] -= 1
+                                    if data["user_id"] == self.my_id:
+                                        loaded_message["reactions"][num2]["me"] = False
+                                break
+
+
+    def process_msg_events_other_channels(self, new_message):
+        """Process message events for channels that are not cached and not active"""
+        # ignore messages sent by other clients
+        data = new_message["d"]
+        op = new_message["op"]
+        new_message_channel_id = data["channel_id"]
+        if op == "MESSAGE_CREATE" and data["user_id"] != self.my_id:
+            # skip muted channels
+            muted = False
+            for guild in self.guilds:
+                if guild["guild_id"] == data["guild_id"]:
+                    if guild.get("muted"):
+                        break
+                    for channel in guild["channels"]:
+                        if new_message_channel_id == channel["id"] and (channel.get("muted") or channel.get("hidden")):
+                            muted = True
+                            break
+                    break
+            if not muted:
+                if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
+                    self.unseen.append({
+                        "channel_id": new_message_channel_id,
+                        "guild_id": data["guild_id"],
+                    })
+                mentions = data["mentions"]
+                if (
+                    data["mention_everyone"] or
+                    bool([i for i in self.my_roles if i in data["mention_roles"]]) or
+                    self.my_id in [[x["id"] for x in mentions]] or
+                    (new_message_channel_id in self.dms_vis_id)
+                ):
+                    self.pings.append({
+                        "channel_id": new_message_channel_id,
+                        "message_id": data["id"],
+                    })
+                    self.send_desktop_notification(new_message)
+                self.update_tree()
+
+
+    def process_msg_events_ghost_ping(self, new_message):
+        """Check message events for deleted message and remove ghost pings"""
+        if new_message["op"] == "MESSAGE_DELETE" and not self.keep_deleted:
+            new_message_channel_id = new_message["d"]["channel_id"]
+            for num, pinged_channel in enumerate(self.pings):
+                if (
+                    new_message_channel_id == pinged_channel["channel_id"] and
+                    new_message["d"]["id"] == pinged_channel["message_id"]
+                ):
+                    self.pings.pop(num)
+                    if self.enable_notifications:
+                        for num_1, notification in enumerate(self.notifications):
+                            if notification["channel_id"] == new_message_channel_id:
+                                notification_id = self.notifications.pop(num_1)["notification_id"]
+                                peripherals.notify_remove(notification_id)
+                                break
+                    break
 
 
     def update_summary(self, new_summary):
@@ -3370,21 +3681,22 @@ class Endcord:
         Send desktop notification, and handle its ID so it can be removed.
         Send only one notification per channel.
         """
-        if self.enable_notifications:
+        if self.enable_notifications and self.my_status["status"] != "dnd":
             skip = False
+            data = new_message["d"]
             for notification in self.notifications:
-                if notification["channel_id"] == new_message["d"]["channel_id"]:
+                if notification["channel_id"] == data["channel_id"]:
                     skip = True
             if not skip:
                 notification_id = peripherals.notify_send(
                     APP_NAME,
-                    f"{new_message["d"]["global_name"]}:\n{new_message["d"]["content"]}",
+                    f"{data["global_name"]}:\n{data["content"]}",
                     sound=self.notification_sound,
                     custom_sound=self.notification_path,
                 )
                 self.notifications.append({
                     "notification_id": notification_id,
-                    "channel_id": new_message["d"]["channel_id"],
+                    "channel_id": data["channel_id"],
                 })
 
 
@@ -3584,129 +3896,24 @@ class Endcord:
             while self.run:
                 new_message = self.gateway.get_messages()
                 if new_message:
-                    op = new_message["op"]
                     new_message_channel_id = new_message["d"]["channel_id"]
                     this_channel = (new_message_channel_id == self.active_channel["channel_id"])
                     if this_channel:
-                        data = new_message["d"]
-                        if op == "MESSAGE_CREATE":
-                            # if latest message is loaded - not viewing old message chunks
-                            data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
-                            if self.messages[0]["id"] == self.last_message_id:
-                                self.messages.insert(0, data)
-                            self.last_message_id = new_message["d"]["id"]
-                            # limit chat size
-                            if len(self.messages) > self.limit_chat_buffer:
-                                self.messages.pop(-1)
-                            self.update_chat(change_amount=1)
-                            if not self.unseen_scrolled:
-                                if time.time() - self.sent_ack_time > self.ack_throttling:
-                                    self.set_seen(self.active_channel["channel_id"], force=True)
-                                    self.sent_ack_time = time.time()
-                                    self.pending_ack = False
-                                else:
-                                    self.pending_ack = True
-                            # remove user from typing
-                            for num, user in enumerate(self.typing):
-                                if user["user_id"] == data["user_id"]:
-                                    self.typing.pop(num)
-                                    self.update_status_line()
-                                    break
-                            new_member_roles = self.gateway.get_member_roles()
-                            if new_member_roles:
-                                self.member_roles = new_member_roles
-                                self.select_current_member_roles()
-                                self.update_chat()
-                        else:
-                            for num, loaded_message in enumerate(self.messages):
-                                if data["id"] == loaded_message["id"]:
-                                    if op == "MESSAGE_UPDATE":
-                                        data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
-                                        for element in MESSAGE_UPDATE_ELEMENTS:
-                                            loaded_message[element] = data[element]
-                                            loaded_message["spoiled"] = 0
-                                        self.update_chat()
-                                    elif op == "MESSAGE_DELETE":
-                                        self.messages[num]["deleted"] = True
-                                        if num < selected_line and not self.keep_deleted:
-                                            self.update_chat(change_amount=-1)
-                                        else:
-                                            self.update_chat()
-                                    elif op == "MESSAGE_REACTION_ADD":
-                                        for num2, reaction in enumerate(loaded_message["reactions"]):
-                                            if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
-                                                loaded_message["reactions"][num2]["count"] += 1
-                                                if data["user_id"] == self.my_id:
-                                                    loaded_message["reactions"][num2]["me"] = True
-                                                break
-                                        else:
-                                            loaded_message["reactions"].append({
-                                                "emoji": data["emoji"],
-                                                "emoji_id": data["emoji_id"],
-                                                "count": 1,
-                                                "me": data["user_id"] == self.my_id,
-                                            })
-                                        self.update_chat()
-                                    elif op == "MESSAGE_REACTION_REMOVE":
-                                        for num2, reaction in enumerate(loaded_message["reactions"]):
-                                            if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
-                                                if reaction["count"] <= 1:
-                                                    loaded_message["reactions"].pop(num2)
-                                                else:
-                                                    loaded_message["reactions"][num2]["count"] -= 1
-                                                    if data["user_id"] == self.my_id:
-                                                        loaded_message["reactions"][num2]["me"] = False
-                                                break
-                                        self.update_chat()
-                    # handling unseen and mentions
-                    if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
-                        # ignoring messages sent by other clients
-                        if op == "MESSAGE_CREATE" and new_message["d"]["user_id"] != self.my_id:
-                            # skip muted channels
-                            muted = False
-                            for guild in self.guilds:
-                                if guild["guild_id"] == new_message["d"]["guild_id"]:
-                                    if guild.get("muted"):
-                                        break
-                                    for channel in guild["channels"]:
-                                        if new_message_channel_id == channel["id"] and (channel.get("muted") or channel.get("hidden")):
-                                            muted = True
-                                            break
-                                    break
-                            if not muted:
-                                if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
-                                    self.unseen.append({
-                                        "channel_id": new_message_channel_id,
-                                        "guild_id": new_message["d"]["guild_id"],
-                                    })
-                                mentions = new_message["d"]["mentions"]
-                                if (
-                                    new_message["d"]["mention_everyone"] or
-                                    bool([i for i in self.my_roles if i in new_message["d"]["mention_roles"]]) or
-                                    self.my_id in [[x["id"] for x in mentions]] or
-                                    (new_message_channel_id in self.dms_vis_id)
-                                ):
-                                    self.pings.append({
-                                        "channel_id": new_message_channel_id,
-                                        "message_id": new_message["d"]["id"],
-                                    })
-                                    self.send_desktop_notification(new_message)
-                                self.update_tree()
-                    # remove ghost pings
-                    if op == "MESSAGE_DELETE" and not self.keep_deleted:
-                        for num, pinged_channel in enumerate(self.pings):
-                            if (
-                                new_message_channel_id == pinged_channel["channel_id"] and
-                                new_message["d"]["id"] == pinged_channel["message_id"]
-                            ):
-                                self.pings.pop(num)
-                                if self.enable_notifications:
-                                    for num_1, notification in enumerate(self.notifications):
-                                        if notification["channel_id"] == new_message_channel_id:
-                                            notification_id = self.notifications.pop(num_1)["notification_id"]
-                                            peripherals.notify_remove(notification_id)
-                                            break
+                        self.process_msg_events_active_channel(new_message, selected_line)
+                    # handle cached channels
+                    elif self.limit_channle_cache:
+                        in_cache = False
+                        for ch_num, channel in enumerate(self.channel_cache):
+                            if channel[0] == new_message_channel_id:
+                                in_cache = True
                                 break
+                        if in_cache:
+                            self.process_msg_events_cached_channel(new_message, ch_num)
+                    # handle unseen and mentions
+                    if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
+                        self.process_msg_events_other_channels(new_message)
+                    # remove ghost pings
+                    self.process_msg_events_ghost_ping(new_message)
                 else:
                     break
 
@@ -3724,7 +3931,6 @@ class Endcord:
                                 if dm["id"] == new_typing["channel_id"]:
                                     new_typing["username"] = dm["recipients"][0]["username"]
                                     new_typing["global_name"] = dm["recipients"][0]["global_name"]
-                                    # no nick in dms
                                     break
                         for num, user in enumerate(self.typing):
                             if user["user_id"] == new_typing["user_id"]:

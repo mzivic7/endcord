@@ -190,6 +190,7 @@ class TUI():
         self.instant_assist = False
         self.first_click = (0, 0, 0)
         self.mouse_chat_x = None
+        self.wrap_around_disable = False
 
         # start drawing
         self.need_update = threading.Event()
@@ -363,6 +364,11 @@ class TUI():
         self.cursor_pos = min(w - 1, self.cursor_pos)
         self.input_select_start = None
         self.show_cursor()
+
+
+    def disable_wrap_around(self, disable):
+        """Explicitly disable wrap aroud in extra window"""
+        self.wrap_around_disable = disable
 
 
     def scroll_bot(self):
@@ -1350,7 +1356,7 @@ class TUI():
                 elif self.extra_index > 0:
                     self.extra_index -= 1
                     self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-                elif self.wrap_around:
+                elif self.wrap_around and not self.wrap_around_disable:
                     self.extra_selected = len(self.extra_window_body) - 1
                     self.extra_index = max(len(self.extra_window_body) - (self.win_extra_window.getmaxyx()[0] - 1), 0)
                     self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
@@ -1373,7 +1379,7 @@ class TUI():
                             self.extra_index += 1
                         self.extra_selected += 1
                         self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-                    elif self.wrap_around:
+                    elif self.wrap_around and not self.wrap_around_disable:
                         self.extra_selected = 0
                         self.extra_index = 0
                         self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
@@ -1953,6 +1959,10 @@ class TUI():
 
             if key in self.keybindings["redraw"]:
                 self.screen.clear()
+                self.screen.redrawwin()
+                if sys.platform == "win32":
+                    self.screen.noutrefresh()   # ??? needed only with windows-curses
+                    self.need_update.set()
                 self.resize()
 
             elif key == curses.KEY_RESIZE:

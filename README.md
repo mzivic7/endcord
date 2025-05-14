@@ -229,7 +229,7 @@ Extra window is drawn for viewing:
 - User profile info - from selected message (`Alt+P`)
 - Channel/server info - from selected tree channel (`Alt+I`)
 - Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that sumamry topic.
-- Search and search results (`Ctrl+F`), `Alt+Enter` will jump to selected message.  
+- Search and search results (`Ctrl+F`), `Alt+Enter` or enter with no typed text will jump to selected message.  
 `Alt+Enter` in member list will whow user profile of the selected member.  
 
 ### Assist with mention, role, channel, emoji, sticker
