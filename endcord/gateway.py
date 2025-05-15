@@ -100,6 +100,7 @@ class Gateway():
         self.ready = False
         self.my_status = {}
         self.dm_activities = []
+        self.guilds_changed = True
         self.guilds = []
         self.roles = []
         self.member_roles = []
@@ -110,6 +111,7 @@ class Gateway():
         self.dms_id = []
         self.blocked = []
         self.my_roles = []
+        self.guilds_changed = False
 
 
     def thread_guard(self):
@@ -553,6 +555,7 @@ class Gateway():
                                             if not channel["hidden"]:
                                                 self.guilds[guild_num]["channels"][category_num]["hidden"] = False
                                                 break
+                    self.guilds_changed = True
                     time_log_string += f"    channel settings - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     for user in response["d"]["relationships"]:
@@ -1220,14 +1223,50 @@ class Gateway():
                     self.user_settings_proto = MessageToDict(decoded)
                     self.proto_changed = True
 
+                elif optext in ("CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"):
+                    new_channel = response["d"]
+                    channel_id = new_channel["id"]
+                    guild_id = new_channel["guild_id"]
+                    if optext == "CHANNEL_DELETE":
+                        for num, guild in enumerate(self.guilds):
+                            if guild["guild_id"] == guild_id:
+                                for num_ch, channel in enumerate(guild["channels"]):
+                                    if channel["id"] == channel_id:
+                                        self.guilds[num]["channels"].pop(num_ch)
+                                        break
+                                break
+                    else:
+                        for num, guild in enumerate(self.guilds):
+                            if guild["guild_id"] == guild_id:
+                                for num_ch, channel in enumerate(guild["channels"]):
+                                    if channel["id"] == channel_id:
+                                        break
+                                else:
+                                    self.guilds[num]["channels"].append({})
+                                    num_ch += 1
+                                break
+                        else:
+                            continue
+                        self.guilds[num]["channels"][num_ch] = {
+                            "id": new_channel["id"],
+                            "type": new_channel["type"],
+                            "name": new_channel["name"],
+                            "topic": new_channel.get("topic"),
+                            "parent_id": new_channel.get("parent_id"),
+                            "position": new_channel["position"],
+                            "permission_overwrites": new_channel["permission_overwrites"],
+                            "hidden": False,
+                        }
+                    self.guilds_changed = True
+
             elif opcode == 7:
-                logger.info("Discord requested reconnect")
+                logger.info("Host requested reconnect")
                 self.resumable = True
                 break
 
             elif opcode == 9:
-                logger.info("Session invalidated, reconnecting")
                 if response["d"]:
+                    logger.info("Session invalidated, reconnecting")
                     break
 
             if abnormal:
@@ -1559,6 +1598,7 @@ class Gateway():
         """
         return self.dms, self.dms_id
 
+
     def get_guilds(self):
         """
         Get list of guilds and channels with their metadata, updated only when reconnecting
@@ -1575,8 +1615,10 @@ class Gateway():
         2 - nothing
         3 - category defaults
         """
-        return self.guilds
-
+        if self.guilds_changed:
+            self.guilds_changed = False
+            return self.guilds
+        return None
 
     def get_roles(self):
         """Get list of roles for all guilds with their metadata, updated only when reconnecting"""

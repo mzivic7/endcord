@@ -235,7 +235,9 @@ class Endcord:
         self.add_running_task("Reconnecting", 1)
         self.reset(online=True)
         self.premium = self.gateway.get_premium()
-        self.guilds = self.gateway.get_guilds()
+        guilds = self.gateway.get_guilds()
+        if guilds:
+            self.guilds = guilds
         # not initializing role colors again to avoid issues with media colors
         self.dms, self.dms_vis_id = self.gateway.get_dms()
         if self.hide_spam:
@@ -3753,7 +3755,9 @@ class Endcord:
         self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 2)
 
         # get data from gateway
-        self.guilds = self.gateway.get_guilds()
+        guilds = self.gateway.get_guilds()
+        if guilds:
+            self.guilds = guilds
         self.all_roles = self.gateway.get_roles()
         self.all_roles = color.convert_role_colors(self.all_roles)
         last_free_color_id = self.tui.get_last_free_color_id()
@@ -3973,7 +3977,15 @@ class Endcord:
                 else:
                     break
 
-            # get new rpc
+            # get new threads
+            while self.run:
+                new_threads = self.gateway.get_threads()
+                if new_threads:
+                    self.load_threads(new_threads)
+                else:
+                    break
+
+            # send new rpc
             if self.enable_rpc:
                 new_rpc = self.rpc.get_rpc()
                 if new_rpc is not None and self.gateway_state == 1:
@@ -4026,6 +4038,13 @@ class Endcord:
                     self.my_status["client_state"] = "OFFLINE"
                 self.update_status_line()
 
+            # check for changes in guilds
+            guilds = self.gateway.get_guilds()
+            if guilds:
+                self.guilds = guilds
+                self.compute_permissions()
+                self.update_tree()
+
             # check change in dimensions
             new_chat_dim = self.tui.get_dimensions()[0]
             if new_chat_dim != self.chat_dim:
@@ -4060,14 +4079,6 @@ class Endcord:
             if new_activities:
                 self.activities = new_activities
                 self.update_tree()
-
-            # check for new threads
-            while self.run:
-                new_threads = self.gateway.get_threads()
-                if new_threads:
-                    self.load_threads(new_threads)
-                else:
-                    break
 
             # check for new member presences
             if self.get_members:
@@ -4121,6 +4132,7 @@ class Endcord:
                     self.stop_assist()
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)
+
             # check member assist query results
             if self.assist_type == 2:
                 query_results = self.gateway.get_member_query_resuts()

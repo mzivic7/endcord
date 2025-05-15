@@ -28,16 +28,14 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
             break
     if not guild:
         return guilds
-    # check if guild is already parsed
-    if "permitted" in guild["channels"][0]:
-        return guilds
 
-    # check if this guild owned by this user
+    # check if this guild is owned by this user
     if guild["owned"]:
         for num, channel in enumerate(guild["channels"]):
             guild["channels"][num]["permitted"] = True
             guild["channels"][num]["allow_attach"] = True
             guild["channels"][num]["allow_write"] = True
+            guild["channels"][num].pop("permission_overwrites", None)
         return guilds
 
     # base permissions
@@ -47,9 +45,16 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
             base_permissions |= int(role["permissions"])
 
     for num, channel in enumerate(guild["channels"]):
-        permissions = base_permissions
+
+        # check if channel is already parsed
+        if "permitted" in channel:
+            continue
+
+        permission_overwrites = guild["channels"][num].pop("permission_overwrites", [])
+
         # @everyone role overwrite
-        for overwrite in channel.get("permission_overwrites", []):
+        permissions = base_permissions
+        for overwrite in permission_overwrites:
             if overwrite["id"] == this_guild_id:
                 permissions &= ~int(overwrite["deny"])
                 permissions |= int(overwrite["allow"])
@@ -58,7 +63,7 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
         deny = 0
 
         # role overwrites
-        for overwrite in channel.get("permission_overwrites", []):
+        for overwrite in permission_overwrites:
             if overwrite["type"] == 0 and overwrite["id"] in my_roles:
                 allow |= int(overwrite["allow"])
                 deny |= int(overwrite["deny"])
@@ -66,7 +71,7 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
         permissions |= allow
 
         # member overwrites
-        for overwrite in channel.pop("permission_overwrites", []):
+        for overwrite in permission_overwrites:
             if overwrite["type"] == 1 and overwrite["id"] == my_id:
                 permissions &= ~int(overwrite["deny"])
                 permissions |= int(overwrite["allow"])
