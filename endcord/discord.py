@@ -726,6 +726,12 @@ class Discord():
             data = json.loads(response.read())
             connection.close()
             return data
+        if response.status == 429:
+            data = json.loads(response.read())
+            connection.close()
+            retry_after = float(data["retry_after"])
+            logger.error(f"Failed to fetch application external assets. Response code: 429 - Retry after: {retry_after}")
+            return retry_after
         logger.error(f"Failed to fetch application external assets. Response code: {response.status}")
         connection.close()
         return None

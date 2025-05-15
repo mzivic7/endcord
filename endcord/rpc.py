@@ -5,6 +5,7 @@ import socket
 import struct
 import sys
 import threading
+import time
 
 if sys.platform == "win32":
     import pywintypes
@@ -12,6 +13,9 @@ if sys.platform == "win32":
     import win32pipe
 
 
+GATEWAY_RATE_LIMIT = 5   # delay between each event that rpc server will send to discord
+GATEWAY_RATE_LIMIT_SAME = 60   # dely between each same activity that rpc server will send to discord
+REQUEST_DELAY = 1.5   # delay to decrease error 429 - too many requests
 logger = logging.getLogger(__name__)
 if sys.platform == "linux":
     DISCORD_SOCKET = f"/run/user/{os.getuid()}/discord-ipc-0"
@@ -133,6 +137,27 @@ class RPC:
             return
 
 
+    def build_response(self, data):
+        """Build response to RPC client, which is usually just echo"""
+        if data["cmd"] == "SET_ACTIVITY":
+            response = {
+                "cmd": data["cmd"],
+                "data": data["args"]["activity"],
+                "evt": None,
+                "nonce": data["nonce"],
+            }
+        else:
+            response = {
+                "cmd": data["cmd"],
+                "data": {
+                    "evt": data["evt"],
+                },
+                "evt": None,
+                "nonce": data["nonce"],
+            }
+        return response
+
+
     def client_thread(self, connection):
         """Thread that handles receiving and sending data from one client"""
         app_id = None
@@ -148,6 +173,8 @@ class RPC:
             rpc_assets = self.discord.get_rpc_app_assets(app_id)
             if rpc_data and rpc_assets:
                 send_data(connection, 1, self.dispatch)
+                sent_time = time.time() - (GATEWAY_RATE_LIMIT + 1)
+                prev_activity = None
                 while self.run:
                     op, data = receive_data(connection)
                     if not data:
@@ -155,6 +182,20 @@ class RPC:
                     logger.debug(f"Received: {json.dumps(data, indent=2)}")
 
                     if data["cmd"] == "SET_ACTIVITY":
+                        # prevent sending same activity too often
+                        if data["args"]["activity"] == prev_activity and time.time() - sent_time < GATEWAY_RATE_LIMIT_SAME:
+                            response = self.build_response(data)
+                            send_data(connection, op, response)
+                            return
+                        prev_activity = data["args"]["activity"]
+
+                        # prevent sending presences too often
+                        while time.time() - sent_time < GATEWAY_RATE_LIMIT:
+                            response = self.build_response(data)
+                            send_data(connection, op, response)
+                            continue
+                        sent_time = time.time()
+
                         activity = data["args"]["activity"]
                         activity_type = activity.get("type", 0)
 
@@ -167,8 +208,17 @@ class RPC:
                             # check if asset is external link
                             if activity["assets"][asset_client][:8] == "https://":
                                 if self.external:
-                                    external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
-                                    assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
+                                    for _ in range(5):
+                                        external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
+                                        if isinstance(external_asset, float):   # rate limited
+                                            time.sleep(external_asset + 0.2)
+                                        elif external_asset is None:
+                                            break
+                                        else:
+                                            assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
+                                            break
+                                if len(activity["assets"]) > 1:
+                                    time.sleep(REQUEST_DELAY)
                                 else:
                                     external_asset = activity["assets"][asset_client]
                                 continue
@@ -189,6 +239,14 @@ class RPC:
                                 activity["timestamps"]["start"] *= 1000
                             if "end" in activity["timestamps"]:
                                 activity["timestamps"]["end"] *= 1000
+                        if "buttons" in activity:
+                            buttons = activity.pop("buttons")
+                            activity["buttons"] = []
+                            activity["metadata"] = {"button_urls": []}
+                            for button in buttons:
+                                activity["buttons"].append(button["label"])
+                                activity["metadata"]["button_urls"].append(button["url"])
+
                         activity["assets"] = assets
                         if activity_type == 2:
                             activity.pop("flags", None)
