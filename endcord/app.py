@@ -3742,8 +3742,13 @@ class Endcord:
         # guild position
         self.guild_positions = []
         if "guildFolders" in self.discord_settings:
-            for folder in self.discord_settings["guildFolders"]["folders"]:
+            self.guild_positions = [self.discord_settings["guildFolders"]["guildPositions"]]
+            for folder in self.discord_settings["guildFolders"].get("folders", []):
                 self.guild_positions += folder["guildIds"]
+            # in some folders are missing use default positions
+            for guild in self.discord_settings["guildFolders"].get("guildPositions", []):
+                if guild not in self.guild_positions:   # deduplicate
+                    self.guild_positions.append(guild)
         if logger.getEffectiveLevel() == logging.DEBUG:
             debug.save_json(debug.anonymize_guild_positions(self.guild_positions), "guild_positions.json")
 
