@@ -26,7 +26,7 @@ settings = {
     "blocked_mode": 2,
     "hide_spam": True,
     "keep_deleted": False,
-    "deleted_cache_limit": 30,
+    "limit_cache_deleted": 30,
     "tree_show_invisible": False,
     "wrap_around": True,
     "mouse": True,
@@ -188,6 +188,7 @@ keybindings = {
     "forum_join_thread": "ALT+107",   # Alt+K
     "cycle_status": "ALT+118",   # Alt+V
     "toggle_member_list": "ALT+109",   # Alt+M
+    "toggle_tab": "ALT+98",   # Alt+B
     "command_palette": 31,   # Ctrl+/
 }
 
@@ -199,5 +200,5 @@ windows_override_keybindings = {
     "word_left": 443,   # Ctrl+Left
     "word_right": 444,   # Ctrl+Right
     "copy_msg": "ALT+108",   # Alt+L
-    "view_media": "ALT+98",   # Alt+B
+    "view_media": "ALT+121",   # Alt+Y
 }

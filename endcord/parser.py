@@ -279,4 +279,8 @@ def command_string(text):
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
+    # 30 - TOGGLE_TAB
+    elif text.lower().startswith("toggle_tab"):
+        cmd_type = 30
+
     return cmd_type, cmd_args

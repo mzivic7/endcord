@@ -163,6 +163,7 @@ Open and join selected post in forum - `Alt+K`
 Copy selected message url to clipboard - `Alt+U`  
 Copy selected channel ( in tree) url to clipboard - `Alt+Shift+U`  
 Go to #channel/message mentioned in selected message - `Alt+G`  
+Toggle channel tabbed (pinned) state - `Alt+B`  
 Locally hide channel - `Alt+H`  
 Media player: quit - `escape`, pause - `Space`, seek - `Left/Right`, replay - `Z`  
 Cancel action, leave media viewer - `Escape`  

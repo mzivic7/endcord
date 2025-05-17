@@ -76,7 +76,7 @@ class Endcord:
         self.notification_path = config["custom_notification_sound"]
         self.hide_spam = config["hide_spam"]
         self.keep_deleted = config["keep_deleted"]
-        self.deleted_cache_limit = config["deleted_cache_limit"]
+        self.limit_cache_deleted = config["limit_cache_deleted"]
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
         self.save_summaries = config["save_summaries"]
@@ -107,6 +107,7 @@ class Endcord:
             "channel_id": None,
             "guild_name": None,
             "channel_name": None,
+            "pinned": False,
         }
         self.guilds = []
         self.all_roles = []
@@ -344,13 +345,14 @@ class Endcord:
 
         # cache previous channel chat (if not forum)
         if not self.forum and self.messages:
-            self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
+            self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
 
         # update active channel
         self.active_channel["guild_id"] = guild_id
         self.active_channel["guild_name"] = guild_name
         self.active_channel["channel_id"] = channel_id
         self.active_channel["channel_name"] = channel_name
+        self.active_channel["pinned"] = False
         self.add_running_task("Switching channel", 1)
 
         # update list of this guild channels
@@ -604,25 +606,40 @@ class Endcord:
                 })
 
 
-    def add_to_channel_cache(self, channel_id, messages):
+    def add_to_channel_cache(self, channel_id, messages, set_pinned):
         """Add messages to channel cache"""
         # format: channel_cache = [[channel_id, messages], ...]
         # skipping deleted because they are separately cached
-        messages = [x for x in messages if not x.get("deleted")]
         if self.limit_channle_cache:
+            pinned = 0
+            for channel in self.channel_cache:
+                if channel[2]:
+                    pinned += 1
+            if pinned >= self.limit_channle_cache:   # skip if all are pinned
+                return
+            messages = [x for x in messages if not x.get("deleted")]
             for num, channel in enumerate(self.channel_cache):
                 if channel[0] == channel_id:
-                    self.channel_cache[num] = [channel_id, messages[:self.msg_num]]
+                    self.channel_cache[num] = [channel_id, messages[:self.msg_num], set_pinned]
                     break
             else:
-                self.channel_cache.append([channel_id, messages[:self.msg_num]])
+                self.channel_cache.append([channel_id, messages[:self.msg_num], set_pinned])
                 if len(self.channel_cache) > self.limit_channle_cache:
-                    self.channel_cache.pop(0)
+                    for num, channel in enumerate(self.channel_cache):
+                        if not channel[2]:   # dont remove pinned
+                            self.channel_cache.pop(num)
+                            break
 
 
     def load_from_channel_cache(self, num):
         """Load messages from channel cache"""
-        self.messages = self.channel_cache.pop(num)[1]
+        if self.channel_cache[2]:
+            cached = self.channel_cache[num]
+        else:
+            cached = self.channel_cache.pop(num)
+        self.messages = cached[1]
+        self.active_channel["pinned"] = cached[2]
+
         # restore deleted
         if self.keep_deleted and self.messages:
             self.messages = self.restore_deleted(self.messages)
@@ -1223,8 +1240,25 @@ class Endcord:
                     self.update_status_line()
                     self.stop_assist()
 
+            # toggle tab
+            elif action == 41:
+                self.restore_input_text = [input_text, "standard"]
+                if not self.forum:
+                    if self.active_channel.get("pinned"):
+                        self.active_channel["pinned"] = False
+                    else:
+                        pinned = 0
+                        for channel in self.channel_cache:
+                            if channel[2]:
+                                pinned += 1
+                        if pinned >= self.limit_channle_cache:   # if all are pinned
+                            self.update_extra_line("Cant add tab: channel cache limit reached.")
+                        else:
+                            self.active_channel["pinned"] = True
+
             # mouse double-click on message
             elif action == 40:
+                self.rest
                 self.restore_input_text = [input_text, "standard"]
                 clicked_chat, mouse_x = self.tui.get_clicked_chat()
                 if clicked_chat is not None and mouse_x is not None:
@@ -1456,7 +1490,7 @@ class Endcord:
                         num = max(int(input_text) - 1, 0)
                         if num <= len(reactions):
                             if reactions[num]["emoji_id"]:
-                                reaction = f"{reactions[num]["emoji"]}:{reactions[0]["emoji_id"]}"
+                                reaction = f"{reactions[num]["emoji"]}:{reactions[num]["emoji_id"]}"
                             else:
                                 reaction = reactions[num]["emoji"]
                             reaction_details = self.discord.get_reactions(
@@ -1958,6 +1992,20 @@ class Endcord:
                     if mute is not None:
                         self.discord.send_mute_guild(mute, channel_id)
 
+        elif cmd_type == 30:   # TOGGLE_TAB
+            if not self.forum:
+                if self.active_channel.get("pinned"):
+                    self.active_channel["pinned"] = False
+                else:
+                    pinned = 0
+                    for channel in self.channel_cache:
+                        if channel[2]:
+                            pinned += 1
+                    if pinned >= self.limit_channle_cache:   # if all are pinned
+                        self.update_extra_line("Cant add tab: channel cache limit reached.")
+                    else:
+                        self.active_channel["pinned"] = True
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -2305,7 +2353,7 @@ class Endcord:
             logger.debug(f"Requesting chat chunk before {start_id}")
             new_chunk = self.get_messages_with_members(before=start_id)
             if new_chunk and self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
-                self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
+                self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
             self.messages = self.messages + new_chunk
             all_msg = len(self.messages)
             selected_line = len(self.chat) - 1
@@ -2329,7 +2377,7 @@ class Endcord:
                 selected_line = 0
                 selected_msg = self.lines_to_msg(selected_line)
                 if new_chunk and self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
-                    self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
+                    self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
                 self.messages = new_chunk + self.messages
                 all_msg = len(self.messages)
                 self.messages = self.messages[:self.limit_chat_buffer]
@@ -2355,7 +2403,7 @@ class Endcord:
             new_messages = self.get_messages_with_members(around=message_id)
             if new_messages:
                 if self.messages[0]["id"] == self.last_message_id and new_messages[0]["id"] != self.last_message_id:
-                    self.add_to_channel_cache(self.active_channel["channel_id"], self.messages)
+                    self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
                 self.messages = new_messages
             self.update_chat(keep_selected=False)
             self.remove_running_task("Downloading chat", 4)
@@ -2918,7 +2966,7 @@ class Endcord:
                         break
                 else:
                     this_channel_cache.append(message)
-                    if len(this_channel_cache) > self.deleted_cache_limit:
+                    if len(this_channel_cache) > self.limit_cache_deleted:
                         this_channel_cache.pop(0)
 
 
@@ -3745,7 +3793,7 @@ class Endcord:
             self.guild_positions = [self.discord_settings["guildFolders"]["guildPositions"]]
             for folder in self.discord_settings["guildFolders"].get("folders", []):
                 self.guild_positions += folder["guildIds"]
-            # in some folders are missing use default positions
+            # if some folders are missing use default positions
             for guild in self.discord_settings["guildFolders"].get("guildPositions", []):
                 if guild not in self.guild_positions:   # deduplicate
                     self.guild_positions.append(guild)

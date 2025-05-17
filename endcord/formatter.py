@@ -45,6 +45,7 @@ COMMAND_ASSISTS = (
     ("bottom", "bottom"),
     ("go_reply", "go_reply"),
     ("show_reactions", "show_reactions"),
+    ("toggle_tab", "toggle_tab"),
     ("paste_clipboard_image", "paste_clipboard_image"),
     ("check_standing", "check_standing"),
     ("set [key] = [value]", "set"),

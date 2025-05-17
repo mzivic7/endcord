@@ -15,7 +15,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_chat_buffer = 100`  
     Number of messages kept in chat buffer. Initial buffer is 50 messages and is expanded in scroll direction. Limit: 50-1000. Larger value will cause longer chat updates.  
 - `limit_channel_cache = 5`  
-    How many previous channel chats are kept in cache. For each channel `download_msg` number of messages are kept.  Set to 0 to disable caching. Larger value will cause more RAM usage.
+    How many previous channel chats are kept in cache. For each channel `download_msg` number of messages are kept.  Set to 0 to disable caching.  
+    Tabbed channels are counted as "pinned" cached channels.
+    Larger limit_channel_cache value will cause more RAM usage.
 - `download_msg = 25`  
     Number of messages downloaded in chunks for updating chat. Discord default is 25. Limit: 20-100. Larger values will cause longer waiting time when switching channel and loading chat chunks.
 - `convert_timezone = True`  
@@ -59,7 +61,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to hide or show spam DM request channels in DM list.
 - `keep_deleted = False`  
     Wether to keep deleted messages in chat, with different color, or remove them.
-- `deleted_cache_limit = 50`  
+- `limit_cache_deleted = 30`  
     Limit lumber of cached deleted messages per channel.
 - `tree_show_invisible = False`  
     Show "invisible" status in tree when DM user is online but invisible.  

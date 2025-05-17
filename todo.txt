@@ -1,4 +1,14 @@
-Tabs
+send X-Super-Properties
+Make sound work on kde
+Add mark_as_read comamnd
+Add tabs
+    keybinding Ctrl+Num
+    tab switch command
+    add UI to title line (include currently marked channel)
+    redraw after toggle tab
+    add to defaults and theme
+    add to configuration
+    add to readme
 Discord slash commands
 Code blocks syntax highlighting
 Voice and video calls
