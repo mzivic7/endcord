@@ -391,6 +391,8 @@ Nuitka requres compiler:
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence.
 - Typing status and Rich Presence are using WebSocket so disabling it will make no difference.
+- `anonymous` mode in `client_properties` setting migt be more risky than `default` mode.
+- Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
 
 ### What if you get banned?
 You can write to Discord TNS team: https://dis.gd/request.  

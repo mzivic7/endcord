@@ -14,7 +14,6 @@ from google.protobuf.json_format import MessageToDict, ParseDict
 
 from endcord import peripherals
 
-CLIENT_NAME = "endcord"
 DISCORD_HOST = "discord.com"
 DISCORD_CDN_HOST = "cdn.discordapp.com"
 DISCORD_EPOCH = 1420070400
@@ -204,7 +203,7 @@ def prepare_messages(data, have_channel_id=False):
 class Discord():
     """Methods for fetching and sending data to Discord using REST API"""
 
-    def __init__(self, token, host, proxy=None):
+    def __init__(self, token, host, client_prop, user_agent, proxy=None):
         if host:
             self.host = urllib.parse.urlparse(host).netloc
             self.cdn_host = f"cdn.{urllib.parse.urlparse(host).netloc}"
@@ -213,10 +212,12 @@ class Discord():
             self.cdn_host = DISCORD_CDN_HOST
         self.token = token
         self.header = {
-            "content-type": "application/json",
-            "user-agent": CLIENT_NAME,
             "authorization": self.token,
+            "content-type": "application/json",
+            "user-agent": user_agent,
+            "x-super-properties": client_prop,
         }
+        self.user_agent = user_agent
         self.proxy = urllib.parse.urlparse(proxy)
         self.my_id = self.get_my_id(exit_on_error=True)
         self.protos = [[], []]
@@ -1237,7 +1238,7 @@ class Discord():
             "Origin": "https://discord.com",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "cross-site",
-            "user-agent": CLIENT_NAME,
+            "user-agent": self.user_agent,
         }
         url = urllib.parse.urlparse(upload_url)
         upload_url_path = f"{url.path}?{url.query}"
@@ -1373,7 +1374,7 @@ class Discord():
             "Origin": "https://discord.com",
             "Sec-Fetch-Mode": "no-cors",
             "Sec-Fetch-Site": "cross-site",
-            "user-agent": CLIENT_NAME,
+            "user-agent": self.user_agent,
         }
         try:
             connection = self.get_connection(self.cdn_host, 443)

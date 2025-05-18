@@ -6,7 +6,6 @@ import random
 import socket
 import ssl
 import struct
-import sys
 import threading
 import time
 import traceback
@@ -52,11 +51,12 @@ def reset_inflator():
 class Gateway():
     """Methods for fetching and sending data to Discord using Discord's gateway through websocket"""
 
-    def __init__(self, token, host, proxy=None):
+    def __init__(self, token, host, client_prop, proxy=None):
         if host:
             self.host = urllib.parse.urlparse(host).netloc
         else:
             self.host = DISCORD_HOST
+        self.client_prop = client_prop
         self.token = token
         self.proxy = urllib.parse.urlparse(proxy)
         self.run = True
@@ -1318,22 +1318,12 @@ class Gateway():
 
     def authenticate(self):
         """Authenticate client with discord gateway"""
-        if sys.platform == "linux":
-            op_sys = "linux"
-        elif sys.platform == "win32":
-            op_sys = "windows"
-        else:
-            op_sys = "mac"
         payload = {
             "op": 2,
             "d": {
                 "token": self.token,
                 "capabilities": 30717,
-                "properties": {
-                    "os": op_sys,
-                    "browser": CLIENT_NAME,
-                    "device": CLIENT_NAME,
-                },
+                "properties": self.client_prop,
                 "presence": {
                     "activities": [],
                     "status": "online",

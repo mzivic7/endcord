@@ -11,6 +11,7 @@ import webbrowser
 import emoji
 
 from endcord import (
+    client_properties,
     color,
     debug,
     discord,
@@ -86,7 +87,7 @@ class Endcord:
         self.member_list_auto_open = config["member_list_auto_open"]
         self.member_list_width = config["member_list_width"]
         self.use_nick = config["use_nick_when_available"]
-        self.status_char = self.config["tree_dm_status"]
+        self.status_char = config["tree_dm_status"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -94,7 +95,7 @@ class Endcord:
         if self.notification_path:
             self.notification_path = os.path.expanduser(self.notification_path)
         if not support_media:
-            self.config["native_media_player"] = True
+            config["native_media_player"] = True
         self.colors = color.extract_colors(config)
         self.colors_formatted = color.extract_colors_formatted(config)
         self.default_msg_color = self.colors_formatted[0][0][:]
@@ -120,16 +121,32 @@ class Endcord:
         self.cached_downloads = []
         self.last_summary_save = time.time() - SUMMARY_SAVE_INTERVAL - 1
 
+        # get client properties
+        if config["client_properties"].lower() == "anonymous":
+            client_prop = client_properties.get_anonymous_properties()
+        else:
+            client_prop = client_properties.get_default_properties()
+
+        if config["custom_user_agent"]:
+            client_prop = client_properties.add_user_agent(client_prop, config["custom_user_agent"])
+        client_prop_gateway = client_properties.add_for_gateway(client_prop)
+        user_agent = client_prop["browser_user_agent"]
+        client_prop = client_properties.encode_properties(client_prop)
+        logger.debug(f"User-Agent: {user_agent}")
+
         # initialize stuff
         self.discord = discord.Discord(
             config["token"],
             config["custom_host"],
-            config["proxy"],
+            client_prop,
+            user_agent,
+            proxy=config["proxy"],
         )
         self.gateway = gateway.Gateway(
             config["token"],
             config["custom_host"],
-            config["proxy"],
+            client_prop_gateway,
+            proxy=config["proxy"],
         )
         self.downloader = downloader.Downloader(config["proxy"])
         self.tui = tui.TUI(self.screen, self.config, keybindings)
@@ -3790,7 +3807,6 @@ class Endcord:
         # guild position
         self.guild_positions = []
         if "guildFolders" in self.discord_settings:
-            self.guild_positions = [self.discord_settings["guildFolders"]["guildPositions"]]
             for folder in self.discord_settings["guildFolders"].get("folders", []):
                 self.guild_positions += folder["guildIds"]
             # if some folders are missing use default positions

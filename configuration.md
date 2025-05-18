@@ -106,6 +106,15 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     [Format code](https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#format-selection) for youtube video to play.
 - `mpv_path = "mpv"`  
     Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
+-  `client_properties = "default"`  
+    Client properties are used by discod in spam detection system. They contain various system information like operationg system and browser user agent. There are 2 options available: `"default"` and `"anonymous"`.  
+    - `"default"` - Approximately what official desktop client sends. Includes: OS version, architecture, linux window manager, locale.  
+    - `"anonymous"` - Approximately what official web client sends. But there is higher risk to trigger spam heuristics.  
+- `custom_user_agent = None`  
+    Custom [user agent string](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent) for `client_properties`.  
+    Default user agent is Firefox for `"anonymous"` and discord desktop client for `default` client properties.  
+    User agent should not be changed unless the [default ones](https://github.com/mzivic7/endcord/blob/main/endcord/app.py) are very outdated.  
+    Setting wrong user agent can make you more suspicious to discord spam filter! Make sure user agent string matches your OS.  
 - `proxy = None`  
     Proxy URL to use, it must be this format: `protocol://host:port`, example: `socks5://localhost:1080`.  
     Supported proxy protocols: `http`, `socks5`.  
