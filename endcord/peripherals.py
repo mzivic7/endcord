@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
 ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
+NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification sound
 
 # platform specific code
 if sys.platform == "win32":
@@ -42,6 +43,23 @@ if sys.platform == "linux":
         have_notify_send = True
     except FileNotFoundError:
         have_notify_send = False
+    # if this DE has no notification sound, try to get fallback sound
+    no_notify_sound = False
+    fallback_notification_sound = None
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "") or os.environ.get("DESKTOP_SESSION", "")
+    if desktop.lower() in NO_NOTIFY_SOUND_DE:
+        no_notify_sound = True
+        path = "/usr/share/sounds/freedesktop/stereo"
+        for keyword in ["message", "notification", "bell"]:
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    if keyword in file.lower():
+                        fallback_notification_sound = os.path.join(root, file)
+                        break
+                if fallback_notification_sound:
+                    break
+            if fallback_notification_sound:
+                break
 
 
 # get platform specific paths
@@ -246,6 +264,8 @@ def notify_send(title, message, sound="message", custom_sound=None):
     if sys.platform == "linux":
         if custom_sound:
             threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
+        elif no_notify_sound and fallback_notification_sound and have_notify_send:
+            threading.Thread(target=play_audio, daemon=True, args=(fallback_notification_sound, )).start()
         if have_notify_send:
             command = ["notify-send", "-p", "--app-name", APP_NAME, "-h", f"string:sound-name:{sound}", title, message]
             proc = subprocess.Popen(

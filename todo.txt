@@ -1,4 +1,3 @@
-Make sound work on kde
 Add mark_as_read comamnd
 Add tabs
 Discord slash commands

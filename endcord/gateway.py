@@ -20,7 +20,6 @@ from google.protobuf.json_format import MessageToDict
 
 from endcord import debug, perms
 
-CLIENT_NAME = "endcord"
 DISCORD_HOST = "discord.com"
 LOCAL_MEMBER_COUNT = 50   # members per guild, CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
