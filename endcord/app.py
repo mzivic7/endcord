@@ -2023,6 +2023,12 @@ class Endcord:
                     else:
                         self.active_channel["pinned"] = True
 
+        elif cmd_type == 31:   # MARK_AS_READ:
+            channel_id = cmd_args.get("channel_id")
+            if not channel_id:
+                channel_id = self.tree_metadata[tree_sel]["id"]
+            self.set_seen(channel_id)
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -3339,10 +3345,14 @@ class Endcord:
                     self.unseen.pop(num_1)
                 if ack:
                     self.discord.send_ack_message(channel_id, self.messages[0]["id"])
+
+                # remove ping
                 for num, pinged_channel in enumerate(self.pings):
                     if channel_id == pinged_channel["channel_id"]:
                         self.pings.pop(num)
                         break
+
+                # remove notification
                 if self.enable_notifications:
                     for num, notification in enumerate(self.notifications):
                         if notification["channel_id"] == channel_id:

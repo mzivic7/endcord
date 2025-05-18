@@ -34,6 +34,7 @@ COMMAND_ASSISTS = (
     ("summaries *<#[channel_id]>", "summaries"),
     ("hide *<#[channel_id]>", "hide"),
     ("toggle_mute *<#[channel_id]>", "toggle_mute"),
+    ("mark_as_read *<#[channel_id]>", "mark_as_read"),
     ("copy_message", "copy_message"),
     ("spoil", "spoil"),
     ("link_channel *<#[channel_id]>", "link_channel"),

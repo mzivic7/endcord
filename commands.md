@@ -63,3 +63,5 @@
     Prompt to hide selected channel in tree or specified channel.
 - `toggle_mute` / `toggle_mute <#[channel_id]>`  
     Mute/unmute selected channel in tree or specified channel.
+- `mark_as_read` / `mark_as_read <#[channel_id]>`  
+    Mark selected channel in tree or specified channel as read.
