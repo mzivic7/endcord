@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 INPUT_LINE_JUMP = 20   # jump size when moving input line
 MAX_DELTA_STORE = 50   # limit undo size
 MIN_ASSIST_LETTERS = 2
+SCREEN_UPDATE_DELAY = 0.01
 ASSIST_TRIGGERS = ("#", "@", ":", ";")
 if sys.platform == "win32":
     BACKSPACE = 8   # i cant believe this
@@ -211,7 +212,7 @@ class TUI():
         while True:
             self.need_update.wait()
             # here must be delay, otherwise output gets messed up
-            time.sleep(0.01)
+            time.sleep(SCREEN_UPDATE_DELAY)
             curses.doupdate()
             self.need_update.clear()
 

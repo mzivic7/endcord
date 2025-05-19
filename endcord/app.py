@@ -316,7 +316,7 @@ class Endcord:
             rpc=self.my_rpc,
         )
 
-        self.messages =self.get_messages_with_members()
+        self.messages = self.get_messages_with_members()
         if self.messages:
             self.last_message_id = self.messages[0]["id"]
 
@@ -663,6 +663,8 @@ class Endcord:
         if self.keep_deleted and self.messages:
             self.messages = self.restore_deleted(self.messages)
 
+        if self.messages:
+            self.last_message_id = self.messages[0]["id"]
         current_guild = self.active_channel["guild_id"]
         if not current_guild:
             # skipping dms
@@ -3622,9 +3624,11 @@ class Endcord:
         data = new_message["d"]
         op = new_message["op"]
         if op == "MESSAGE_CREATE":
+            logger.info("CREATE")
             # if latest message is loaded - not viewing old message chunks
             data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
             if self.messages[0]["id"] == self.last_message_id:
+                logger.info("INSERT")
                 self.messages.insert(0, data)
             self.last_message_id = data["id"]
             # limit chat size
