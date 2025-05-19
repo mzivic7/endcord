@@ -191,6 +191,7 @@ class TUI():
         self.first_click = (0, 0, 0)
         self.mouse_chat_x = None
         self.wrap_around_disable = False
+        self.pressed_num_key = None
 
         # start drawing
         self.need_update = threading.Event()
@@ -510,8 +511,9 @@ class TUI():
         """Draw title line, works same as status line"""
         h, w = self.title_hw
         title_txt = self.title_txt_l[:w-1]
-        if self.title_txt_r and len(title_txt) + len(self.title_txt_r) + 4 < w:
-            title_line = title_txt + " " * (w - len(title_txt) - len(self.title_txt_r)) + self.title_txt_r
+        if self.title_txt_r:
+            title_txt_r = self.title_txt_r [:w - (len(title_txt) + 4)] + " "
+            title_line = title_txt + " " * (w - len(title_txt) - len(title_txt_r)) + title_txt_r
         else:
             title_line = title_txt + " " * (w - len(title_txt))
         self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
@@ -1410,6 +1412,15 @@ class TUI():
 
         elif key in self.keybindings["command_palette"]:
             return 38
+
+        elif isinstance(key, str):
+            try:
+                num = int(key[4:])
+            except ValueError:
+                return None
+            if 49 <= num <= 57:
+                self.pressed_num_key = num - 48
+                return 42
 
         return None
 

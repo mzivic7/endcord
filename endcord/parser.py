@@ -283,9 +283,18 @@ def command_string(text):
     elif text.lower().startswith("toggle_tab"):
         cmd_type = 30
 
-    # 31 - MARK_AS_READ
-    elif text.lower().startswith("mark_as_read"):
+    # 31 - SWITCH_TAB
+    elif text.lower().startswith("switch_tab"):
         cmd_type = 31
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except (IndexError, ValueError):
+            cmd_type = 0
+
+    # 32 - MARK_AS_READ
+    elif text.lower().startswith("mark_as_read"):
+        cmd_type = 32
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}

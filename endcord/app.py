@@ -204,6 +204,7 @@ class Endcord:
         self.chat = []
         self.chat_format = []
         self.channel_cache = []
+        self.tab_string = ""
         self.unseen_scrolled = False
         self.chat_indexes = []
         self.chat_map = []
@@ -522,6 +523,7 @@ class Endcord:
             self.update_extra_line(self.disable_sending)
         else:
             self.update_extra_line()
+        self.update_tabs(no_redraw=True)
         self.update_prompt()
         self.update_tree()
 
@@ -650,7 +652,7 @@ class Endcord:
 
     def load_from_channel_cache(self, num):
         """Load messages from channel cache"""
-        if self.channel_cache[2]:
+        if self.channel_cache[num][2]:
             cached = self.channel_cache[num]
         else:
             cached = self.channel_cache.pop(num)
@@ -695,6 +697,38 @@ class Endcord:
         # replace discord links
         for msg_num, message in enumerate(self.messages):
             self.messages[msg_num] = formatter.replace_discord_url(message, current_guild)
+
+
+    def remove_channel_cache(self, num=None, active=False):
+        """Remove chached channel"""
+        if active:
+            for num_cache, channel in enumerate(self.channel_cache):
+                if channel[0] == self.active_channel["channel_id"]:
+                    num = num_cache
+                    break
+        if num is not None:
+            try:
+                self.channel_cache.pop(num)
+            except IndexError:
+                pass
+
+
+    def toggle_tab(self):
+        """Toggle tabbed state of currently active channel"""
+        if not self.forum:
+            if self.active_channel.get("pinned"):
+                self.active_channel["pinned"] = False
+                self.remove_channel_cache(active=True)
+            else:
+                pinned = 0
+                for channel in self.channel_cache:
+                    if channel[2]:
+                        pinned += 1
+                if pinned >= self.limit_channle_cache:   # if all are pinned
+                    self.update_extra_line("Cant add tab: channel cache limit reached.")
+                else:
+                    self.active_channel["pinned"] = True
+            self.update_tabs(add_current=True)
 
 
     def reset_actions(self):
@@ -1260,22 +1294,16 @@ class Endcord:
             # toggle tab
             elif action == 41:
                 self.restore_input_text = [input_text, "standard"]
-                if not self.forum:
-                    if self.active_channel.get("pinned"):
-                        self.active_channel["pinned"] = False
-                    else:
-                        pinned = 0
-                        for channel in self.channel_cache:
-                            if channel[2]:
-                                pinned += 1
-                        if pinned >= self.limit_channle_cache:   # if all are pinned
-                            self.update_extra_line("Cant add tab: channel cache limit reached.")
-                        else:
-                            self.active_channel["pinned"] = True
+                self.toggle_tab()
+
+            # switch tab
+            elif action == 42:
+                pressed_num_key = self.tui.pressed_num_key
+                if pressed_num_key:
+                    self.switch_tab(pressed_num_key - 1)
 
             # mouse double-click on message
             elif action == 40:
-                self.rest
                 self.restore_input_text = [input_text, "standard"]
                 clicked_chat, mouse_x = self.tui.get_clicked_chat()
                 if clicked_chat is not None and mouse_x is not None:
@@ -1673,7 +1701,7 @@ class Endcord:
             for embed in self.messages[msg_index]["embeds"]:
                 if embed["url"]:
                     urls.append(embed["url"])
-            select_num = cmd_args.get("num", 0)
+            select_num = max(cmd_args.get("num", 0), 0)
             if select_num > 0 and select_num <= len(urls):
                 select_num -= 1
             else:
@@ -1696,7 +1724,7 @@ class Endcord:
         elif cmd_type == 5:   # OPEN_LINK
             msg_index = self.lines_to_msg(chat_sel)
             urls = self.get_msg_urls(msg_index)
-            select_num = cmd_args.get("num", 0)
+            select_num = max(cmd_args.get("num", 0), 0)
             if select_num > 0 and select_num <= len(urls):
                 select_num -= 1
             else:
@@ -1718,7 +1746,7 @@ class Endcord:
         elif cmd_type == 6 and support_media:   # PLAY
             msg_index = self.lines_to_msg(chat_sel)
             urls, media_type = self.get_msg_media(msg_index)
-            select_num = cmd_args.get("num", 0)
+            select_num = max(cmd_args.get("num", 0), 0)
             if select_num > 0 and select_num <= len(urls):
                 select_num -= 1
             else:
@@ -1859,7 +1887,7 @@ class Endcord:
             self.copy_msg_url(msg_index)
 
         elif cmd_type == 19:   # GOTO_MENTION
-            select_num = cmd_args.get("num", 0)
+            select_num = max(cmd_args.get("num", 0), 0)
             if select_num > 0 and select_num <= len(urls):
                 select_num -= 1
             else:
@@ -2011,19 +2039,13 @@ class Endcord:
 
         elif cmd_type == 30:   # TOGGLE_TAB
             if not self.forum:
-                if self.active_channel.get("pinned"):
-                    self.active_channel["pinned"] = False
-                else:
-                    pinned = 0
-                    for channel in self.channel_cache:
-                        if channel[2]:
-                            pinned += 1
-                    if pinned >= self.limit_channle_cache:   # if all are pinned
-                        self.update_extra_line("Cant add tab: channel cache limit reached.")
-                    else:
-                        self.active_channel["pinned"] = True
+                self.toggle_tab()
 
-        elif cmd_type == 31:   # MARK_AS_READ:
+        elif cmd_type == 31:   # SWITCH_TAB
+            select_num = max(cmd_args.get("num", 1) - 1, 0)
+            self.switch_tab(select_num)
+
+        elif cmd_type == 32:   # MARK_AS_READ:
             channel_id = cmd_args.get("channel_id")
             if not channel_id:
                 channel_id = self.tree_metadata[tree_sel]["id"]
@@ -2100,6 +2122,21 @@ class Endcord:
             reference_id = self.messages[msg_index]["referenced_message"]["id"]
             if reference_id:
                 self.go_to_message(reference_id)
+
+
+    def switch_tab(self, select_num):
+        """Switch to specified tab number if it is available"""
+        num = 0
+        channel_id = None
+        for channel in self.channel_cache:
+            if channel[2]:
+                if num == select_num:
+                    channel_id = channel[0]
+                    break
+                num += 1
+        if channel_id:
+            channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channel_id)
+            self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
 
 
     def get_msg_urls(self, msg_index):
@@ -3115,6 +3152,57 @@ class Endcord:
         self.tui.draw_member_list(member_list, member_list_format, reset=reset)
 
 
+    def update_tabs(self, no_redraw=False, add_current=False):
+        """Generate tab string and update status line"""
+        tabs = []
+        for channel in self.channel_cache:
+            if channel[2]:
+                tabs.append(channel[0])
+
+        # add active channel if needed
+        active_channel_id = self.active_channel["channel_id"]
+        if add_current and self.active_channel["pinned"] and active_channel_id not in tabs:
+            tabs.append(active_channel_id)
+
+        # get index of active tab
+        active_tab_index = None
+        if active_channel_id in tabs:
+            active_tab_index = tabs.index(active_channel_id)
+
+        # get tab channel names
+        tabs_names_unsorted = []
+        for guild in self.guilds:
+            guild_name = guild["name"]
+            for channel in guild["channels"]:
+                if channel["id"] in tabs:
+                    tabs_names_unsorted.append({
+                        "channel_id": channel["id"],
+                        "channel_name": channel["name"],
+                        "guild_name": guild_name,
+                    })
+                    if len(tabs_names_unsorted) == len(tabs):
+                        break
+        # sort names
+        tabs_names = []
+        for tab in tabs:
+            for named_tab in tabs_names_unsorted:
+                if named_tab["channel_id"] == tab:
+                    tabs_names.append(named_tab)
+
+        # build tab string
+        self.tab_string = formatter.generate_tab_string(
+            tabs_names,
+            active_tab_index,
+            [x["channel_id"] for x in self.unseen],
+            self.config["format_tabs"],
+            self.config["tabs_separator"],
+            self.config["limit_global_name"],
+            self.config["limit_tabs_string"],
+        )
+        if not no_redraw:
+            self.update_status_line()
+
+
     def update_status_line(self):
         """Generate status and title lines and update them in TUI"""
         action = {
@@ -3169,6 +3257,7 @@ class Endcord:
                 self.active_channel,
                 action,
                 self.running_tasks,
+                self.tab_string,
                 self.format_status_line_r,
                 self.format_rich,
                 limit_typing=self.limit_typing,
@@ -3184,6 +3273,7 @@ class Endcord:
             self.active_channel,
             action,
             self.running_tasks,
+            self.tab_string,
             self.format_status_line_l,
             self.format_rich,
             limit_typing=self.limit_typing,
@@ -3200,6 +3290,7 @@ class Endcord:
                 self.active_channel,
                 action,
                 self.running_tasks,
+                self.tab_string,
                 self.format_title_line_r,
                 self.format_rich,
                 limit_typing=self.limit_typing,
@@ -3216,6 +3307,7 @@ class Endcord:
                 self.active_channel,
                 action,
                 self.running_tasks,
+                self.tab_string,
                 self.format_title_line_l,
                 self.format_rich,
                 limit_typing=self.limit_typing,
@@ -3231,6 +3323,7 @@ class Endcord:
                 self.active_channel,
                 action,
                 self.running_tasks,
+                self.tab_string,
                 self.format_title_tree,
                 self.format_rich,
                 limit_typing=self.limit_typing,
@@ -3263,10 +3356,11 @@ class Endcord:
         elif update_only and self.extra_line:
             self.tui.draw_extra_line(self.extra_line)
         else:
-            attachments = None
             for attachments in self.ready_attachments:
                 if attachments["channel_id"] == self.active_channel["channel_id"]:
                     break
+            else:
+                attachments = None
             if attachments:
                 statusline_w = self.tui.get_dimensions()[2][1]
                 self.extra_line = formatter.generate_extra_line(attachments["attachments"], self.selected_attachment, statusline_w)
@@ -3651,7 +3745,7 @@ class Endcord:
 
 
     def process_msg_events_other_channels(self, new_message):
-        """Process message events for channels that are not cached and not active"""
+        """Process message events that should ping and send notification"""
         data = new_message["d"]
         op = new_message["op"]
         new_message_channel_id = data["channel_id"]
@@ -3677,8 +3771,8 @@ class Endcord:
                 if (
                     data["mention_everyone"] or
                     bool([i for i in self.my_roles if i in data["mention_roles"]]) or
-                    self.my_id in [[x["id"] for x in mentions]] or
-                    (new_message_channel_id in self.dms_vis_id)
+                    self.my_id in [x["id"] for x in mentions] or
+                    new_message_channel_id in self.dms_vis_id
                 ):
                     self.pings.append({
                         "channel_id": new_message_channel_id,
@@ -3945,7 +4039,7 @@ class Endcord:
                         guild_name = guild["name"]
                         break
                 for channel in guild["channels"]:
-                    if channel["id"] == channel_id:
+                    if channel["id"] == channel_id and channel.get("permitted"):
                         channel_name = channel["name"]
                         break
             else:

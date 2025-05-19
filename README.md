@@ -46,6 +46,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
+- Tabs
 - Assist when typing channel/username/role/emoji/sticker
 - Record and send voice messages
 - Undo/Redo in input line
@@ -68,6 +69,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Customizable colors and ASCII art
 - Show discord emoji as `:emoji_name:`
 - Show mentions as `@username`, `@role`, `#channel_name`
+- Channel chat caching
 - Remember last open channel and tree state
 - Resizable
 - Automatic recovery on network failure
@@ -164,7 +166,7 @@ Copy selected message url to clipboard - `Alt+U`
 Copy selected channel ( in tree) url to clipboard - `Alt+Shift+U`  
 Go to #channel/message mentioned in selected message - `Alt+G`  
 Toggle channel tabbed (pinned) state - `Alt+B`  
-Locally hide channel - `Alt+H`  
+Switch to tab: `Alt+NUM` (`NUM`: 1-9 in number row, not numeric keypad)  
 Media player: quit - `escape`, pause - `Space`, seek - `Left/Right`, replay - `Z`  
 Cancel action, leave media viewer - `Escape`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
@@ -261,10 +263,10 @@ To add default emoji in message just type its name or alias, like this: `:thumbs
 For now, there is no emoji assist, but it is planned.  
 Emoji names can be found [here](https://unicode.org/emoji/charts/full-emoji-list.html) and aliases [here](https://www.webfx.com/tools/emoji-cheat-sheet/).  
 
-### RPC
-For now RPC only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
-Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
-If this happens, more info about whats going on can be found in log, when endcord is in debug mode.  
+# Tabs
+Tabs are "pinned" channels in channel cache, and are counted in channel cache limit.  
+Currently active channel can be un/tabbed with `Alt+B`.  
+To switch to any tabbed channel use `Alt+NUM`, where `NUM` is tab number (use keys in number row).
 
 ### Forums
 Forums in tree can be opened just like a channel (`Ctrl+Space`). It will load only the most recent posts (unarchived) and show them in chat buffer.  
@@ -272,14 +274,13 @@ Select post and `Enter` to open it, or `Alt+K` to open and join.
 Posts are treated same as threads in channel tree, but only participated posts will be shown.  
 If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
 
-### Hiding channels
-Some channels are not hidden in endcord, even tho they are in official client. more info on why in [FAQ](#FAQ).  
-Also some servers my not provide an ability to hide channels.  
-Thats why in endcord channels can be locally hidden, by selecting channel in channel tree and pressing `Alt+H`.  
-Locally hidden channels can be restored by removing them in `hidden_channels.json`, see [Configuration](#configuration) for path.  
-
 ### Terminal size
 Recommended terminal size for proper viewing is minimum 118 columns and 32 rows, for default theme.
+
+### RPC
+For now RPC only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
+Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
+If this happens, more info about whats going on can be found in log, when endcord is in debug mode.  
 
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
@@ -390,7 +391,8 @@ Nuitka requres compiler:
 - Do not repeatedly view user profiles.
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence.
-- Typing status and Rich Presence are using WebSocket so disabling it will make no difference.
+- Disable `send_typing in config` - it calls REST API every 7s when typing.
+- Increase `limit_channel_cache` in settings - so REST API is not called on every channel switch. This will also increase RAM and CPU usage.
 - `anonymous` mode in `client_properties` setting migt be more risky than `default` mode.
 - Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
 
@@ -414,6 +416,9 @@ If emoji are drawn as empty box or simmilar, it means emoji are not supported by
 
 ### Sticker cannot be opened
 If the message says it "cannot be opened", then this is lottie sticker. These stickers have special vector way of drawing animations and will not be supported.
+
+### Restore locally hidden channels
+Locally hidden channels can be restored by removing them in `hidden_channels.json`, see [Configuration](#configuration) for path.  
 
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.

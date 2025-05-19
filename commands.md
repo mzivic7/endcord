@@ -43,8 +43,10 @@
     Go to replied message from currently selected message.
 - `show_reactions`  
     Show reactions details for selected message.
-- `toggle_tab`
+- `toggle_tab`  
     Toggle tabbed (pinned) state of currently active channel.
+- `switch_tab [num]`  
+    Switch to specified tab number.
 
 
 ## Special commands (no keybinding)

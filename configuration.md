@@ -149,12 +149,14 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for right side of status line. See [format_status](#format_status) for more info.
 - `format_title_line_l = " %server: %channel"`  
     Formatting for left side of title line. See [format_status](#format_status) for more info. Set to None to disable.
-- `format_title_line_r = "%rich"`  
+- `format_title_line_r = "%tabs"`  
     Formatting for right side of title line. See [format_status](#format_status) for more info.
 - `format_title_tree = " endcord  %task"`  
     Formatting for channel tree title line. See [format_status](#format_status) for more info. Set to None to disable.
-- `format_rich = "%type %name - %state - %details "`  
+- `format_rich = "%type %name - %state - %details"`  
     Formatting for rich presence string used in `format_status`. See [format_rich](#format_rich) for more info.
+- `format_tabs = "%num - %name"`  
+    Formatting for tabs list string used in `format_status`. See [format_tabs](#format_tabs) for more info.
 - `format_prompt = "[%channel] > "`  
     Formatting for prompt line. See [format_prompt](#format_prompt) for more info.
 - `format_forum = "[%timestamp] - <%msg_count> - %thread_name"`  
@@ -169,6 +171,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A character that is prepended to each line of songle or multiline quote.
 - `reactions_separator = "; "`  
     A string placed between two reactions.
+- `tabs_separator = " | "`  
+    A string placed between two tabs.
 - `chat_date_separator = "─"`  
     A single character used to draw horizontal line for separating messages sent on different days. Set to None to disable date separator.
 - `format_date = " %B %d, %Y "`  
@@ -182,7 +186,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_prompt = 15`  
     Limit to the thread name string length.
 - `limit_thread_name = 0`  
-    Limit to `%username`, `%global_name`, `%server` and ``%channel` length in `format_prompt`.
+    Limit to `%username`, `%global_name`, `%server` and `%channel` length in `format_prompt`.
+- `limit_tabs_string = 40`  
+    Limit to `%tabs` length `format_status`.
 - `tree_vert_line = "│"`  
     A single character used to draw vertical line separating channel tree and the chat.
 - `tree_drop_down_vline = "│"`  
@@ -238,7 +244,7 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     Color for extra line, drawn above status line.
 - `color_title_line = [233, 255]`  
     Color for chat title line and tree title line.
--`color_extra_window = [-1, -1]`  
+- `color_extra_window = [-1, -1]`  
     Color for extra window body.
 - `color_prompt = [255, -1]`  
     Color for prompt line.
@@ -320,6 +326,7 @@ Note: everything after `%content` may be pushed to newline.
 - `%channel` - currently viewed channel
 - `%action` - warning for replying/editing/deleting message
 - `%task` - currently running slow task (reconnecting, downloading chat...)
+- `%tabs` - all tabs formatted with `format_tabs` then joined with `tabs_separator`
 
 ## format_rich
 - `%type` - type of rich presence: "Playing" or "Listening to"
@@ -328,6 +335,11 @@ Note: everything after `%content` may be pushed to newline.
 - `%details` - rich presence details
 - `%small_text` - rich presence small text
 - `%large_text` - rich presence large text
+
+## format_tabs
+- `%num` - number of the tab
+- `%name` - name of the tabbed channel, limited with `limit_global_name`
+- `%server` - name of the server
 
 ## format_prompt
 - `%global_name` - my global name
