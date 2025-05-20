@@ -898,7 +898,7 @@ class Discord():
         return True
 
 
-    def send_ack_message(self, channel_id, message_id):
+    def send_ack(self, channel_id, message_id):
         """Send information that this channel has been seen up to this message"""
         last_viewed = ceil((time.time() - DISCORD_EPOCH) / 86400)   # days since first second of 2015 (discord epoch)
         message_data = json.dumps({
@@ -916,6 +916,32 @@ class Discord():
             return None
         if response.status != 200:
             logger.error(f"Failed to set the message as seen. Response code: {response.status}")
+            connection.close()
+            return False
+        connection.close()
+        return True
+
+
+    def send_ack_bulk(self, channels):
+        """
+        Send information that this channel has been seen up to this message
+        channels is a list of dicts: [{channel_id, message_id}, ...]
+        """
+        for channel in channels:
+            channel["read_state_type"] = 0
+        message_data = json.dumps({"read_states": channels})
+        url = "/api/v9/read-states/ack-bulk"
+        logger.debug("Sending bulk message ack")
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status != 204:
+            logger.info(response.read())
+            logger.error(f"Failed to send bulk message ack. Response code: {response.status}")
             connection.close()
             return False
         connection.close()

@@ -1,6 +1,4 @@
 Add tabs format
-Add mark_as_read to categories and channels
-Add log viewer
 Discord slash commands
 Code blocks syntax highlighting
 Voice and video calls

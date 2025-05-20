@@ -194,6 +194,7 @@ keybindings = {
     "cycle_status": "ALT+118",   # Alt+V
     "toggle_member_list": "ALT+109",   # Alt+M
     "toggle_tab": "ALT+98",   # Alt+B
+    "switch_tab_modifier": "ALT+NUM",   # Alt+Num
     "command_palette": 31,   # Ctrl+/
 }
 

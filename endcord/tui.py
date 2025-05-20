@@ -118,17 +118,18 @@ class TUI():
 
         # find all first chain parts
         self.chainable = []
-        for binding in self.keybindings.values():
-            if isinstance(binding, str):
-                split_binding = binding.split("-")
-                if len(split_binding) == 1:
-                    continue
-                elif len(split_binding) > 2:
-                    sys.exit(f"Invalid keybinding: {binding}")
-                try:
-                    self.chainable.append(int(split_binding[0]))
-                except ValueError:
-                    self.chainable.append(split_binding[0])
+        for binding_group in self.keybindings.values():
+            for binding in binding_group:
+                if isinstance(binding, str):
+                    split_binding = binding.split("-")
+                    if len(split_binding) == 1:
+                        continue
+                    elif len(split_binding) > 2:
+                        sys.exit(f"Invalid keybinding: {binding}")
+                    try:
+                        logger.info(split_binding[0])
+                    except ValueError:
+                        self.chainable.append(split_binding[0])
 
         # initial values
         if not (self.blink_cursor_on and self.blink_cursor_off):
@@ -1416,10 +1417,11 @@ class TUI():
 
         elif isinstance(key, str):
             try:
-                num = int(key[4:])
+                modifier = key[:-3]   # skipping +/- sign
+                num = int(key[-2:])
             except ValueError:
                 return None
-            if 49 <= num <= 57:
+            if modifier == self.keybindings["switch_tab_modifier"][0][:-4] and 49 <= num <= 57:
                 self.pressed_num_key = num - 48
                 return 42
 

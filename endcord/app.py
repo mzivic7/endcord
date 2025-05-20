@@ -276,20 +276,7 @@ class Endcord:
                 "channel_id": channel_id,
                 "message_id": None,
             })
-
-        self.unseen = []
-        for channel_id in self.gateway.get_unseen():
-            guild_id = None
-            for guild in self.guilds:
-                for channel in guild["channels"]:
-                    if channel["id"] == channel_id:
-                        guild_id = guild["guild_id"]
-                if guild_id:
-                    break
-            self.unseen.append({
-                "channel_id": channel_id,
-                "guild_id": guild_id,
-            })
+        self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.select_current_member_roles()
         self.my_roles = self.gateway.get_my_roles()
@@ -2080,7 +2067,7 @@ class Endcord:
         for guild in self.guilds:
             for channel in guild["channels"]:
                 if channel["id"] == channel_id:
-                    return channel_id, channel["name"], guild["guild_id"], guild["name"], None
+                    return channel_id, channel["name"], guild["guild_id"], guild["name"], channel["parent_id"]
         # check dms
         for dm in self.dms:
             if dm["id"] == channel_id:
@@ -2825,7 +2812,7 @@ class Endcord:
                 for channel in self.current_channels:
                     # skip categories (type 4)
                     channel_name = channel["name"].lower()
-                    if channel["type"] != 4 and all(x in channel_name for x in assist_words):
+                    if channel["permitted"] and channel["type"] != 4 and all(x in channel_name for x in assist_words):
                         if channel["type"] == 2:
                             name = f"{channel["name"]} - voice"
                         elif channel["type"] in (11, 12):
@@ -2843,16 +2830,24 @@ class Endcord:
                         name = dm["recipients"][0]["username"]
                     if all(x in name.lower() for x in assist_words):
                         self.assist_found.append((f"{name} (DM)", dm["id"]))
+                if self.tui.input_buffer.startswith("toggle_mute") or self.tui.input_buffer.startswith("mark_as_read"):
+                    full = True   # include guilds and categories
+                else:
+                    full = False
                 for guild in self.guilds:
                     guild_name = guild["name"]
                     guild_name_lower = guild_name.lower()
+                    if full and all(x in f"{guild_name_lower} - guild" for x in assist_words):
+                        self.assist_found.append((f"{guild["name"]} - guild", guild["guild_id"]))
                     for channel in guild["channels"]:
-                        # skip categories (type 4)
                         channel_name = channel["name"].lower()
                         check_string = f"{channel_name} {guild_name_lower}"
-                        if channel["type"] != 4 and all(x in check_string for x in assist_words):
+                        # skip categories (type 4)
+                        if channel["permitted"] and all(x in check_string for x in assist_words):
                             if channel["type"] == 2:
                                 name = f"{channel["name"]} - voice ({guild["name"]})"
+                            elif full and channel["type"] == 4:
+                                name = f"{channel["name"]} - category ({guild["name"]})"
                             elif channel["type"] in (11, 12):
                                 name = f"{channel["name"]} - thread ({guild["name"]})"
                             elif channel["type"] == 15:
@@ -2860,6 +2855,7 @@ class Endcord:
                             else:
                                 name = f"{channel["name"]} ({guild["name"]})"
                             self.assist_found.append((name, channel["id"]))
+
 
         elif assist_type == 2:   # username/role
             # roles first
@@ -2882,7 +2878,7 @@ class Endcord:
                 )
 
         elif assist_type == 3:   # emoji
-            # server emoji
+            # guild emoji
             emojis = []
             if self.premium:
                 emojis = self.gateway.get_emojis()
@@ -3430,33 +3426,70 @@ class Endcord:
         return sum(self.chat_indexes[:msg + 1]) - 1
 
 
-    def set_seen(self, channel_id, force=False, ack=True):
+    def set_seen(self, target_id, force=False, ack=True):
         """
-        Set channel as seen if it is not already seen.
+        Set channel/category/guild as seen if it is not already seen.
         Force will set even if its not marked as unseen, used for active channel.
         """
-        for num_1, unseen_channel in enumerate(self.unseen):
-            if unseen_channel["channel_id"] == channel_id or force:   # find this unseen chanel
-                if not force:
-                    self.unseen.pop(num_1)
+        for unseen_channel in self.unseen:
+            if unseen_channel["channel_id"] == target_id or force:   # find this unseen chanel
                 if ack:
-                    self.discord.send_ack_message(channel_id, self.messages[0]["id"])
-
-                # remove ping
-                for num, pinged_channel in enumerate(self.pings):
-                    if channel_id == pinged_channel["channel_id"]:
-                        self.pings.pop(num)
-                        break
-
-                # remove notification
-                if self.enable_notifications:
-                    for num, notification in enumerate(self.notifications):
-                        if notification["channel_id"] == channel_id:
-                            notification_id = self.notifications.pop(num)["notification_id"]
-                            peripherals.notify_remove(notification_id)
-                            break
+                    self.discord.send_ack(target_id, self.messages[0]["id"])
+                self.set_local_seen(target_id)
                 self.update_tree()
                 break
+        else:   # if its not in unseen then check guilds and categories
+            channels = []
+            # check guilds
+            for guild in self.guilds:
+                if guild["guild_id"] == target_id:
+                    for channel in self.unseen:
+                        if channel["guild_id"] == target_id:
+                            channels.append({
+                                "channel_id": channel["channel_id"],
+                                "message_id": channel["last_message_id"],
+                            })
+                    break
+            # check categories
+            _, _, guild_id, _, parent_id = self.find_parents_from_id(target_id)
+            guild = None
+            if guild_id and not parent_id:   # category has no parent_id
+                for guild in self.guilds:
+                    if guild["guild_id"] == guild_id:
+                        break
+            if guild:
+                for channel_g in guild["channels"]:
+                    if channel_g["parent_id"] == target_id:   # category
+                        channel_id = channel_g["id"]
+                        for channel in self.unseen:
+                            if channel["channel_id"] == channel_id:
+                                channels.append({
+                                    "channel_id": channel["channel_id"],
+                                    "message_id": channel["last_message_id"],
+                                })
+                                break
+            if channels:
+                self.discord.send_ack_bulk(channels)
+                for channel in channels:
+                    self.set_local_seen(channel["channel_id"])
+                self.update_tree()
+
+
+    def set_local_seen(self, channel_id):
+        """Set channel seen locally"""
+        for num, unseen_channel in enumerate(self.unseen):   # remove unseen
+            if channel_id == unseen_channel["channel_id"]:
+                self.unseen.pop(num)
+        for num, pinged_channel in enumerate(self.pings):   # remove ping
+            if channel_id == pinged_channel["channel_id"]:
+                self.pings.pop(num)
+                break
+        if self.enable_notifications:   # remove notification
+            for num, notification in enumerate(self.notifications):
+                if notification["channel_id"] == channel_id:
+                    notification_id = self.notifications.pop(num)["notification_id"]
+                    peripherals.notify_remove(notification_id)
+                    break
 
 
     def compute_permissions(self):
@@ -3501,7 +3534,7 @@ class Endcord:
     def load_threads(self, new_threads):
         """
         Add new threads to sorted list of threads by guild and channel.
-        new_threads is list of threads that belong to same server.
+        new_threads is list of threads that belong to same guild.
         Threads are sorted by creation date.
         """
         to_sort = False
@@ -3939,13 +3972,8 @@ class Endcord:
         self.all_roles = color.convert_role_colors(self.all_roles)
         last_free_color_id = self.tui.get_last_free_color_id()
 
-        # get my roles
+        # get my roles and compute perms
         self.my_roles = self.gateway.get_my_roles()
-        self.current_my_roles = []
-        for roles in self.my_roles:
-            if roles["guild_id"] == self.active_channel["guild_id"]:
-                self.current_my_roles = roles["roles"]
-                break
         self.compute_permissions()
 
         # load locally hidden channels
@@ -3995,19 +4023,7 @@ class Endcord:
                 "channel_id": channel_id,
                 "message_id": None,
             })
-        self.unseen = []
-        for channel_id in self.gateway.get_unseen():
-            guild_id = None
-            for guild in self.guilds:
-                for channel in guild["channels"]:
-                    if channel["id"] == channel_id:
-                        guild_id = guild["guild_id"]
-                if guild_id:
-                    break
-            self.unseen.append({
-                "channel_id": channel_id,
-                "guild_id": guild_id,
-            })
+        self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.run = True
 
@@ -4020,15 +4036,14 @@ class Endcord:
                     "last_channel_id": None,
                     "collapsed": [],
                 }
+        if self.state["last_guild_id"] in self.state["collapsed"]:
+            self.state["collapsed"].remove(self.state["last_guild_id"])
 
         # load summaries
         if self.save_summaries:
             self.summaries = peripherals.load_json("summaries.json")
             if not self.summaries:
                 self.summaries = []
-
-        # open uncollapsed guilds, generate and draw tree
-        self.open_guild(guild["guild_id"], restore=True)
 
         # load messages
         if self.state["last_channel_id"]:
@@ -4056,6 +4071,9 @@ class Endcord:
                 self.tui.tree_select_active()
         else:
             self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
+
+        # open uncollapsed guilds, generate and draw tree
+        self.open_guild(self.active_channel["guild_id"], restore=True)
 
         # auto open member list if enough space
         if (
@@ -4222,7 +4240,7 @@ class Endcord:
                 self.compute_permissions()
                 self.update_tree()
 
-            # check change in dimensions
+            # check changes in dimensions
             new_chat_dim = self.tui.get_dimensions()[0]
             if new_chat_dim != self.chat_dim:
                 self.chat_dim = new_chat_dim

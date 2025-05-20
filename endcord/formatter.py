@@ -1753,7 +1753,6 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         muted_guild = guild.get("muted", False)
         unseen_guild = False
         ping_guild = False
-        active_guild = False
         for guild_th in threads:
             if guild_th["guild_id"] == guild["guild_id"]:
                 threads_guild = guild_th["channels"]
@@ -1822,9 +1821,6 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         if not hidden_ch and category["hidden"] != 2:
                             category["hidden"] = False
                         active = (channel["id"] == active_channel_id)
-                        if active:
-                            # unwrap top level guild
-                            active_guild = True
                         category["channels"].append({
                             "id": channel["id"],
                             "name": channel["name"],
@@ -1845,9 +1841,6 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                     if not channel.get("permitted", False):
                         hidden_ch = True
                     active = channel["id"] == active_channel_id
-                    if active:
-                        # unwrap top level guild
-                        active_guild = True
                     bare_channels.append({
                         "id": channel["id"],
                         "name": channel["name"],
@@ -1877,7 +1870,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
             code += 20
         elif unseen_guild:
             code += 30
-        if not active_guild and guild["guild_id"] in collapsed:
+        if guild["guild_id"] in collapsed:
             code -= 1
         tree_format.append(code)
         guild_index = len(tree_format) - 1

@@ -469,11 +469,12 @@ class Gateway():
                     time_log_string += f"    DMs - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # unread messages and pings
+                    msg_unseen = []
                     for channel in response["d"]["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
                         if "last_message_id" in channel and "mention_count" in channel:
                             if channel["mention_count"] != 0:
-                                self.msg_unseen.append(channel["id"])
+                                msg_unseen.append(channel["id"])
                                 self.msg_ping.append(channel["id"])
                             else:
                                 for last_message in last_messages:
@@ -482,7 +483,25 @@ class Gateway():
                                         channel["last_message_id"] != last_message["message_id"]
                                     ):
                                         # channel is unread
-                                        self.msg_unseen.append(channel["id"])
+                                        msg_unseen.append(channel["id"])
+                    for channel_id in msg_unseen:   # add relevant data
+                        guild_id = None
+                        for guild in self.guilds:
+                            for channel in guild["channels"]:
+                                if channel["id"] == channel_id:
+                                    guild_id = guild["guild_id"]
+                            if guild_id:
+                                break
+                        last_message_id = None
+                        for last_message in last_messages:
+                            if last_message["channel_id"] == channel_id:
+                                last_message_id = last_message["message_id"]
+                                break
+                        self.msg_unseen.append({
+                            "channel_id": channel_id,
+                            "guild_id": guild_id,
+                            "last_message_id": last_message_id,
+                        })
                     time_log_string += f"    unread and mentions - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
                     # guild and dm setings

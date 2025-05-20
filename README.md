@@ -119,6 +119,7 @@ Kaybindings can also be chained like this (maximum 2 bindings in chain, separate
 `"25-97"` for `Ctrl+X-A` which means: press `Ctrl+X` then `A`,  
 `"ALT+120-ALT+100"` for `Alt+X-Alt+D` and so on.  
 To specify multiple keybindings for same action put them in a tuple, eg.: `(2, "25-97", "ALT+120")`.  
+Switch tab keybinding is special - `NUM` is placeholder for 1-9 number keys, eg.:`ALT+NUM` or `ALT+120-NUM`.  
 
 ### Debug mode
 Debug mode can be enabled with `-d` flag.  
