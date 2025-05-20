@@ -31,7 +31,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Toggle reply ping
 - Search messages
 - Client commands
-- View user prfile
+- View user profile
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Dont show hidden channels
