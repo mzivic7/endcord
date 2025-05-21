@@ -1,5 +1,5 @@
-Add tabs format
 Discord slash commands
 Code blocks syntax highlighting
 Voice and video calls
+Minimize to tray (if possible)
 Localization (maybe)

@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 INPUT_LINE_JUMP = 20   # jump size when moving input line
 MAX_DELTA_STORE = 50   # limit undo size
 MIN_ASSIST_LETTERS = 2
-SCREEN_UPDATE_DELAY = 0.01
 ASSIST_TRIGGERS = ("#", "@", ":", ";")
 if sys.platform == "win32":
     BACKSPACE = 8   # i cant believe this
@@ -115,6 +114,7 @@ class TUI():
         self.assist = config["assist"]
         self.wrap_around = config["wrap_around"]
         self.mouse = config["mouse"]
+        self.screen_update_delay = min(config["screen_update_delay"], 0.01)
 
         # find all first chain parts
         self.chainable = []
@@ -141,8 +141,12 @@ class TUI():
         self.input_buffer = ""
         self.status_txt_l = ""
         self.status_txt_r = ""
+        self.status_txt_l_format = []
+        self.status_txt_r_format = []
         self.title_txt_l = ""
         self.title_txt_r = ""
+        self.title_txt_l_format = []
+        self.title_txt_r_format = []
         self.title_tree_txt = ""
         self.chat_buffer = []
         self.chat_format = []
@@ -213,7 +217,7 @@ class TUI():
         while True:
             self.need_update.wait()
             # here must be delay, otherwise output gets messed up
-            time.sleep(SCREEN_UPDATE_DELAY)
+            time.sleep(self.screen_update_delay)
             curses.doupdate()
             self.need_update.clear()
 
@@ -497,14 +501,25 @@ class TUI():
     def draw_status_line(self):
         """Draw status line"""
         h, w = self.status_hw
-        status_txt = self.status_txt_l[:w-1]   # limit status text size
+        status_txt_l = self.status_txt_l[:w-1]   # limit status text size
         # if there is enough space for right text, add spaces and right text
-        if self.status_txt_r and len(status_txt) + len(self.status_txt_r) + 4 < w:
-            status_line = status_txt + " " * (w - len(status_txt) - len(self.status_txt_r)) + self.status_txt_r
+        if self.status_txt_r:
+            status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + " "
+            status_txt_l = status_txt_l + " " * (w - len(status_txt_l) - len(status_txt_r))
+            status_line = status_txt_l + status_txt_r
+            text_l_len = len(status_txt_l)
+            status_format = self.status_txt_l_format
+            for tab in self.status_txt_r_format:
+                status_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
         else:
             # add spaces to end of line
-            status_line = status_txt + " " * (w - len(status_txt))
-        self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
+            status_line = status_txt_l + " " * (w - len(status_txt_l))
+            status_format = self.status_txt_l_format
+
+        if status_format:
+            self.draw_formatted_line(self.win_status_line, status_line, status_format, 17)
+        else:
+            self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
         self.win_status_line.noutrefresh()
         self.need_update.set()
 
@@ -512,15 +527,50 @@ class TUI():
     def draw_title_line(self):
         """Draw title line, works same as status line"""
         h, w = self.title_hw
-        title_txt = self.title_txt_l[:w-1]
+        title_txt_l = self.title_txt_l[:w-1]
         if self.title_txt_r:
-            title_txt_r = self.title_txt_r [:w - (len(title_txt) + 4)] + " "
-            title_line = title_txt + " " * (w - len(title_txt) - len(title_txt_r)) + title_txt_r
+            title_txt_r = self.title_txt_r[: max(w - (len(title_txt_l) + 4), 0)] + " "
+            title_txt_l = title_txt_l + " " * (w - len(title_txt_l) - len(title_txt_r))
+            title_line = title_txt_l + title_txt_r
+            text_l_len = len(title_txt_l)
+            title_format = self.title_txt_l_format
+            for tab in self.title_txt_r_format:
+                title_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
         else:
-            title_line = title_txt + " " * (w - len(title_txt))
-        self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
+            title_line = title_txt_l + " " * (w - len(title_txt_l))
+            title_format = self.title_txt_l_format
+
+        if title_format:
+            self.draw_formatted_line(self.win_title_line, title_line, title_format, 12)
+        else:
+            self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
         self.win_title_line.noutrefresh()
         self.need_update.set()
+
+
+    def draw_formatted_line(self, window, text, text_format, default_color):
+        """Draw single formatted linee on a (line) window, line is expected to have spaces to be filled to screen edge"""
+        pos = 0
+        try:
+            for pos, character in enumerate(text):
+                for format_part in text_format:
+                    if format_part[1] <= pos < format_part[2]:
+                        if format_part[0] == 1:
+                            attrib = curses.A_BOLD
+                        elif format_part[0] == 2:
+                            attrib = curses.A_ITALIC
+                        elif format_part[0] == 3:
+                            attrib = curses.A_UNDERLINE
+                        else:
+                            attrib = self.attrib_map[default_color]
+                        safe_insch(window, 0, pos, character, curses.color_pair(default_color) | attrib)
+                        break
+                else:
+                    safe_insch(window, 0, pos, character, curses.color_pair(default_color) | self.attrib_map[14])
+        except curses.error:
+            # exception will happen when window is resized to smaller w dimensions
+            if not self.disable_drawing:
+                self.resize()
 
 
     def draw_title_tree(self):
@@ -991,7 +1041,7 @@ class TUI():
             self.redraw_ui()
 
 
-    def update_status_line(self, text_l, text_r=None):
+    def update_status_line(self, text_l, text_r=None, text_l_format=[], text_r_format=[]):
         """Update status text"""
         redraw = False
         if text_l != self.status_txt_l:
@@ -1000,11 +1050,17 @@ class TUI():
         if text_r != self.status_txt_r:
             self.status_txt_r = text_r
             redraw = True
+        if text_l_format != self.status_txt_l_format:
+            self.status_txt_l_format = text_l_format
+            redraw = True
+        if text_r_format != self.status_txt_r_format:
+            self.status_txt_r_format = text_r_format
+            redraw = True
         if redraw and not self.disable_drawing:
             self.draw_status_line()
 
 
-    def update_title_line(self, text_l, text_r=None):
+    def update_title_line(self, text_l, text_r=None, text_l_format=[], text_r_format=[]):
         """Update status text"""
         if self.have_title:
             redraw = False
@@ -1013,6 +1069,12 @@ class TUI():
                 redraw = True
             if text_r != self.title_txt_r:
                 self.title_txt_r = text_r
+                redraw = True
+            if text_l_format != self.title_txt_l_format:
+                self.title_txt_l_format = text_l_format
+                redraw = True
+            if text_r_format != self.title_txt_r_format:
+                self.title_txt_r_format = text_r_format
                 redraw = True
             if redraw and not self.disable_drawing:
                 self.draw_title_line()

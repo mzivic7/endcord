@@ -205,6 +205,7 @@ class Endcord:
         self.chat_format = []
         self.channel_cache = []
         self.tab_string = ""
+        self.tab_string_format = []
         self.unseen_scrolled = False
         self.chat_indexes = []
         self.chat_map = []
@@ -3188,7 +3189,7 @@ class Endcord:
                     tabs_names.append(named_tab)
 
         # build tab string
-        self.tab_string = formatter.generate_tab_string(
+        self.tab_string, self.tab_string_format = formatter.generate_tab_string(
             tabs_names,
             active_tab_index,
             [x["channel_id"] for x in self.unseen],
@@ -3247,7 +3248,7 @@ class Endcord:
             action["type"] = 0
 
         if self.format_status_line_r:
-            status_line_r = formatter.generate_status_line(
+            status_line_r, status_line_r_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
                 self.unseen_scrolled,
@@ -3256,6 +3257,7 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.tab_string,
+                self.tab_string_format,
                 self.format_status_line_r,
                 self.format_rich,
                 limit_typing=self.limit_typing,
@@ -3263,7 +3265,8 @@ class Endcord:
         )
         else:
             status_line_r = None
-        status_line_l = formatter.generate_status_line(
+            status_line_r_format = []
+        status_line_l, status_line_l_format = formatter.generate_status_line(
             self.my_user_data,
             self.my_status,
             self.unseen_scrolled,
@@ -3272,15 +3275,16 @@ class Endcord:
             action,
             self.running_tasks,
             self.tab_string,
+            self.tab_string_format,
             self.format_status_line_l,
             self.format_rich,
             limit_typing=self.limit_typing,
             fun=self.fun,
         )
-        self.tui.update_status_line(status_line_l, status_line_r)
+        self.tui.update_status_line(status_line_l, status_line_r, status_line_l_format, status_line_r_format)
 
         if self.format_title_line_r:
-            title_line_r = formatter.generate_status_line(
+            title_line_r, title_line_r_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
                 self.unseen_scrolled,
@@ -3289,6 +3293,7 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.tab_string,
+                self.tab_string_format,
                 self.format_title_line_r,
                 self.format_rich,
                 limit_typing=self.limit_typing,
@@ -3296,8 +3301,9 @@ class Endcord:
             )
         else:
             title_line_r = None
+            title_line_r_format = []
         if self.format_title_line_l:
-            title_line_l = formatter.generate_status_line(
+            title_line_l, title_line_l_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
                 self.unseen_scrolled,
@@ -3306,14 +3312,15 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.tab_string,
+                self.tab_string_format,
                 self.format_title_line_l,
                 self.format_rich,
                 limit_typing=self.limit_typing,
                 fun=self.fun,
             )
-            self.tui.update_title_line(title_line_l, title_line_r)
+            self.tui.update_title_line(title_line_l, title_line_r, title_line_l_format, title_line_r_format)
         if self.format_title_tree:
-            title_tree = formatter.generate_status_line(
+            title_tree, _ = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
                 self.unseen_scrolled,
@@ -3322,6 +3329,7 @@ class Endcord:
                 action,
                 self.running_tasks,
                 self.tab_string,
+                self.tab_string_format,
                 self.format_title_tree,
                 self.format_rich,
                 limit_typing=self.limit_typing,

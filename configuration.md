@@ -70,6 +70,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
 - `mouse = True`  
     Disable if there are issues with mouse controls.  
+- `screen_update_delay = 0.02`  
+    Delay in seconds before screen is updated. Limited to min 0.01.  
+    Too low value will cause visual "glitches". Increasing value will add latency between performed action and visual feedback.
 - `tenor_gif_type = 1`  
     Type of the media when gif is downloaded from tenor:  
     0 - gif HD  
@@ -107,7 +110,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `mpv_path = "mpv"`  
     Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
 -  `client_properties = "default"`  
-    Client properties are used by discod in spam detection system. They contain various system information like operationg system and browser user agent. There are 2 options available: `"default"` and `"anonymous"`.  
+    Client properties are used by discord in spam detection system. They contain various system information like operating system and browser user agent. There are 2 options available: `"default"` and `"anonymous"`.  
     - `"default"` - Approximately what official desktop client sends. Includes: OS version, architecture, linux window manager, locale.  
     - `"anonymous"` - Approximately what official web client sends. But there is higher risk to trigger spam heuristics.  
 - `custom_user_agent = None`  
@@ -300,8 +303,8 @@ Note: everything after `%content` may be pushed to newline.
 
 ## format_reply
 - `%content` - of replied message
-- `%username` - of replied message autor
-- `%global_name` - of replied message autor
+- `%username` - of replied message author
+- `%global_name` - of replied message author
 - `%timestamp` - of replied message, formatted with `format_timestamp`
 
 ## format_reactions

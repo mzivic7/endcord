@@ -31,7 +31,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Toggle reply ping
 - Search messages
 - Client commands
-- View user prfile
+- View user profile
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Dont show hidden channels
@@ -61,7 +61,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Hide or mask blocked/ignored users
 - No ghost pings (when client is running)
 - Role colors in chat
-- Date separtors in chat
+- Date separators in chat
 - Partial markdown support (underline, bold, italic, spoiler, quote)
 - Theming
 - Customizable status, title and prompt lines
@@ -99,7 +99,7 @@ Token is used to access Discord through your account without logging-in.
 It is required to to use endcord.  
 After obtaining token, you can either:  
 - Provide token in token manager (recommended) - token will be stored in secure system keyring  
-  Token mamager will be shown only if token is not provided in config nor as command argument  
+  Token manager will be shown only if token is not provided in config nor as command argument  
   To remove token from keyring: `endcord --remove-token`; to update it: `endcord --update-token`
 - Pass token to endcord as command argument: `endcord -t [YOUR_TOKEN]`  
 - Save token in config  
@@ -189,7 +189,7 @@ On reaction - toggle that reaction
 
 
 ### Channel Tree
-If tree object has `>` befor the object name, it means it has sub-objects (its drop-down).  
+If tree object has `>` before the object name, it means it has sub-objects (its drop-down).  
 Objects are un/collapsed with `Ctrl+Space`. Channels with threads are un/collapsed on `Alt+T`.  
 Channel with threads are collapsed by default.  
 Thread can be joined or left (toggle) on `Alt+J`.  
@@ -232,9 +232,9 @@ Extra window navigation is prioritized over member list.
 Extra window is drawn for viewing:
 - User profile info - from selected message (`Alt+P`)
 - Channel/server info - from selected tree channel (`Alt+I`)
-- Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that sumamry topic.
+- Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that summary topic.
 - Search and search results (`Ctrl+F`), `Alt+Enter` or enter with no typed text will jump to selected message.  
-`Alt+Enter` in member list will whow user profile of the selected member.  
+`Alt+Enter` in member list will show user profile of the selected member.  
 
 ### Assist with mention, role, channel, emoji, sticker
 When typing eg. username prepended with `@`, assist will open as extra window with search results for typed text after `@` (search is case-insensitive).  
@@ -312,7 +312,7 @@ Optional dependencies:
 - `aspell` - Spellchecking (and `aspell-en` dictionary)
 - `yt-dlp` - youtube support
 - `mpv` - Play youtube videos in native player (non-ascii)
-- `libsecret` - Store token in system keyring (running keyring deamon is also required like gnome-keyring)
+- `libsecret` - Store token in system keyring (running keyring daemon is also required like gnome-keyring)
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
@@ -320,7 +320,7 @@ Build, standalone executable can be found in `./dist/endcord.exe`.
 Run exe from wt or cmder. In cmder settings, under "Font" check "Treat font height as device units", so font is always monospace.  
 Optional dependency, for spellchecking: [aspell](https://github.com/adamyg/aspell-win32). It is expected to be installed in `C:\Program Files (x86)\`. If it is not, please open an issue and provide the actual install path. Alongside with base aspell, dictionary must be installed, even en_US.  
 Emoji and Ctrl+key support depends on terminal.  
-To run code from source on windows, there are extra depencencies needed to prepare environment (automatically installed when building). Install them by providing `--prepare` flag to build script.  
+To run code from source on windows, there are extra dependencies needed to prepare environment (automatically installed when building). Install them by providing `--prepare` flag to build script.  
 To enable youtube support, download [yt-dlp](https://github.com/yt-dlp/yt-dlp) and provide its executable path in config.  
 
 ### macOS
@@ -369,7 +369,7 @@ To build into directory, not as a single executable, add `--onedir` flag. Will s
 Building with Nuitka is currently failing due to a bug: https://github.com/Nuitka/Nuitka/issues/3442  
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  
 Nuitka built binaries are much more optimized and can play videos at higher framerate.  
-Nuitka requres compiler:
+Nuitka requires compiler:
 - on linux - GCC or clang from system
 - on Windows - [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)
 - on macOS install XCode via Apple Store
@@ -413,7 +413,7 @@ This will be updated in endcord when cpython issue is resolved.
 Same reason as above, colors will be added when curses bug is fixed.  
 
 ### No emoji
-If emoji are drawn as empty box or simmilar, it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.
+If emoji are drawn as empty box or similar, it means emoji are not supported by this terminal. In that case, enable `emoji_as_text` in `config.ini`.
 
 ### Sticker cannot be opened
 If the message says it "cannot be opened", then this is lottie sticker. These stickers have special vector way of drawing animations and will not be supported.
@@ -424,6 +424,10 @@ Locally hidden channels can be restored by removing them in `hidden_channels.jso
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.
 
+### Visual "glitches"
+If there are visual "glitches", garbled output on screen, you can press `Ctrl+L` to redraw entire UI.  
+To lower amount of "glitches" set higher values for `screen_update_delay` in config.  
+
 ### No notification sound
 Custom notification sound can be set in config: `custom_notification_sound = /path/to/file.mp3`.
 
@@ -433,13 +437,13 @@ Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Insta
 Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.  
 
 ### Spacebar and other custom hosts
-Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to prefered host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
-Then endcord will connect only to that domain instead discord.  Token is diffeerent on different hosts!  
-Note that using custom host is completely untested, and support depends on how differnet the api is from original discord api, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
+Then endcord will connect only to that domain instead discord.  Token is different on different hosts!  
+Note that using custom host is completely untested, and support depends on how different the API is from original discord API, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
 
 ### Support
 Open an issue in [issue tracker](https://github.com/mzivic7/endcord/issues).  
-Or, if you dont have a github account, want more interactive support, to share a theme or have a question: [Endcord Discord Server](https://discord.gg/judQSxw5K2).
+Or, if you don't have a github account, want more interactive support, to share a theme or have a question: [Endcord Discord Server](https://discord.gg/judQSxw5K2).
 
 
 ## Planned features

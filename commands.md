@@ -53,7 +53,7 @@
 - `goto <#[channel_id]>`  
     Go to specified channel from any server
 - `view_pfp` / `view_pfp <@[user_id]>`  
-    View prfile picure of user from currently selected message or specified user.
+    View profile picture of user from currently selected message or specified user.
 - `paste_clipboard_image`  
     Paste image from clipboard as attachment.
 - `check_standing`  

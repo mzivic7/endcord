@@ -985,7 +985,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     return chat, chat_format, indexes, chat_map
 
 
-def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, tabs, format_status_line, format_rich, limit_typing=30, use_nick=True, fun=True):
+def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, tabs, tabs_format, format_status_line, format_rich, limit_typing=30, use_nick=True, fun=True):
     """
     Generate status line according to provided formatting.
     Possible options for format_status_line:
@@ -1124,10 +1124,13 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         task = tasks[0][0]
     else:
         task = f"{tasks[0][0]} (+{len(tasks) - 1})"
+
+    have_tabs = "%tabs" in format_status_line
     if not tabs:
         tabs = ""
+        have_tabs = False
 
-    return (
+    status_line = (
         format_status_line
         .replace("%global_name", str(my_user_data["global_name"]))
         .replace("%username", my_user_data["username"])
@@ -1145,8 +1148,16 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         .replace("%tabs", tabs)
     )
 
+    status_line_format = []
+    if have_tabs:
+        pre_tab_len = len(status_line.split(tabs)[0])
+        for tab in tabs_format:
+            status_line_format.append((tab[0], tab[1] + pre_tab_len, tab[2] + pre_tab_len))
 
-def generate_tab_string(tabs, active_tab, unseen, format_tabs, tabs_separator, limit_len, max_len):   #noqa
+    return status_line, status_line_format
+
+
+def generate_tab_string(tabs, active_tab, unseen, format_tabs, tabs_separator, limit_len, max_len):
     """
     Generate tabs list string according to provided formatting.
     Possible options for generate_tab_string:
@@ -1155,13 +1166,24 @@ def generate_tab_string(tabs, active_tab, unseen, format_tabs, tabs_separator, l
         %server
     """
     tabs_separated = []
+    tab_string_format = []   # [[attribute, start, end] ...]
     trimmed_left = False
     for num, tab in enumerate(tabs):
-        tabs_separated.append(format_tabs
+        tab_text = (
+            format_tabs
             .replace("%num", str(num + 1))
             .replace("%name", tab["channel_name"][:limit_len])
-            .replace("%server", tab["guild_name"][:limit_len]),
+            .replace("%server", tab["guild_name"][:limit_len])
         )
+        tabs_separated.append(tab_text)
+
+        if num == active_tab:
+            tab_string_format.append([3])   # underline
+        elif tab["channel_id"] in unseen:
+            tab_string_format.append([1])   # bold
+        else:
+            tab_string_format.append(None)
+
         # scroll to active if string is too long
         if num == active_tab:
             while len(tabs_separator.join(tabs_separated)) >= max_len:
@@ -1169,8 +1191,18 @@ def generate_tab_string(tabs, active_tab, unseen, format_tabs, tabs_separator, l
                     break
                 trimmed_left = True
                 tabs_separated.pop(0)
-        if len(tabs_separator.join(tabs_separated)) >= max_len:
+                tab_string_format.pop(0)
+        if (active_tab and num >= active_tab) and len(tabs_separator.join(tabs_separated)) >= max_len:
             break
+
+    # add format start and end indexes
+    for num, tab in enumerate(tabs_separated):
+        if tab_string_format[num]:
+            start = len(tabs_separator.join(tabs_separated[:num])) + bool(num) * len(tabs_separator) + 2 * trimmed_left
+            end = start + len(tab)
+            tab_string_format[num] = [tab_string_format[num][0], start, end]
+    tab_string_format = [x for x in tab_string_format if x is not None and len(x) == 3]
+
     tab_string = tabs_separator.join(tabs_separated)
 
     if trimmed_left:
@@ -1179,7 +1211,8 @@ def generate_tab_string(tabs, active_tab, unseen, format_tabs, tabs_separator, l
     # trim right side of tab string
     if len(tab_string) > max_len:
         tab_string = tab_string[:max_len - 2 * (trimmed_left + 1)] + " >"
-    return tab_string
+
+    return tab_string, tab_string_format
 
 
 def generate_prompt(my_user_data, active_channel, format_prompt, limit_prompt=15):
