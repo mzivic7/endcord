@@ -1,6 +1,7 @@
 import curses
 import logging
 import re
+import time
 from datetime import datetime
 
 import emoji
@@ -49,20 +50,20 @@ COMMAND_ASSISTS = (
     ("toggle_tab", "toggle_tab"),
     ("switch_tab [num]", "switch_tab"),
     ("paste_clipboard_image", "paste_clipboard_image"),
+    ("insert_timestamp YYYY-MM-DD-HH-mm", "insert_timestamp"),
     ("check_standing", "check_standing"),
     ("set [key] = [value]", "set"),
-
 )
 
-match_emoji_string = re.compile(r"(?<!\\):.+:")
-match_d_emoji_string = re.compile(r"<.*?:.*?:\d*?>")
-match_d_emoji_name = re.compile(r"(?<=<:).*?(?=:)")
-match_d_anim_emoji_name = re.compile(r"(?<=<a:).*?(?=:)")
-match_mention_string = re.compile(r"<@\d*?>")
-match_mention_id = re.compile(r"(?<=<@)\d*?(?=>)")
-match_role_string = re.compile(r"<@&\d*?>")
-match_role_id = re.compile(r"(?<=<@&)\d*?(?=>)")
-match_channel_string = re.compile(r"<#\d*?>")
+TIME_DIVS = [1, 60, 3600, 86400, 2678400, 31190400]
+TIME_UNITS = ["second", "minute", "hour", "day", "month", "year"]
+
+match_emoji = re.compile(r"(?<!\\):.+:")
+match_d_emoji = re.compile(r"<.?:(.*?):\d*?>")
+match_mention = re.compile(r"<@(\d*?)>")
+match_role = re.compile(r"<@&(\d*?)>")
+match_channel = re.compile(r"<#(\d*?)>")
+match_timestamp = re.compile(r"<t:(\d+)(:[tTdDfFR])?>")
 match_channel_id = re.compile(r"(?<=<#)\d*?(?=>)")
 match_channel_id_msg = re.compile(r"(?<=<#)\d*?(?=>>MSG)")
 match_channel_id_msg_group = re.compile(r"((?<=<#)\d*?(?=>))(>>MSG)?")
@@ -126,7 +127,7 @@ def generate_timestamp(discord_time, format_string, timezone=True):
 
 def timestamp_from_snowflake(snowflake, format_string, timezone=True):
     """Converts discord snowflake to formatted string and optionally converts to current timezone"""
-    time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000)
+    time_obj = datetime.fromtimestamp(((int(snowflake) >> 22) + DISCORD_EPOCH_MS) / 1000)
     if timezone:
         time_obj = time_obj.astimezone()
     return datetime.strftime(time_obj, format_string)
@@ -143,6 +144,46 @@ def day_from_snowflake(snowflake, timezone=True):
     return ((snowflake >> 22) + DISCORD_EPOCH_MS) / DAY_MS
 
 
+def generate_relative_time(timestamp):
+    """Generate relative time string"""
+    now = time.time()
+    diff = abs(now - timestamp)
+    ago = now > timestamp
+    for num, time_div in enumerate(TIME_DIVS[1:]):
+        if diff < time_div:
+            break
+    rel_time = int(diff / TIME_DIVS[num])
+    time_unit = TIME_UNITS[num]
+    plural = "s" if rel_time > 1 else ""
+    if ago:
+        time_string = f"{rel_time} {time_unit}{plural} ago"
+    else:
+        time_string = f"in {rel_time} {time_unit}{plural}"
+    return time_string
+
+
+def generate_discord_timestamp(timestamp, discord_format, timezone=True):
+    """Generate discord formatted timestamp"""
+    if discord_format == "R":
+        return generate_relative_time(int(timestamp))
+    time_obj = datetime.fromtimestamp(int(timestamp))
+    if timezone:
+        time_obj = time_obj.astimezone()
+    if discord_format == "t":
+        format_string = "%H:%M"
+    elif discord_format == "T":
+        format_string = "%H:%M:%S"
+    elif discord_format == "d":
+        format_string = "%d/%m/%Y"
+    elif discord_format == "D":
+        format_string = "%d %b %Y"
+    elif discord_format == "F":
+        format_string = "%A, %d %b %Y %H:%M"
+    else:
+        format_string = "%d %b %Y %H:%M"
+    return datetime.strftime(time_obj, format_string)
+
+
 def emoji_name(emoji_char):
     """Return emoji name from its unicode"""
     return emoji.demojize(emoji_char).replace(":", "")
@@ -150,7 +191,7 @@ def emoji_name(emoji_char):
 
 def replace_emoji_string(line):
     """Replace emoji string (:emoji:) with single character"""
-    return re.sub(match_emoji_string, TREE_EMOJI_REPLACE, line)
+    return re.sub(match_emoji, TREE_EMOJI_REPLACE, line)
 
 
 def trim_at_emoji(line, limit):
@@ -171,12 +212,8 @@ def replace_discord_emoji(line):
     Transform emoji strings into nicer looking ones:
     `some text <:emoji_name:emoji_id> more text` --> `some text :emoji_name: more text`
     """
-    for string_match in re.findall(match_d_emoji_string, line):
-        text = re.search(match_d_emoji_name, string_match)
-        if not text:
-            text = re.search(match_d_anim_emoji_name, string_match)   # animated
-        if text:
-            line = line.replace(string_match, f":{text.group()}:")
+    for match in re.finditer(match_d_emoji, line):
+        line = line.replace(match.group(), f":{match.group(1)}:")
     return line
 
 
@@ -185,11 +222,10 @@ def replace_mentions(line, usernames_ids):
     Transforms mention string into nicer looking one:
     `some text <@user_id> more text` --> `some text @username more text`
     """
-    for string_match in re.findall(match_mention_string, line):
-        text = re.search(match_mention_id, string_match)
+    for match in re.finditer(match_mention, line):
         for user in usernames_ids:
-            if text.group() == user["id"]:
-                line = line.replace(string_match, f"@{user["username"]}")
+            if match.group(1) == user["id"]:
+                line = line.replace(match.group(), f"@{user["username"]}")
                 break
     return line
 
@@ -199,11 +235,10 @@ def replace_roles(line, roles_ids):
     Transforms roles string into nicer looking one:
     `some text <@role_id> more text` --> `some text @role_name more text`
     """
-    for string_match in re.findall(match_role_string, line):
-        text = re.search(match_role_id, string_match)
+    for match in re.finditer(match_role, line):
         for role in roles_ids:
-            if text.group() == role["id"]:
-                line = line.replace(string_match, f"@{role["name"]}")
+            if match.group(1) == role["id"]:
+                line = line.replace(match.group(), f"@{role["name"]}")
                 break
     return line
 
@@ -213,12 +248,26 @@ def replace_channels(line, chanels_ids):
     Transforms channels string into nicer looking one:
     `some text <#channel_id> more text` --> `some text #channel_name more text`
     """
-    for string_match in re.findall(match_channel_string, line):
-        text = re.search(match_channel_id, string_match)
+    for match in re.finditer(match_channel, line):
         for channel in chanels_ids:
-            if text.group() == channel["id"]:
-                line = line.replace(string_match, f"#{channel["name"]}")
+            if match.group(1) == channel["id"]:
+                line = line.replace(match.group(), f"#{channel["name"]}")
                 break
+    return line
+
+
+def replace_timestamps(line, timezone):
+    """
+    Transforms channels string into nicer looking one:
+    `some text <#channel_id> more text` --> `some text #channel_name more text`
+    """
+    for match in re.finditer(match_timestamp, line):
+        timestamp = match.group(1)
+        discord_format = match.group(2)
+        if discord_format:
+            discord_format = discord_format[1]
+        formatted_time = generate_discord_timestamp(timestamp, discord_format, timezone=timezone)
+        line = line.replace(match.group(), f"`{formatted_time}`")
     return line
 
 
@@ -622,6 +671,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     content = replace_mentions(content, message["referenced_message"]["mentions"])
                     content = replace_roles(content, roles)
                     content = replace_channels(content, channels)
+                    content = replace_timestamps(content, convert_timezone)
                     if emoji_as_text:
                         content = emoji.demojize(content)
                 if reply_embeds:
@@ -670,6 +720,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             content = replace_mentions(content, message["mentions"])
             content = replace_roles(content, roles)
             content = replace_channels(content, channels)
+            content = replace_timestamps(content, convert_timezone)
             if emoji_as_text:
                 content = emoji.demojize(content)
             if content.startswith("> "):
@@ -1463,6 +1514,7 @@ def generate_extra_window_search(messages, roles, channels, blocked, total_msg, 
                 content = replace_mentions(content, message["mentions"])
                 content = replace_roles(content, roles)
                 content = replace_channels(content, channels)
+                content = replace_timestamps(content, convert_timezone)
                 content = replace_spoilers_oneline(content)
                 if emoji_as_text:
                     content = emoji.demojize(content)

@@ -605,11 +605,13 @@ class Endcord:
             for num, channel in enumerate(self.input_store):
                 if channel["id"] == channel_id:
                     self.input_store[num]["content"] = text
+                    self.input_store[num]["index"] = self.tui.input_index
                     break
             else:
                 self.input_store.append({
                     "id": channel_id,
                     "content": text,
+                    "index": self.tui.input_index,
                 })
 
 
@@ -806,13 +808,16 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(f"[{prompt_text}] > ", init_text=init_text)
             else:
                 restore_text = None
+                input_index = 0
                 if self.cache_typed:
                     for num, channel in enumerate(self.input_store):
                         if channel["id"] == self.active_channel["channel_id"]:
-                            restore_text = self.input_store.pop(num)["content"]
+                            restore_text = self.input_store[num]["content"]
+                            input_index = self.input_store.pop(num)["index"]
                             break
                 if restore_text:
-                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, reset=False, clear_delta=True)
+                    self.tui.set_input_index(input_index)
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, keep_cursor=True, reset=False, clear_delta=True)
                 else:
                     input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, clear_delta=True)
             logger.debug(f"Input code: {action}")
@@ -2040,6 +2045,17 @@ class Endcord:
             if not channel_id:
                 channel_id = self.tree_metadata[tree_sel]["id"]
             self.set_seen(channel_id)
+
+        elif cmd_type == 33:   # INSERT_TIMESTAMP
+            timestamp = cmd_args["timestamp"]
+            timestamp = f"<t:{timestamp}>"
+            for num, channel in enumerate(self.input_store):
+                if channel["id"] == self.active_channel["channel_id"]:
+                    input_text = self.input_store[num]["content"]
+                    input_index = self.input_store[num]["index"]
+                    self.input_store[num]["content"] = input_text[:input_index] + timestamp + input_text[input_index:]
+                    self.input_store[num]["index"] = len(input_text[:input_index] + timestamp)
+                    break
 
         if reset:
             self.reset_actions()
@@ -3665,11 +3681,9 @@ class Endcord:
         data = new_message["d"]
         op = new_message["op"]
         if op == "MESSAGE_CREATE":
-            logger.info("CREATE")
             # if latest message is loaded - not viewing old message chunks
             data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
             if self.messages[0]["id"] == self.last_message_id:
-                logger.info("INSERT")
                 self.messages.insert(0, data)
             self.last_message_id = data["id"]
             # limit chat size

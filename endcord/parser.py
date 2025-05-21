@@ -3,9 +3,10 @@ import re
 import time
 from datetime import datetime, timedelta, timezone
 
+logger = logging.getLogger(__name__)
 DISCORD_EPOCH_MS = 1420070400000
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
-logger = logging.getLogger(__name__)
+TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%d-%H-%M", "%H:%M:%S", "%H:%M")
 
 match_from = re.compile(r"from:<@\d*>")
 match_mentions = re.compile(r"mentions:<@\d*>")
@@ -27,7 +28,7 @@ def date_to_snowflake(date, end=False):
     except ValueError:
         time_obj = datetime.now()
         time_obj = time_obj.replace(hour=0, minute=0, second=0, microsecond=0)
-    time_obj = time_obj.replace(tzinfo=timezone.utc)
+    # timestamp cant be larger than now
     if int(time_obj.timestamp()) > time.time():
         time_obj = datetime.now()
         time_obj = time_obj.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -35,6 +36,28 @@ def date_to_snowflake(date, end=False):
     if end:
         time_obj += timedelta(days=1)
     return (int(time_obj.timestamp()) * 1000 - DISCORD_EPOCH_MS) << 22
+
+
+def date_to_timestamp(date):
+    """Convert date to discord snowflake, rounded to day start, if end=True then is rounded to day end"""
+    time_obj = None
+    # try various time formats
+    for time_format in TIME_FORMATS:
+        try:
+            time_obj = datetime.strptime(date, time_format)
+        except ValueError:
+            continue
+
+    if not time_obj:
+        time_obj = datetime.now()
+        time_obj = time_obj.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # set current date if its unset
+    if time_obj.year == 1900:
+        now = datetime.now()
+        time_obj = time_obj.replace(year=now.year, month=now.month, day=now.day)
+
+    return int(time_obj.timestamp())
 
 
 def search_string(text):
@@ -298,5 +321,15 @@ def command_string(text):
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
+
+    # 33 - INSERT_TIMESTAMP
+    elif text.lower().startswith("insert_timestamp"):
+        cmd_type = 33
+        try:
+            date_string = text.split(" ")[1]
+            timestamp = date_to_timestamp(date_string)
+            cmd_args = {"timestamp": timestamp}
+        except (IndexError, ValueError):
+            cmd_type = 0
 
     return cmd_type, cmd_args

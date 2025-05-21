@@ -67,3 +67,5 @@
     Mute/unmute selected item in tree or specified channel channel/category/guild.
 - `mark_as_read` / `mark_as_read <#[channel_id]>`  
     Mark as read selected item in tree or specified channel/category/guild.
+- `insert_timestamp [time]`  
+    Insert timestamp in input line, `[time]` can be of formats: `YYYY-MM-DD-HH-mm`, `YYYY-MM-DD`, `HH:mm`, `HH:mm:SS`.
