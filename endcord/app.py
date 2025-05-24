@@ -3459,7 +3459,8 @@ class Endcord:
             if unseen_channel["channel_id"] == target_id or force:   # find this unseen chanel
                 if ack:
                     self.discord.send_ack(target_id, self.messages[0]["id"])
-                self.set_local_seen(target_id)
+                if not force:   # dont remove notification when marking seen current channel
+                    self.set_local_seen(target_id)
                 self.update_tree()
                 break
         else:   # if its not in unseen then check guilds and categories
@@ -3495,7 +3496,8 @@ class Endcord:
             if channels:
                 self.discord.send_ack_bulk(channels)
                 for channel in channels:
-                    self.set_local_seen(channel["channel_id"])
+                    if not force:
+                        self.set_local_seen(channel["channel_id"])
                 self.update_tree()
 
 
@@ -3827,9 +3829,13 @@ class Endcord:
                         "guild_id": data["guild_id"],
                     })
                 mentions = data["mentions"]
+                # select my roles from same guild as message
+                for guild in self.my_roles:
+                    if guild["guild_id"] == data["guild_id"]:
+                        my_roles = guild["roles"]
                 if (
                     data["mention_everyone"] or
-                    bool([i for i in self.my_roles if i in data["mention_roles"]]) or
+                    bool([i for i in my_roles if i in data["mention_roles"]]) or
                     self.my_id in [x["id"] for x in mentions] or
                     new_message_channel_id in self.dms_vis_id
                 ):
@@ -4190,7 +4196,8 @@ class Endcord:
             while self.run:
                 new_message_ack = self.gateway.get_message_ack()
                 if new_message_ack:
-                    self.set_seen(new_message_ack["channel_id"], ack=False)
+                    dont_remove_notify = new_message_ack["channel_id"] == self.active_channel["channel_id"]
+                    self.set_seen(new_message_ack["channel_id"], ack=False, force=dont_remove_notify)
                 else:
                     break
 

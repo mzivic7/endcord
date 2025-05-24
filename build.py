@@ -99,15 +99,16 @@ def build_with_nuitka(onedir):
     else:
         onedir = "--onefile"
     hidden_imports = "--include-module=uuid"
+    include_package_data = "--include-package-data=emoji --include-package-data=soundcard"
 
     if sys.platform == "linux":
-        command = f"pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"pipenv run python -m nuitka {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "win32":
-        command = f"pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"pipenv run python -m nuitka {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "darwin":
-        command = f'pipenv run python -m nuitka {onedir} {hidden_imports} --include-package-data=emoji --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
+        command = f'pipenv run python -m nuitka {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
         os.system(command)
     else:
         sys.exit("Building with Nuitka is currently only supported on Linux")

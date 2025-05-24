@@ -11,12 +11,13 @@ from queue import Queue
 
 import av
 import magic
-import sounddevice
+import soundcard
 from PIL import Image, ImageEnhance
 
 from endcord import xterm256
 
 logger = logging.getLogger(__name__)
+speaker = soundcard.default_speaker()
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
 
 
@@ -206,43 +207,37 @@ class CursesMedia():
         if self.video_duration == 0:
             self.video_duration = 1   # just in case
 
-        stream = sounddevice.RawOutputStream(
-            samplerate=audio_stream.rate,
-            channels=audio_stream.channels,
-            dtype="float32",
-        )
-        stream.start()
         frame_duration = 1 / container.streams.audio[0].codec_context.sample_rate
-        for frame in container.decode(audio=0):
-            if self.seek and self.seek > self.video_time:
+
+        with speaker.player(samplerate=audio_stream.rate, channels=audio_stream.channels, blocksize=1152) as stream:
+            for frame in container.decode(audio=0):
+                if self.seek and self.seek > self.video_time:
+                    self.video_time += frame.samples * frame_duration
+                    if self.pause_after_seek:
+                        self.pause_after_seek = False
+                        self.pause = True
+                    continue
+                if not self.playing:
+                    break
+                stream.play(frame.to_ndarray().astype("float32").T)
                 self.video_time += frame.samples * frame_duration
-                if self.pause_after_seek:
-                    self.pause_after_seek = False
-                    self.pause = True
-                continue
-            if not self.playing:
-                break
-            stream.write(frame.to_ndarray().astype("float32").T.flatten())
-            self.video_time += frame.samples * frame_duration
-            if self.pause:
-                self.draw_ui()
-                while self.pause:
-                    time.sleep(0.1)
-        stream.close()
+                if self.pause:
+                    self.draw_ui()
+                    while self.pause:
+                        time.sleep(0.1)
         self.ended = True
 
 
-    def audio_player(self, audio_queue, stream):
+    def audio_player(self, audio_queue, samplerate, channels):
         """Play audio frames from the queue"""
-        stream.start()
-        while True:
-            frame = audio_queue.get()
-            if frame is None:
-                break
-            stream.write(frame.to_ndarray().astype("float32").T.flatten())
-            while self.pause:
-                time.sleep(0.1)
-        stream.close()
+        with speaker.player(samplerate=samplerate, channels=channels, blocksize=1152) as stream:
+            while True:
+                frame = audio_queue.get()
+                if frame is None:
+                    break
+                stream.play(frame.to_ndarray().astype("float32").T)
+                while self.pause:
+                    time.sleep(0.1)
 
 
     def video_player(self, video_queue, audio_queue, frame_duration):
@@ -280,25 +275,21 @@ class CursesMedia():
             self.video_duration = 1   # just in case
         frame_duration = 1 / container.streams.video[0].guessed_rate
 
+
         # prepare audio
+        audio_queue = Queue(maxsize=10)
         have_audio = False
         if not self.mute_video:
             all_audio_streams = container.streams.audio
             if all_audio_streams:   # in case of a muted video
-                audio_stream = all_audio_streams[0]
-                stream = sounddevice.RawOutputStream(
-                    samplerate=audio_stream.rate,
-                    channels=audio_stream.channels,
-                    dtype="float32",
-                )
                 have_audio = True
+                audio_stream = all_audio_streams[0]
+                audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, audio_stream.rate, audio_stream.channels), daemon=True)
+                audio_thread.start()
 
-        audio_queue = Queue(maxsize=10)
+        # prepare video
         video_queue = Queue(maxsize=10)
-        audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, stream), daemon=True)
-        if have_audio:
-            video_thread = threading.Thread(target=self.video_player, args=(video_queue, audio_queue, frame_duration), daemon=True)
-        audio_thread.start()
+        video_thread = threading.Thread(target=self.video_player, args=(video_queue, audio_queue, frame_duration), daemon=True)
         video_thread.start()
 
         for frame in container.decode():

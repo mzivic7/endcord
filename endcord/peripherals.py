@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import sys
 import threading
-import time
 from ast import literal_eval
 from configparser import ConfigParser
 
@@ -16,12 +15,13 @@ import magic
 import numpy as np
 import pexpect
 import pexpect.popen_spawn
-import sounddevice
+import soundcard
 import soundfile
 
 from endcord import defaults
 
 logger = logging.getLogger(__name__)
+speaker = soundcard.default_speaker()
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
 ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
@@ -264,10 +264,14 @@ def notify_send(title, message, sound="message", custom_sound=None):
     if sys.platform == "linux":
         if custom_sound:
             threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
+            include_sound = []
         elif no_notify_sound and fallback_notification_sound and have_notify_send:
             threading.Thread(target=play_audio, daemon=True, args=(fallback_notification_sound, )).start()
+            include_sound = []
+        else:
+            include_sound = ["-h", f"string:sound-name:{sound}"]
         if have_notify_send:
-            command = ["notify-send", "-p", "--app-name", APP_NAME, "-h", f"string:sound-name:{sound}", title, message]
+            command = ["notify-send", "-p", "--app-name", APP_NAME, *include_sound, title, message]
             proc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
@@ -285,20 +289,24 @@ def notify_send(title, message, sound="message", custom_sound=None):
     elif sys.platform == "darwin":
         if custom_sound:
             threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
-        cmd = f"osascript -e 'display notification \"{message}\" with title \"{title}\"'"
-        subprocess.Popen(cmd, shell=True)
+        command = ["osascript", "-e", f"'display notification \"{message}\" with title \"{title}\"'"]
+        _ = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     return None
 
 
 def notify_remove(notification_id):
     """Removes notification by its id. Linux only."""
     if sys.platform == "linux":
-        cmd = f"gdbus call --session \
-                           --dest org.freedesktop.Notifications \
-                           --object-path /org/freedesktop/Notifications \
-                           --method org.freedesktop.Notifications.CloseNotification \
-                           {notification_id}"
-        subprocess.Popen(cmd, shell=True)
+        command = ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications", "--object-path", "/org/freedesktop/Notifications", "--method", "org.freedesktop.Notifications.CloseNotification", str(notification_id)]
+        _ = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 def load_json(file):
@@ -388,10 +396,9 @@ def complete_path(path, separator=True):
 
 
 def play_audio(path):
-    """Play audio file with sounddevice"""
-    data, fs = soundfile.read(path, dtype="float32")
-    sounddevice.play(data, fs)
-    sounddevice.wait()
+    """Play audio file with soundcard"""
+    data, samplerate = soundfile.read(path, dtype="float32")
+    speaker.play(data, samplerate=samplerate)
 
 
 def get_audio_waveform(path):
@@ -557,21 +564,18 @@ class Recorder():
         self.audio_data = []
 
 
-    def callback(self, indata, frames, time, status):   # noqa
-        """Function that stores recorded audio data"""
-        self.audio_data.append(indata.copy())
-
-
     def record(self):
         """Continuously record audio"""
         timer = 0
-        with sounddevice.InputStream(samplerate=48000, channels=1, callback=self.callback):
+        mic = soundcard.default_microphone()
+        with mic.recorder(samplerate=48000, channels=1) as rec:
             while self.recording:
                 if timer >= 600:   # 10min limit
                     del self.audio_data
                     self.recording = False
                     break
-                time.sleep(1)
+                data = rec.record(numframes=48000)
+                self.audio_data.append(data)
                 timer += 1
 
 
