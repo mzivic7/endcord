@@ -2088,7 +2088,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         name = replace_emoji_string(emoji.demojize(name))
                     tree.append(f"{intersection} {name}")
                     code = 300
-                    if muted and not channel["active"]:
+                    if muted and not category["active"]:
                         code += 10
                     elif category["ping"]:
                         code += 20
