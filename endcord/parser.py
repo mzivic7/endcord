@@ -20,6 +20,8 @@ match_setting = re.compile(r"(\w+) ?= ?(.+)")
 match_channel = re.compile(r"<#(\d*)>")
 match_profile = re.compile(r"<@(\d*)>")
 
+match_command_aruments = re.compile(r"--(\S+)=(\w+|\"[^\"]+\")")
+
 
 def date_to_snowflake(date, end=False):
     """Convert date to discord snowflake, rounded to day start, if end=True then is rounded to day end"""
@@ -101,6 +103,182 @@ def search_string(text):
         pinned.append(match[7:])
     text = text.strip()
     return text, channel_id, author_id, mentions, has, max_id, min_id, pinned
+
+
+def check_start_command(text, my_commands, guild_commands):
+    """Check if string is valid start of command"""
+    app_name = text.split(" ")[0][1:].lower()
+    if not app_name:
+        return False
+    for command in my_commands + guild_commands:
+        if command["app_name"].lower().replace(" ", "_") == app_name:
+            return True
+    return False
+
+
+def verify_option_type(option_value, option_type, roles, channels):
+    """Check if option value is of corect type"""
+    if option_type in (1, 2):   # SUB_COMMAND and SUB_COMMAND_GROUP
+        if not option_value:
+            return False   # skip subcommands
+    if option_type == 3:   # STRING
+        return not (
+            bool(re.search(match_profile, option_value)) or
+            bool(re.search(match_channel, option_value))
+        )
+    if option_type == 4:   # INTEGER
+        try:
+            int(option_value)
+            return True
+        except ValueError:
+            pass
+    elif option_type == 5:   # BOOLEAN
+        try:
+            bool(option_value)
+            return True
+        except ValueError:
+            pass
+    elif option_type == 6:   # USER
+        return bool(re.search(match_profile, option_value))
+    elif option_type == 7:   # CHANNEL
+        match = re.search(match_channel, option_value)
+        if match:
+            channel_id = match.group(1)
+            for channel in channels:
+                if channel["id"] == channel_id:
+                    return True
+    elif option_type == 8:   # ROLE
+        match = re.search(match_profile, option_value)
+        if match:
+            role_id = match.group(1)
+            for role in roles:
+                if role["id"] == role_id:
+                    return True
+    elif option_type == 9:   # MENTIONABLE
+        return bool(re.search(match_profile, option_value))
+    elif option_type == 10:   # NUMBER
+        try:
+            float(option_value)
+            return True
+        except ValueError:
+            pass
+    return False
+
+
+def app_command_string(text, my_commands, guild_commands, roles, channels):
+    """Parse app command string and prepare data payload"""
+    app_name = text.split(" ")[0][1:].lower()
+    if not app_name:
+        return None, None
+
+    #  verify command
+    command_name = text.split(" ")[1]
+    if command_name.startswith("--"):
+        return None, None
+    for command in my_commands + guild_commands:
+        if command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
+            app_id = command["app_id"]
+            break
+    else:
+        return None, None
+
+    # get subcommands
+    try:
+        subcommand_group_name = text.split(" ")[2]
+        if subcommand_group_name.startswith("--"):
+            subcommand_group_name = None
+    except IndexError:
+        subcommand_group_name = None
+    if subcommand_group_name:
+        try:
+            subcommand_name = text.split(" ")[3]
+            if subcommand_name.startswith("--"):
+                subcommand_name = None
+        except IndexError:
+            subcommand_name = None
+    else:
+        subcommand_name = None
+
+    command_options = []
+    for match in re.finditer(match_command_aruments, text):
+        command_options.append((match.group(1), match.group(2)))   # (name, value)
+    context_options = command.get("options", [])
+
+    # verify subcommands and groups
+    subcommand = None
+    subcommand_group = None
+    if subcommand_group_name:
+        for subcmd in context_options:
+            if subcmd["type"] == 1 and subcmd["name"] == subcommand_group_name:   # subcommand
+                subcommand = subcmd
+                context_options = subcmd.get("options", [])
+                break
+            elif subcmd["type"] == 2 and subcmd["name"] == subcommand_group_name:   # group
+                subcommand_group = subcmd
+                break
+    if subcommand_group and subcommand_name:   # subcommand after group
+        for subcmd in subcommand_group.get("options", []):
+            if subcmd["type"] == 1 and subcmd["name"] == subcommand_name:
+                subcommand = subcmd
+                context_options = subcmd.get("options", [])
+                break
+
+    # add and verify options
+    options = []
+    required = True
+    for option_name, option_value in command_options:
+        for option in context_options:
+            if option["name"] == option_name:
+                break
+        if not verify_option_type(option_value, option["type"], roles, channels):
+            return None, None
+        options.append({
+            "type": option["type"],
+            "name": option["name"],
+            "value": option_value,
+        })
+
+    # check for required
+    for option in context_options:
+        if option.get("required"):
+            for option_name, _ in command_options:
+                if option["name"] == option_name:
+                    break
+            else:
+                return None, None   # missing required option
+
+    # dont allow command with options but none is set
+    if not options and not subcommand_group_name and context_options and required:
+        return None, None
+
+    # add subcommands and groups
+    if subcommand:
+        options = [{
+            "type": subcommand["type"],
+            "name": subcommand["name"],
+            "options": options,
+        }]
+        if not options[0]["options"]:
+            options[0].pop("options")
+    if subcommand_group:
+        options = [{
+            "type": subcommand_group["type"],
+            "name": subcommand_group["name"],
+            "options": options,
+        }]
+        if not options[0]["options"]:
+            options[0].pop("options")
+            return None, None   # cant have group without subcommand
+
+    command_data = {
+        "version": command["version"],
+        "id": command["id"],
+        "name": command["name"],
+        "type": 1,   # only slash commands
+        "options": options,
+        "attachments":[],
+    }
+    return command_data, app_id
 
 
 def command_string(text):

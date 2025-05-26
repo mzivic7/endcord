@@ -201,6 +201,7 @@ class Endcord:
     def reset(self, online=False):
         """Reset stored data from discord, should be run on startup and reconnect"""
         self.messages = []
+        self.session_id = None
         self.chat = []
         self.chat_format = []
         self.channel_cache = []
@@ -233,6 +234,8 @@ class Endcord:
         self.members = []
         self.subscribed_members = []
         self.current_members = []
+        self.my_commands = []
+        self.guild_commands = []
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
@@ -314,6 +317,7 @@ class Endcord:
             self.active_channel["channel_id"],
             self.active_channel["guild_id"],
         )
+        self.session_id = self.gateway.session_id
         self.update_chat(keep_selected=False)
         self.update_tree()
 
@@ -649,12 +653,13 @@ class Endcord:
         self.messages = cached[1]
         self.active_channel["pinned"] = cached[2]
 
+        if self.messages:
+            self.last_message_id = self.messages[0]["id"]
+
         # restore deleted
         if self.keep_deleted and self.messages:
             self.messages = self.restore_deleted(self.messages)
 
-        if self.messages:
-            self.last_message_id = self.messages[0]["id"]
         current_guild = self.active_channel["guild_id"]
         if not current_guild:
             # skipping dms
@@ -1546,35 +1551,58 @@ class Endcord:
                     except ValueError:
                         pass
 
-                else:
+                elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands) and not self.disable_sending:
+                    command_data, app_id = parser.app_command_string(
+                        input_text,
+                        self.my_commands,
+                        self.guild_commands,
+                        self.current_roles,
+                        self.current_channels,
+                    )
+                    logger.debug(f"App command string: {input_text}")
+                    if logger.getEffectiveLevel() == logging.DEBUG:
+                        debug.save_json(self.my_commands, "my_commands.json")
+                        debug.save_json(self.guild_commands, "guild_commands.json")
+                    if command_data:
+                        self.discord.send_command(
+                            self.active_channel["guild_id"],
+                            self.active_channel["channel_id"],
+                            self.session_id,
+                            app_id,
+                            command_data,
+                        )
+                    else:
+                        self.update_extra_line("Invalid app command.")
+                    self.stop_assist()
+
+                elif not self.disable_sending:
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
                         if attachments["channel_id"] == self.active_channel["channel_id"]:
                             this_attachments = self.ready_attachments.pop(num)["attachments"]
                             self.update_extra_line()
                             break
-                    if not self.disable_sending:
-                        # if this thread is not joined, join it (locally only)
-                        if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
-                            self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
-                        # search for stickers
-                        stickers = []
-                        for match in re.finditer(formatter.match_sticker_id, input_text):
-                            stickers.append(match.group()[2:-2])
-                            input_text = input_text[:match.start()] + input_text[match.end():]
-                        text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
-                        if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
-                            self.update_extra_line("Nothing happens.")
-                        self.discord.send_message(
-                            self.active_channel["channel_id"],
-                            text_to_send,
-                            reply_id=self.replying["id"],
-                            reply_channel_id=self.active_channel["channel_id"],
-                            reply_guild_id=self.active_channel["guild_id"],
-                            reply_ping=self.replying["mention"],
-                            attachments=this_attachments,
-                            stickers=stickers,
-                        )
+                    # if this thread is not joined, join it (locally only)
+                    if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
+                        self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
+                    # search for stickers
+                    stickers = []
+                    for match in re.finditer(formatter.match_sticker_id, input_text):
+                        stickers.append(match.group()[2:-2])
+                        input_text = input_text[:match.start()] + input_text[match.end():]
+                    text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
+                    if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
+                        self.update_extra_line("Nothing happens.")
+                    self.discord.send_message(
+                        self.active_channel["channel_id"],
+                        text_to_send,
+                        reply_id=self.replying["id"],
+                        reply_channel_id=self.active_channel["channel_id"],
+                        reply_guild_id=self.active_channel["guild_id"],
+                        reply_ping=self.replying["mention"],
+                        attachments=this_attachments,
+                        stickers=stickers,
+                    )
 
                 self.reset_actions()
                 self.update_status_line()
@@ -2952,7 +2980,8 @@ class Endcord:
                             break
                 if len(self.assist_found) > 50:
                     break
-        elif assist_type == 5:   # command
+
+        elif assist_type == 5:   # client command
             if assist_word.lower().startswith("set "):
                 assist_words = assist_word[4:].split("_")
                 if assist_words:
@@ -2967,6 +2996,9 @@ class Endcord:
                 for command in formatter.COMMAND_ASSISTS:
                     if all(x in command[1] for x in assist_words):
                         self.assist_found.append(command)
+
+        elif assist_type == 6:   # app commands
+            pass
 
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
@@ -3055,13 +3087,13 @@ class Endcord:
             return messages
         for message_c in this_channel_cache:
             message_c_id = message_c["id"]
-            # ids are discord snowflakes containing unix time so it can be used message sent time
+            # ids are discord snowflakes containing unix time so it can be used as message sent time
             if message_c_id < messages[-1]["id"]:
                 # if message_c date is before last message date
                 continue
             if message_c_id > messages[0]["id"]:
                 # if message_c date is after first message date
-                if messages[0]["id"] > self.last_message_id:
+                if messages[0]["id"] >= self.last_message_id:
                     # if it is not scrolled up
                     messages.insert(0, message_c)
                     pass
@@ -3809,6 +3841,7 @@ class Endcord:
         """Process message events that should ping and send notification"""
         data = new_message["d"]
         op = new_message["op"]
+        skip_unread = data["channel_id"] == self.active_channel["channel_id"] and not self.unseen_scrolled
         new_message_channel_id = data["channel_id"]
         if op == "MESSAGE_CREATE" and data["user_id"] != self.my_id:
             # skip muted channels
@@ -3824,12 +3857,14 @@ class Endcord:
                     break
             if not muted:
                 if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
-                    self.unseen.append({
-                        "channel_id": new_message_channel_id,
-                        "guild_id": data["guild_id"],
-                    })
+                    if not skip_unread:
+                        self.unseen.append({
+                            "channel_id": new_message_channel_id,
+                            "guild_id": data["guild_id"],
+                        })
                 mentions = data["mentions"]
                 # select my roles from same guild as message
+                my_roles = []
                 for guild in self.my_roles:
                     if guild["guild_id"] == data["guild_id"]:
                         my_roles = guild["roles"]
@@ -3839,12 +3874,14 @@ class Endcord:
                     self.my_id in [x["id"] for x in mentions] or
                     new_message_channel_id in self.dms_vis_id
                 ):
-                    self.pings.append({
-                        "channel_id": new_message_channel_id,
-                        "message_id": data["id"],
-                    })
+                    if not skip_unread:
+                        self.pings.append({
+                            "channel_id": new_message_channel_id,
+                            "message_id": data["id"],
+                        })
                     self.send_desktop_notification(new_message)
-                self.update_tree()
+                if not skip_unread:
+                    self.update_tree()
 
 
     def process_msg_events_ghost_ping(self, new_message):
@@ -3963,6 +4000,7 @@ class Endcord:
                 sys.exit(self.gateway.error + ERROR_TEXT)
             time.sleep(0.2)
 
+        self.session_id = self.gateway.session_id
         self.my_status["client_state"] = "online"
         self.update_status_line()
 
@@ -4352,8 +4390,12 @@ class Endcord:
             # check if assist is needed
             assist_word, assist_type = self.tui.get_assist()
             if assist_type:
-                if assist_type == 100 or (" " in assist_word and assist_type != 5):
+                if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
+                elif assist_type == 6:   # commands
+                    self.my_commands = self.discord.get_my_commands()
+                    self.guild_commands = self.discord.get_guild_commands(self.active_channel["guild_id"])
+                    self.assist(assist_word, assist_type)
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)
 

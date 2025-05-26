@@ -505,6 +505,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     format_reactions = config["format_reactions"]
     format_one_reaction = config["format_one_reaction"]
     format_timestamp = config["format_timestamp"]
+    format_interaction = config["format_interaction"]
     edited_string = config["edited_string"]
     reactions_separator = config["reactions_separator"]
     limit_username = config["limit_username"]
@@ -679,7 +680,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                         if embed["url"] and embed["url"] not in content:
                             if content:
                                 content += "\n"
-                            content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
+                            content += f"[{clean_type(embed["type"])} embed]: \n{embed["url"]}"
                 reply_line = (
                     format_reply
                     .replace("%username", normalize_string(message["referenced_message"]["username"], limit_username))
@@ -706,6 +707,24 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(color_reply)
             temp_chat_map.append((num, None, True, None))
 
+        # bot interaction
+        elif message["interaction"]:
+            interaction_line = (
+                format_interaction
+                .replace("%username", message["interaction"]["username"][:limit_username])
+                .replace("%command", message["interaction"]["command"])
+            )
+            if len(interaction_line) > max_length:
+                interaction_line = interaction_line[:max_length - 3] + "..."
+            temp_chat.append(interaction_line)
+            if disable_formatting or reply_color_format == color_blocked:
+                temp_format.append([reply_color_format])
+            elif mentioned:
+                temp_format.append(color_mention_reply)
+            else:
+                temp_format.append(color_reply)
+            temp_chat_map.append((num, None, False, None))
+
         # main message
         quote = False
         if use_nick and message["nick"]:
@@ -730,7 +749,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             if embed["url"] and embed["url"] not in content:
                 if content:
                     content += "\n"
-                content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
+                content += f"[{clean_type(embed["type"])} embed]: \n{embed["url"]}"
         for sticker in message["stickers"]:
             sticker_type = sticker["format_type"]
             if content:
@@ -1581,6 +1600,9 @@ def generate_extra_window_assist(found, assist_type, max_len):
         prefix = ""
     elif assist_type == 5:
         title_line = "Command:"
+        prefix = ""
+    elif assist_type == 6:
+        title_line = "App command:"
         prefix = ""
     for item in found:
         body.append(f"{prefix}{item[0]}"[:max_len])

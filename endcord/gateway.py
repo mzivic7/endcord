@@ -19,6 +19,7 @@ from discord_protos import PreloadedUserSettings
 from google.protobuf.json_format import MessageToDict
 
 from endcord import debug, perms
+from endcord.message import prepare_message
 
 DISCORD_HOST = "discord.com"
 LOCAL_MEMBER_COUNT = 50   # members per guild, CPU-RAM intensive
@@ -762,173 +763,62 @@ class Gateway():
                     })
 
                 elif optext == "MESSAGE_CREATE" and "content" in response["d"]:
-                    if response["d"]["channel_id"] in self.subscribed_channels:
-                        if "referenced_message" in response["d"]:
-                            reference_nick = None
-                            for mention in response["d"]["mentions"]:
-                                if mention["id"] == response["d"]["referenced_message"]["id"]:
-                                    if "member" in mention:
-                                        reference_nick = mention["member"]["nick"]
-                            ref_mentions = []
-                            if response["d"]["referenced_message"]["mentions"]:
-                                for ref_mention in response["d"]["referenced_message"]["mentions"]:
-                                    ref_mentions.append({
-                                        "username": ref_mention["username"],
-                                        "id": ref_mention["id"],
-                                    })
-                            if "message_snapshots" in response["d"]["referenced_message"]:
-                                forwarded = response["d"]["referenced_message"]["message_snapshots"][0]["message"]
-                                # additional text with forwarded message is sent separately
-                                response["d"]["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
-                                response["d"]["referenced_message"]["embeds"] = forwarded.get("embeds")
-                                response["d"]["referenced_message"]["attachments"] = forwarded.get("attachments")
-                            reference_embeds = []
-                            for embed in response["d"]["referenced_message"]["embeds"]:
-                                content = ""
-                                content += embed.get("url", "")  + "\n"
-                                if "video" in embed and "url" in embed["video"]:
-                                    content = embed["video"]["url"] + "\n"
-                                elif "image" in embed and "url" in embed["image"]:
-                                    content = embed["image"]["url"] + "\n"
-                                elif "fields" in embed:
-                                    for field in embed["fields"]:
-                                        content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-                                    content = content.strip("\n")
-                                elif "title" in embed:
-                                    content += embed["title"] + "\n"
-                                    content += embed.get("description", "") + "\n"
-                                content = content.strip("\n")
-                                if content:
-                                    reference_embeds.append({
-                                        "type": embed["type"],
-                                        "name": None,
-                                        "url": content,
-                                    })
-                            for attachment in response["d"]["referenced_message"]["attachments"]:
-                                reference_embeds.append({
-                                    "type": attachment.get("content_type", "unknown"),
-                                    "name": attachment["filename"],
-                                    "url": attachment["url"],
-                                })   # keep attachments in same place as embeds
-                            reference = {
-                                "id": response["d"]["referenced_message"]["id"],
-                                "timestamp": response["d"]["referenced_message"]["timestamp"],
-                                "content": response["d"]["referenced_message"]["content"],
-                                "mentions": ref_mentions,
-                                "user_id": response["d"]["referenced_message"]["author"]["id"],
-                                "username": response["d"]["referenced_message"]["author"]["username"],
-                                "global_name": response["d"]["referenced_message"]["author"]["global_name"],
-                                "nick": reference_nick,
-                                "embeds": reference_embeds,
-                                "stickers": response["d"]["referenced_message"].get("sticker_items", []),
-                            }
-                        else:
-                            reference = None
-                        nick = None
-                        if "member" in response["d"]:
-                            nick = response["d"]["member"]["nick"]
-                        embeds = []
-                        if "message_snapshots" in response["d"]:
-                            forwarded = response["d"]["message_snapshots"][0]["message"]
-                            # additional text with forwarded message is sent separately
-                            response["d"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
-                            response["d"]["embeds"] = forwarded.get("embeds")
-                            response["d"]["attachments"] = forwarded.get("attachments")
-                        for embed in response["d"]["embeds"]:
-                            content = ""
-                            content += embed.get("url", "")  + "\n"
-                            if "video" in embed and "url" in embed["video"]:
-                                content = embed["video"]["url"] + "\n"
-                            elif "image" in embed and "url" in embed["image"]:
-                                content = embed["image"]["url"] + "\n"
-                            elif "fields" in embed:
-                                for field in embed["fields"]:
-                                    content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-                                content = content.strip("\n")
-                            elif "title" in embed:
-                                content += embed["title"] + "\n"
-                                content += embed.get("description", "") + "\n"
-                            content = content.strip("\n")
-                            if content and content not in response["d"]["content"]:
-                                embeds.append({
-                                    "type": embed["type"],
-                                    "name": None,
-                                    "url": content,
-                                })
-                        for attachment in response["d"]["attachments"]:
-                            embeds.append({
-                                "type": attachment.get("content_type", "unknown"),
-                                "name": attachment["filename"],
-                                "url": attachment["url"],
-                            })   # keep attachments in same place as embeds
-                        mentions = []
-                        if response["d"]["mentions"]:
-                            for mention in response["d"]["mentions"]:
-                                mentions.append({
-                                    "username": mention["username"],
-                                    "id": mention["id"],
-                                })
-                        if "member" in response["d"] and "roles" in response["d"]["member"]:
-                            if "roles" in response["d"]["member"]:
-                                # for now, saving only first role, used for username color
-                                self.add_member_roles(
-                                    guild_id,
-                                    response["d"]["author"]["id"],
-                                    response["d"]["member"]["roles"],
-                                )
+                    message = response["d"]
+                    if message["channel_id"] in self.subscribed_channels:
+                        message_done = prepare_message(message)
+                        # saving roles to cache
+                        if "member" in message and "roles" in message["member"]:
+                            self.add_member_roles(
+                                message.get("guild_id"),
+                                message["author"]["id"],
+                                message["member"]["roles"],
+                            )
+                        message_done.update({
+                            "channel_id": message["channel_id"],
+                            "guild_id": message.get("guild_id"),
+                        })
                         self.messages_buffer.append({
                             "op": "MESSAGE_CREATE",
-                            "d": {
-                                "id": response["d"]["id"],
-                                "channel_id": response["d"]["channel_id"],
-                                "guild_id": response["d"].get("guild_id"),
-                                "timestamp": response["d"]["timestamp"],
-                                "edited": False,
-                                "content": response["d"]["content"],
-                                "mentions": mentions,
-                                "mention_roles": response["d"]["mention_roles"],
-                                "mention_everyone": response["d"]["mention_everyone"],
-                                "user_id": response["d"]["author"]["id"],
-                                "username": response["d"]["author"]["username"],
-                                "global_name": response["d"]["author"]["global_name"],
-                                "nick": nick,
-                                "referenced_message": reference,
-                                "reactions": [],
-                                "embeds": embeds,
-                                "stickers": response["d"].get("sticker_items", []),   # {name, id, format_type}
-                            },
+                            "d": message_done,
                         })
                     else:   # all other non-active channel
                         mentions = []
-                        if response["d"]["mentions"]:
-                            for mention in response["d"]["mentions"]:
+                        if message["mentions"]:
+                            for mention in message["mentions"]:
                                 mentions.append({
                                     "id": mention["id"],
                                 })
                         self.messages_buffer.append({
                             "op": "MESSAGE_CREATE",
                             "d": {
-                                "id": response["d"]["id"],
-                                "channel_id": response["d"]["channel_id"],
-                                "guild_id": response["d"].get("guild_id"),
-                                "content": response["d"]["content"],
+                                "id": message["id"],
+                                "channel_id": message["channel_id"],
+                                "guild_id": message.get("guild_id"),
+                                "content": message["content"],
                                 "mentions": mentions,
-                                "mention_roles": response["d"]["mention_roles"],
-                                "mention_everyone": response["d"]["mention_everyone"],
-                                "user_id": response["d"]["author"]["id"],
-                                "global_name": response["d"]["author"]["global_name"],
+                                "mention_roles": message["mention_roles"],
+                                "mention_everyone": message["mention_everyone"],
+                                "user_id": message["author"]["id"],
+                                "global_name": message["author"]["global_name"],
                             },
                         })
 
                 elif optext == "MESSAGE_UPDATE":
+                    message = response["d"]
                     embeds = []
-                    for embed in response["d"]["embeds"]:
+                    for embed in message["embeds"]:
                         content = ""
                         content += embed.get("url", "")  + "\n"
                         if "video" in embed and "url" in embed["video"]:
-                            content = embed["video"]["url"] + "\n"
+                            content = embed.get("description", "")
+                            if content:
+                                content += "\n"
+                            content += embed["video"]["url"] + "\n"
                         elif "image" in embed and "url" in embed["image"]:
-                            content = embed["image"]["url"] + "\n"
+                            content = embed.get("description", "")
+                            if content:
+                                content += "\n"
+                            content += embed["image"]["url"] + "\n"
                         elif "fields" in embed:
                             for field in embed["fields"]:
                                 content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
@@ -937,36 +827,36 @@ class Gateway():
                             content += embed["title"] + "\n"
                             content += embed.get("description", "") + "\n"
                         content = content.strip("\n")
-                        if content and content not in response["d"]["content"]:
+                        if content and content not in message["content"]:
                             embeds.append({
                                 "type": embed["type"],
                                 "name": None,
                                 "url": content,
                             })
-                    for attachment in response["d"]["attachments"]:
+                    for attachment in message["attachments"]:
                         embeds.append({
                             "type": attachment.get("content_type", "unknown"),
                             "name": attachment["filename"],
                             "url": attachment["url"],
                         })   # keep attachments in same place as embeds
                     mentions = []
-                    if response["d"]["mentions"]:
-                        for mention in response["d"]["mentions"]:
+                    if message["mentions"]:
+                        for mention in message["mentions"]:
                             mentions.append({
                                 "username": mention["username"],
                                 "id": mention["id"],
                             })
                     data = {
-                        "id": response["d"]["id"],
-                        "channel_id": response["d"]["channel_id"],
-                        "guild_id": response["d"].get("guild_id"),
+                        "id": message["id"],
+                        "channel_id": message["channel_id"],
+                        "guild_id": message.get("guild_id"),
                         "edited": True,
-                        "content": response["d"]["content"],
+                        "content": message["content"],
                         "mentions": mentions,
-                        "mention_roles": response["d"]["mention_roles"],
-                        "mention_everyone": response["d"]["mention_everyone"],
+                        "mention_roles": message["mention_roles"],
+                        "mention_everyone": message["mention_everyone"],
                         "embeds": embeds,
-                        "stickers": response["d"].get("sticker_items", []),
+                        "stickers": message.get("sticker_items", []),
                     }
                     self.messages_buffer.append({
                         "op": "MESSAGE_UPDATE",

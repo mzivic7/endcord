@@ -7,12 +7,14 @@ import socket
 import ssl
 import time
 import urllib.parse
+import uuid
 
 import socks
 from discord_protos import FrecencyUserSettings, PreloadedUserSettings
 from google.protobuf.json_format import MessageToDict, ParseDict
 
 from endcord import peripherals
+from endcord.message import prepare_messages
 
 DISCORD_HOST = "discord.com"
 DISCORD_CDN_HOST = "cdn.discordapp.com"
@@ -48,156 +50,26 @@ def generate_nonce():
     return str((int(time.time() * 1000) - DISCORD_EPOCH * 1000) << 22)
 
 
-def prepare_messages(data, have_channel_id=False):
-    """Prepare list of messages"""
-    messages = []
-    for message in data:
-        if "referenced_message" in message:
-            if message["referenced_message"]:
-                reference_nick = None
-                for mention in message["mentions"]:
-                    if mention["id"] == message["referenced_message"]["id"]:
-                        if "member" in mention:
-                            reference_nick = mention["member"]["nick"]
-                ref_mentions = []
-                if message["referenced_message"]["mentions"]:
-                    for ref_mention in message["referenced_message"]["mentions"]:
-                        ref_mentions.append({
-                            "username": ref_mention["username"],
-                            "id": ref_mention["id"],
-                        })
-                if "message_snapshots" in message["referenced_message"]:
-                    forwarded = message["referenced_message"]["message_snapshots"][0]["message"]
-                    # additional text with forwarded message is sent separately
-                    message["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
-                    message["referenced_message"]["embeds"] = forwarded.get("embeds")
-                    message["referenced_message"]["attachments"] = forwarded.get("attachments")
-                reference_embeds = []
-                for embed in message["embeds"]:
-                    content = ""
-                    content += embed.get("url", "")  + "\n"
-                    if "video" in embed and "url" in embed["video"]:
-                        content = embed["video"]["url"] + "\n"
-                    elif "image" in embed and "url" in embed["image"]:
-                        content = embed["image"]["url"] + "\n"
-                    elif "fields" in embed:
-                        for field in embed["fields"]:
-                            content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-                        content = content.strip("\n")
-                    elif "title" in embed:
-                        content += embed["title"] + "\n"
-                        content += embed.get("description", "") + "\n"
-                    content = content.strip("\n")
-                    if content and content not in message["content"]:
-                        reference_embeds.append({
-                            "type": embed["type"],
-                            "name": None,
-                            "url": content,
-                        })
-                for attachment in message["referenced_message"]["attachments"]:
-                    reference_embeds.append({
-                        "type": attachment.get("content_type", "unknown"),
-                        "name": attachment["filename"],
-                        "url": attachment["url"],
-                    })   # keep attachments in same place as embeds
-                reference = {
-                    "id": message["referenced_message"]["id"],
-                    "timestamp": message["referenced_message"]["timestamp"],
-                    "content": message["referenced_message"]["content"],
-                    "mentions": ref_mentions,
-                    "user_id": message["referenced_message"]["author"]["id"],
-                    "username": message["referenced_message"]["author"]["username"],
-                    "global_name": message["referenced_message"]["author"]["global_name"],
-                    "nick": reference_nick,
-                    "embeds": reference_embeds,
-                    "stickers": message["referenced_message"].get("sticker_items", []),
-                }
-            else:   # reference message is deleted
-                reference = {
-                    "id": None,
-                    "content": "Deleted message",
-                }
-        else:
-            reference = None
-        if "reactions" in message:
-            reactions = []
-            for reaction in message["reactions"]:
-                reactions.append({
-                    "emoji": reaction["emoji"]["name"],
-                    "emoji_id": reaction["emoji"]["id"],
-                    "count": reaction["count"],
-                    "me": reaction["me"],
-                })
-        else:
-            reactions = []
-        if "member" in message:
-            nick = message["member"]["nick"]
-        else:
-            nick = None
-        if "message_snapshots" in message:
-            forwarded = message["message_snapshots"][0]["message"]
-            # additional text with forwarded message is sent separately
-            message["content"] = f"[Forwarded]: {forwarded.get("content")}"
-            message["embeds"] = forwarded.get("embeds")
-            message["attachments"] = forwarded.get("attachments")
-        embeds = []
-        for embed in message["embeds"]:
-            content = ""
-            content += embed.get("url", "")  + "\n"
-            if "video" in embed and "url" in embed["video"]:
-                content = embed["video"]["url"] + "\n"
-            elif "image" in embed and "url" in embed["image"]:
-                content = embed["image"]["url"] + "\n"
-            elif "fields" in embed:
-                for field in embed["fields"]:
-                    content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-                content = content.strip("\n")
-            elif "title" in embed:
-                content += embed["title"] + "\n"
-                content += embed.get("description", "") + "\n"
-            content = content.strip("\n")
-            if content and content not in message["content"]:
-                embeds.append({
-                    "type": embed["type"],
-                    "name": None,
-                    "url": content,
-                })
-        for attachment in message["attachments"]:
-            embeds.append({
-                "type": attachment.get("content_type", "unknown"),
-                "name": attachment["filename"],
-                "url": attachment["url"],
-            })   # keep attachments in same place as embeds
-        mentions = []
-        if message["mentions"]:
-            for mention in message["mentions"]:
-                mentions.append({
-                    "username": mention["username"],
-                    "id": mention["id"],
-                })
-        if message["type"] == 7:
-            message["content"] = "> *Joined the server.*"
-        messages.append({
-            "id": message["id"],
-            "timestamp": message["timestamp"],
-            "edited": bool(message["edited_timestamp"]),
-            "content": message["content"],
-            "mentions": mentions,
-            "mention_roles": message["mention_roles"],
-            "mention_everyone": message["mention_everyone"],
-            "user_id": message["author"]["id"],
-            "username": message["author"]["username"],
-            "global_name": message["author"]["global_name"],
-            "nick": nick,
-            "referenced_message": reference,
-            "reactions": reactions,
-            "embeds": embeds,
-            "stickers": message.get("sticker_items", []),   # {name, id, format_type}
-        })
-        if have_channel_id:
-            messages[-1]["channel_id"] = message["channel_id"]
-        # sticker types: 1 - png, 2 - apng, 3 - lottie, 4 - gif
-    return messages
+def build_multipart_body(data):
+    """
+    Build multipart/form-data body for http.client.
+    Header is needed:
+    multipart_header = self.header.copy()
+    multipart_header.update({"Content-Type": content_type"Content-Length": content_len})
+    """
+    boundary = "------geckoformboundary" + uuid.uuid4().hex
+    body_lines = [
+        f"--{boundary}",
+        'Content-Disposition: form-data; name="payload_json"',
+        "",
+        json.dumps(data),
+        f"--{boundary}--",
+        "",
+    ]
+    body = "\r\n".join(body_lines).encode("utf-8")
+    content_type = f"multipart/form-data; boundary={boundary}"
+    content_len = str(len(body))
+    return body, content_type, content_len
 
 
 class Discord():
@@ -212,16 +84,18 @@ class Discord():
             self.cdn_host = DISCORD_CDN_HOST
         self.token = token
         self.header = {
-            "authorization": self.token,
-            "content-type": "application/json",
-            "user-agent": user_agent,
-            "x-super-properties": client_prop,
+            "Authorization": self.token,
+            "Content-Type": "application/json",
+            "User-Agent": user_agent,
+            "X-Super-Properties": client_prop,
         }
         self.user_agent = user_agent
         self.proxy = urllib.parse.urlparse(proxy)
         self.my_id = self.get_my_id(exit_on_error=True)
         self.protos = [[], []]
         self.stickers = []
+        self.my_commands = None
+        self.guild_commands = []
         self.uploading = []
 
 
@@ -358,7 +232,7 @@ class Discord():
                     bio = data["user_profile"].get("bio")
                 if data["user_profile"].get("pronouns"):
                     pronouns = data["user_profile"].get("pronouns")
-            if data["guild_member_profile"]:
+            if "guild_member_profile" in data and data["guild_member_profile"]:
                 guild_profile = data["guild_member_profile"]
                 if "pronouns" in guild_profile and guild_profile["pronouns"]:
                     pronouns = data["guild_member_profile"]["pronouns"]
@@ -1211,6 +1085,127 @@ class Discord():
         return 0, []
 
 
+    def get_my_commands(self):
+        """Get my app commands"""
+
+        if self.my_commands:
+            return self.my_commands
+
+        message_data = None
+        url = "/api/v9/users/@me/application-command-index"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+
+            applications = data["applications"]
+            commands = []
+            for command in data["application_commands"]:
+                if command["type"] == 1:   # only slash commands
+                    for app in applications:
+                        if app["id"] == command["application_id"]:
+                            app_name = app["name"]
+                            break
+                    commands.append({
+                        "id": command["id"],
+                        "app_id": command["application_id"],
+                        "app_name": app_name,
+                        "name": command["name"],
+                        "description": command["description"],
+                        "dm": command["dm_permission"],
+                        "version": command["version"],
+                        "options": command.get("options", []),
+                    })
+
+            self.my_commands = commands
+            return commands
+        logger.error(f"Failed to fetch my application commands. Response code: {response.status}")
+        connection.close()
+        return None, None
+
+
+    def get_guild_commands(self, guild_id):
+        """Get guild app commands"""
+        for guild in self.guild_commands:
+            if guild["guild_id"] == guild_id:
+                return guild["commands"]
+
+        message_data = None
+        url = f"/api/v9/guilds/{guild_id}/application-command-index"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+
+            applications = data["applications"]
+            commands = []
+            for command in data["application_commands"]:
+                if command["type"] == 1:   # only slash commands
+                    for app in applications:
+                        if app["id"] == command["application_id"]:
+                            app_name = app["name"]
+                            break
+                    commands.append({
+                        "id": command["id"],
+                        "app_id": command["application_id"],
+                        "app_name": app_name,
+                        "name": command["name"],
+                        "description": command["description"],
+                        "dm": command["dm_permission"],
+                        "version": command["version"],
+                        "options": command.get("options", []),
+                    })
+
+            self.guild_commands.append({
+                "guild_id": guild_id,
+                "commands": commands,
+            })
+            return commands
+        logger.error(f"Failed to fetch guild application commands. Response code: {response.status}")
+        connection.close()
+        return None, None
+
+
+    def send_command(self, guild_id, channel_id, session_id, app_id, command_data):
+        """Send app command"""
+        message_data = json.dumps({
+            "type": 2,   # application command
+            "application_id": app_id,
+            "guild_id": guild_id,
+            "channel_id": channel_id,
+            "session_id": session_id,
+            "data": command_data,
+            "nonce": generate_nonce(),
+            "analytics_location": "slash_ui",
+        })
+        url = "/api/v9/interactions"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 204:
+            connection.close()
+            return True
+        logger.error(f"Failed to send command. Response code: {response.status}")
+        connection.close()
+        return None
+
+
     def request_attachment_link(self, channel_id, path, custom_name=None):
         """
         Request attachment upload link.
@@ -1264,7 +1259,7 @@ class Discord():
             "Origin": "https://discord.com",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "cross-site",
-            "user-agent": self.user_agent,
+            "User-Agent": self.user_agent,
         }
         url = urllib.parse.urlparse(upload_url)
         upload_url_path = f"{url.path}?{url.query}"
@@ -1400,7 +1395,7 @@ class Discord():
             "Origin": "https://discord.com",
             "Sec-Fetch-Mode": "no-cors",
             "Sec-Fetch-Site": "cross-site",
-            "user-agent": self.user_agent,
+            "User-Agent": self.user_agent,
         }
         try:
             connection = self.get_connection(self.cdn_host, 443)

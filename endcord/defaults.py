@@ -59,6 +59,7 @@ theme = {
     "format_newline": "                       %content",
     "format_reply": "[REPLY] <%username> | ┌──> [%timestamp] %content",
     "format_reactions": "[REACT]                └──< %reactions",
+    "format_interaction": "                       ┌──< %username used [%command]",
     "format_one_reaction": "%count:%reaction",
     "format_timestamp": "%H:%M",
     "format_status_line_l": " %global_name (%username) - %status  %unreads %action %typing",

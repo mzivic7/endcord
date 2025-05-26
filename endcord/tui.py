@@ -332,6 +332,8 @@ class TUI():
                 return None, 100
             if self.assist_start > self.input_index:
                 return None, 100
+        if self.input_buffer and self.input_buffer[0] == "/":
+            return self.input_buffer, 6
         if self.instant_assist and self.input_buffer:
             return self.input_buffer, 5
         return None, None

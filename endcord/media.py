@@ -228,9 +228,10 @@ class CursesMedia():
         self.ended = True
 
 
-    def audio_player(self, audio_queue, samplerate, channels):
+    def audio_player(self, audio_queue, samplerate, channels, audio_ready):
         """Play audio frames from the queue"""
         with speaker.player(samplerate=samplerate, channels=channels, blocksize=1152) as stream:
+            audio_ready.set()
             while True:
                 frame = audio_queue.get()
                 if frame is None:
@@ -275,17 +276,19 @@ class CursesMedia():
             self.video_duration = 1   # just in case
         frame_duration = 1 / container.streams.video[0].guessed_rate
 
-
         # prepare audio
         audio_queue = Queue(maxsize=10)
         have_audio = False
         if not self.mute_video:
             all_audio_streams = container.streams.audio
             if all_audio_streams:   # in case of a muted video
+                audio_ready = threading.Event()
                 have_audio = True
                 audio_stream = all_audio_streams[0]
-                audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, audio_stream.rate, audio_stream.channels), daemon=True)
+                audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, audio_stream.rate, audio_stream.channels, audio_ready), daemon=True)
                 audio_thread.start()
+                audio_ready.wait()   # wait for adudio to decrease desyncing
+                audio_ready.clear()
 
         # prepare video
         video_queue = Queue(maxsize=10)

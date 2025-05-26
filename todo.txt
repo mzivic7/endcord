@@ -1,5 +1,10 @@
-Discord slash commands
-Code blocks syntax highlighting
+Handle app command permissions
+App commands assist for app/commands/subcommands/groups/options
+App commands documentation
+Add locking mechanism to prevent glitches
+Add message components
+
 Voice and video calls
 Minimize to tray (if possible)
+Code blocks syntax highlighting (maybe)
 Localization (maybe)
