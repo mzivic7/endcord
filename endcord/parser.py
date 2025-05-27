@@ -165,7 +165,7 @@ def verify_option_type(option_value, option_type, roles, channels):
     return False
 
 
-def app_command_string(text, my_commands, guild_commands, roles, channels):
+def app_command_string(text, my_commands, guild_commands, roles, channels, dm):
     """Parse app command string and prepare data payload"""
     app_name = text.split(" ")[0][1:].lower()
     if not app_name:
@@ -177,6 +177,8 @@ def app_command_string(text, my_commands, guild_commands, roles, channels):
         return None, None
     for command in my_commands + guild_commands:
         if command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
+            if dm and not command.get("dm"):
+                return None, None   # command not allowed in dm
             app_id = command["app_id"]
             break
     else:

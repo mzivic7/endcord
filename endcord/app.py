@@ -1558,6 +1558,7 @@ class Endcord:
                         self.guild_commands,
                         self.current_roles,
                         self.current_channels,
+                        not self.active_channel["guild_id"],   # dm
                     )
                     logger.debug(f"App command string: {input_text}")
                     if logger.getEffectiveLevel() == logging.DEBUG:
@@ -4394,7 +4395,7 @@ class Endcord:
                     self.stop_assist()
                 elif assist_type == 6:   # commands
                     self.my_commands = self.discord.get_my_commands()
-                    self.guild_commands = self.discord.get_guild_commands(self.active_channel["guild_id"])
+                    self.guild_commands, guild_app_perms = self.discord.get_guild_commands(self.active_channel["guild_id"])
                     self.assist(assist_word, assist_type)
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)

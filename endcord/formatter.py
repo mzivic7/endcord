@@ -1030,8 +1030,9 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
                 .replace("%reactions", reactions_separator.join(reactions))
             )
-            if len(reactions_line) > max_length:
-                reactions_line = reactions_line[:max_length]
+            if len(reactions_line) > max_length - 5:   # -3 for "..." and -2 for safety
+                reactions_line = trim_at_emoji(reactions_line[:max_length-5], max_length-5)
+                reactions_line += "..."
             temp_chat.append(reactions_line)
             if disable_formatting:
                 temp_format.append([color_base])

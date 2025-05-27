@@ -1,3 +1,40 @@
+def get_newlined_value(embed, name):
+    """Get value from embed and add newline to it"""
+    value = embed.get(name)
+    if value:
+        return value + "/n"
+    return ""
+
+
+def prepare_embeds(embeds, message_content):
+    """Perepare message embeds"""
+    ready_embeds = []
+    for embed in embeds:
+        content = ""
+        content += get_newlined_value(embed, "url")
+        content += get_newlined_value(embed, "title")
+        content += get_newlined_value(embed, "description")
+        if "fields" in embed:
+            for field in embed["fields"]:
+                content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
+        if "video" in embed and "url" in embed["video"]:
+            content += embed["video"]["url"] + "\n"
+        if "image" in embed and "url" in embed["image"]:
+            content += embed["image"]["url"] + "\n"
+        if "title" in embed:
+            content += embed["title"] + "\n"
+        if "footer" in embed:
+            content += get_newlined_value(embed["footer"], "text")
+        content = content.strip("\n")
+        if content and content not in message_content:
+            ready_embeds.append({
+                "type": embed["type"],
+                "name": None,
+                "url": content,
+            })
+    return ready_embeds
+
+
 def prepare_message(message):
     """Prepare message dict"""
     if "referenced_message" in message:
@@ -20,34 +57,7 @@ def prepare_message(message):
                 message["referenced_message"]["content"] = f"[Forwarded]: {forwarded.get("content")}"
                 message["referenced_message"]["embeds"] = forwarded.get("embeds")
                 message["referenced_message"]["attachments"] = forwarded.get("attachments")
-            reference_embeds = []
-            for embed in message["referenced_message"]["embeds"]:
-                content = ""
-                content += embed.get("url", "")  + "\n"
-                if "video" in embed and "url" in embed["video"]:
-                    content = embed.get("description", "")
-                    if content:
-                        content += "\n"
-                    content += embed["video"]["url"] + "\n"
-                elif "image" in embed and "url" in embed["image"]:
-                    content = embed.get("description", "")
-                    if content:
-                        content += "\n"
-                    content += embed["image"]["url"] + "\n"
-                elif "fields" in embed:
-                    for field in embed["fields"]:
-                        content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-                    content = content.strip("\n")
-                elif "title" in embed:
-                    content += embed["title"] + "\n"
-                    content += embed.get("description", "") + "\n"
-                content = content.strip("\n")
-                if content:
-                    reference_embeds.append({
-                        "type": embed["type"],
-                        "name": None,
-                        "url": content,
-                    })
+            reference_embeds = prepare_embeds(message["referenced_message"]["embeds"], "")
             for attachment in message["referenced_message"]["attachments"]:
                 reference_embeds.append({
                     "type": attachment.get("content_type", "unknown"),
@@ -73,43 +83,27 @@ def prepare_message(message):
             }
     else:
         reference = None
+    if "reactions" in message:
+        reactions = []
+        for reaction in message["reactions"]:
+            reactions.append({
+                "emoji": reaction["emoji"]["name"],
+                "emoji_id": reaction["emoji"]["id"],
+                "count": reaction["count"],
+                "me": reaction["me"],
+            })
+    else:
+        reactions = []
     nick = None
     if "member" in message:
         nick = message["member"]["nick"]
-    embeds = []
     if "message_snapshots" in message:
         forwarded = message["message_snapshots"][0]["message"]
         # additional text with forwarded message is sent separately
         message["content"] = f"[Forwarded]: {forwarded.get("content")}"
         message["embeds"] = forwarded.get("embeds")
         message["attachments"] = forwarded.get("attachments")
-    for embed in message["embeds"]:
-        content = ""
-        content += embed.get("url", "")  + "\n"
-        if "video" in embed and "url" in embed["video"]:
-            content = embed.get("description", "")
-            if content:
-                content += "\n"
-            content += embed["video"]["url"] + "\n"
-        elif "image" in embed and "url" in embed["image"]:
-            content = embed.get("description", "")
-            if content:
-                content += "\n"
-            content += embed["image"]["url"] + "\n"
-        elif "fields" in embed:
-            for field in embed["fields"]:
-                content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-            content = content.strip("\n")
-        elif "title" in embed:
-            content += embed["title"] + "\n"
-            content += embed.get("description", "") + "\n"
-        content = content.strip("\n")
-        if content and content not in message["content"]:
-            embeds.append({
-                "type": embed["type"],
-                "name": None,
-                "url": content,
-            })
+    embeds = prepare_embeds(message["embeds"], message["content"])
     for attachment in message["attachments"]:
         embeds.append({
             "type": attachment.get("content_type", "unknown"),
@@ -146,7 +140,7 @@ def prepare_message(message):
         "global_name": message["author"]["global_name"],
         "nick": nick,
         "referenced_message": reference,
-        "reactions": [],
+        "reactions": reactions,
         "embeds": embeds,
         "stickers": message.get("sticker_items", []),   # {name, id, format_type}
         "interaction": interaction,

@@ -1,10 +1,10 @@
-Handle app command permissions
-App commands assist for app/commands/subcommands/groups/options
-App commands documentation
+Handle guild app command permissions
+Add app commands assist for app/commands/subcommands/groups/options/in_dm
 Add locking mechanism to prevent glitches
 Add message components
 
 Voice and video calls
 Minimize to tray (if possible)
+Click on notification to focus window
 Code blocks syntax highlighting (maybe)
 Localization (maybe)

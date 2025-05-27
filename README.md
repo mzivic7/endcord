@@ -256,8 +256,17 @@ If this account reacted to the message, that reaction will have `*` prepended to
 ### Escape key priority order
 Stop recording, close extra window, stop replying, everything else.
 
-### Commands
+### Client-side commands
 Press `Ctrl+/` to switch to command mode. Command mode has its own assist but can also trigger regular assist. [Commands list](commands.md).
+
+### App commands
+App commands assist is initiated by typing `/` at the start of input line. Pressing Enter will send the command!  
+App commands format is like this:
+`/[bot_name] [command] [subcommand/group] [subcommand_after_group] --[option_name]=[option value]`  
+`[bot_name]` is case insensitive, but `_` must be used istead space.  
+`[subcommand/group]` is either single subcommand or subcommand group, and is optional.  
+Subcommand group must be followed by `[subcommand_after_group]`.  
+`[option value]` can be put in `""`, useful when it has spaces in the value. Options are sometimes not required.  
 
 ### Emoji
 To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  

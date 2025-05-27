@@ -364,7 +364,7 @@ class Discord():
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
-            # debug
+            # debug_chat
             # with open("messages.json", "w") as f:
             #     json.dump(data, f, indent=2)
             return prepare_messages(data)
@@ -1112,16 +1112,21 @@ class Discord():
                         if app["id"] == command["application_id"]:
                             app_name = app["name"]
                             break
-                    commands.append({
+                    else:
+                        continue
+                    ready_command = {
                         "id": command["id"],
                         "app_id": command["application_id"],
                         "app_name": app_name,
                         "name": command["name"],
                         "description": command["description"],
-                        "dm": command["dm_permission"],
                         "version": command["version"],
                         "options": command.get("options", []),
-                    })
+                    }
+                    if command.get("dm_permission"):
+                        ready_command["dm"] = True
+                    commands.append(ready_command)
+
 
             self.my_commands = commands
             return commands
@@ -1134,7 +1139,7 @@ class Discord():
         """Get guild app commands"""
         for guild in self.guild_commands:
             if guild["guild_id"] == guild_id:
-                return guild["commands"]
+                return guild["commands"], guild["app_perms"]
 
         message_data = None
         url = f"/api/v9/guilds/{guild_id}/application-command-index"
@@ -1151,28 +1156,39 @@ class Discord():
 
             applications = data["applications"]
             commands = []
+            app_perms = []
+            for app in applications:
+                if "permissions" in app:
+                    app_perms.append({
+                        "app_id": app["id"],
+                        "perms": app["permissions"],
+                    })
             for command in data["application_commands"]:
                 if command["type"] == 1:   # only slash commands
                     for app in applications:
                         if app["id"] == command["application_id"]:
                             app_name = app["name"]
                             break
-                    commands.append({
+                    ready_command = {
                         "id": command["id"],
                         "app_id": command["application_id"],
                         "app_name": app_name,
                         "name": command["name"],
                         "description": command["description"],
-                        "dm": command["dm_permission"],
                         "version": command["version"],
                         "options": command.get("options", []),
-                    })
-
+                    }
+                    if command.get("permissions"):
+                        ready_command["permissions"] = command.get("permissions")
+                    if command.get("default_member_permissions"):
+                        ready_command["default_member_permissions"] = command.get("default_member_permissions")
+                    commands.append(ready_command)
             self.guild_commands.append({
                 "guild_id": guild_id,
                 "commands": commands,
+                "app_perms": app_perms,
             })
-            return commands
+            return commands, app_perms
         logger.error(f"Failed to fetch guild application commands. Response code: {response.status}")
         connection.close()
         return None, None
