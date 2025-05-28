@@ -109,6 +109,7 @@ class Endcord:
             "guild_name": None,
             "channel_name": None,
             "pinned": False,
+            "admin": False,
         }
         self.guilds = []
         self.all_roles = []
@@ -234,8 +235,10 @@ class Endcord:
         self.members = []
         self.subscribed_members = []
         self.current_members = []
+        self.got_commands = False
         self.my_commands = []
         self.guild_commands = []
+        self.permitted_guild_commands = []
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
@@ -366,10 +369,11 @@ class Endcord:
         self.add_running_task("Switching channel", 1)
 
         # update list of this guild channels
+        this_guild = {}
         current_channels = []
-        for guild_channels in self.guilds:
-            if guild_channels["guild_id"] == guild_id:
-                current_channels = guild_channels["channels"]
+        for this_guild in self.guilds:
+            if this_guild["guild_id"] == guild_id:
+                current_channels = this_guild["channels"]
                 break
         current_channel = {}
         for channel in current_channels:
@@ -452,7 +456,9 @@ class Endcord:
 
         # misc
         self.typing = []
+        self.active_channel["admin"] = this_guild.get("admin", False)
         self.chat_end = False
+        self.got_commands = False
         self.selected_attachment = 0
         self.gateway.subscribe(channel_id, guild_id)
         self.gateway.set_subscribed_channels([x[0] for x in self.channel_cache] + [channel_id])
@@ -871,7 +877,7 @@ class Endcord:
             elif action == 3 and self.messages:
                 self.restore_input_text = [input_text, "standard"]
                 msg_index = self.lines_to_msg(chat_sel)
-                if self.messages[msg_index]["user_id"] == self.my_id:
+                if self.messages[msg_index]["user_id"] == self.my_id or self.active_channel["admin"]:
                     if "deleted" not in self.messages[msg_index]:
                         self.reset_actions()
                         self.ignore_typing = True
@@ -1551,19 +1557,21 @@ class Endcord:
                     except ValueError:
                         pass
 
-                elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands) and not self.disable_sending:
+                elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands, self.permitted_guild_commands) and not self.disable_sending:
                     command_data, app_id = parser.app_command_string(
                         input_text,
                         self.my_commands,
                         self.guild_commands,
+                        self.permitted_guild_commands,
                         self.current_roles,
                         self.current_channels,
                         not self.active_channel["guild_id"],   # dm
                     )
                     logger.debug(f"App command string: {input_text}")
                     if logger.getEffectiveLevel() == logging.DEBUG:
-                        debug.save_json(self.my_commands, "my_commands.json")
-                        debug.save_json(self.guild_commands, "guild_commands.json")
+                        debug.save_json(self.my_commands, "commands_my.json")
+                        debug.save_json(self.guild_commands, "commands_guild.json")
+                        debug.save_json(self.permitted_guild_commands, "commands_guild_permitted.json")
                     if command_data:
                         self.discord.send_command(
                             self.active_channel["guild_id"],
@@ -4394,8 +4402,26 @@ class Endcord:
                 if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
                 elif assist_type == 6:   # commands
-                    self.my_commands = self.discord.get_my_commands()
-                    self.guild_commands, guild_app_perms = self.discord.get_guild_commands(self.active_channel["guild_id"])
+                    if not self.got_commands:
+                        # this will be allowed to run when channel changes
+                        self.got_commands = True
+                        self.my_commands = self.discord.get_my_commands()
+                        if self.active_channel["guild_id"]:
+                            self.guild_commands, guild_app_perms = self.discord.get_guild_commands(self.active_channel["guild_id"])
+                            # permissions depend on channel so they myt be computed each time
+                            self.permitted_guild_commands = perms.compute_command_permissions(
+                                self.guild_commands,
+                                guild_app_perms,
+                                self.active_channel["channel_id"],
+                                self.active_channel["guild_id"],
+                                self.current_my_roles,
+                                self.my_id,
+                                self.active_channel["admin"],
+                                self.current_channel.get("perms_computed", 0),
+                            )
+                            debug.save_json(self.my_commands, "commands_my.json", True)
+                            debug.save_json(self.guild_commands, "commands_guild.json", True)
+                            debug.save_json(self.permitted_guild_commands, "commands_guild_permitted.json", True)
                     self.assist(assist_word, assist_type)
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)

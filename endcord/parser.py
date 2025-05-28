@@ -105,13 +105,16 @@ def search_string(text):
     return text, channel_id, author_id, mentions, has, max_id, min_id, pinned
 
 
-def check_start_command(text, my_commands, guild_commands):
+def check_start_command(text, my_commands, guild_commands, permitted_guild_commands):
     """Check if string is valid start of command"""
     app_name = text.split(" ")[0][1:].lower()
     if not app_name:
         return False
-    for command in my_commands + guild_commands:
+    for command in my_commands:
         if command["app_name"].lower().replace(" ", "_") == app_name:
+            return True
+    for num, command in enumerate(guild_commands):
+        if permitted_guild_commands[num] and command["app_name"].lower().replace(" ", "_") == app_name:
             return True
     return False
 
@@ -165,7 +168,7 @@ def verify_option_type(option_value, option_type, roles, channels):
     return False
 
 
-def app_command_string(text, my_commands, guild_commands, roles, channels, dm):
+def app_command_string(text, my_commands, guild_commands, permitted_guild_commands, roles, channels, dm):
     """Parse app command string and prepare data payload"""
     app_name = text.split(" ")[0][1:].lower()
     if not app_name:
@@ -175,10 +178,14 @@ def app_command_string(text, my_commands, guild_commands, roles, channels, dm):
     command_name = text.split(" ")[1]
     if command_name.startswith("--"):
         return None, None
-    for command in my_commands + guild_commands:
+    for command in my_commands:
         if command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
             if dm and not command.get("dm"):
                 return None, None   # command not allowed in dm
+            app_id = command["app_id"]
+            break
+    for num, command in enumerate(guild_commands):
+        if permitted_guild_commands[num] and command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
             app_id = command["app_id"]
             break
     else:

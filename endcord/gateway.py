@@ -1133,6 +1133,8 @@ class Gateway():
 
                 elif optext in ("CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"):
                     new_channel = response["d"]
+                    if "guild_id" not in new_channel:
+                        continue   # skipping new DMs intentionally
                     channel_id = new_channel["id"]
                     guild_id = new_channel["guild_id"]
                     if optext == "CHANNEL_DELETE":
