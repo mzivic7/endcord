@@ -94,7 +94,8 @@ class Discord():
         self.my_id = self.get_my_id(exit_on_error=True)
         self.protos = [[], []]
         self.stickers = []
-        self.my_commands = None
+        self.my_commands = []
+        self.my_apps = []
         self.guild_commands = []
         self.uploading = []
 
@@ -1087,9 +1088,8 @@ class Discord():
 
     def get_my_commands(self):
         """Get my app commands"""
-
         if self.my_commands:
-            return self.my_commands
+            return self.my_commands, self.my_apps
 
         message_data = None
         url = "/api/v9/users/@me/application-command-index"
@@ -1099,13 +1099,20 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return None
+            return [], []
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
 
             applications = data["applications"]
             commands = []
+            apps = []
+            for app in applications:
+                apps.append({
+                    "app_id": app["id"],
+                    "name": app["name"],
+                })
+
             for command in data["application_commands"]:
                 if command["type"] == 1:   # only slash commands
                     for app in applications:
@@ -1127,19 +1134,19 @@ class Discord():
                         ready_command["dm"] = True
                     commands.append(ready_command)
 
-
             self.my_commands = commands
-            return commands
+            self.my_apps = apps
+            return commands, apps
         logger.error(f"Failed to fetch my application commands. Response code: {response.status}")
         connection.close()
-        return None, None
+        return [], []
 
 
     def get_guild_commands(self, guild_id):
         """Get guild app commands"""
         for guild in self.guild_commands:
             if guild["guild_id"] == guild_id:
-                return guild["commands"], guild["app_perms"]
+                return guild["commands"], guild["apps"]
 
         message_data = None
         url = f"/api/v9/guilds/{guild_id}/application-command-index"
@@ -1149,20 +1156,21 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return None
+            return [], []
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
 
             applications = data["applications"]
             commands = []
-            app_perms = []
+            apps = []
             for app in applications:
-                if "permissions" in app:
-                    app_perms.append({
-                        "app_id": app["id"],
-                        "perms": app["permissions"],
-                    })
+                apps.append({
+                    "app_id": app["id"],
+                    "name": app["name"],
+                    "perms": app.get("permissions", {}),
+                })
+
             for command in data["application_commands"]:
                 if command["type"] == 1:   # only slash commands
                     for app in applications:
@@ -1183,15 +1191,16 @@ class Discord():
                     if command.get("default_member_permissions"):
                         ready_command["default_member_permissions"] = command.get("default_member_permissions")
                     commands.append(ready_command)
+
             self.guild_commands.append({
                 "guild_id": guild_id,
                 "commands": commands,
-                "app_perms": app_perms,
+                "apps": apps,
             })
-            return commands, app_perms
+            return commands, apps
         logger.error(f"Failed to fetch guild application commands. Response code: {response.status}")
         connection.close()
-        return None, None
+        return [], []
 
 
     def send_command(self, guild_id, channel_id, session_id, app_id, command_data):

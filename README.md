@@ -35,7 +35,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Channel tree (Server/DM/Group)
     - Correct channel order
     - Dont show hidden channels
-    - Show muted chanels as gray
+    - Show muted channels as gray
     - Show unread channels as bold
     - Show channels with mention as red
     - Navigate tree
@@ -217,7 +217,7 @@ Downloads are parallel. `Ctrl+X` will cancel ALL downloads and attachments, with
 ### Uploading
 Uploading is initiated by pressing `Ctrl+U`. Previously typed content will be cached.  
 Type path to file that should be uploaded and press enter. Cached content will be restored.  
-Wait until file is uploaded and then send the message. Mutliple files can be added this way.  
+Wait until file is uploaded and then send the message. Multiple files can be added this way.  
 Path can be absolute or relative, and has autocomplete on `tab` key.  
 If file size exceeds discord's limit it will not be added to the sent message.  
 Attachments can be navigated with `Ctrl+Left/Right` in extra line (above status line).  
@@ -260,8 +260,10 @@ Stop recording, close extra window, stop replying, everything else.
 Press `Ctrl+/` to switch to command mode. Command mode has its own assist but can also trigger regular assist. [Commands list](commands.md).
 
 ### App commands
-App commands assist is initiated by typing `/` at the start of input line. Pressing Enter will send the command!  
-App commands format is like this:
+App commands assist is initiated by typing `/` at the start of input line.  
+Pressing Enter will insert current assist selection.  
+If selection is `EXECUTE` then pressing enter will try to send that command.  
+App commands format is like this:  
 `/[bot_name] [command] [subcommand/group] [subcommand_after_group] --[option_name]=[option value]`  
 `[bot_name]` is case insensitive, but `_` must be used istead space.  
 `[subcommand/group]` is either single subcommand or subcommand group, and is optional.  
@@ -403,7 +405,7 @@ Nuitka requires compiler:
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence.
 - Disable `send_typing in config` - it calls REST API every 7s when typing.
 - Increase `limit_channel_cache` in settings - so REST API is not called on every channel switch. This will also increase RAM and CPU usage.
-- `anonymous` mode in `client_properties` setting migt be more risky than `default` mode.
+- `anonymous` mode in `client_properties` setting might be more risky than `default` mode.
 - Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
 
 ### What if you get banned?

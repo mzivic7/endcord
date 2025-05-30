@@ -38,6 +38,7 @@ APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "audio", "rich")
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
+COMMAND_OPT_TYPE = ("subcommand", "group", "string", "integer", "True/False", "user ID", "channel ID", "role ID", "mentionable ID", "number", "attachment")
 ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github.com/mzivic7/endcord/issues"
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
@@ -237,8 +238,10 @@ class Endcord:
         self.current_members = []
         self.got_commands = False
         self.my_commands = []
+        self.my_apps = []
         self.guild_commands = []
-        self.permitted_guild_commands = []
+        self.guild_apps = []
+        self.guild_commands_permitted = []
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
@@ -1121,6 +1124,9 @@ class Endcord:
                             self.tui.assist_start,
                             self.tui.input_index,
                         )
+                        if not self.reacting:
+                            self.reset_actions()
+                            self.update_status_line()
                         if new_input_text:
                             if self.search and self.extra_bkp:
                                 self.restore_input_text = [new_input_text, "search"]
@@ -1359,7 +1365,6 @@ class Endcord:
                         elif clicked_type == 4 and selected is not None:   # add/remove reaction
                             self.build_reaction(str(selected + 1), msg_index=msg_index)
 
-
             # escape in main UI
             elif action == 5:
                 if self.recording:
@@ -1372,6 +1377,10 @@ class Endcord:
                         self.restore_input_text = [input_text, "search"]
                     elif self.command:
                         self.restore_input_text = [input_text, "command"]
+                    elif self.assist_type == 6:   # app command
+                        self.reset_actions()
+                        self.tui.set_input_index(0)
+                        self.restore_input_text = ["", "standard"]
                     else:
                         self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
@@ -1416,7 +1425,7 @@ class Endcord:
                     if not self.reacting:
                         self.reset_actions()
                         self.update_status_line()
-                    if new_input_text:
+                    if new_input_text is not None:
                         if self.search and self.extra_bkp:
                             self.restore_input_text = [new_input_text, "search"]
                             self.ignore_typing = True
@@ -1557,32 +1566,8 @@ class Endcord:
                     except ValueError:
                         pass
 
-                elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands, self.permitted_guild_commands) and not self.disable_sending:
-                    command_data, app_id = parser.app_command_string(
-                        input_text,
-                        self.my_commands,
-                        self.guild_commands,
-                        self.permitted_guild_commands,
-                        self.current_roles,
-                        self.current_channels,
-                        not self.active_channel["guild_id"],   # dm
-                    )
-                    logger.debug(f"App command string: {input_text}")
-                    if logger.getEffectiveLevel() == logging.DEBUG:
-                        debug.save_json(self.my_commands, "commands_my.json")
-                        debug.save_json(self.guild_commands, "commands_guild.json")
-                        debug.save_json(self.permitted_guild_commands, "commands_guild_permitted.json")
-                    if command_data:
-                        self.discord.send_command(
-                            self.active_channel["guild_id"],
-                            self.active_channel["channel_id"],
-                            self.session_id,
-                            app_id,
-                            command_data,
-                        )
-                    else:
-                        self.update_extra_line("Invalid app command.")
-                    self.stop_assist()
+                elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands, self.guild_commands_permitted) and not self.disable_sending:
+                    self.execute_app_command(input_text)
 
                 elif not self.disable_sending:
                     this_attachments = None
@@ -2097,6 +2082,35 @@ class Endcord:
         if reset:
             self.reset_actions()
         self.update_status_line()
+
+
+    def execute_app_command(self, input_text):
+        """Parse and execute app command"""
+        command_data, app_id = parser.app_command_string(
+            input_text,
+            self.my_commands,
+            self.guild_commands,
+            self.guild_commands_permitted,
+            self.current_roles,
+            self.current_channels,
+            not self.active_channel["guild_id"],   # dm
+        )
+        logger.debug(f"App command string: {input_text}")
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            debug.save_json(self.my_commands, "commands_my.json")
+            debug.save_json(self.guild_commands, "commands_guild.json")
+            debug.save_json(self.guild_commands_permitted, "commands_guild_permitted.json")
+        if command_data:
+            self.discord.send_command(
+                self.active_channel["guild_id"],
+                self.active_channel["channel_id"],
+                self.session_id,
+                app_id,
+                command_data,
+            )
+        else:
+            self.update_extra_line("Invalid app command.")
+        self.stop_assist()
 
 
     def find_parents(self, tree_sel):
@@ -3007,7 +3021,163 @@ class Endcord:
                         self.assist_found.append(command)
 
         elif assist_type == 6:   # app commands
-            pass
+            assist_words = assist_word[1:].split(" ")
+            depth = len(assist_words)
+            if depth == 1:   # app
+                # list apps
+                assist_app = assist_words[0].lower().split("_")
+                for app in self.guild_apps:
+                    if all(x in app["name"].lower() for x in assist_app):
+                        clean_name = app["name"].lower().replace(" ", "_")
+                        self.assist_found.append((f"{clean_name} - guild app", f"/{clean_name}"))
+                for app in self.my_apps:
+                    if all(x in app["name"].lower() for x in assist_app):
+                        clean_name = app["name"].lower().replace(" ", "_")
+                        self.assist_found.append((f"{clean_name} - user app", f"/{clean_name}"))
+            elif depth == 2:   # command
+                assist_app_name = assist_words[0].lower()
+                assist_command = assist_words[1].lower().split("_")
+                dm = not self.active_channel["guild_id"]
+                # list commands
+                found = False
+                for num, command in enumerate(self.guild_commands):
+                    command_name = command["name"].lower()
+                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and all(x in command_name for x in assist_command):
+                        name = command_name.replace(" ", "_")
+                        if command.get("description"):
+                            name += f" - {command["description"]}"
+                        self.assist_found.append((name, command_name.replace(" ", "_")))
+                        found = True
+                if not found:    # skip my commands if found in guild commands
+                    for command in self.my_commands:
+                        command_name = command["name"].lower()
+                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and all(x in command_name for x in assist_command) and ((not dm) or command.get("dm")):
+                            name = command_name.replace(" ", "_")
+                            if command.get("description"):
+                                name += f" - {command["description"]}"
+                            self.assist_found.append((name, command_name.replace(" ", "_")))
+            elif depth == 3:   # group/subcommand/option
+                self.assist_found.append(("EXECUTE", None))
+                assist_app_name = assist_words[0].lower()
+                assist_command = assist_words[1].lower()
+                assist_subcommand = assist_words[2].lower().split("_")
+                dm = not self.active_channel["guild_id"]
+                # find command
+                for num, command in enumerate(self.guild_commands):
+                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
+                        break
+                else:
+                    for command in self.my_commands:
+                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
+                            break
+                    else:
+                        command = None
+                if command:
+                    # list groups/subcommands/options
+                    for subcommand in command.get("options", []):
+                        subcommand_name = subcommand["name"].lower()
+                        if all(x in subcommand_name for x in assist_subcommand):
+                            if subcommand["type"] == 1:
+                                name = f"{subcommand_name.replace(" ", "_")} - subcommand"
+                                value = subcommand_name.replace(" ", "_")
+                            elif subcommand["type"] == 2:
+                                name = f"{subcommand_name.replace(" ", "_")} - group"
+                                value = subcommand_name.replace(" ", "_")
+                            else:
+                                name = f"{subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(subcommand["type"])-1]}"
+                                value = f"--{subcommand_name.replace(" ", "_")}="
+                            if subcommand.get("required"):
+                                name += " (required)"
+                            if subcommand.get("description"):
+                                name += f" - {subcommand["description"]}"
+                            self.assist_found.append((name, value))
+            elif depth == 4:   # groups subcommand and options
+                self.assist_found.append(("EXECUTE", None))
+                assist_app_name = assist_words[0].lower()
+                assist_command = assist_words[1].lower()
+                assist_subcommand = assist_words[2].lower()
+                assist_group_subcommand = assist_words[3].lower().split("_")
+                dm = not self.active_channel["guild_id"]
+                # find command
+                for num, command in enumerate(self.guild_commands):
+                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
+                        break
+                else:
+                    for command in self.my_commands:
+                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
+                            break
+                    else:
+                        command = None
+                if command:
+                    # find subcommand
+                    for subcommand in command.get("options", []):
+                        if subcommand["name"].lower().replace(" ", "_") == assist_subcommand:
+                            break
+                    else:
+                        subcommand = None
+                    if subcommand:
+                        # list group_subcommands/options
+                        for group_subcommand in subcommand.get("options", []):
+                            group_subcommand_name = group_subcommand["name"].lower()
+                            if all(x in group_subcommand_name for x in assist_group_subcommand):
+                                if group_subcommand["type"] == 1:
+                                    if depth == 4:
+                                        name = f"{group_subcommand_name.replace(" ", "_")} - subcommand"
+                                        value = group_subcommand_name.replace(" ", "_")
+                                    else:
+                                        continue
+                                else:
+                                    name = f"{group_subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(group_subcommand["type"])-1]}"
+                                    value = f"--{group_subcommand_name.replace(" ", "_")}="
+                                if group_subcommand.get("required"):
+                                    name += " (required)"
+                                if group_subcommand.get("description"):
+                                    name += f" - {group_subcommand["description"]}"
+                                self.assist_found.append((name, value))
+            elif depth >= 5:   # options
+                self.assist_found.append(("EXECUTE", None))
+                assist_app_name = assist_words[0].lower()
+                assist_command = assist_words[1].lower()
+                assist_subcommand = assist_words[2].lower()
+                assist_group_subcommand = assist_words[3].lower()
+                assist_option = assist_words[4].lower().split("_")
+                dm = not self.active_channel["guild_id"]
+                # find command
+                for num, command in enumerate(self.guild_commands):
+                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
+                        break
+                else:
+                    for command in self.my_commands:
+                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
+                            break
+                    else:
+                        command = None
+                if command:
+                    # find subcommand
+                    for subcommand in command.get("options", []):
+                        if subcommand["name"].lower().replace(" ", "_") == assist_subcommand:
+                            break
+                    else:
+                        subcommand = None
+                    if subcommand:
+                        # find group subcommand
+                        for group_subcommand in subcommand.get("options", []):
+                            if group_subcommand["name"].lower().replace(" ", "_") == assist_group_subcommand:
+                                break
+                        else:
+                            group_subcommand = None
+                        if group_subcommand:
+                            # list options
+                            for option in group_subcommand.get("options", []):
+                                option_name = option["name"].lower()
+                                if all(x in option_name for x in assist_option):
+                                    name = f"{option_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(option["type"])-1]}"
+                                    value = f"--{option_name.replace(" ", "_")}="
+                                    if option.get("required"):
+                                        name += " (required)"
+                                    if option.get("description"):
+                                        name += f" - {option["description"]}"
+                                    self.assist_found.append((name, value))
 
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
@@ -3051,8 +3221,22 @@ class Endcord:
         elif self.assist_type == 4:   # sticker
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
         elif self.assist_type == 5:   # command
-            insert_string = self.assist_found[index][1]
-            new_text = insert_string + " "
+            new_text = self.assist_found[index][1] + " "
+            new_pos = len(new_text)
+            return new_text, new_pos
+        elif self.assist_type == 6:   # app command
+            if self.assist_found[index][1] is None:   # execute app command
+                self.execute_app_command(input_text)
+                return "", 0
+            # replace last word
+            words = input_text.split(" ")
+            if words:
+                words[-1] = self.assist_found[index][1]
+                new_text = " ".join(words)
+            else:
+                new_text = ""
+            if not new_text.endswith("="):   # dont add space if its option
+                new_text = new_text + " "
             new_pos = len(new_text)
             return new_text, new_pos
         new_text = input_text[:start-1] + insert_string + input_text[end:]
@@ -4401,17 +4585,18 @@ class Endcord:
             if assist_type:
                 if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
-                elif assist_type == 6:   # commands
+                elif assist_type == 6 and assist_word != self.assist_word:   # commands
+                    self.ignore_typing = True
                     if not self.got_commands:
                         # this will be allowed to run when channel changes
                         self.got_commands = True
-                        self.my_commands = self.discord.get_my_commands()
+                        self.my_commands, self.my_apps = self.discord.get_my_commands()
                         if self.active_channel["guild_id"]:
-                            self.guild_commands, guild_app_perms = self.discord.get_guild_commands(self.active_channel["guild_id"])
+                            self.guild_commands, self.guild_apps = self.discord.get_guild_commands(self.active_channel["guild_id"])
                             # permissions depend on channel so they myt be computed each time
-                            self.permitted_guild_commands = perms.compute_command_permissions(
+                            self.guild_commands_permitted = perms.compute_command_permissions(
                                 self.guild_commands,
-                                guild_app_perms,
+                                self.guild_apps,
                                 self.active_channel["channel_id"],
                                 self.active_channel["guild_id"],
                                 self.current_my_roles,
@@ -4419,9 +4604,6 @@ class Endcord:
                                 self.active_channel["admin"],
                                 self.current_channel.get("perms_computed", 0),
                             )
-                            debug.save_json(self.my_commands, "commands_my.json", True)
-                            debug.save_json(self.guild_commands, "commands_guild.json", True)
-                            debug.save_json(self.permitted_guild_commands, "commands_guild_permitted.json", True)
                     self.assist(assist_word, assist_type)
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)

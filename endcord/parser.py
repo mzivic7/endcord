@@ -8,6 +8,7 @@ DISCORD_EPOCH_MS = 1420070400000
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
 TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%d-%H-%M", "%H:%M:%S", "%H:%M")
 
+
 match_from = re.compile(r"from:<@\d*>")
 match_mentions = re.compile(r"mentions:<@\d*>")
 match_has = re.compile(r"has:(?:link|embed|file|video|image|sound|sticker)")
@@ -178,18 +179,19 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
     command_name = text.split(" ")[1]
     if command_name.startswith("--"):
         return None, None
-    for command in my_commands:
-        if command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
-            if dm and not command.get("dm"):
-                return None, None   # command not allowed in dm
-            app_id = command["app_id"]
-            break
     for num, command in enumerate(guild_commands):
         if permitted_guild_commands[num] and command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
             app_id = command["app_id"]
             break
     else:
-        return None, None
+        for command in my_commands:
+            if command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
+                if dm and not command.get("dm"):
+                    return None, None   # command not allowed in dm
+                app_id = command["app_id"]
+                break
+        else:
+            return None, None
 
     # get subcommands
     try:
