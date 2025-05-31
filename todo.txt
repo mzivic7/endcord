@@ -1,4 +1,3 @@
-Add attachemnts to app commands
 Add locking mechanism to prevent glitches
 Add message components
 

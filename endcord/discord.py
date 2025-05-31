@@ -1203,8 +1203,16 @@ class Discord():
         return [], []
 
 
-    def send_command(self, guild_id, channel_id, session_id, app_id, command_data):
+    def send_command(self, guild_id, channel_id, session_id, app_id, command_data, attachments):
         """Send app command"""
+        if attachments:
+            for attachment in attachments:
+                if attachment["upload_url"]:
+                    command_data["attachments"].append({
+                        "id": len(command_data["attachments"]),
+                        "filename": attachment["name"],
+                        "uploaded_filename": attachment["upload_filename"],
+                    })
         message_data = json.dumps({
             "type": 2,   # application command
             "application_id": app_id,

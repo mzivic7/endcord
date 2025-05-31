@@ -269,6 +269,7 @@ App commands format is like this:
 `[subcommand/group]` is either single subcommand or subcommand group, and is optional.  
 Subcommand group must be followed by `[subcommand_after_group]`.  
 `[option value]` can be put in `""`, useful when it has spaces in the value. Options are sometimes not required.  
+If option is of type "attachment", it can be left without value, but atachemnt must be provided (with `Ctrl+U`) before sending the command.  
 
 ### Emoji
 To add default emoji in message just type its name or alias, like this: `:thumbs_up:`  

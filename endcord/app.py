@@ -1061,17 +1061,22 @@ class Endcord:
             elif action == 23 and "owner_id" in self.messages[chat_sel]:
                 if input_text and input_text != "\n":
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                # failsafe if messages got rewritten
+                parent_hint = self.active_channel["channel_id"]
                 self.switch_channel(
                     self.messages[chat_sel]["id"],
                     self.messages[chat_sel]["name"],
                     self.active_channel["guild_id"],
                     self.active_channel["guild_name"],
-                    parent_hint=self.active_channel["channel_id"],
+                    parent_hint=parent_hint,
                 )
                 self.reset_actions()
                 self.update_status_line()
-                self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
+                self.thread_togle_join(
+                    self.active_channel["guild_id"],
+                    parent_hint,
+                    self.active_channel["channel_id"],
+                    join=True,
+                )
 
             # view profile info
             elif action == 24:
@@ -1414,7 +1419,7 @@ class Endcord:
 
             # enter
             elif (action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]) or self.command:
-                if self.assist_word and self.assist_found:
+                if self.assist_word and self.assist_found and not self.uploading:
                     self.restore_input_text = [input_text, "standard"]
                     new_input_text, new_index = self.insert_assist(
                         input_text,
@@ -1570,6 +1575,7 @@ class Endcord:
                     self.execute_app_command(input_text)
 
                 elif not self.disable_sending:
+                    # select attachment
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
                         if attachments["channel_id"] == self.active_channel["channel_id"]:
@@ -1578,7 +1584,13 @@ class Endcord:
                             break
                     # if this thread is not joined, join it (locally only)
                     if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
-                        self.thread_togle_join(guild_id, channel_id, thread_id, join=True)
+                        channel_id, _, guild_id, _, parent_id = self.find_parents(self.active_channel["channel_id"])
+                        self.thread_togle_join(
+                            guild_id,
+                            parent_id,
+                            channel_id,
+                            join=True,
+                        )
                     # search for stickers
                     stickers = []
                     for match in re.finditer(formatter.match_sticker_id, input_text):
@@ -1905,6 +1917,8 @@ class Endcord:
 
         elif cmd_type == 19:   # GOTO_MENTION
             select_num = max(cmd_args.get("num", 0), 0)
+            msg_index = self.lines_to_msg(chat_sel)
+            urls = self.get_msg_urls(msg_index)
             if select_num > 0 and select_num <= len(urls):
                 select_num -= 1
             else:
@@ -2086,7 +2100,7 @@ class Endcord:
 
     def execute_app_command(self, input_text):
         """Parse and execute app command"""
-        command_data, app_id = parser.app_command_string(
+        command_data, app_id, need_attachment = parser.app_command_string(
             input_text,
             self.my_commands,
             self.guild_commands,
@@ -2095,11 +2109,26 @@ class Endcord:
             self.current_channels,
             not self.active_channel["guild_id"],   # dm
         )
+
         logger.debug(f"App command string: {input_text}")
         if logger.getEffectiveLevel() == logging.DEBUG:
             debug.save_json(self.my_commands, "commands_my.json")
             debug.save_json(self.guild_commands, "commands_guild.json")
             debug.save_json(self.guild_commands_permitted, "commands_guild_permitted.json")
+
+        # select attachemnt
+        this_attachments = None
+        if need_attachment:
+            for num, attachments in enumerate(self.ready_attachments):
+                if attachments["channel_id"] == self.active_channel["channel_id"]:
+                    this_attachments = self.ready_attachments.pop(num)["attachments"]
+                    self.update_extra_line()
+                    break
+            if not this_attachments:
+                self.update_extra_line("Attachment not provided.")
+                self.stop_assist()
+                return
+
         if command_data:
             self.discord.send_command(
                 self.active_channel["guild_id"],
@@ -2107,6 +2136,7 @@ class Endcord:
                 self.session_id,
                 app_id,
                 command_data,
+                this_attachments,
             )
         else:
             self.update_extra_line("Invalid app command.")
@@ -2338,21 +2368,24 @@ class Endcord:
             self.add_running_task("Uploading file", 2)
             self.update_extra_line()
             upload_data, code = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
-            if upload_data:
-                uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
-                if uploaded:
-                    self.ready_attachments[ch_index]["attachments"][at_index]["upload_url"] = upload_data["upload_url"]
-                    self.ready_attachments[ch_index]["attachments"][at_index]["upload_filename"] = upload_data["upload_filename"]
-                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 1
+            try:
+                if upload_data:
+                    uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
+                    if uploaded:
+                        self.ready_attachments[ch_index]["attachments"][at_index]["upload_url"] = upload_data["upload_url"]
+                        self.ready_attachments[ch_index]["attachments"][at_index]["upload_filename"] = upload_data["upload_filename"]
+                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 1
+                    else:
+                        self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
+                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
                 else:
                     self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
-                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
-            else:
-                self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
-                if code == 1:
-                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
-                elif code == 2:
-                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
+                    if code == 1:
+                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
+                    elif code == 2:
+                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
+            except IndexError:
+                self.update_extra_line("Failed uploading attachemnt")
             self.update_extra_line()
             self.remove_running_task("Uploading file", 2)
 
