@@ -33,16 +33,8 @@ if sys.platform == "win32":
     from windows_toasts import Toast, WindowsToaster
     toaster = WindowsToaster(APP_NAME)
 if sys.platform == "linux":
-    try:
-        proc = subprocess.Popen(
-            ["notify-send"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-        have_notify_send = True
-    except FileNotFoundError:
-        have_notify_send = False
+    have_gdbus = shutil.which("gdbus")
+    have_notify_send = shutil.which("notify-send")
     # if this DE has no notification sound, try to get fallback sound
     no_notify_sound = False
     fallback_notification_sound = None
@@ -60,7 +52,6 @@ if sys.platform == "linux":
                     break
             if fallback_notification_sound:
                 break
-
 
 # get platform specific paths
 if sys.platform == "linux":
@@ -300,7 +291,7 @@ def notify_send(title, message, sound="message", custom_sound=None):
 
 def notify_remove(notification_id):
     """Removes notification by its id. Linux only."""
-    if sys.platform == "linux":
+    if sys.platform == "linux" and have_gdbus:
         command = ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications", "--object-path", "/org/freedesktop/Notifications", "--method", "org.freedesktop.Notifications.CloseNotification", str(notification_id)]
         _ = subprocess.Popen(
             command,

@@ -1,8 +1,6 @@
 Add locking mechanism to prevent glitches
 Add message components
 
-Voice and video calls
-Minimize to tray (if possible)
-Click on notification to focus window
+Voice and video calls (maybe)
 Code blocks syntax highlighting (maybe)
 Localization (maybe)

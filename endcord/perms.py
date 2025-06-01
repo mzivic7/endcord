@@ -176,7 +176,7 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
             continue
 
         # default_member_permissions check
-        default_member_permissions = command.get("default_member_permissions")
+        default_member_permissions = int(command.get("default_member_permissions"))
         if default_member_permissions is None:   # everyone
             done_perms.append(True)
         elif default_member_permissions == 0:   # only admins
@@ -187,6 +187,7 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
                 decoded_default_perms.append(decode_flag(default_member_permissions, i))
             # get my perms in this channel
             decoded_my_perms = []
+            my_this_channel_perms = int(my_this_channel_perms)
             for i in list(range(47)) + [49, 50]:   # all perms
                 decoded_my_perms.append(decode_flag(my_this_channel_perms, i))
             if all(not a or b for a, b in zip(decoded_default_perms, decoded_my_perms)):
