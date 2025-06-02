@@ -34,10 +34,6 @@ TOKEN_MANAGER_TEXT = """ Token is required to access Discord through your accoun
  """
 logger = logging.getLogger(__name__)
 
-def has_secret_tool():
-    """Check if secret tool is installed on system"""
-    return shutil.which("secret-tool")
-
 
 def load_token():
     """Try to load token from system keyring"""
@@ -213,8 +209,8 @@ def get_token(force=False):
     if token and not force:
         return token
 
-    if sys.platform == "linux" and not has_secret_tool():
-        sys.exit("secret-tool command not found on system, probably because 'libsecret' is installed")
+    if sys.platform == "linux" and not shutil.which("secret-tool"):
+        sys.exit("secret-tool command not found on system, probably because 'libsecret' is not installed. Token can be provided with argument -t or in config.")
 
     try:
         token = curses.wrapper(token_prompt)

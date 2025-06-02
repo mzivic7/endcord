@@ -89,6 +89,7 @@ class Endcord:
         self.member_list_width = config["member_list_width"]
         self.use_nick = config["use_nick_when_available"]
         self.status_char = config["tree_dm_status"]
+        self.skip_app_command_assist = config["skip_app_command_assist"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -3056,6 +3057,8 @@ class Endcord:
         elif assist_type == 6:   # app commands
             assist_words = assist_word[1:].split(" ")
             depth = len(assist_words)
+            if depth == 1 and self.skip_app_command_assist:
+                depth = 2   # skip app assist on depth 1
             if depth == 1:   # app
                 # list apps
                 assist_app = assist_words[0].lower().split("_")
@@ -3068,27 +3071,41 @@ class Endcord:
                         clean_name = app["name"].lower().replace(" ", "_")
                         self.assist_found.append((f"{clean_name} - user app", f"/{clean_name}"))
             elif depth == 2:   # command
-                assist_app_name = assist_words[0].lower()
-                assist_command = assist_words[1].lower().split("_")
+                if self.skip_app_command_assist:
+                    assist_app_name = None
+                    assist_command = assist_words[0].lower().split("_")
+                else:
+                    assist_app_name = assist_words[0].lower()
+                    assist_command = assist_words[1].lower().split("_")
                 dm = not self.active_channel["guild_id"]
                 # list commands
                 found = False
                 for num, command in enumerate(self.guild_commands):
                     command_name = command["name"].lower()
-                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and all(x in command_name for x in assist_command):
-                        name = command_name.replace(" ", "_")
+                    if (command["app_name"].lower().replace(" ", "_") == assist_app_name or self.skip_app_command_assist) and self.guild_commands_permitted[num] and all(x in command_name for x in assist_command):
+                        if self.skip_app_command_assist:
+                            name = f"{command_name.replace(" ", "_")} ({command["app_name"]})"
+                            value = f"{command["app_name"].lower().replace(" ", "_")} {command_name.replace(" ", "_")}"
+                        else:
+                            name = command_name.replace(" ", "_")
+                            value = command_name.replace(" ", "_")
                         if command.get("description"):
                             name += f" - {command["description"]}"
-                        self.assist_found.append((name, command_name.replace(" ", "_")))
+                        self.assist_found.append((name, value))
                         found = True
                 if not found:    # skip my commands if found in guild commands
                     for command in self.my_commands:
                         command_name = command["name"].lower()
-                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and all(x in command_name for x in assist_command) and ((not dm) or command.get("dm")):
-                            name = command_name.replace(" ", "_")
+                        if (command["app_name"].lower().replace(" ", "_") == assist_app_name or self.skip_app_command_assist) and all(x in command_name for x in assist_command) and ((not dm) or command.get("dm")):
+                            if self.skip_app_command_assist:
+                                name = f"{command_name.replace(" ", "_")} ({command["app_name"]})"
+                                value = f"{command["app_name"].lower().replace(" ", "_")} {command_name.replace(" ", "_")}"
+                            else:
+                                name = command_name.replace(" ", "_")
+                                value = command_name.replace(" ", "_")
                             if command.get("description"):
                                 name += f" - {command["description"]}"
-                            self.assist_found.append((name, command_name.replace(" ", "_")))
+                            self.assist_found.append((name, value))
             elif depth == 3:   # group/subcommand/option
                 self.assist_found.append(("EXECUTE", None))
                 assist_app_name = assist_words[0].lower()

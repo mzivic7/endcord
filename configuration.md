@@ -103,6 +103,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Download discord default stickers and add them to sticker search. Disable to save some RAM.
 - `only_one_open_server = False`  
     Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.
+- `skip_app_command_assist = False`  
+    Skip assist for app_name when typing app command. Instead show all app commands and insert app_name with selected command.
 - `yt_dlp_path = "yt-dlp"`  
     Path to [yt-dlp](https://github.com/yt-dlp/yt-dlp) executable or command. Used for playing youtube videos.
 - `yt_dlp_format = 18`  

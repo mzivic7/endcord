@@ -42,6 +42,7 @@ settings = {
     "save_summaries": True,
     "default_stickers": True,
     "only_one_open_server": False,
+    "skip_app_command_assist": False,
     "yt_dlp_path": "yt-dlp",
     "yt_dlp_format": 18,
     "mpv_path": "mpv",
