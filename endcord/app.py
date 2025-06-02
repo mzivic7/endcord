@@ -3124,6 +3124,21 @@ class Endcord:
                             if subcommand.get("description"):
                                 name += f" - {subcommand["description"]}"
                             self.assist_found.append((name, value))
+                    # list option choices
+                    else:
+                        match = re.search(parser.match_command_arguments, assist_words[2].lower())
+                        if match:
+                            for option in command.get("options", []):
+                                if option["name"].lower() == match.group(1):
+                                    break
+                            else:
+                                option = None
+                            if option and "choices" in option:
+                                value = match.group(2).split("_") if match.group(2) else ""
+                                for choice in option["choices"]:
+                                    choice_name = choice["name"].lower()
+                                    if all(x in choice_name for x in value):
+                                        self.assist_found.append((choice["name"], choice["value"]))
             elif depth == 4:   # groups subcommand and options
                 self.assist_found.append(("EXECUTE", None))
                 assist_app_name = assist_words[0].lower()
@@ -3167,6 +3182,21 @@ class Endcord:
                                 if group_subcommand.get("description"):
                                     name += f" - {group_subcommand["description"]}"
                                 self.assist_found.append((name, value))
+                        # list option choices
+                        else:
+                            match = re.search(parser.match_command_arguments, assist_words[3].lower())
+                            if match:
+                                for option in subcommand.get("options", []):
+                                    if option["name"].lower() == match.group(1):
+                                        break
+                                else:
+                                    option = None
+                                if option and "choices" in option:
+                                    value = match.group(2).split("_") if match.group(2) else ""
+                                    for choice in option["choices"]:
+                                        choice_name = choice["name"].lower()
+                                        if all(x in choice_name for x in value):
+                                            self.assist_found.append((choice["name"], choice["value"]))
             elif depth >= 5:   # options
                 self.assist_found.append(("EXECUTE", None))
                 assist_app_name = assist_words[0].lower()
@@ -3211,6 +3241,21 @@ class Endcord:
                                     if option.get("description"):
                                         name += f" - {option["description"]}"
                                     self.assist_found.append((name, value))
+                            # list option choices
+                            else:
+                                match = re.search(parser.match_command_arguments, assist_words[4].lower())
+                                if match:
+                                    for option in group_subcommand.get("options", []):
+                                        if option["name"].lower() == match.group(1):
+                                            break
+                                    else:
+                                        option = None
+                                    if option and "choices" in option:
+                                        value = match.group(2).split("_") if match.group(2) else ""
+                                        for choice in option["choices"]:
+                                            choice_name = choice["name"].lower()
+                                            if all(x in choice_name for x in value):
+                                                self.assist_found.append((choice["name"], choice["value"]))
 
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
@@ -3261,13 +3306,22 @@ class Endcord:
             if self.assist_found[index][1] is None:   # execute app command
                 self.execute_app_command(input_text)
                 return "", 0
-            # replace last word
-            words = input_text.split(" ")
-            if words:
-                words[-1] = self.assist_found[index][1]
-                new_text = " ".join(words)
+            # check if this is option choice
+            match = re.search(parser.match_command_arguments, input_text.split(" ")[-1])
+            if match:
+                # replace word after "="
+                if match.group(2):
+                    new_text = input_text[:-len(match.group(2))] + str(self.assist_found[index][1])
+                else:
+                    new_text = input_text + str(self.assist_found[index][1])
             else:
-                new_text = ""
+                # replace last word
+                words = input_text.split(" ")
+                if words:
+                    words[-1] = self.assist_found[index][1]
+                    new_text = " ".join(words)
+                else:
+                    new_text = ""
             if not new_text.endswith("="):   # dont add space if its option
                 new_text = new_text + " "
             new_pos = len(new_text)

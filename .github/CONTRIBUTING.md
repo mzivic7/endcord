@@ -37,7 +37,7 @@ So, before even thinking about putting it through LLM, open an issue and save yo
 - `255_curses_bug` - this part of the code should be changed after [ncurses bug](https://github.com/python/cpython/issues/119138) is fixed. If there is no note, just remove the code
 
 ### Network tab filter
-Filter for network tab in dev tool:  
+Filter for network tab in dev tools:  
 `-.js -css -woff -svg -webp -png -ico -webm -science -txt -mp3`
 
 ### Monitor IPC on linux socket
@@ -47,14 +47,15 @@ sudo socat -t100 -x -v UNIX-LISTEN:/run/user/1000/discord-ipc-0,mode=777,reusead
 ```
 
 ### Log discord events to console
-Install discord-development  
+Open discord web or install discord-development  
 Or regular discord:  
     in `.config/discord/config.json` put:  
     `"DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING": true`  
 Open dev tools: `Ctrl+Shift+I`  
 Type: `allow pasting`  
-Paste code from [here](https://gist.github.com/JohannesMP/afdf27383608c3b6f20a6a072d0be93c?permalink_comment_id=5512869#gistcomment-5512869) in developer options enable "Logging Gateway Events to Console"  
-In dev tools console select "Verbose" level  
+Paste code from [here](https://gist.github.com/MPThLee/3ccb554b9d882abc6313330e38e5dfaa?permalink_comment_id=5583182#gistcomment-5583182)  
+Go to discord settings, in developer options, logging tab, enable "Logging Gateway Events to Console"  
+In dev tools console select "Verbose" level (chrome and desktop client only)  
 
 ### Full API documentation
 https://github.com/discord-userdoccers/discord-userdoccers
