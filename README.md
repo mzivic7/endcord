@@ -400,7 +400,7 @@ Nuitka requires compiler:
 
 ### To further decrease probability of getting banned
 - MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
-- Discord REST API is called each time client is started, when channel is changed and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
+- Discord REST API is called (most notably) each time client is started, when channel is changed, app comamnd is sent and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background.
 - Do not repeatedly view user profiles.
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).

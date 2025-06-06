@@ -172,7 +172,7 @@ def verify_option_type(option_value, option_type, roles, channels):
     return False
 
 
-def app_command_string(text, my_commands, guild_commands, permitted_guild_commands, roles, channels, dm):
+def app_command_string(text, my_commands, guild_commands, permitted_guild_commands, roles, channels, dm, autocomplete):
     """Parse app command string and prepare data payload"""
     app_name = text.split(" ")[0][1:].lower()
     if not app_name:
@@ -245,7 +245,7 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
     need_attachment = False
     options = []
     required = True
-    for option_name, option_value in command_options:
+    for num, (option_name, option_value) in enumerate(command_options):
         for option in context_options:
             if option["name"] == option_name:
                 break
@@ -255,11 +255,14 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
             option_value_clean = 0
         if not verify_option_type(option_value_clean, option["type"], roles, channels):
             return None, None, None
-        options.append({
+        option_dict = {
             "type": option["type"],
             "name": option["name"],
             "value": option_value_clean,
-        })
+        }
+        if autocomplete and num == len(command_options) - 1:   # if its last option
+            option_dict["focused"] = True   # what "focused" means ?
+        options.append(option_dict)
 
     # check for required
     for option in context_options:

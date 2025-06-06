@@ -60,6 +60,9 @@ In dev tools console select "Verbose" level (chrome and desktop client only)
 ### Full API documentation
 https://github.com/discord-userdoccers/discord-userdoccers
 
+### App command permissions chart
+https://discord.com/developers/docs/change-log#upcoming-application-command-permission-changes
+
 ### Channel types
 - 0 - text
 - 1 - single person DM

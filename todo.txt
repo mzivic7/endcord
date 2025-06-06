@@ -1,7 +1,7 @@
-Add dynamic app command options choices
 Add locking mechanism to prevent glitches
 Add message components
 
+Extension support (maybe)
 Voice and video calls (maybe)
 Code blocks syntax highlighting (maybe)
 Localization (maybe)

@@ -1203,23 +1203,28 @@ class Discord():
         return [], []
 
 
-    def send_command(self, guild_id, channel_id, session_id, app_id, command_data, attachments):
-        """Send app command"""
+    def send_interaction(self, guild_id, channel_id, session_id, app_id, interaction_type, interaction_data, attachments):
+        """
+        Send app interaction
+        Known types:
+        2 - application command
+        4 - command option autocomplete
+        """
         if attachments:
             for attachment in attachments:
                 if attachment["upload_url"]:
-                    command_data["attachments"].append({
-                        "id": len(command_data["attachments"]),
+                    interaction_data["attachments"].append({
+                        "id": len(interaction_data["attachments"]),
                         "filename": attachment["name"],
                         "uploaded_filename": attachment["upload_filename"],
                     })
         message_data = json.dumps({
-            "type": 2,   # application command
+            "type": interaction_type,
             "application_id": app_id,
             "guild_id": guild_id,
             "channel_id": channel_id,
             "session_id": session_id,
-            "data": command_data,
+            "data": interaction_data,
             "nonce": generate_nonce(),
             "analytics_location": "slash_ui",
         })
@@ -1234,7 +1239,7 @@ class Discord():
         if response.status == 204:
             connection.close()
             return True
-        logger.error(f"Failed to send command. Response code: {response.status}")
+        logger.error(f"Failed to send app interaction. Response code: {response.status}")
         connection.close()
         return None
 

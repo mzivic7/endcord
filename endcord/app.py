@@ -43,6 +43,8 @@ ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
 LIMIT_SUMMARIES = 5   # max number of summaries per channel
+INTERACTION_THROTTLING = 3   # delay between sending app interactions
+APP_COMMAND_AUTOCOMPLETE_DELAY = 0.3   # delay for requesting app command autocompleions after stop typing
 
 match_emoji = re.compile(r"<:(.*):(\d*)>")
 
@@ -249,6 +251,11 @@ class Endcord:
         self.search = False
         self.search_end = False
         self.command = False
+        self.app_command_autocomplete = ""
+        self.app_command_autocomplete_resp = []
+        self.app_command_sent_time = time.time()
+        self.app_command_last_keypress = time.time()
+        self.allow_app_command_autocomplete = False
         self.ignore_typing = False
         if not online:
             self.my_status = {
@@ -2099,8 +2106,8 @@ class Endcord:
         self.update_status_line()
 
 
-    def execute_app_command(self, input_text):
-        """Parse and execute app command"""
+    def execute_app_command(self, input_text, autocomplete=False):
+        """Parse and execute app command/autocomplete"""
         command_data, app_id, need_attachment = parser.app_command_string(
             input_text,
             self.my_commands,
@@ -2109,9 +2116,10 @@ class Endcord:
             self.current_roles,
             self.current_channels,
             not self.active_channel["guild_id"],   # dm
+            autocomplete,
         )
 
-        logger.debug(f"App command string: {input_text}")
+        logger.debug(f"App command string: {input_text}, autocomplete: {autocomplete}")
         if logger.getEffectiveLevel() == logging.DEBUG:
             debug.save_json(self.my_commands, "commands_my.json")
             debug.save_json(self.guild_commands, "commands_guild.json")
@@ -2119,7 +2127,7 @@ class Endcord:
 
         # select attachemnt
         this_attachments = None
-        if need_attachment:
+        if need_attachment and not autocomplete:
             for num, attachments in enumerate(self.ready_attachments):
                 if attachments["channel_id"] == self.active_channel["channel_id"]:
                     this_attachments = self.ready_attachments.pop(num)["attachments"]
@@ -2131,11 +2139,12 @@ class Endcord:
                 return
 
         if command_data:
-            self.discord.send_command(
+            self.discord.send_interaction(
                 self.active_channel["guild_id"],
                 self.active_channel["channel_id"],
                 self.session_id,
                 app_id,
+                4 if autocomplete else 2,
                 command_data,
                 this_attachments,
             )
@@ -3156,6 +3165,14 @@ class Endcord:
                                     choice_name = choice["name"].lower()
                                     if all(x in choice_name for x in value):
                                         self.assist_found.append((choice["name"], choice["value"]))
+                            elif option and option.get("autocomplete"):
+                                if self.allow_app_command_autocomplete and self.app_command_autocomplete != assist_word and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
+                                    self.app_command_autocomplete = assist_word
+                                    self.execute_app_command(assist_word, autocomplete=True)
+                                    self.app_command_sent_time = time.time()
+                                elif self.app_command_autocomplete_resp:
+                                    for choice in self.app_command_autocomplete_resp:
+                                        self.assist_found.append((choice["name"], choice["value"]))
             elif depth == 4:   # groups subcommand and options
                 self.assist_found.append(("EXECUTE", None))
                 assist_app_name = assist_words[0].lower()
@@ -3213,6 +3230,14 @@ class Endcord:
                                     for choice in option["choices"]:
                                         choice_name = choice["name"].lower()
                                         if all(x in choice_name for x in value):
+                                            self.assist_found.append((choice["name"], choice["value"]))
+                                elif option and option.get("autocomplete"):
+                                    if self.allow_app_command_autocomplete and self.app_command_autocomplete != assist_word and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
+                                        self.app_command_autocomplete = assist_word
+                                        self.execute_app_command(assist_word, autocomplete=True)
+                                        self.app_command_sent_time = time.time()
+                                    elif self.app_command_autocomplete_resp:
+                                        for choice in self.app_command_autocomplete_resp:
                                             self.assist_found.append((choice["name"], choice["value"]))
             elif depth >= 5:   # options
                 self.assist_found.append(("EXECUTE", None))
@@ -3272,6 +3297,14 @@ class Endcord:
                                         for choice in option["choices"]:
                                             choice_name = choice["name"].lower()
                                             if all(x in choice_name for x in value):
+                                                self.assist_found.append((choice["name"], choice["value"]))
+                                    elif option and option.get("autocomplete"):
+                                        if self.allow_app_command_autocomplete and self.app_command_autocomplete != assist_word and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
+                                            self.app_command_autocomplete = assist_word
+                                            self.execute_app_command(assist_word, autocomplete=True)
+                                            self.app_command_sent_time = time.time()
+                                        elif self.app_command_autocomplete_resp:
+                                            for choice in self.app_command_autocomplete_resp:
                                                 self.assist_found.append((choice["name"], choice["value"]))
 
         max_w = self.tui.get_dimensions()[2][1]
@@ -4689,26 +4722,33 @@ class Endcord:
             if assist_type:
                 if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
-                elif assist_type == 6 and assist_word != self.assist_word:   # commands
-                    self.ignore_typing = True
-                    if not self.got_commands:
-                        # this will be allowed to run when channel changes
-                        self.got_commands = True
-                        self.my_commands, self.my_apps = self.discord.get_my_commands()
-                        if self.active_channel["guild_id"]:
-                            self.guild_commands, self.guild_apps = self.discord.get_guild_commands(self.active_channel["guild_id"])
-                            # permissions depend on channel so they myt be computed each time
-                            self.guild_commands_permitted = perms.compute_command_permissions(
-                                self.guild_commands,
-                                self.guild_apps,
-                                self.active_channel["channel_id"],
-                                self.active_channel["guild_id"],
-                                self.current_my_roles,
-                                self.my_id,
-                                self.active_channel["admin"],
-                                self.current_channel.get("perms_computed", 0),
-                            )
-                    self.assist(assist_word, assist_type)
+                elif assist_type == 6:
+                    if assist_word != self.assist_word:   # app commands
+                        self.ignore_typing = True
+                        if not self.got_commands:
+                            # this will be allowed to run when channel changes
+                            self.got_commands = True
+                            self.my_commands, self.my_apps = self.discord.get_my_commands()
+                            if self.active_channel["guild_id"]:
+                                self.guild_commands, self.guild_apps = self.discord.get_guild_commands(self.active_channel["guild_id"])
+                                # permissions depend on channel so they myt be computed each time
+                                self.guild_commands_permitted = perms.compute_command_permissions(
+                                    self.guild_commands,
+                                    self.guild_apps,
+                                    self.active_channel["channel_id"],
+                                    self.active_channel["guild_id"],
+                                    self.current_my_roles,
+                                    self.my_id,
+                                    self.active_channel["admin"],
+                                    self.current_channel.get("perms_computed", 0),
+                                )
+                        self.assist(assist_word, assist_type)
+                    elif not self.allow_app_command_autocomplete and time.time() - self.app_command_last_keypress >= APP_COMMAND_AUTOCOMPLETE_DELAY:
+                        self.allow_app_command_autocomplete = True
+                    app_command_autocomplete_resp = self.gateway.get_app_command_autocomplete_resp()
+                    if app_command_autocomplete_resp:
+                        self.app_command_autocomplete_resp = app_command_autocomplete_resp
+                        self.assist(assist_word, assist_type)
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)
 

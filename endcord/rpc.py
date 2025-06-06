@@ -197,6 +197,8 @@ class RPC:
                         sent_time = time.time()
 
                         activity = data["args"]["activity"]
+                        if not activity:
+                            continue
                         activity_type = activity.get("type", 0)
 
                         # add everything thats missing

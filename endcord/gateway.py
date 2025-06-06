@@ -112,6 +112,7 @@ class Gateway():
         self.blocked = []
         self.my_roles = []
         self.guilds_changed = False
+        self.app_command_autocomplete_resp = []
 
 
     def thread_guard(self):
@@ -1169,6 +1170,9 @@ class Gateway():
                         }
                     self.guilds_changed = True
 
+                elif optext == "APPLICATION_COMMAND_AUTOCOMPLETE_RESPONSE":
+                    self.app_command_autocomplete_resp = response["d"]["choices"]
+
             elif opcode == 7:
                 logger.info("Host requested reconnect")
                 self.resumable = True
@@ -1608,6 +1612,15 @@ class Gateway():
             self.subscribed_activities_changed = []
             return self.subscribed_activities, cache
         return [], []
+
+
+    def get_app_command_autocomplete_resp(self):
+        """Get app command autocomplete response, received after discord.send_interactionn with type 4"""
+        if self.app_command_autocomplete_resp:
+            cache = self.app_command_autocomplete_resp
+            self.app_command_autocomplete_resp = []
+            return cache
+        return []
 
 
     def get_emojis(self):

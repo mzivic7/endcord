@@ -125,6 +125,8 @@ def prepare_message(message):
         }
     else:
         interaction = None
+    if message["type"] == 7:
+        message["content"] = "> *Joined the server.*"
     return {
         "id": message["id"],
         "channel_id": message["channel_id"],
