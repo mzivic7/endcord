@@ -126,7 +126,10 @@ class CursesMedia():
                 self.media_screen.insstr(y + filler_h, x + filler_w + 1, " " * (screen_width - (x + filler_w + 1)) + "/n", curses.color_pair(self.start_color_id+1))
         if screen_height != height:
             for y_fill in range(filler_h + 1):
-                self.media_screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
+                try:
+                    self.media_screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
+                except curses.error:
+                    pass
         self.media_screen.noutrefresh()
         self.need_update.set()
 
@@ -274,7 +277,9 @@ class CursesMedia():
             self.video_duration = video_stream.frames / video_stream.average_rate * video_stream.time_base
         if self.video_duration == 0:
             self.video_duration = 1   # just in case
-        frame_duration = 1 / container.streams.video[0].guessed_rate
+        video_fps = container.streams.video[0].guessed_rate
+        frame_duration = 1 / video_fps
+        frame_index = max(int(video_fps / self.cap_fps), 1)
 
         # prepare audio
         audio_queue = Queue(maxsize=10)
@@ -295,6 +300,7 @@ class CursesMedia():
         video_thread = threading.Thread(target=self.video_player, args=(video_queue, audio_queue, frame_duration), daemon=True)
         video_thread.start()
 
+        num = 0
         for frame in container.decode():
             if self.seek and self.seek > self.video_time:
                 if isinstance(frame, av.video.frame.VideoFrame):
@@ -309,7 +315,10 @@ class CursesMedia():
             if isinstance(frame, av.audio.frame.AudioFrame) and have_audio:
                 audio_queue.put(frame)
             if isinstance(frame, av.video.frame.VideoFrame):
-                video_queue.put(frame)
+                if num == frame_index:   # limit fps
+                    video_queue.put(frame)
+                    num = 0
+                num += 1
                 self.video_time += frame_duration
             if self.pause:
                 self.draw_ui()

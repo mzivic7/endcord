@@ -3180,6 +3180,7 @@ class Endcord:
                 assist_subcommand = assist_words[2].lower()
                 assist_group_subcommand = assist_words[3].lower().split("_")
                 dm = not self.active_channel["guild_id"]
+                options_only = False
                 # find command
                 for num, command in enumerate(self.guild_commands):
                     if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
@@ -3196,18 +3197,21 @@ class Endcord:
                         if subcommand["name"].lower().replace(" ", "_") == assist_subcommand:
                             break
                     else:
-                        subcommand = None
+                        if re.search(parser.match_command_arguments, assist_subcommand):
+                            subcommand = command   # when adding multiple options
+                            options_only = True
+                        else:
+                            subcommand = None
                     if subcommand:
                         # list group_subcommands/options
                         for group_subcommand in subcommand.get("options", []):
                             group_subcommand_name = group_subcommand["name"].lower()
                             if all(x in group_subcommand_name for x in assist_group_subcommand):
+                                if options_only and group_subcommand["type"] in (1, 2):
+                                    continue   # skip non-options
                                 if group_subcommand["type"] == 1:
-                                    if depth == 4:
-                                        name = f"{group_subcommand_name.replace(" ", "_")} - subcommand"
-                                        value = group_subcommand_name.replace(" ", "_")
-                                    else:
-                                        continue
+                                    name = f"{group_subcommand_name.replace(" ", "_")} - subcommand"
+                                    value = group_subcommand_name.replace(" ", "_")
                                 else:
                                     name = f"{group_subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(group_subcommand["type"])-1]}"
                                     value = f"--{group_subcommand_name.replace(" ", "_")}="
@@ -3263,19 +3267,29 @@ class Endcord:
                         if subcommand["name"].lower().replace(" ", "_") == assist_subcommand:
                             break
                     else:
-                        subcommand = None
+                        if re.search(parser.match_command_arguments, assist_subcommand):
+                            subcommand = command   # when adding multiple options
+                            options_only = True
+                        else:
+                            subcommand = None
                     if subcommand:
                         # find group subcommand
                         for group_subcommand in subcommand.get("options", []):
                             if group_subcommand["name"].lower().replace(" ", "_") == assist_group_subcommand:
                                 break
                         else:
-                            group_subcommand = None
+                            if re.search(parser.match_command_arguments, assist_group_subcommand):
+                                group_subcommand = subcommand   # when adding multiple options
+                                options_only = True
+                            else:
+                                group_subcommand = None
                         if group_subcommand:
                             # list options
                             for option in group_subcommand.get("options", []):
                                 option_name = option["name"].lower()
                                 if all(x in option_name for x in assist_option):
+                                    if options_only and option["type"] in (1, 2):
+                                        continue   # skip non-options
                                     name = f"{option_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(option["type"])-1]}"
                                     value = f"--{option_name.replace(" ", "_")}="
                                     if option.get("required"):

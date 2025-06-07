@@ -115,7 +115,7 @@ def normalize_int_str(input_int, digits_limit):
 
 
 def generate_timestamp(discord_time, format_string, timezone=True):
-    """Converts discord timestamp string to formatted string and optionally converts to current timezone"""
+    """Convert discord timestamp string to formatted string and optionally convert to current timezone"""
     try:
         time_obj = datetime.strptime(discord_time, "%Y-%m-%dT%H:%M:%S.%f%z")
     except ValueError:
@@ -126,7 +126,7 @@ def generate_timestamp(discord_time, format_string, timezone=True):
 
 
 def timestamp_from_snowflake(snowflake, format_string, timezone=True):
-    """Converts discord snowflake to formatted string and optionally converts to current timezone"""
+    """Convert discord snowflake to formatted string and optionally convert to current timezone"""
     time_obj = datetime.fromtimestamp(((int(snowflake) >> 22) + DISCORD_EPOCH_MS) / 1000)
     if timezone:
         time_obj = time_obj.astimezone()
@@ -258,8 +258,8 @@ def replace_channels(line, chanels_ids):
 
 def replace_timestamps(line, timezone):
     """
-    Transforms channels string into nicer looking one:
-    `some text <#channel_id> more text` --> `some text #channel_name more text`
+    Transforms timestamp string into nicer looking one:
+    `some text <t:timestamp:type> more text` --> discord specified format
     """
     for match in re.finditer(match_timestamp, line):
         timestamp = match.group(1)
@@ -444,6 +444,8 @@ def clean_type(embed_type):
 def replace_discord_url(message, current_guild):
     """Replace discord url only from this guild, for channel or message"""
     text = message["content"]
+    if not text:
+        return message
     mention_msg = []
     for match in re.finditer(match_discord_message_url, text):
         if match.group(1) == current_guild:
@@ -677,7 +679,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                         content = emoji.demojize(content)
                 if reply_embeds:
                     for embed in reply_embeds:
-                        if embed["url"] and embed["url"] not in content:
+                        if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
                             if content:
                                 content += "\n"
                             content += f"[{clean_type(embed["type"])} embed]: \n{embed["url"]}"
@@ -746,7 +748,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 content = quote_character + " " + content[2:]
                 quote = True
         for embed in message["embeds"]:
-            if embed["url"] and embed["url"] not in content:
+            if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
                 if content:
                     content += "\n"
                 content += f"[{clean_type(embed["type"])} embed]: \n{embed["url"]}"
@@ -968,7 +970,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
             if newline_sign and next_line.startswith("> "):
                 next_line = quote_character + " " + next_line[2:]
-                quote = True
 
             # replace spoilers
             format_spoilers = format_multiline_one_line(spoilers, len(new_line), newline_len, selected_color_spoiler)
@@ -1540,7 +1541,7 @@ def generate_extra_window_search(messages, roles, channels, blocked, total_msg, 
                     content = emoji.demojize(content)
 
             for embed in message["embeds"]:
-                if embed["url"] and embed["url"] not in content:
+                if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
                     if content:
                         content += "\n"
                     content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"

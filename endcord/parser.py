@@ -253,7 +253,7 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
         if option["type"] == 11:
             need_attachment = True
             option_value_clean = 0
-        if not verify_option_type(option_value_clean, option["type"], roles, channels):
+        if not autocomplete and not (option_value_clean and verify_option_type(option_value_clean, option["type"], roles, channels)):
             return None, None, None
         option_dict = {
             "type": option["type"],
