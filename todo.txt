@@ -1,7 +1,7 @@
-Add more message types
+Add polls
 Add locking mechanism to prevent glitches
+Add a way to view pinned messages
 
-Extension support
 Interactive message components
 Voice and video calls
 Code blocks syntax highlighting

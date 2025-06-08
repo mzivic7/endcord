@@ -358,7 +358,7 @@ def format_md_all(line, content_start, except_ranges):
     return line, line_format
 
 
-def format_multiline_one_line(formats_range, line_len, newline_len, color):
+def format_multiline_one_line(formats_range, line_len, newline_len, color, quote=False):
     """Generate format for multiline matches, for one line, with custom end position"""
     line_format = []
     if not color:
@@ -372,13 +372,13 @@ def format_multiline_one_line(formats_range, line_len, newline_len, color):
             else:
                 line_format.append([color, format_range[0], line_len])
         elif format_range[1] < line_len:
-            line_format.append([color, newline_len, format_range[1]])
+            line_format.append([color, newline_len + quote*2, format_range[1]])
         else:
-            line_format.append([color, newline_len, line_len])
+            line_format.append([color, newline_len + quote*2, line_len])
     return line_format
 
 
-def format_multiline_one_line_end(formats_range, line_len, newline_len, color, end):
+def format_multiline_one_line_end(formats_range, line_len, newline_len, color, end, quote=False):
     """Generate format for multiline matches, for one line, with custom end position"""
     line_format = []
     if not color:
@@ -392,9 +392,9 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
             else:
                 line_format.append([color, format_range[0], end])
         elif format_range[1] < line_len:
-            line_format.append([color, newline_len, end])
+            line_format.append([color, newline_len + quote*2, end])
         else:
-            line_format.append([color, newline_len, end])
+            line_format.append([color, newline_len + quote*2, end])
     return line_format
 
 
@@ -803,13 +803,14 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         spoilers = []
         for match in re.finditer(match_md_spoiler, message_line):
             spoilers.append([match.start(), match.end()])
-        # exclude spoiled messages
-        spoilers = spoilers[message.get("spoiled"):]
+        spoilers = spoilers[message.get("spoiled"):]   # exclude spoiled messages
+
 
         # limit message_line and split to multiline
         message_line_formatted, _ = format_md_all(message_line, pre_content_len, except_ranges + urls)
         newline_sign = False
         newline_index = max_length
+        quote_nl = True
         if len(message_line) > max_length:
             newline_index = len(message_line[:max_length].rsplit(" ", 1)[0])   #  splits line on space
             if len(message_line) != len(message_line_formatted):
@@ -829,6 +830,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 quote = False
                 newline_sign = True
                 split_on_space = 0
+            else:
+                quote_nl = False
             if message_line[newline_index] in (" ", "\n"):   # remove space and \n
                 next_line = message_line[newline_index+1:]
                 split_on_space = 1
@@ -851,18 +854,18 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         message_line = replace_escaped_md(message_line, except_ranges + urls)
 
         if newline_sign and next_line.startswith("> "):
-            next_line = next_line[2:]   # will be added in newline while loop
+            next_line = next_line[2:]
             quote = True
 
         # replace spoilers
-        format_spoilers = format_multiline_one_line(spoilers, newline_index+1, 0, selected_color_spoiler)
+        format_spoilers = format_multiline_one_line(spoilers, newline_index+1, 0, selected_color_spoiler, quote)
         for spoiler_range in format_spoilers:
             start = spoiler_range[1]
             end = spoiler_range[2]
             message_line = message_line[:start] + "▒" * (end - start) + message_line[end:]
 
         # code blocks formatting here to add spaces to end of string
-        code_block_format = format_multiline_one_line_end(code_blocks, newline_index+1, 0, color_code, max_length-1)
+        code_block_format = format_multiline_one_line_end(code_blocks, newline_index+1, 0, color_code, max_length-1, quote)
         if code_block_format:
             message_line = message_line.ljust(max_length-1)
 
@@ -875,8 +878,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         elif mentioned:
             format_line = color_mention_message[:]
             format_line += md_format
-            format_line += format_multiline_one_line(urls, newline_index+1, 0, color_mention_chat_url)
-            format_line += format_multiline_one_line(code_snippets, newline_index+1, 0, color_code)
+            format_line += format_multiline_one_line(urls, newline_index+1, 0, color_mention_chat_url, quote)
+            format_line += format_multiline_one_line(code_snippets, newline_index+1, 0, color_code, quote)
             format_line += code_block_format
             format_line += format_spoilers
             if alt_role_color:
@@ -887,8 +890,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         else:
             format_line = color_message[:]
             format_line += md_format
-            format_line += format_multiline_one_line(urls, newline_index+1, 0, color_chat_url)
-            format_line += format_multiline_one_line(code_snippets, newline_index+1, 0, color_code)
+            format_line += format_multiline_one_line(urls, newline_index+1, 0, color_chat_url, quote)
+            format_line += format_multiline_one_line(code_snippets, newline_index+1, 0, color_code, quote)
             format_line += code_block_format
             format_line += format_spoilers
             if role_color:
@@ -899,10 +902,13 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
         # newline
         line_num = 1
+        quote_nl = quote_nl and quote
         while next_line:
+            this_quote = False
             if quote:
                 full_content = quote_character + " " + next_line
                 extra_newline_len = 2
+                this_quote = True
             else:
                 full_content = next_line
                 extra_newline_len = 0
@@ -913,7 +919,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             )
 
             # correct index for each new line
-            content_index_correction = newline_len + extra_newline_len - 1 + (not split_on_space) - newline_index
+            content_index_correction = newline_len + extra_newline_len - 1 + (not split_on_space) - newline_index - quote_nl*2
             for url in urls:
                 url[0] += content_index_correction
                 url[1] += content_index_correction
@@ -927,6 +933,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 code_block[0] += content_index_correction
                 code_block[1] += content_index_correction
             except_ranges = code_snippets + code_blocks
+            quote_nl = False
 
             # limit new_line and split to next line
             new_line_formatted, _ = format_md_all(new_line, pre_content_len + extra_newline_len, except_ranges + urls)
@@ -969,17 +976,19 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             new_line, md_format = format_md_all(new_line, pre_content_len + extra_newline_len, except_ranges + urls)
 
             if newline_sign and next_line.startswith("> "):
-                next_line = quote_character + " " + next_line[2:]
+                next_line = next_line[2:]
+                quote_nl = True
+                quote = True
 
             # replace spoilers
-            format_spoilers = format_multiline_one_line(spoilers, len(new_line), newline_len, selected_color_spoiler)
+            format_spoilers = format_multiline_one_line(spoilers, len(new_line), newline_len, selected_color_spoiler, this_quote)
             for spoiler_range in format_spoilers:
                 start = spoiler_range[1]
                 end = spoiler_range[2]
                 new_line = new_line[:start] + "▒" * (end - start) + new_line[end:]
 
             # code blocks formatting here to add spaces to end of string
-            code_block_format = format_multiline_one_line_end(code_blocks, len(new_line), newline_len, color_code, max_length-1)
+            code_block_format = format_multiline_one_line_end(code_blocks, len(new_line), newline_len, color_code, max_length-1, this_quote)
             if code_block_format:
                 new_line = new_line.ljust(max_length-1)
 
@@ -992,8 +1001,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             elif mentioned:
                 format_line = color_mention_newline[:]
                 format_line += md_format
-                format_line += format_multiline_one_line(urls, len(new_line), newline_len, color_mention_chat_url)
-                format_line += format_multiline_one_line(code_snippets, len(new_line), newline_len, color_code)
+                format_line += format_multiline_one_line(urls, len(new_line), newline_len, color_mention_chat_url, this_quote)
+                format_line += format_multiline_one_line(code_snippets, len(new_line), newline_len, color_code, this_quote)
                 format_line += code_block_format
                 format_line += format_spoilers
                 if edited and not next_line:
@@ -1002,8 +1011,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             else:
                 format_line = color_newline[:]
                 format_line += md_format
-                format_line += format_multiline_one_line(urls, len(new_line), newline_len, color_chat_url)
-                format_line += format_multiline_one_line(code_snippets, len(new_line), newline_len, color_code)
+                format_line += format_multiline_one_line(urls, len(new_line), newline_len, color_chat_url, this_quote)
+                format_line += format_multiline_one_line(code_snippets, len(new_line), newline_len, color_code, this_quote)
                 format_line += code_block_format
                 format_line += format_spoilers
                 if edited and not next_line:
