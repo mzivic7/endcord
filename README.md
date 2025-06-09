@@ -159,6 +159,7 @@ Reveal one spoiler in selected messages - `Ctrl+T`
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 Undo input line - `Alt+Z`  
 Redo input line - `Alt+Shift+Z`  
+Show pinned message sin current channe; - `Alt+N`
 Un/collapse channel with threads in tree - `Alt+T`  
 Join/leave selected thread in tree - `Alt+J`  
 Open selected post in forum - `Enter`  
@@ -234,6 +235,7 @@ Extra window is drawn for viewing:
 - Channel/server info - from selected tree channel (`Alt+I`)
 - Summaries for currently open channel (`Alt+S`), `Alt+Enter` will jump to first message in chat on that summary topic.
 - Search and search results (`Ctrl+F`), `Alt+Enter` or enter with no typed text will jump to selected message.  
+- Pinned messages (`Alt+N`),  `Alt+Enter` or enter with no typed text will jump to selected message.  
 `Alt+Enter` in member list will show user profile of the selected member.  
 
 ### Assist with mention, role, channel, emoji, sticker

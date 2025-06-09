@@ -545,4 +545,12 @@ def command_string(text):
         except (IndexError, ValueError):
             cmd_type = 0
 
+    # 35 - SHOW_PINNED
+    elif text.lower().startswith("show_pinned"):
+        cmd_type = 35
+
+    # 36 - PIN_MESSAGE
+    elif text.lower().startswith("pin_message"):
+        cmd_type = 36
+
     return cmd_type, cmd_args

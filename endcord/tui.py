@@ -1935,6 +1935,9 @@ class TUI():
             elif key in self.keybindings["toggle_tab"]:
                 return self.return_input_code(41)
 
+            elif key in self.keybindings["show_pinned"]:
+                return self.return_input_code(43)
+
             elif key == curses.KEY_RESIZE:
                 self.resize()
                 _, w = self.input_hw

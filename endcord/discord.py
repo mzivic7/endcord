@@ -1251,8 +1251,6 @@ class Discord():
         else:
             message_data = json.dumps({"answer_ids": [str(x) for x in vote_ids]})
         url = f"/api/v9/channels/{channel_id}/polls/{message_id}/answers/@me"
-        logger.info(message_data)
-        logger.info({"answer_ids": [str(x) for x in vote_ids]})
         try:
             connection = self.get_connection(self.host, 443)
             connection.request("PUT", url, message_data, self.header)
@@ -1262,11 +1260,51 @@ class Discord():
             return None
         if response.status != 204:
             logger.error(f"Failed to send poll vote: Response code: {response.status}")
+            connection.close()
+            return False
+        connection.close()
+        return True
+
+
+    def get_pinned(self, channel_id):
+        """Get pinned messages for specified channel"""
+        message_data = None
+        url = f"/api/v9/channels/{channel_id}/pins"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            return prepare_messages(data, have_channel_id=True)
+        logger.error(f"Failed to get pinned messages. Response code: {response.status}")
+        connection.close()
+        return None
+
+
+    def send_pin(self, channel_id, message_id):
+        """Send what message should be pinned in specified channel"""
+        message_data = None
+        url = f"/api/v9/channels/{channel_id}/pins/{message_id}"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PUT", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to pin a message: Response code: {response.status}")
             logger.info(response.read())
             connection.close()
             return False
         connection.close()
         return True
+
 
     def request_attachment_link(self, channel_id, path, custom_name=None):
         """

@@ -47,9 +47,8 @@
     Toggle tabbed (pinned) state of currently active channel.
 - `switch_tab [num]`  
     Switch to specified tab number.
-- `vote [num]`  
-    If selected message is ongoing poll, vote for specified answer index.
-
+- `show_pinned`  
+    Show pinned messages for current channel.
 
 ## Special commands (no keybinding)
 - `goto <#[channel_id]>`  
@@ -71,3 +70,7 @@
     Mark as read selected item in tree or specified channel/category/guild.
 - `insert_timestamp [time]`  
     Insert timestamp in input line, `[time]` can be of formats: `YYYY-MM-DD-HH-mm`, `YYYY-MM-DD`, `HH:mm`, `HH:mm:SS`.
+- `vote [num]`  
+    If selected message is ongoing poll, vote for specified answer index.
+- `pin_message`  
+    Pin sellected message to current channel.

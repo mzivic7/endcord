@@ -245,6 +245,7 @@ class Endcord:
         self.guild_commands = []
         self.guild_apps = []
         self.guild_commands_permitted = []
+        self.pinned = []
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
@@ -1324,8 +1325,13 @@ class Endcord:
             # switch tab
             elif action == 42:
                 pressed_num_key = self.tui.pressed_num_key
+                self.add_to_store(self.active_channel["channel_id"], input_text)
                 if pressed_num_key:
                     self.switch_tab(pressed_num_key - 1)
+
+            elif action == 43:   # show pinned
+                self.restore_input_text = [input_text, "standard"]
+                self.view_pinned()
 
             # mouse double-click on message
             elif action == 40:
@@ -2130,6 +2136,19 @@ class Endcord:
             else:
                 self.update_extra_line("Cant vote - selected message is not a poll.")
 
+        elif cmd_type == 35:   # SHOW_PINNED
+            self.view_pinned()
+
+        elif cmd_type == 36:   # PIN_MESSAGE
+            msg_index = self.lines_to_msg(chat_sel)
+            if not self.active_channel["guild_id"] or (self.active_channel["admin"] or self.active_channel.get("allow_manage")):
+                self.discord.send_pin(
+                    self.active_channel["channel_id"],
+                    self.messages[msg_index]["id"],
+                )
+            else:
+                self.update_extra_line("Cant pin a message - not permitted.")
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -2752,6 +2771,34 @@ class Endcord:
         self.stop_assist(close=False)
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body, self.extra_indexes = formatter.generate_extra_window_summaries(summaries, max_w)
+        self.tui.draw_extra_window(extra_title, extra_body, select=True)
+        self.extra_window_open = True
+
+
+    def view_pinned(self):
+        """Get, format and show pinned messages in this channel"""
+        # cache
+        for channel in self.pinned:
+            if channel["id"] == self.active_channel["channel_id"]:
+                pinned = channel["messages"]
+                break
+        else:
+            pinned = self.discord.get_pinned(self.active_channel["channel_id"])
+            self.pinned.append({
+                "channel_id": self.active_channel["channel_id"],
+                "messages": pinned,
+            })
+        self.stop_assist(close=False)
+        extra_title, extra_body, self.extra_indexes = formatter.generate_extra_window_search(
+            pinned,
+            self.current_roles,
+            self.current_channels,
+            self.blocked,
+            len(pinned),
+            self.config,
+            self.tui.get_dimensions()[2][1],
+            pinned=True,
+        )
         self.tui.draw_extra_window(extra_title, extra_body, select=True)
         self.extra_window_open = True
 

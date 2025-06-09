@@ -8,6 +8,7 @@ def decode_permission(permission, flag):
     Return value for specified permission flag (binary shifted)
     Some useful flags:
     ADMINISTRATOR   0x8
+    MANAGE_MESSAGES 0x10
     ADD_REACTIONS   0x40
     VIEW_CHANNEL    0x400
     SEND_MESSAGES   0x800
@@ -88,6 +89,7 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
 
         # read and store selected permissions
         guild["channels"][num]["perms_computed"] = permissions
+        guild["channels"][num]["allow_manage"] = decode_permission(permissions, 0x10)   # MANAGE_MESSAGES
         guild["channels"][num]["permitted"] = decode_permission(permissions, 0x400)    # VIEW_CHANNEL
         guild["channels"][num]["allow_write"] = decode_permission(permissions, 0x800)    # SEND_MESSAGES
         guild["channels"][num]["allow_attach"] = decode_permission(permissions, 0x8000)   # ATTACH_FILES

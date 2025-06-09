@@ -1,5 +1,4 @@
 Add locking mechanism to prevent glitches
-Add a way to view pinned messages
 
 Interactive message components
 Voice and video calls

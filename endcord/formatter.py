@@ -47,6 +47,8 @@ COMMAND_ASSISTS = (
     ("bottom", "bottom"),
     ("go_reply", "go_reply"),
     ("show_reactions", "show_reactions"),
+    ("show_pinned", "show_pinned"),
+    ("pin_message", "pin_message"),
     ("toggle_tab", "toggle_tab"),
     ("switch_tab [num]", "switch_tab"),
     ("vote [num]", "vote"),
@@ -1523,7 +1525,7 @@ def generate_extra_window_summaries(summaries, max_len, channel_name=None):
     return title_line, body, indexes
 
 
-def generate_extra_window_search(messages, roles, channels, blocked, total_msg, config, max_len, limit_lines=3, newline_len=4):
+def generate_extra_window_search(messages, roles, channels, blocked, total_msg, config, max_len, limit_lines=3, newline_len=4, pinned=False):
     """
     Generate extra window title and body for message search view
     Possible options for format_message:
@@ -1541,7 +1543,11 @@ def generate_extra_window_search(messages, roles, channels, blocked, total_msg, 
     format_date = config["format_forum_timestamp"]
     emoji_as_text = config["emoji_as_text"]
     format_message = config["format_search_message"]
-    title_line = f"Search results: {total_msg} messages"
+
+    if pinned:
+        title_line = f"Pinned_messages ({total_msg}):"
+    else:
+        title_line = f"Search results: {total_msg} messages"
 
     body = []
     indexes = []
