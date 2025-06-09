@@ -536,4 +536,13 @@ def command_string(text):
         except (IndexError, ValueError):
             cmd_type = 0
 
+    # 34 - VOTE
+    elif text.lower().startswith("vote"):
+        cmd_type = 34
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except (IndexError, ValueError):
+            cmd_type = 0
+
     return cmd_type, cmd_args

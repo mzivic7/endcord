@@ -49,6 +49,7 @@ COMMAND_ASSISTS = (
     ("show_reactions", "show_reactions"),
     ("toggle_tab", "toggle_tab"),
     ("switch_tab [num]", "switch_tab"),
+    ("vote [num]", "vote"),
     ("paste_clipboard_image", "paste_clipboard_image"),
     ("insert_timestamp YYYY-MM-DD-HH-mm", "insert_timestamp"),
     ("check_standing", "check_standing"),
@@ -460,6 +461,35 @@ def replace_discord_url(message, current_guild):
     return message
 
 
+def format_poll(poll):
+    """Generate message text from poll data"""
+    if poll["expires"] < time.time():
+        status = "ended"
+        expires = "Ended"
+    else:
+        status = "ongoing"
+        expires = "Ends"
+    content_list = [
+        f"*Poll ({status}):*",
+        poll["question"],
+    ]
+    total_votes = 0
+    for option in poll["options"]:
+        total_votes += int(option["count"])
+    for option in poll["options"]:
+        if total_votes:
+            answer_votes = option["count"]
+            percent = round((answer_votes / total_votes) * 100)
+        else:
+            answer_votes = 0
+            percent = 0
+        content_list.append(f"  {"*" if option["me_voted"] else "-"} {option["answer"]} ({answer_votes} votes, {percent}%)")
+    content_list.append(f"{expires} <t:{poll["expires"]}:R>")
+    content = ""
+    for line in content_list:
+        content += f"> {line}\n"
+    return content.strip("\n")
+
 
 def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, config):
     """
@@ -736,6 +766,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         else:
             global_name_nick = message["username"]
         content = ""
+        if "poll" in message:
+            message["content"] = format_poll(message["poll"])
         if message["content"]:
             content = replace_discord_emoji(message["content"])
             content = replace_mentions(content, message["mentions"])

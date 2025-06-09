@@ -2101,6 +2101,35 @@ class Endcord:
                     self.input_store[num]["index"] = len(input_text[:input_index] + timestamp)
                     break
 
+        elif cmd_type == 34:   # VOTE
+            select_num = max(cmd_args.get("num", 0), 0)
+            msg_index = self.lines_to_msg(chat_sel)
+            poll = self.messages[msg_index].get("poll")
+            if poll:
+                if poll["expires"] > time.time():
+                    if select_num > 0 and select_num <= len(poll["options"]):
+                        select_num -= 1
+                        selected_id = poll["options"][select_num]["id"]
+                        me_voted = False
+                        for option in poll["options"]:
+                            if option["me_voted"]:
+                                me_voted = True
+                                break
+                        if poll["options"][select_num]["me_voted"]:
+                            # clear voted
+                            self.discord.send_vote(self.active_channel["channel_id"], self.messages[msg_index]["id"], [], clear=True)
+                        elif not me_voted or poll["multi"]:
+                            # send vote
+                            self.discord.send_vote(self.active_channel["channel_id"], self.messages[msg_index]["id"], [selected_id])
+                        else:
+                            self.update_extra_line("Already voted.")
+                    else:
+                        self.update_extra_line("Cant vote - selected answer does not exist.")
+                else:
+                    self.update_extra_line("Cant vote - poll has ended.")
+            else:
+                self.update_extra_line("Cant vote - selected message is not a poll.")
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -4132,6 +4161,16 @@ class Endcord:
                                         loaded_message["reactions"][num2]["me"] = False
                                 break
                         self.update_chat()
+                    elif op in ("MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE") and "poll" in loaded_message:
+                        if "poll" in loaded_message:
+                            add = op == "MESSAGE_POLL_VOTE_ADD"
+                            for num2, option in enumerate(loaded_message["poll"]["options"]):
+                                if option["id"] == data["answer_id"]:
+                                    loaded_message["poll"]["options"][num2]["count"] += (1 if add else -1)
+                                    if data["user_id"] == self.my_id:
+                                        loaded_message["poll"]["options"][num2]["me_voted"] = add
+                                    break
+                        self.update_chat()
 
 
     def process_msg_events_cached_channel(self, new_message, ch_num):
@@ -4179,6 +4218,15 @@ class Endcord:
                                     if data["user_id"] == self.my_id:
                                         loaded_message["reactions"][num2]["me"] = False
                                 break
+                    elif op in ("MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE") and "poll" in loaded_message:
+                        if "poll" in loaded_message:
+                            add = op == "MESSAGE_POLL_VOTE_ADD"
+                            for num2, option in enumerate(loaded_message["poll"]["options"]):
+                                if option["id"] == data["answer_id"]:
+                                    loaded_message["poll"]["options"][num2]["count"] + (1 if add else -1)
+                                    if data["user_id"] == self.my_id:
+                                        loaded_message["poll"]["options"][num2]["me_voted"] = add
+                                    break
 
 
     def process_msg_events_other_channels(self, new_message):
@@ -4611,7 +4659,7 @@ class Endcord:
                         self.update_status_line()
 
             # send typing event
-            if self.send_my_typing:
+            if self.send_my_typing and not self.disable_sending:
                 my_typing = self.tui.get_my_typing()
                 # typing indicator on server expires in 10s, so lest stay safe with 7s
                 if not self.ignore_typing and my_typing and time.time() >= self.typing_sent + 7:

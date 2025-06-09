@@ -1173,6 +1173,14 @@ class Gateway():
                 elif optext == "APPLICATION_COMMAND_AUTOCOMPLETE_RESPONSE":
                     self.app_command_autocomplete_resp = response["d"]["choices"]
 
+                elif optext in ("MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE"):
+                    data = response["d"]
+                    data["id"] = data.pop("message_id")
+                    self.messages_buffer.append({
+                        "op": optext,
+                        "d": data,
+                    })
+
             elif opcode == 7:
                 logger.info("Host requested reconnect")
                 self.resumable = True

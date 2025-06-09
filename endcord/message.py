@@ -1,23 +1,26 @@
-import datetime
+from datetime import datetime
 
 PLATFORM_TYPES = ("Desktop", "Xbox", "Playstation", "IOS", "Android", "Nitendo", "Linux", "MacOS")
 CONTENT_TYPES = ("Played Game", "Watched Media", "Top Game", "Listened Media", "Listened Session", "Top Artist", "Custom Status", "Launched Activity", "Leaderboard")
+
 
 def get_newlined_value(embed, name):
     """Get value from embed and add newline to it"""
     value = embed.get(name)
     if value:
-        return value + "/n"
+        return value + "\n"
     return ""
 
 
-def generate_discord_timestamp(timestamp, timestamp_format):
+def generate_timestamp(timestamp, timestamp_format, unix=False):
     """Convert timestamp string to discord timestamp notation"""
     try:
         time_obj = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f%z")
     except ValueError:
         time_obj = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z")   # edge case
-    return f"<t:{time_obj.timestamp()}:{timestamp_format}>"
+    if unix:
+        return int(time_obj.timestamp())
+    return f"<t:{int(time_obj.timestamp())}:{timestamp_format}>"
 
 
 def prepare_embeds(embeds, message_content):
@@ -125,6 +128,10 @@ def prepare_message(message):
 
     # special message types
     message = prepare_special_message_types(message)
+    if "poll" in message:
+        poll = prepare_poll(message["poll"])
+    else:
+        poll = None
 
     # embeds and attachments
     embeds = prepare_embeds(message["embeds"], message["content"])
@@ -159,15 +166,16 @@ def prepare_message(message):
         new_content_str = ""
         for line in new_content:
             new_content_str += f"> {line}\n"
+        new_content_str = new_content_str.strip("\n")
         message["content"] += new_content_str
         embeds.extend(new_embeds)
 
-    return {
+    message_dict =  {
         "id": message["id"],
         "channel_id": message["channel_id"],
         "guild_id": message.get("guild_id"),
         "timestamp": message["timestamp"],
-        "edited": False,
+        "edited": bool(message["edited_timestamp"]),
         "content": message["content"],
         "mentions": mentions,
         "mention_roles": message["mention_roles"],
@@ -182,6 +190,9 @@ def prepare_message(message):
         "stickers": message.get("sticker_items", []),   # {name, id, format_type}
         "interaction": interaction,
     }
+    if poll:
+        message_dict["poll"] = poll
+    return message_dict
 
 
 def prepare_messages(data, have_channel_id=False):
@@ -294,11 +305,11 @@ def prepare_components(components):
             # times
             times_string = ""
             if started_at:
-                times_string += f"Started: {generate_discord_timestamp(started_at, "R")}"
+                times_string += f"Started: {generate_timestamp(started_at, "R")}"
             if expires_at:
-                times_string += f"Expires: {generate_discord_timestamp(expires_at, "R")}"
+                times_string += f"Expires: {generate_timestamp(expires_at, "R")}"
             if ended_at:
-                times_string += f"Ended: {generate_discord_timestamp(ended_at, "R")}"
+                times_string += f"Ended: {generate_timestamp(ended_at, "R")}"
             if times_string:
                 text.append(times_string)
         elif comp_type in (17, 9):   # CONTAINER and SECTION
@@ -401,7 +412,10 @@ def prepare_special_message_types(message):
         content = ""
         for line in content_list:
             content += f"> {line}\n"
-    # 25 - ROLE_SUBSCRIPTION_PURCHASE - missing data
+        content = content.strip("\n")
+    elif msg_type == 25 and "role_subscription_data" in message:   # ROLE_SUBSCRIPTION_PURCHASE
+        role_subscription_data = message["role_subscription_data"]
+        content = f"> *Subscribed to {role_subscription_data["tier_name"]}!*"
     # 26 - INTERACTION_PREMIUM_UPSELL - skip
     elif msg_type == 27:   # STAGE_START
         content = f"> *Started {message["content"]}.*"
@@ -413,7 +427,12 @@ def prepare_special_message_types(message):
         content = "> *Requested to speak.*"
     elif msg_type == 31:   # STAGE_TOPIC
         content = f"> *Changed the Stage topic: {message["content"]}.*"
-    # 32 - GUILD_APPLICATION_PREMIUM_SUBSCRIPTION - missing data
+    elif msg_type == 32:   # GUILD_APPLICATION_PREMIUM_SUBSCRIPTION
+        if "application" in message:
+            app_name = message["application"]["name"]
+        else:
+            app_name = "a deleted application"
+        content = f"> *Upgraded {app_name} to premium for this server!*"
     # 33 - removed
     # 34 - removed
     # 35 - PREMIUM_REFERRAL - skip
@@ -426,10 +445,16 @@ def prepare_special_message_types(message):
     elif msg_type == 39:   # GUILD_INCIDENT_REPORT_FALSE_ALARM
         content = "> *Reported a false alarm.*"
     # 40 - GUILD_DEADCHAT_REVIVE_PROMPT - skip
-    # 41 - CUSTOM_GIFT - misisng data
+    elif msg_type == 41:   # CUSTOM_GIFT
+        if len(message["embeds"]) >= 1:
+            content = f"> *Bought a gift: {message["embeds"].pop(0)["url"]}*"
+        else:
+            content = "> *Bought a gift: url not found*"
     # 42 - GUILD_GAMING_STATS_PROMPT - skip
     # 43 - removed
-    # 44 - PURCHASE_NOTIFICATION - missing data
+    elif msg_type == 44 and "purchase_notification" in message:   # PURCHASE_NOTIFICATION
+        product_name = message["purchase_notification"]["guild_product_purchase"]["product_name"]
+        content = f"> *Purchased {product_name}!*"
     # 45 - removed
     elif msg_type == 46:   # POLL_RESULT
         embeds = message["embeds"]
@@ -448,26 +473,62 @@ def prepare_special_message_types(message):
                 data["total_votes"] = field["value"]
             elif field["name"] == "victor_answer_votes":
                 data["victor_answer_votes"] = field["value"]
+        if "victor_answer_votes" in data and "total_votes" in data:
+            value = round((int(data["victor_answer_votes"]) / int(data["total_votes"])) * 100)
+            percent = f", {value}%"
+        else:
+            percent = ", 0%"
         content_list = (
-            "Poll has ended, results:",
+            "*Poll has ended, results:*",
             data.get("poll_question_text", "???"),
-            f"Winning answer: {data.get("victor_answer_text", "???")}",
-            f"Votes: {data.get("victor_answer_votes", "?")} of total: {data.get("total_votes", "?")}",
+            f"Winning answer: {data.get("victor_answer_text", "???")}{percent}",
+            f"Votes: {data.get("victor_answer_votes", "0")} of total: {data.get("total_votes", "0")}",
         )
         content = ""
         for line in content_list:
             content += f"> {line}\n"
+        content = content.strip("\n")
     # 47 - CHANGELOG - skip
     # 48 - NITRO_NOTIFICATION - skip
     # 49 - CHANNEL_LINKED_TO_LOBBY - skip
     # 50 - GIFTING_PROMPT - skip
-    # 51 - IN_GAME_MESSAGE_NUX - skip
-    # 52 - GUILD_JOIN_REQUEST_ACCEPT_NOTIFICATION - missing data
-    # 53 - GUILD_JOIN_REQUEST_REJECT_NOTIFICATION - missing data
-    # 54 - GUILD_JOIN_REQUEST_WITHDRAWN_NOTIFICATION - missing data
+    elif msg_type == 51 and "application" in message:   # IN_GAME_MESSAGE_NUX
+        content = f"> *Messaged you from {message["application"]["name"]}*"
+    # 52 - GUILD_JOIN_REQUEST_ACCEPT_NOTIFICATION - missing data: join_request
+    # 53 - GUILD_JOIN_REQUEST_REJECT_NOTIFICATION - missing data: join_request
+    # 54 - GUILD_JOIN_REQUEST_WITHDRAWN_NOTIFICATION - missing data: join_request
     elif msg_type == 55:   # HD_STREAMING_UPGRADED
         content = "> *Activated HD Streaming Mode*"
     else:
         return message
     message["content"] = content
     return message
+
+
+def prepare_poll(poll):
+    """Prepare poll data"""
+    expires = 0
+    if "expiry" in poll:
+        expires = generate_timestamp(poll["expiry"], "R", unix=True)
+    options = []
+    for answer in poll["answers"]:
+        answer_id = answer["answer_id"]
+        me_voted = False
+        answer_votes = 0
+        for answer_res in poll["results"]["answer_counts"]:
+            if answer_res["id"] == answer_id:
+                answer_votes = answer_res["count"]
+                me_voted = answer_res["me_voted"]
+                break
+        options.append({
+            "answer": answer["poll_media"].get("text"),
+            "id": answer_id,
+            "count": answer_votes,
+            "me_voted": me_voted,
+        })
+    return {
+        "question": poll["question"].get("text", "???"),
+        "multi": poll["allow_multiselect"],
+        "options": options,
+        "expires": expires,
+    }

@@ -47,6 +47,8 @@
     Toggle tabbed (pinned) state of currently active channel.
 - `switch_tab [num]`  
     Switch to specified tab number.
+- `vote [num]`  
+    If selected message is ongoing poll, vote for specified answer index.
 
 
 ## Special commands (no keybinding)

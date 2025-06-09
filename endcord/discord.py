@@ -1244,6 +1244,30 @@ class Discord():
         return None
 
 
+    def send_vote(self, channel_id, message_id, vote_ids, clear=False):
+        """Send poll vote or clear my existing votes"""
+        if clear:
+            message_data = json.dumps({"answer_ids": []})
+        else:
+            message_data = json.dumps({"answer_ids": [str(x) for x in vote_ids]})
+        url = f"/api/v9/channels/{channel_id}/polls/{message_id}/answers/@me"
+        logger.info(message_data)
+        logger.info({"answer_ids": [str(x) for x in vote_ids]})
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PUT", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to send poll vote: Response code: {response.status}")
+            logger.info(response.read())
+            connection.close()
+            return False
+        connection.close()
+        return True
+
     def request_attachment_link(self, channel_id, path, custom_name=None):
         """
         Request attachment upload link.
