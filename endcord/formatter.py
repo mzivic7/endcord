@@ -187,6 +187,19 @@ def generate_discord_timestamp(timestamp, discord_format, timezone=True):
     return datetime.strftime(time_obj, format_string)
 
 
+def move_by_indexes(data, indexes, start=0):
+    """Move format by indexes"""
+    for format_part in data:
+        for index in indexes:
+            if index < format_part[start]:
+                format_part[start] -= 1
+            if index < format_part[start+1]:
+                format_part[start+1] -= 1
+            else:
+                break
+    return data
+
+
 def emoji_name(emoji_char):
     """Return emoji name from its unicode"""
     return emoji.demojize(emoji_char).replace(":", "")
@@ -279,6 +292,8 @@ def replace_escaped_md(line, except_ranges=[]):
     Replace escaped markdown characters.
     eg "\:" --> ":"
     """
+    indexes = []
+    corr = 0
     for match in re.finditer(match_escaped_md, line):
         start = match.start()
         end = match.end()
@@ -290,8 +305,10 @@ def replace_escaped_md(line, except_ranges=[]):
                 skip = True
                 break
         if not skip:
-            line = line[:start] + line[end:]
-    return line
+            line = line[:start-corr] + line[end-corr:]
+            indexes.append(start-corr)
+            corr += 1
+    return line, indexes
 
 
 def replace_spoilers_oneline(line):
@@ -378,6 +395,24 @@ def format_multiline_one_line(formats_range, line_len, newline_len, color, quote
             line_format.append([color, newline_len + quote*2, format_range[1]])
         else:
             line_format.append([color, newline_len + quote*2, line_len])
+    return line_format
+
+
+def format_multiline_one_line_format(formats, line_len, newline_len, quote=False):
+    """Adjust existing format, for one line, with custom end position"""
+    line_format = []
+    for format_range in formats:
+        if format_range[1] > line_len or format_range[2] < newline_len:
+            continue
+        if format_range[1] >= newline_len:
+            if format_range[2] < line_len:
+                line_format.append([format_range[0], format_range[1], format_range[2]])
+            else:
+                line_format.append([format_range[0], format_range[1], line_len])
+        elif format_range[2] < line_len:
+            line_format.append([format_range[0], newline_len + quote*2, format_range[2]])
+        else:
+            line_format.append([format_range[0], newline_len + quote*2, line_len])
     return line_format
 
 
@@ -839,19 +874,22 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             spoilers.append([match.start(), match.end()])
         spoilers = spoilers[message.get("spoiled"):]   # exclude spoiled messages
 
+        # find all markdown
+        message_line, md_format = format_md_all(message_line, pre_content_len, except_ranges + urls)
+        message_line, escaped_indexes = replace_escaped_md(message_line, except_ranges + urls)
+        if escaped_indexes:
+            code_snippets = move_by_indexes(code_snippets, escaped_indexes)
+            code_blocks = move_by_indexes(code_blocks, escaped_indexes)
+            urls = move_by_indexes(urls, escaped_indexes)
+            spoilers = move_by_indexes(spoilers, escaped_indexes)
+            md_format = move_by_indexes(md_format, escaped_indexes, start=1)
 
         # limit message_line and split to multiline
-        message_line_formatted, _ = format_md_all(message_line, pre_content_len, except_ranges + urls)
         newline_sign = False
         newline_index = max_length
         quote_nl = True
         if len(message_line) > max_length:
             newline_index = len(message_line[:max_length].rsplit(" ", 1)[0])   #  splits line on space
-            if len(message_line) != len(message_line_formatted):
-                newline_index_formatted = len(message_line_formatted[:max_length].rsplit(" ", 1)[0])
-                if newline_index < newline_index_formatted:
-                    # splits line on space while ignoring markdown characters
-                    newline_index = len(" ".join(message_line.split(" ")[:len(message_line[:max_length].split(" "))]))
             if newline_index <= len(
                 format_newline
                 .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
@@ -883,10 +921,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         else:
             next_line = None
 
-        # format markdown
-        message_line, md_format = format_md_all(message_line, pre_content_len, except_ranges + urls)
-        message_line = replace_escaped_md(message_line, except_ranges + urls)
-
         if newline_sign and next_line.startswith("> "):
             next_line = next_line[2:]
             quote = True
@@ -911,7 +945,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             temp_format.append([color_base])
         elif mentioned:
             format_line = color_mention_message[:]
-            format_line += md_format
+            format_line += format_multiline_one_line_format(md_format, newline_index+1, 0, quote)
             format_line += format_multiline_one_line(urls, newline_index+1, 0, color_mention_chat_url, quote)
             format_line += format_multiline_one_line(code_snippets, newline_index+1, 0, color_code, quote)
             format_line += code_block_format
@@ -923,7 +957,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             temp_format.append(format_line)
         else:
             format_line = color_message[:]
-            format_line += md_format
+            format_line += format_multiline_one_line_format(md_format, newline_index+1, 0, quote)
             format_line += format_multiline_one_line(urls, newline_index+1, 0, color_chat_url, quote)
             format_line += format_multiline_one_line(code_snippets, newline_index+1, 0, color_code, quote)
             format_line += code_block_format
@@ -966,18 +1000,16 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             for code_block in code_blocks:
                 code_block[0] += content_index_correction
                 code_block[1] += content_index_correction
+            for md in md_format:
+                md[1] += content_index_correction
+                md[2] += content_index_correction
             except_ranges = code_snippets + code_blocks
             quote_nl = False
 
             # limit new_line and split to next line
-            new_line_formatted, _ = format_md_all(new_line, pre_content_len + extra_newline_len, except_ranges + urls)
             newline_sign = False
             if len(new_line) > max_length:
                 newline_index = len(new_line[:max_length].rsplit(" ", 1)[0])
-                if len(message_line) != len(new_line_formatted):
-                    newline_index_formatted = len(new_line_formatted[:max_length].rsplit(" ", 1)[0])
-                    if newline_index < newline_index_formatted:
-                        newline_index = len(" ".join(new_line.split(" ")[:len(new_line[:max_length].split(" "))]))
                 if newline_index <= newline_len + 2*quote:
                     newline_index = max_length
                 if "\n" in new_line[:newline_index]:
@@ -1006,9 +1038,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             else:
                 next_line = None
 
-            # format markdown
-            new_line, md_format = format_md_all(new_line, pre_content_len + extra_newline_len, except_ranges + urls)
-
             if newline_sign and next_line.startswith("> "):
                 next_line = next_line[2:]
                 quote_nl = True
@@ -1034,7 +1063,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append([color_base])
             elif mentioned:
                 format_line = color_mention_newline[:]
-                format_line += md_format
+                format_line += format_multiline_one_line_format(md_format, len(new_line), newline_len, this_quote)
                 format_line += format_multiline_one_line(urls, len(new_line), newline_len, color_mention_chat_url, this_quote)
                 format_line += format_multiline_one_line(code_snippets, len(new_line), newline_len, color_code, this_quote)
                 format_line += code_block_format
@@ -1044,7 +1073,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(format_line)
             else:
                 format_line = color_newline[:]
-                format_line += md_format
+                format_line += format_multiline_one_line_format(md_format, len(new_line), newline_len, this_quote)
                 format_line += format_multiline_one_line(urls, len(new_line), newline_len, color_chat_url, this_quote)
                 format_line += format_multiline_one_line(code_snippets, len(new_line), newline_len, color_code, this_quote)
                 format_line += code_block_format
