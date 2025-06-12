@@ -12,6 +12,7 @@ INPUT_LINE_JUMP = 20   # jump size when moving input line
 MAX_DELTA_STORE = 50   # limit undo size
 MIN_ASSIST_LETTERS = 2
 ASSIST_TRIGGERS = ("#", "@", ":", ";")
+APP_COMMAND_ASSIST_TRIEGGER = "/"
 if sys.platform == "win32":
     BACKSPACE = 8   # i cant believe this
 else:
@@ -332,7 +333,7 @@ class TUI():
                 return None, 100
             if self.assist_start > self.input_index:
                 return None, 100
-        if self.input_buffer and self.input_buffer[0] == "/":
+        if self.input_buffer and self.input_buffer[0] == APP_COMMAND_ASSIST_TRIEGGER:
             return self.input_buffer, 6
         if self.instant_assist and self.input_buffer:
             return self.input_buffer, 5

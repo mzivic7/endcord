@@ -735,7 +735,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 reply_embeds = message["referenced_message"]["embeds"].copy()
                 content = ""
                 if message["referenced_message"]["content"]:
-                    content = replace_escaped_md(message["referenced_message"]["content"])
+                    content, _ = replace_escaped_md(message["referenced_message"]["content"])
                     content = replace_spoilers_oneline(content)
                     content = replace_discord_emoji(content)
                     content = replace_mentions(content, message["referenced_message"]["mentions"])

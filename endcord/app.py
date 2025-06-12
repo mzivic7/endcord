@@ -231,6 +231,7 @@ class Endcord:
         self.upload_threads = []
         self.ready_attachments = []
         self.selected_attachment = 0
+        self.current_my_roles = []
         self.member_roles = []
         self.current_member_roles = []
         self.threads = []
