@@ -98,7 +98,7 @@ def extract_colors_formatted(config):
     )
 
 
-def show_all_colors(screen):
+def color_palette(screen):
     """Show all available colors and their codes, wait for input, then exit"""
     curses.use_default_colors()
     for i in range(0, curses.COLORS):

@@ -395,8 +395,9 @@ To build into directory, not as a single executable, add `--onedir` flag. Will s
 ### Nuitka
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  
 Nuitka built binaries are much more optimized and can play videos at higher framerate.  
-Nuitka requires compiler:
-- on linux - GCC or clang from system
+Optionlly, add `--clang` flag to tell nuitka to build code using llvm, which might run even faster.  
+Nuitka requirements:
+- on linux - GCC or clang from system and `patchelf` package
 - on Windows - [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)
 - on macOS install XCode via Apple Store
 

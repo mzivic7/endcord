@@ -44,4 +44,3 @@ def picker(keybindings):
     except curses.error as e:
         if str(e) != "endwin() returned ERR":
             sys.exit("Curses error")
-    sys.exit(0)

@@ -7,16 +7,7 @@ import traceback
 
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"   # fix for https://github.com/Nuitka/Nuitka/issues/3442"
 
-from endcord import (
-    app,
-    arg,
-    color,
-    defaults,
-    keybinding,
-    media,
-    peripherals,
-    token_manager,
-)
+from endcord import arg, defaults, peripherals
 
 APP_NAME = "endcord"
 VERSION = "0.9.0"
@@ -76,17 +67,23 @@ def main(args):
         os.environ["TERM"] = "xterm-256color"
 
     if args.colors:
-        curses.wrapper(color.show_all_colors)
+        # import here for faster startup
+        from endcord import color
+        curses.wrapper(color.color_palette)
         sys.exit(0)
     elif args.keybinding:
+        from endcord import keybinding
         keybinding.picker(keybindings)
+        sys.exit(0)
     elif args.media:
+        from endcord import media
         curses.wrapper(media.ascii_runner, args.media, config, keybindings)
         sys.exit(0)
 
     if args.proxy:
         config["proxy"] = args.proxy
 
+    from endcord import token_manager
     if args.remove_token:
         token_manager.remove_token()
         sys.exit("Token removed from keyring")
@@ -101,6 +98,7 @@ def main(args):
     if args.debug or config["debug"]:
         logging.getLogger().setLevel(logging.DEBUG)
     try:
+        from endcord import app
         curses.wrapper(app.Endcord, config, keybindings)
     except curses.error as e:
         if str(e) != "endwin() returned ERR":
