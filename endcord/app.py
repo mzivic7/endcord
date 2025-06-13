@@ -4499,6 +4499,8 @@ class Endcord:
         else:
             self.curses_media = None
             logger.info("ASCII media is not supported{have_yt_dlp}{have_mpv}")
+        if not peripherals.have_sound:
+            logger.warn("No sound! Audio system is probably not running")
 
         if self.config["proxy"]:
             logger.info(f"Using proxy: {self.config["proxy"]}")

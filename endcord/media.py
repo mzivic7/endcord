@@ -17,9 +17,14 @@ from PIL import Image, ImageEnhance
 from endcord import xterm256
 
 logger = logging.getLogger(__name__)
-speaker = soundcard.default_speaker()
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
 
+# get speaker
+try:
+    speaker = soundcard.default_speaker()
+    have_sound = True
+except Exception:
+    have_sound = False
 
 class CursesMedia():
     """Methods for showing and playing media in termial with curses"""
@@ -184,6 +189,11 @@ class CursesMedia():
         """Play only audio"""
         self.init_colrs()   # 255_curses_bug
         self.show_ui()
+
+        if not have_sound:
+            self.ended = True
+            return
+
         container = av.open(path)
         self.ended = False
         self.video_time = 0   # using video_time to simplify controls
@@ -284,7 +294,7 @@ class CursesMedia():
         # prepare audio
         audio_queue = Queue(maxsize=10)
         have_audio = False
-        if not self.mute_video:
+        if not self.mute_video and have_sound:
             all_audio_streams = container.streams.audio
             if all_audio_streams:   # in case of a muted video
                 audio_ready = threading.Event()

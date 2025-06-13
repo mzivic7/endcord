@@ -21,11 +21,17 @@ import soundfile
 from endcord import defaults
 
 logger = logging.getLogger(__name__)
-speaker = soundcard.default_speaker()
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 APP_NAME = "endcord"
 ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
 NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification sound
+
+# get speaker
+try:
+    speaker = soundcard.default_speaker()
+    have_sound = True
+except Exception:
+    have_sound = False
 
 # platform specific code
 if sys.platform == "win32":
@@ -388,8 +394,9 @@ def complete_path(path, separator=True):
 
 def play_audio(path):
     """Play audio file with soundcard"""
-    data, samplerate = soundfile.read(path, dtype="float32")
-    speaker.play(data, samplerate=samplerate)
+    if have_sound:
+        data, samplerate = soundfile.read(path, dtype="float32")
+        speaker.play(data, samplerate=samplerate)
 
 
 def get_audio_waveform(path):
@@ -558,7 +565,12 @@ class Recorder():
     def record(self):
         """Continuously record audio"""
         timer = 0
-        mic = soundcard.default_microphone()
+        try:
+            mic = soundcard.default_microphone()
+        except Exception as e:
+            logger.warn(f"No microphone found. Error: {e}")
+            self.recording = False
+            return
         with mic.recorder(samplerate=48000, channels=1) as rec:
             while self.recording:
                 if timer >= 600:   # 10min limit
