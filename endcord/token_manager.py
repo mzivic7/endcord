@@ -97,6 +97,7 @@ def save_token(token):
         subprocess.run([
             "security", "add-generic-password",
             "-s", APP_NAME,
+            "-a", "token",
             "-w", token,
             "-U",
             ], check=True,

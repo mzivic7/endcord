@@ -212,3 +212,10 @@ windows_override_keybindings = {
     "copy_msg": "ALT+108",   # Alt+L
     "view_media": "ALT+121",   # Alt+Y
 }
+
+
+macos_override_keybindings = {
+    "tree_up": 337,   # Shift+Up
+    "tree_down": 336,   # Shift+Donw
+    "browser": "ALT+111",   # Alt+O
+}

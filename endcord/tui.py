@@ -773,6 +773,22 @@ class TUI():
             self.resize()
 
 
+    def draw_prompt(self):
+        """Draw prompt line"""
+        h, w = self.screen.getmaxyx()
+        del (self.win_prompt, self.win_input_line)
+        input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
+        self.win_input_line = self.screen.derwin(*input_line_hwyx)
+        self.input_hw = self.win_input_line.getmaxyx()
+        self.spellcheck()
+        self.draw_input_line()
+        prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+        self.win_prompt = self.screen.derwin(*prompt_hwyx)
+        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
+        self.win_prompt.noutrefresh()
+        self.need_update.set()
+
+
     def draw_extra_line(self, text=None, toggle=False):
         """
         Draw extra line above status line and resize chat.
@@ -1112,18 +1128,7 @@ class TUI():
         """Draw prompt line and resize input line"""
         self.prompt = prompt
         if not self.disable_drawing:
-            h, w = self.screen.getmaxyx()
-            del (self.win_prompt, self.win_input_line)
-            input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
-            self.win_input_line = self.screen.derwin(*input_line_hwyx)
-            self.input_hw = self.win_input_line.getmaxyx()
-            self.spellcheck()
-            self.draw_input_line()
-            prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
-            self.win_prompt = self.screen.derwin(*prompt_hwyx)
-            self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
-            self.win_prompt.noutrefresh()
-            self.need_update.set()
+            self.draw_prompt()
 
 
     def init_pair(self, color, force_id=-1):

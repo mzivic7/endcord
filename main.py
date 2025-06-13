@@ -5,6 +5,8 @@ import signal
 import sys
 import traceback
 
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"   # fix for https://github.com/Nuitka/Nuitka/issues/3442"
+
 from endcord import (
     app,
     arg,
@@ -59,6 +61,8 @@ def main(args):
         sys.exit(error)
     if sys.platform == "win32":
         defaults.keybindings.update(defaults.windows_override_keybindings)
+    elif sys.platform == "darwin":
+        defaults.keybindings.update(defaults.macos_override_keybindings)
     keybindings = peripherals.load_config(
         config_path,
         defaults.keybindings,
