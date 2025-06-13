@@ -172,7 +172,7 @@ Media player: quit - `escape`, pause - `Space`, seek - `Left/Right`, replay - `Z
 Cancel action, leave media viewer - `Escape`  
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
-* - Rebound keybinding on some OS, see [OS specific keybindings](#os-specific-keybindings).  
+\* - Rebound keybinding on some OS, see [OS specific keybindings](#os-specific-keybindings).  
 
 ### Mouse controls
 Scroll up/down in all windows  
