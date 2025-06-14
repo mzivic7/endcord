@@ -200,6 +200,9 @@ class TUI():
         self.wrap_around_disable = False
         self.pressed_num_key = None
 
+        # lock for thread-safe drawing with curses
+        self.lock = threading.RLock()
+
         # start drawing
         self.need_update = threading.Event()
         self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
@@ -218,9 +221,10 @@ class TUI():
         while True:
             self.need_update.wait()
             # here must be delay, otherwise output gets messed up
-            time.sleep(self.screen_update_delay)
-            curses.doupdate()
-            self.need_update.clear()
+            with self.lock:
+                time.sleep(self.screen_update_delay)
+                curses.doupdate()
+                self.need_update.clear()
 
 
     def resize(self):
@@ -482,12 +486,13 @@ class TUI():
 
     def redraw_ui(self):
         """Redraw entire ui"""
-        self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
-        if self.have_title and self.have_title_tree:
-            # fill gap between titles
-            self.screen.addch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
-        self.screen.noutrefresh()
-        self.need_update.set()
+        with self.lock:
+            self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
+            if self.have_title and self.have_title_tree:
+                # fill gap between titles
+                self.screen.addch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
+            self.screen.noutrefresh()
+            self.need_update.set()
         self.draw_status_line()
         self.draw_chat()
         self.update_prompt(self.prompt)   # draw_input_line() is called in here
@@ -503,290 +508,298 @@ class TUI():
 
     def draw_status_line(self):
         """Draw status line"""
-        h, w = self.status_hw
-        status_txt_l = self.status_txt_l[:w-1]   # limit status text size
-        # if there is enough space for right text, add spaces and right text
-        if self.status_txt_r:
-            status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + " "
-            status_txt_l = status_txt_l + " " * (w - len(status_txt_l) - len(status_txt_r))
-            status_line = status_txt_l + status_txt_r
-            text_l_len = len(status_txt_l)
-            status_format = self.status_txt_l_format
-            for tab in self.status_txt_r_format:
-                status_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
-        else:
-            # add spaces to end of line
-            status_line = status_txt_l + " " * (w - len(status_txt_l))
-            status_format = self.status_txt_l_format
+        with self.lock:
+            h, w = self.status_hw
+            status_txt_l = self.status_txt_l[:w-1]   # limit status text size
+            # if there is enough space for right text, add spaces and right text
+            if self.status_txt_r:
+                status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + " "
+                status_txt_l = status_txt_l + " " * (w - len(status_txt_l) - len(status_txt_r))
+                status_line = status_txt_l + status_txt_r
+                text_l_len = len(status_txt_l)
+                status_format = self.status_txt_l_format
+                for tab in self.status_txt_r_format:
+                    status_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
+            else:
+                # add spaces to end of line
+                status_line = status_txt_l + " " * (w - len(status_txt_l))
+                status_format = self.status_txt_l_format
 
-        if status_format:
-            self.draw_formatted_line(self.win_status_line, status_line, status_format, 17)
-        else:
-            self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
-        self.win_status_line.noutrefresh()
-        self.need_update.set()
+            if status_format:
+                self.draw_formatted_line(self.win_status_line, status_line, status_format, 17)
+            else:
+                self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
+            self.win_status_line.noutrefresh()
+            self.need_update.set()
 
 
     def draw_title_line(self):
         """Draw title line, works same as status line"""
-        h, w = self.title_hw
-        title_txt_l = self.title_txt_l[:w-1]
-        if self.title_txt_r:
-            title_txt_r = self.title_txt_r[: max(w - (len(title_txt_l) + 4), 0)] + " "
-            title_txt_l = title_txt_l + " " * (w - len(title_txt_l) - len(title_txt_r))
-            title_line = title_txt_l + title_txt_r
-            text_l_len = len(title_txt_l)
-            title_format = self.title_txt_l_format
-            for tab in self.title_txt_r_format:
-                title_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
-        else:
-            title_line = title_txt_l + " " * (w - len(title_txt_l))
-            title_format = self.title_txt_l_format
+        with self.lock:
+            h, w = self.title_hw
+            title_txt_l = self.title_txt_l[:w-1]
+            if self.title_txt_r:
+                title_txt_r = self.title_txt_r[: max(w - (len(title_txt_l) + 4), 0)] + " "
+                title_txt_l = title_txt_l + " " * (w - len(title_txt_l) - len(title_txt_r))
+                title_line = title_txt_l + title_txt_r
+                text_l_len = len(title_txt_l)
+                title_format = self.title_txt_l_format
+                for tab in self.title_txt_r_format:
+                    title_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
+            else:
+                title_line = title_txt_l + " " * (w - len(title_txt_l))
+                title_format = self.title_txt_l_format
 
-        if title_format:
-            self.draw_formatted_line(self.win_title_line, title_line, title_format, 12)
-        else:
-            self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
-        self.win_title_line.noutrefresh()
-        self.need_update.set()
+            if title_format:
+                self.draw_formatted_line(self.win_title_line, title_line, title_format, 12)
+            else:
+                self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
+            self.win_title_line.noutrefresh()
+            self.need_update.set()
 
 
     def draw_formatted_line(self, window, text, text_format, default_color):
         """Draw single formatted linee on a (line) window, line is expected to have spaces to be filled to screen edge"""
-        pos = 0
-        try:
-            for pos, character in enumerate(text):
-                for format_part in text_format:
-                    if format_part[1] <= pos < format_part[2]:
-                        if format_part[0] == 1:
-                            attrib = curses.A_BOLD
-                        elif format_part[0] == 2:
-                            attrib = curses.A_ITALIC
-                        elif format_part[0] == 3:
-                            attrib = curses.A_UNDERLINE
-                        else:
-                            attrib = self.attrib_map[default_color]
-                        safe_insch(window, 0, pos, character, curses.color_pair(default_color) | attrib)
-                        break
-                else:
-                    safe_insch(window, 0, pos, character, curses.color_pair(default_color) | self.attrib_map[14])
-        except curses.error:
-            # exception will happen when window is resized to smaller w dimensions
-            if not self.disable_drawing:
-                self.resize()
+        with self.lock:
+            pos = 0
+            try:
+                for pos, character in enumerate(text):
+                    for format_part in text_format:
+                        if format_part[1] <= pos < format_part[2]:
+                            if format_part[0] == 1:
+                                attrib = curses.A_BOLD
+                            elif format_part[0] == 2:
+                                attrib = curses.A_ITALIC
+                            elif format_part[0] == 3:
+                                attrib = curses.A_UNDERLINE
+                            else:
+                                attrib = self.attrib_map[default_color]
+                            safe_insch(window, 0, pos, character, curses.color_pair(default_color) | attrib)
+                            break
+                    else:
+                        safe_insch(window, 0, pos, character, curses.color_pair(default_color) | self.attrib_map[14])
+            except curses.error:
+                # exception will happen when window is resized to smaller w dimensions
+                if not self.disable_drawing:
+                    self.resize()
 
 
     def draw_title_tree(self):
         """Draw tree title line, works same as status line, but without right text"""
-        h, w = self.tree_title_hw
-        title_txt = self.title_tree_txt[:w]
-        title_line = title_txt + " " * (w - len(title_txt))
-        self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
-        self.win_title_tree.noutrefresh()
-        self.need_update.set()
+        with self.lock:
+            h, w = self.tree_title_hw
+            title_txt = self.title_tree_txt[:w]
+            title_line = title_txt + " " * (w - len(title_txt))
+            self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
+            self.win_title_tree.noutrefresh()
+            self.need_update.set()
 
 
     def draw_input_line(self):
         """Draw text input line"""
-        w = self.input_hw[1]
-        # show only part of line when longer than screen
-        start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
-        end = start + w - 1
-        line_text = self.input_buffer[start:end].replace("\n", "␤")
+        with self.lock:
+            w = self.input_hw[1]
+            # show only part of line when longer than screen
+            start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+            end = start + w - 1
+            line_text = self.input_buffer[start:end].replace("\n", "␤")
 
-        # prepare selected range
-        if self.input_select_start is not None:
-            selected_start_screen = self.input_select_start - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
-            selected_end_screen = self.input_select_end - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
-            if selected_start_screen > selected_end_screen:
-                # swap so start is always left side
-                selected_start_screen, selected_end_screen = selected_end_screen, selected_start_screen
+            # prepare selected range
+            if self.input_select_start is not None:
+                selected_start_screen = self.input_select_start - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+                selected_end_screen = self.input_select_end - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+                if selected_start_screen > selected_end_screen:
+                    # swap so start is always left side
+                    selected_start_screen, selected_end_screen = selected_end_screen, selected_start_screen
 
-        # draw
-        character = " "
-        pos = 0
-        cursor_drawn = False
-        for pos, character in enumerate(line_text):
-            # cursor in the string
-            if not cursor_drawn and self.cursor_pos == pos:
-                safe_insch(self.win_input_line, 0, self.cursor_pos, character, curses.color_pair(15) | self.attrib_map[15])
-                cursor_drawn = True
-            # selected part of string
-            elif self.input_select_start is not None and selected_start_screen <= pos < selected_end_screen:
-                safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(15) | self.attrib_map[15])
-            else:
-                for bad_range in self.misspelled:
-                    if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)+1):
-                        safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(10) | self.attrib_map[10])
-                        break
+            # draw
+            character = " "
+            pos = 0
+            cursor_drawn = False
+            for pos, character in enumerate(line_text):
+                # cursor in the string
+                if not cursor_drawn and self.cursor_pos == pos:
+                    safe_insch(self.win_input_line, 0, self.cursor_pos, character, curses.color_pair(15) | self.attrib_map[15])
+                    cursor_drawn = True
+                # selected part of string
+                elif self.input_select_start is not None and selected_start_screen <= pos < selected_end_screen:
+                    safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(15) | self.attrib_map[15])
                 else:
-                    safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(14) | self.attrib_map[14])
-        self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
-        # cursor at the end of string
-        if not cursor_drawn and self.cursor_pos >= len(line_text):
-            self.show_cursor()
-        self.win_input_line.noutrefresh()
-        self.need_update.set()
+                    for bad_range in self.misspelled:
+                        if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)+1):
+                            safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(10) | self.attrib_map[10])
+                            break
+                    else:
+                        safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(14) | self.attrib_map[14])
+            self.win_input_line.insch(0, pos + 1, "\n", curses.color_pair(0))
+            # cursor at the end of string
+            if not cursor_drawn and self.cursor_pos >= len(line_text):
+                self.show_cursor()
+            self.win_input_line.noutrefresh()
+            self.need_update.set()
 
 
     def draw_chat(self, norefresh=False):
         """Draw chat with applied color formatting"""
-        h, w = self.chat_hw
-        # drawing from down to up
-        y = h
-        chat_format = self.chat_format[self.chat_index:]
-        try:
-            for num, line in enumerate(self.chat_buffer[self.chat_index:]):
-                y = h - (num + 1)
-                if y < 0 or y >= h:
-                    break
-                if num == self.chat_selected - self.chat_index:
-                    self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(16))
-                else:
-                    line_format = chat_format[num]
-                    default_color_id = line_format[0][0]
-                    # filled with spaces so background is drawn all the way
-                    default_color = curses.color_pair(default_color_id) | self.attrib_map[default_color_id]
-                    self.win_chat.insstr(y, 0, " " * w + "\n", curses.color_pair(default_color_id))
-                    for pos, character in enumerate(line):
-                        if pos >= w:
-                            break
-                        for format_part in line_format[1:]:
-                            if format_part[1] <= pos < format_part[2]:
-                                color = format_part[0]
-                                if isinstance(color, list):   # attribute-only color is a list
-                                    # using base color because it is in message content anyway
-                                    color_ready = curses.color_pair(default_color_id)
-                                    for attribute in color:
-                                        color_ready |= attribute
-                                else:
-                                    if color > 255:   # set all colors after 255 to default color
-                                        color = self.color_default
-                                    color_ready = curses.color_pair(color) | self.attrib_map[color]
-                                safe_insch(self.win_chat, y, pos, character, color_ready)
+        with self.lock:
+            h, w = self.chat_hw
+            # drawing from down to up
+            y = h
+            chat_format = self.chat_format[self.chat_index:]
+            try:
+                for num, line in enumerate(self.chat_buffer[self.chat_index:]):
+                    y = h - (num + 1)
+                    if y < 0 or y >= h:
+                        break
+                    if num == self.chat_selected - self.chat_index:
+                        self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(16))
+                    else:
+                        line_format = chat_format[num]
+                        default_color_id = line_format[0][0]
+                        # filled with spaces so background is drawn all the way
+                        default_color = curses.color_pair(default_color_id) | self.attrib_map[default_color_id]
+                        self.win_chat.insstr(y, 0, " " * w + "\n", curses.color_pair(default_color_id))
+                        for pos, character in enumerate(line):
+                            if pos >= w:
                                 break
-                        else:
-                            safe_insch(self.win_chat, y, pos, character, default_color)
-            # fill empty lines with spaces so background is drawn all the way
-            y -= 1
-            while y >= 0:
-                self.win_chat.insstr(y, 0, "\n", curses.color_pair(0))
+                            for format_part in line_format[1:]:
+                                if format_part[1] <= pos < format_part[2]:
+                                    color = format_part[0]
+                                    if isinstance(color, list):   # attribute-only color is a list
+                                        # using base color because it is in message content anyway
+                                        color_ready = curses.color_pair(default_color_id)
+                                        for attribute in color:
+                                            color_ready |= attribute
+                                    else:
+                                        if color > 255:   # set all colors after 255 to default color
+                                            color = self.color_default
+                                        color_ready = curses.color_pair(color) | self.attrib_map[color]
+                                    safe_insch(self.win_chat, y, pos, character, color_ready)
+                                    break
+                            else:
+                                safe_insch(self.win_chat, y, pos, character, default_color)
+                # fill empty lines with spaces so background is drawn all the way
                 y -= 1
-            self.win_chat.noutrefresh()
-            if not norefresh:
-                self.need_update.set()
-        except curses.error:
-            # exception will happen when window is resized to smaller w dimensions
-            if not self.disable_drawing:
-                self.resize()
+                while y >= 0:
+                    self.win_chat.insstr(y, 0, "\n", curses.color_pair(0))
+                    y -= 1
+                self.win_chat.noutrefresh()
+                if not norefresh:
+                    self.need_update.set()
+            except curses.error:
+                # exception will happen when window is resized to smaller w dimensions
+                if not self.disable_drawing:
+                    self.resize()
 
 
     def draw_tree(self):
         """Draw channel tree"""
-        try:
-            h, w = self.tree_hw
-            # drawing from top to down
-            skipped = 0   # skipping drop-down ends (code 1000)
-            drop_down_skip_guild = False
-            drop_down_skip_category = False
-            drop_down_skip_channel = False
-            drop_down_level = 0
-            self.tree_clean_len = 0
-            y = 0
-            for num, line in enumerate(self.tree):
-                code = self.tree_format[num]
-                first_digit = (code % 10)
-                if code == 1100:
-                    skipped += 1
-                    drop_down_level -= 1
-                    drop_down_skip_guild = False
-                    continue
-                elif code == 1200:
-                    skipped += 1
-                    drop_down_level -= 1
-                    drop_down_skip_category = False
-                    continue
-                elif code == 1300:
-                    skipped += 1
-                    drop_down_level -= 1
-                    drop_down_skip_channel = False
-                    continue
-                text_start = drop_down_level * 3 + 1
-                if code < 300 or 500 <= code <= 599:
-                    drop_down_level += 1
-                if drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
-                    skipped += 1
-                    continue
-                self.tree_clean_len += 1
-                if first_digit == 0 and code < 200:
-                    drop_down_skip_guild = True
-                elif first_digit == 0 and code < 300:
-                    drop_down_skip_category = True
-                elif first_digit == 0 and 500 <= code <= 599:
-                    drop_down_skip_channel = True
-                y = max(num - skipped - self.tree_index, 0)
-                if y >= h:
-                    break
-                second_digit = (code % 100) // 10
-                color = curses.color_pair(3)
-                color_line = curses.color_pair(3)
-                selected = False
-                if second_digit == 1:   # muted
-                    color = curses.color_pair(5) | self.attrib_map[5]
-                elif second_digit == 2:   # mentioned
-                    color = curses.color_pair(8) | self.attrib_map[8]
-                elif second_digit == 3:   # unread
-                    color = curses.color_pair(7) | self.attrib_map[7]
-                elif second_digit == 4:   # active
-                    color = curses.color_pair(6) | self.attrib_map[6]
-                    color_line = curses.color_pair(6)
-                elif second_digit == 5:   # active mentioned
-                    color = curses.color_pair(9) | self.attrib_map[9]
-                    color_line = curses.color_pair(6)
-                if y == self.tree_selected - self.tree_index:   # selected
-                    color = curses.color_pair(4) | self.attrib_map[4]
-                    color_line = curses.color_pair(4)
-                    self.tree_selected_abs = self.tree_selected + skipped
-                    selected = True
-                # filled with spaces so background is drawn all the way
-                self.win_tree.insstr(y, 0, " " * w + "\n", color_line)
-                self.win_tree.insstr(y, 0, line[:text_start], color_line)
-                self.win_tree.insstr(y, text_start, line[text_start:], color)
-                # if this is dm, set color for status sign
-                # drawing it only for "normal" DMs, just to save some color pairs until python curses fixes the bug
-                if 300 <= code < 399 and second_digit == 0 and not selected:
-                    if first_digit == 2:   # online
-                        # this character is always at position 4 (set in formatter)
-                        self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(18))
-                    elif first_digit == 3:   # idle
-                        self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(19))
-                    elif first_digit == 4:   # dnd
-                        self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(20))
-            y += 1
-            while y < h:
-                self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
+        with self.lock:
+            try:
+                h, w = self.tree_hw
+                # drawing from top to down
+                skipped = 0   # skipping drop-down ends (code 1000)
+                drop_down_skip_guild = False
+                drop_down_skip_category = False
+                drop_down_skip_channel = False
+                drop_down_level = 0
+                self.tree_clean_len = 0
+                y = 0
+                for num, line in enumerate(self.tree):
+                    code = self.tree_format[num]
+                    first_digit = (code % 10)
+                    if code == 1100:
+                        skipped += 1
+                        drop_down_level -= 1
+                        drop_down_skip_guild = False
+                        continue
+                    elif code == 1200:
+                        skipped += 1
+                        drop_down_level -= 1
+                        drop_down_skip_category = False
+                        continue
+                    elif code == 1300:
+                        skipped += 1
+                        drop_down_level -= 1
+                        drop_down_skip_channel = False
+                        continue
+                    text_start = drop_down_level * 3 + 1
+                    if code < 300 or 500 <= code <= 599:
+                        drop_down_level += 1
+                    if drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
+                        skipped += 1
+                        continue
+                    self.tree_clean_len += 1
+                    if first_digit == 0 and code < 200:
+                        drop_down_skip_guild = True
+                    elif first_digit == 0 and code < 300:
+                        drop_down_skip_category = True
+                    elif first_digit == 0 and 500 <= code <= 599:
+                        drop_down_skip_channel = True
+                    y = max(num - skipped - self.tree_index, 0)
+                    if y >= h:
+                        break
+                    second_digit = (code % 100) // 10
+                    color = curses.color_pair(3)
+                    color_line = curses.color_pair(3)
+                    selected = False
+                    if second_digit == 1:   # muted
+                        color = curses.color_pair(5) | self.attrib_map[5]
+                    elif second_digit == 2:   # mentioned
+                        color = curses.color_pair(8) | self.attrib_map[8]
+                    elif second_digit == 3:   # unread
+                        color = curses.color_pair(7) | self.attrib_map[7]
+                    elif second_digit == 4:   # active
+                        color = curses.color_pair(6) | self.attrib_map[6]
+                        color_line = curses.color_pair(6)
+                    elif second_digit == 5:   # active mentioned
+                        color = curses.color_pair(9) | self.attrib_map[9]
+                        color_line = curses.color_pair(6)
+                    if y == self.tree_selected - self.tree_index:   # selected
+                        color = curses.color_pair(4) | self.attrib_map[4]
+                        color_line = curses.color_pair(4)
+                        self.tree_selected_abs = self.tree_selected + skipped
+                        selected = True
+                    # filled with spaces so background is drawn all the way
+                    self.win_tree.insstr(y, 0, " " * w + "\n", color_line)
+                    self.win_tree.insstr(y, 0, line[:text_start], color_line)
+                    self.win_tree.insstr(y, text_start, line[text_start:], color)
+                    # if this is dm, set color for status sign
+                    # drawing it only for "normal" DMs, just to save some color pairs until python curses fixes the bug
+                    if 300 <= code < 399 and second_digit == 0 and not selected:
+                        if first_digit == 2:   # online
+                            # this character is always at position 4 (set in formatter)
+                            self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(18))
+                        elif first_digit == 3:   # idle
+                            self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(19))
+                        elif first_digit == 4:   # dnd
+                            self.win_tree.addch(y, 4, self.tree_dm_status, curses.color_pair(20))
                 y += 1
-            self.win_tree.noutrefresh()
-            self.need_update.set()
-        except curses.error:
-            # this exception will happen when window is resized to smaller h dimensions
-            self.resize()
+                while y < h:
+                    self.win_tree.insstr(y, 0, "\n", curses.color_pair(1))
+                    y += 1
+                self.win_tree.noutrefresh()
+                self.need_update.set()
+            except curses.error:
+                # this exception will happen when window is resized to smaller h dimensions
+                self.resize()
 
 
     def draw_prompt(self):
         """Draw prompt line"""
-        h, w = self.screen.getmaxyx()
-        del (self.win_prompt, self.win_input_line)
-        input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
-        self.win_input_line = self.screen.derwin(*input_line_hwyx)
-        self.input_hw = self.win_input_line.getmaxyx()
-        self.spellcheck()
-        self.draw_input_line()
-        prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
-        self.win_prompt = self.screen.derwin(*prompt_hwyx)
-        self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
-        self.win_prompt.noutrefresh()
-        self.need_update.set()
+        with self.lock:
+            h, w = self.screen.getmaxyx()
+            del (self.win_prompt, self.win_input_line)
+            input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
+            self.win_input_line = self.screen.derwin(*input_line_hwyx)
+            self.input_hw = self.win_input_line.getmaxyx()
+            self.spellcheck()
+            self.draw_input_line()
+            prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+            self.win_prompt = self.screen.derwin(*prompt_hwyx)
+            self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
+            self.win_prompt.noutrefresh()
+            self.need_update.set()
 
 
     def draw_extra_line(self, text=None, toggle=False):
@@ -794,45 +807,47 @@ class TUI():
         Draw extra line above status line and resize chat.
         If toggle and same text is repeated then remve extra line.
         """
-        if toggle and text == self.extra_line_text:
-            self.remove_extra_line()
-            return
-        self.extra_line_text = text
-        if text and not self.disable_drawing:
-            h, w = self.screen.getmaxyx()
-            if not self.win_extra_line:
-                del self.win_chat
-                chat_hwyx = (
-                    h - 3 - int(self.have_title),
-                    w - (self.tree_width + 1),
-                    int(self.have_title),
-                    self.tree_width + 1,
-                )
-                self.win_chat = self.screen.derwin(*chat_hwyx)
-                self.chat_hw = self.win_chat.getmaxyx()
-                if not self.member_list:
-                    self.draw_chat(norefresh=True)
-                extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
-                self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
-                self.draw_member_list(self.member_list, self.member_list_format, force=True)
-            self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
-            self.win_extra_line.noutrefresh()
-            self.need_update.set()
+        with self.lock:
+            if toggle and text == self.extra_line_text:
+                self.remove_extra_line()
+                return
+            self.extra_line_text = text
+            if text and not self.disable_drawing:
+                h, w = self.screen.getmaxyx()
+                if not self.win_extra_line:
+                    del self.win_chat
+                    chat_hwyx = (
+                        h - 3 - int(self.have_title),
+                        w - (self.tree_width + 1),
+                        int(self.have_title),
+                        self.tree_width + 1,
+                    )
+                    self.win_chat = self.screen.derwin(*chat_hwyx)
+                    self.chat_hw = self.win_chat.getmaxyx()
+                    if not self.member_list:
+                        self.draw_chat(norefresh=True)
+                    extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
+                    self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
+                    self.draw_member_list(self.member_list, self.member_list_format, force=True)
+                self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                self.win_extra_line.noutrefresh()
+                self.need_update.set()
 
 
     def remove_extra_line(self):
         """Disable drawing of extra line above status line, and resize chat"""
         if self.win_extra_line:
-            del self.win_chat
-            self.extra_line_text = ""
-            self.win_extra_line = None
-            h, w = self.screen.getmaxyx()
-            chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
-            self.win_chat = self.screen.derwin(*chat_hwyx)
-            self.chat_hw = self.win_chat.getmaxyx()
-            if not self.member_list:
-                self.draw_chat()
-            self.draw_member_list(self.member_list, self.member_list_format, force=True)
+            with self.lock:
+                del self.win_chat
+                self.extra_line_text = ""
+                self.win_extra_line = None
+                h, w = self.screen.getmaxyx()
+                chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
+                if not self.member_list:
+                    self.draw_chat()
+                self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
     def draw_extra_window(self, title_text, body_text, select=False, start_zero=False):
@@ -840,188 +855,193 @@ class TUI():
         Draw extra window above status line and resize chat.
         title_text is string, body_text is list.
         """
-        self.extra_select = select
-        self.extra_window_title = title_text
-        self.extra_window_body = body_text
-        if start_zero:
-            self.extra_index = 0
-            self.extra_selected = 0
-        if title_text and not self.disable_drawing:
-            h, w = self.screen.getmaxyx()
-            if not self.win_extra_window:
-                del self.win_chat
-                self.win_extra_line = None
-                chat_hwyx = (
-                    h - 3 - int(self.have_title) - self.extra_window_h,
-                    w - (self.tree_width + 1),
-                    int(self.have_title),
-                    self.tree_width + 1,
-                )
-                self.win_chat = self.screen.derwin(*chat_hwyx)
-                self.chat_hw = self.win_chat.getmaxyx()
-                if not self.member_list:
-                    self.draw_chat(norefresh=True)
-                extra_window_hwyx = (
-                    self.extra_window_h + 1,
-                    w - (self.tree_width + 1),
-                    h - 3 - self.extra_window_h,
-                    self.tree_width + 1,
-                )
-                self.win_extra_window = self.screen.derwin(*extra_window_hwyx)
-                self.draw_member_list(self.member_list, self.member_list_format, force=True)
-            self.win_extra_window.insstr(0, 0, title_text + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
-            h = self.win_extra_window.getmaxyx()[0]
-            y = 0
-            for num, line in enumerate(body_text):
-                y = max(num - self.extra_index, 0)
-                if y + 1 >= h:
-                    break
-                if y >= 0:
-                    if num == self.extra_selected:
-                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(11) | self.attrib_map[11])
-                    else:
-                        self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(21) | self.attrib_map[21])
-            y += 2
-            while y < h:
-                self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
-                y += 1
-            self.win_extra_window.noutrefresh()
-            self.need_update.set()
+        with self.lock:
+            self.extra_select = select
+            self.extra_window_title = title_text
+            self.extra_window_body = body_text
+            if start_zero:
+                self.extra_index = 0
+                self.extra_selected = 0
+            if title_text and not self.disable_drawing:
+                h, w = self.screen.getmaxyx()
+                if not self.win_extra_window:
+                    del self.win_chat
+                    self.win_extra_line = None
+                    chat_hwyx = (
+                        h - 3 - int(self.have_title) - self.extra_window_h,
+                        w - (self.tree_width + 1),
+                        int(self.have_title),
+                        self.tree_width + 1,
+                    )
+                    self.win_chat = self.screen.derwin(*chat_hwyx)
+                    self.chat_hw = self.win_chat.getmaxyx()
+                    if not self.member_list:
+                        self.draw_chat(norefresh=True)
+                    extra_window_hwyx = (
+                        self.extra_window_h + 1,
+                        w - (self.tree_width + 1),
+                        h - 3 - self.extra_window_h,
+                        self.tree_width + 1,
+                    )
+                    self.win_extra_window = self.screen.derwin(*extra_window_hwyx)
+                    self.draw_member_list(self.member_list, self.member_list_format, force=True)
+                self.win_extra_window.insstr(0, 0, title_text + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                h = self.win_extra_window.getmaxyx()[0]
+                y = 0
+                for num, line in enumerate(body_text):
+                    y = max(num - self.extra_index, 0)
+                    if y + 1 >= h:
+                        break
+                    if y >= 0:
+                        if num == self.extra_selected:
+                            self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                        else:
+                            self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(21) | self.attrib_map[21])
+                y += 2
+                while y < h:
+                    self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
+                    y += 1
+                self.win_extra_window.noutrefresh()
+                self.need_update.set()
 
 
     def remove_extra_window(self):
         """Disable drawing of extra window above status line, and resize chat"""
         if self.win_extra_window:
-            del (self.win_extra_window, self.win_chat)
-            self.extra_window_title = ""
-            self.extra_window_body = ""
-            self.win_extra_window = None
-            self.extra_selected = -1
-            h, w = self.screen.getmaxyx()
-            chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
-            self.win_chat = self.screen.derwin(*chat_hwyx)
-            self.chat_hw = self.win_chat.getmaxyx()
-            if not self.member_list:
-                self.draw_chat()
-            self.draw_extra_line(self.extra_line_text)
-            self.draw_member_list(self.member_list, self.member_list_format, force=True)
+            with self.lock:
+                del (self.win_extra_window, self.win_chat)
+                self.extra_window_title = ""
+                self.extra_window_body = ""
+                self.win_extra_window = None
+                self.extra_selected = -1
+                h, w = self.screen.getmaxyx()
+                chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
+                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.chat_hw = self.win_chat.getmaxyx()
+                if not self.member_list:
+                    self.draw_chat()
+                self.draw_extra_line(self.extra_line_text)
+                self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
     def draw_member_list(self, member_list, member_list_format, force=False, reset=False):
         """Draw member list and resize chat"""
-        self.member_list = member_list
-        self.member_list_format = member_list_format
-        if member_list and not self.disable_drawing:
-            h, w = self.screen.getmaxyx()
-            if reset:
-                self.mlist_selected = -1
-                self.mlist_index = 0
-            if not self.win_member_list or force:
-                if not force and self.win_member_list:
+        with self.lock:
+            self.member_list = member_list
+            self.member_list_format = member_list_format
+            if member_list and not self.disable_drawing:
+                h, w = self.screen.getmaxyx()
+                if reset:
                     self.mlist_selected = -1
                     self.mlist_index = 0
-                if self.win_extra_window:
-                    common_h = h - 3 - int(self.have_title) - self.extra_window_h
-                elif self.win_extra_line:
-                    common_h = h - 3 - int(self.have_title)
-                else:
-                    common_h = h - 2 - int(self.have_title)
-                chat_hwyx = (
-                    common_h,
-                    w - (self.tree_width + 1) - (self.member_list_width + 1),
-                    int(self.have_title),
-                    self.tree_width + 1,
-                )
-                self.win_chat = self.screen.derwin(*chat_hwyx)
-                self.chat_hw = self.win_chat.getmaxyx()
-                self.draw_chat(norefresh=True)
-                member_list_hwyx = (
-                    common_h,
-                    self.member_list_width,
-                    int(self.have_title),
-                    w - self.member_list_width,
-                )
-                self.win_member_list = self.screen.derwin(*member_list_hwyx)
-                self.screen.vline(int(self.have_title), w - self.member_list_width - 1, self.vert_line, common_h)
-                self.screen.noutrefresh()
-            h, w = self.win_member_list.getmaxyx()
-            y = 0
-            for num, line in enumerate(member_list):
-                y =  max(num - self.mlist_index, 0)
-                if y >= h:
-                    break
-                line_format = member_list_format[num]
-                if num == self.mlist_selected:
-                    self.win_member_list.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(4) | self.attrib_map[4])
-                else:
-                    for pos, character in enumerate(line + " " * (w - len(line)) + "\n"):
-                        if pos >= w:
-                            break
-                        for format_part in line_format:
-                            if format_part[1] <= pos < format_part[2]:
-                                color = format_part[0]
-                                if color > 255:   # set all colors after 255 to default color
-                                    color = self.color_default
-                                color_ready = curses.color_pair(color) | self.attrib_map[color]
-                                safe_insch(self.win_member_list, y, pos, character, color_ready)
+                if not self.win_member_list or force:
+                    if not force and self.win_member_list:
+                        self.mlist_selected = -1
+                        self.mlist_index = 0
+                    if self.win_extra_window:
+                        common_h = h - 3 - int(self.have_title) - self.extra_window_h
+                    elif self.win_extra_line:
+                        common_h = h - 3 - int(self.have_title)
+                    else:
+                        common_h = h - 2 - int(self.have_title)
+                    chat_hwyx = (
+                        common_h,
+                        w - (self.tree_width + 1) - (self.member_list_width + 1),
+                        int(self.have_title),
+                        self.tree_width + 1,
+                    )
+                    self.win_chat = self.screen.derwin(*chat_hwyx)
+                    self.chat_hw = self.win_chat.getmaxyx()
+                    self.draw_chat(norefresh=True)
+                    member_list_hwyx = (
+                        common_h,
+                        self.member_list_width,
+                        int(self.have_title),
+                        w - self.member_list_width,
+                    )
+                    self.win_member_list = self.screen.derwin(*member_list_hwyx)
+                    self.screen.vline(int(self.have_title), w - self.member_list_width - 1, self.vert_line, common_h)
+                    self.screen.noutrefresh()
+                h, w = self.win_member_list.getmaxyx()
+                y = 0
+                for num, line in enumerate(member_list):
+                    y =  max(num - self.mlist_index, 0)
+                    if y >= h:
+                        break
+                    line_format = member_list_format[num]
+                    if num == self.mlist_selected:
+                        self.win_member_list.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(4) | self.attrib_map[4])
+                    else:
+                        for pos, character in enumerate(line + " " * (w - len(line)) + "\n"):
+                            if pos >= w:
                                 break
-                        else:
-                            safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
-            y += 1
-            while y < h:
-                self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
+                            for format_part in line_format:
+                                if format_part[1] <= pos < format_part[2]:
+                                    color = format_part[0]
+                                    if color > 255:   # set all colors after 255 to default color
+                                        color = self.color_default
+                                    color_ready = curses.color_pair(color) | self.attrib_map[color]
+                                    safe_insch(self.win_member_list, y, pos, character, color_ready)
+                                    break
+                            else:
+                                safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
                 y += 1
-            self.win_member_list.noutrefresh()
-            self.need_update.set()
+                while y < h:
+                    self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
+                    y += 1
+                self.win_member_list.noutrefresh()
+                self.need_update.set()
 
 
     def remove_member_list(self):
         """Remove member list and resize chat"""
         if self.win_member_list:
-            del (self.win_member_list, self.win_chat)
-            self.member_list = []
-            self.member_list_format = []
-            self.win_member_list = None
-            h, w = self.screen.getmaxyx()
-            chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
-            self.win_chat = self.screen.derwin(*chat_hwyx)
-            self.chat_hw = self.win_chat.getmaxyx()
-            if self.win_extra_line:
-                chat_hwyx = (
-                    h - 3 - int(self.have_title),
-                    w - (self.tree_width + 1),
-                    int(self.have_title),
-                    self.tree_width + 1,
-                )
+            with self.lock:
+                del (self.win_member_list, self.win_chat)
+                self.member_list = []
+                self.member_list_format = []
+                self.win_member_list = None
+                h, w = self.screen.getmaxyx()
+                chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
                 self.win_chat = self.screen.derwin(*chat_hwyx)
                 self.chat_hw = self.win_chat.getmaxyx()
-            elif self.win_extra_window:
-                chat_hwyx = (
-                    h - 3 - int(self.have_title) - self.extra_window_h,
-                    w - (self.tree_width + 1),
-                    int(self.have_title),
-                    self.tree_width + 1,
-                )
-                self.win_chat = self.screen.derwin(*chat_hwyx)
-                self.chat_hw = self.win_chat.getmaxyx()
-            self.draw_chat()
+                if self.win_extra_line:
+                    chat_hwyx = (
+                        h - 3 - int(self.have_title),
+                        w - (self.tree_width + 1),
+                        int(self.have_title),
+                        self.tree_width + 1,
+                    )
+                    self.win_chat = self.screen.derwin(*chat_hwyx)
+                    self.chat_hw = self.win_chat.getmaxyx()
+                elif self.win_extra_window:
+                    chat_hwyx = (
+                        h - 3 - int(self.have_title) - self.extra_window_h,
+                        w - (self.tree_width + 1),
+                        int(self.have_title),
+                        self.tree_width + 1,
+                    )
+                    self.win_chat = self.screen.derwin(*chat_hwyx)
+                    self.chat_hw = self.win_chat.getmaxyx()
+                self.draw_chat()
 
 
     def set_cursor_color(self, color_id):
         """Changes cursor color"""
-        w = self.input_hw[1]
-        start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
-        end = start + w - 1
-        line_text = self.input_buffer[start:end].replace("\n", "␤")
-        character = " "
-        if self.cursor_pos < len(line_text):
-            character = line_text[self.cursor_pos]
-        if self.cursor_pos == w - 1:
-            self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
-        else:
-            self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
-        self.win_input_line.noutrefresh()
-        self.need_update.set()
+        with self.lock:
+            w = self.input_hw[1]
+            start = max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+            end = start + w - 1
+            line_text = self.input_buffer[start:end].replace("\n", "␤")
+            character = " "
+            if self.cursor_pos < len(line_text):
+                character = line_text[self.cursor_pos]
+            if self.cursor_pos == w - 1:
+                self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
+            else:
+                self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
+            self.win_input_line.noutrefresh()
+            self.need_update.set()
 
 
     def blink_cursor(self):

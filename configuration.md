@@ -70,7 +70,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Wether to wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
 - `mouse = True`  
     Disable if there are issues with mouse controls.  
-- `screen_update_delay = 0.02`  
+- `screen_update_delay = 0.01`  
     Delay in seconds before screen is updated. Limited to min 0.01.  
     Too low value will cause visual "glitches". Increasing value will add latency between performed action and visual feedback.
 - `tenor_gif_type = 1`  

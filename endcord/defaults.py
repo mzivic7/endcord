@@ -30,7 +30,7 @@ settings = {
     "tree_show_invisible": False,
     "wrap_around": True,
     "mouse": True,
-    "screen_update_delay": 0.02,
+    "screen_update_delay": 0.01,
     "tenor_gif_type": 1,
     "aspell_mode": "normal",
     "aspell_lang": "en_US",

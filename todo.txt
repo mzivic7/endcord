@@ -1,6 +1,4 @@
-Add locking mechanism to prevent glitches
-
+Code blocks syntax highlighting
 Interactive message components
 Voice and video calls
-Code blocks syntax highlighting
 Localization
