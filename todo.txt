@@ -1,4 +1,3 @@
-Code blocks syntax highlighting
 Interactive message components
 Voice and video calls
 Localization

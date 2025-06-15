@@ -362,16 +362,17 @@ Never tested on macOS. Feedback is welcome.
 
 
 ## Building
-To see build script options, run: `pipenv run python build.py -h`.  
-To build endcord-lite, add `--lite` flag.  
+To see all build script options, run: `pipenv run python build.py -h`.  
+To build endcord-lite, add `--lite` flag. No ascii media, slightly less RAM usage, smaller executable, faster startup.  
 To build into directory, not as a single executable, add `--onedir` flag. Will speed up startup.  
+To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, long compile time. See [Nuitka](#nuitka) for more info.
 
 ### Linux
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
 2. Install [pipenv](https://docs.pipenv.org/install/)
 3. `cd endcord`
 4. Setup virtual environment: `pipenv install`
-5. run build script: `pipenv run python build.py --build`
+5. run build script: `pipenv run python build.py --build`  
 
 ### Windows
 1. Install [Python](https://www.python.org/) 3.13 or later
@@ -397,8 +398,8 @@ To enable building with Nuitka, add `--nuitka` flag (takes a long time).
 Nuitka built binaries are much more optimized and can play videos at higher framerate.  
 Optionlly, add `--clang` flag to tell nuitka to build code using llvm, which might run even faster.  
 Nuitka requirements:
-- on linux - GCC or clang from system and `patchelf` package
-- on Windows - [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)
+- on linux: GCC or clang from system and `patchelf` package
+- on Windows: [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)
 - on macOS install XCode via Apple Store
 
 

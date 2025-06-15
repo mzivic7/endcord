@@ -15,11 +15,11 @@ soundfile = "*"
 pysocks = "*"
 python-socks = "*"
 soundcard = "*"
+numpy = "*"
 
 [dev-packages]
 pillow = "*"
 av = "*"
-numpy = "*"
 
 [requires]
 python_version = "3.13"

@@ -4498,7 +4498,7 @@ class Endcord:
             self.curses_media = media.CursesMedia(self.screen, self.config, last_free_color_id)
         else:
             self.curses_media = None
-            logger.info("ASCII media is not supported{have_yt_dlp}{have_mpv}")
+            logger.info(f"ASCII media is not supported{have_yt_dlp}{have_mpv}")
         if not peripherals.have_sound:
             logger.warn("No sound! Audio system is probably not running")
 

@@ -384,7 +384,7 @@ def format_multiline_one_line(formats_range, line_len, newline_len, color, quote
     if not color:
         return line_format
     for format_range in formats_range:
-        if format_range[0] > line_len or format_range[1] < newline_len:
+        if format_range[0] >= line_len or format_range[1] < newline_len:
             continue
         if format_range[0] >= newline_len:
             if format_range[1] < line_len:
@@ -402,7 +402,7 @@ def format_multiline_one_line_format(formats, line_len, newline_len, quote=False
     """Adjust existing format, for one line, with custom end position"""
     line_format = []
     for format_range in formats:
-        if format_range[1] > line_len or format_range[2] < newline_len:
+        if format_range[1] >= line_len or format_range[2] < newline_len:
             continue
         if format_range[1] >= newline_len:
             if format_range[2] < line_len:
@@ -422,7 +422,7 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
     if not color:
         return line_format
     for format_range in formats_range:
-        if format_range[0] > line_len or format_range[1] < newline_len:
+        if format_range[0] >= line_len or format_range[1] < newline_len:
             continue
         if format_range[0] >= newline_len:
             if format_range[1] < line_len:
@@ -1008,10 +1008,10 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
             # limit new_line and split to next line
             newline_sign = False
-            if len(new_line) > max_length:
-                newline_index = len(new_line[:max_length].rsplit(" ", 1)[0])
+            if len(new_line) > max_length - bool(code_block_format):
+                newline_index = len(new_line[:max_length - bool(code_block_format)].rsplit(" ", 1)[0])
                 if newline_index <= newline_len + 2*quote:
-                    newline_index = max_length
+                    newline_index = max_length - bool(code_block_format)
                 if "\n" in new_line[:newline_index]:
                     newline_index = new_line.index("\n")
                     quote = False

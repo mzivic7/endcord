@@ -1,4 +1,5 @@
 import curses
+import importlib.util
 import logging
 import os
 import signal
@@ -76,6 +77,12 @@ def main(args):
         keybinding.picker(keybindings)
         sys.exit(0)
     elif args.media:
+        if not (
+            importlib.util.find_spec("PIL") is not None and
+            importlib.util.find_spec("av") is not None and
+            importlib.util.find_spec("numpy") is not None
+        ):
+            sys.exit("Ascii media player is not supported")
         from endcord import media
         curses.wrapper(media.ascii_runner, args.media, config, keybindings)
         sys.exit(0)
