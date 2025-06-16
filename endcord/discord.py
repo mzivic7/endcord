@@ -1203,11 +1203,12 @@ class Discord():
         return [], []
 
 
-    def send_interaction(self, guild_id, channel_id, session_id, app_id, interaction_type, interaction_data, attachments):
+    def send_interaction(self, guild_id, channel_id, session_id, app_id, interaction_type, interaction_data, attachments, message_id=None):
         """
         Send app interaction
         Known types:
         2 - application command
+        3 - component interaction
         4 - command option autocomplete
         """
         if attachments:
@@ -1218,7 +1219,7 @@ class Discord():
                         "filename": attachment["name"],
                         "uploaded_filename": attachment["upload_filename"],
                     })
-        message_data = json.dumps({
+        message_dict = {
             "type": interaction_type,
             "application_id": app_id,
             "guild_id": guild_id,
@@ -1226,8 +1227,12 @@ class Discord():
             "session_id": session_id,
             "data": interaction_data,
             "nonce": generate_nonce(),
-            "analytics_location": "slash_ui",
-        })
+        }
+        if interaction_type == 3:
+            message_dict["message_id"] = message_id
+        else:
+            message_dict["analytics_location"] = "slash_ui"
+        message_data = json.dumps(message_dict)
         url = "/api/v9/interactions"
         try:
             connection = self.get_connection(self.host, 443)

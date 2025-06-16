@@ -553,4 +553,16 @@ def command_string(text):
     elif text.lower().startswith("pin_message"):
         cmd_type = 36
 
+    # 37 - PUSH_BUTTON
+    elif text.lower().startswith("push_button"):
+        cmd_type = 37
+        try:
+            num = int(text.split(" ")[1])
+            cmd_args = {"num": num}
+        except ValueError:
+            name = text.split(" ")[1]
+            cmd_args = {"name": name}
+        except IndexError:
+            cmd_type = 0
+
     return cmd_type, cmd_args

@@ -74,3 +74,5 @@
     If selected message is ongoing poll, vote for specified answer index.
 - `pin_message`  
     Pin sellected message to current channel.
+- `push_button [num/name]`  
+    Push button on interactive app message. Specify either button number or button name (case-insensitive).

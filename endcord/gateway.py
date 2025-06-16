@@ -782,7 +782,7 @@ class Gateway():
                             "op": "MESSAGE_CREATE",
                             "d": message_done,
                         })
-                    else:   # all other non-active channel
+                    else:   # all other non-active channels
                         mentions = []
                         if message["mentions"]:
                             for mention in message["mentions"]:
@@ -806,62 +806,14 @@ class Gateway():
 
                 elif optext == "MESSAGE_UPDATE":
                     message = response["d"]
-                    embeds = []
-                    for embed in message["embeds"]:
-                        content = ""
-                        content += embed.get("url", "")  + "\n"
-                        if "video" in embed and "url" in embed["video"]:
-                            content = embed.get("description", "")
-                            if content:
-                                content += "\n"
-                            content += embed["video"]["url"] + "\n"
-                        elif "image" in embed and "url" in embed["image"]:
-                            content = embed.get("description", "")
-                            if content:
-                                content += "\n"
-                            content += embed["image"]["url"] + "\n"
-                        elif "fields" in embed:
-                            for field in embed["fields"]:
-                                content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-                            content = content.strip("\n")
-                        elif "title" in embed:
-                            content += embed["title"] + "\n"
-                            content += embed.get("description", "") + "\n"
-                        content = content.strip("\n")
-                        if content and content not in message["content"]:
-                            embeds.append({
-                                "type": embed["type"],
-                                "name": None,
-                                "url": content,
-                            })
-                    for attachment in message["attachments"]:
-                        embeds.append({
-                            "type": attachment.get("content_type", "unknown"),
-                            "name": attachment["filename"],
-                            "url": attachment["url"],
-                        })   # keep attachments in same place as embeds
-                    mentions = []
-                    if message["mentions"]:
-                        for mention in message["mentions"]:
-                            mentions.append({
-                                "username": mention["username"],
-                                "id": mention["id"],
-                            })
-                    data = {
-                        "id": message["id"],
+                    message_done = prepare_message(message)
+                    message_done.update({
                         "channel_id": message["channel_id"],
                         "guild_id": message.get("guild_id"),
-                        "edited": True,
-                        "content": message["content"],
-                        "mentions": mentions,
-                        "mention_roles": message["mention_roles"],
-                        "mention_everyone": message["mention_everyone"],
-                        "embeds": embeds,
-                        "stickers": message.get("sticker_items", []),
-                    }
+                    })
                     self.messages_buffer.append({
                         "op": "MESSAGE_UPDATE",
-                        "d": data,
+                        "d": message_done,
                     })
 
                 elif optext == "MESSAGE_DELETE":

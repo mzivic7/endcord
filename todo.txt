@@ -1,3 +1,4 @@
-Interactive message components
+Add string select message component
+Add text input message component
 Voice and video calls
 Localization

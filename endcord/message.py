@@ -161,8 +161,9 @@ def prepare_message(message):
         interaction = None
 
     # components
+    component_info = None
     if "components" in message:
-        new_content, new_embeds = prepare_components(message["components"])
+        new_content, new_embeds, component_info = prepare_components(message["components"])
         new_content_str = ""
         for line in new_content:
             new_content_str += f"> {line}\n"
@@ -192,6 +193,8 @@ def prepare_message(message):
     }
     if poll:
         message_dict["poll"] = poll
+    if component_info:
+        message_dict["component_info"] = component_info
     return message_dict
 
 
@@ -209,17 +212,32 @@ def prepare_components(components):
     """Convert mesage components into message, urls and embeds, recursive"""
     text = []
     embeds = []
+    component_info = {"buttons": []}
     for component in components:
         comp_type = component["type"]
         if comp_type == 1:   # ACTION_ROW
-            new_text, new_embeds = prepare_components(component.get("components"))
-            text.extend(" | ".join(new_text))
+            new_text, new_embeds, new_component_info = prepare_components(component.get("components"))
+            text.append(" | ".join(new_text))
             embeds.extend(new_embeds)
+            component_info["buttons"].extend(new_component_info["buttons"])
         elif comp_type == 2:   # BUTTON
-            if component.get("style", "") == 5:   # LINK
-                text.append(f"Button: {component["url"]}")
+            if component.get("disabled"):
+                continue
+            button_type = int(component.get("style", 0))
+            if button_type < 5:   # standard button
+                button_text = component.get("label")
+                if not button_text and "emoji" in component:
+                    button_text = component["emoji"]["name"]
+                if not button_text:
+                    button_text = "???"
+                text.append(f"*Button: {button_text}*")
+                component_info["buttons"].append((component["custom_id"], button_text))
+            elif button_type == 5:   # link button
+                text.append(f"*Button: {component["url"]}*")
+            elif button_type == 5:   # purchase button
+                text.append("*Button: purchase_button_disabled*")
             else:
-                text.append("*unknown_butotn*")
+                text.append("*Button: unknown_butotn_disabled*")
         elif comp_type == 3:   # STRING_SELECT
             text.append("*Unimplemented component: string_select*")
         elif comp_type == 4:   # TEXT_INPUT
@@ -313,10 +331,11 @@ def prepare_components(components):
             if times_string:
                 text.append(times_string)
         elif comp_type in (17, 9):   # CONTAINER and SECTION
-            new_text, new_embeds = prepare_components(component.get("components"))
+            new_text, new_embeds, new_component_info = prepare_components(component.get("components"))
             text.extend(["  " + x for x in new_text])
             embeds.extend(new_embeds)
-    return text, embeds
+            component_info["buttons"].extend(new_component_info["buttons"])
+    return text, embeds, component_info
 
 
 def prepare_special_message_types(message):

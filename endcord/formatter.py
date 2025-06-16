@@ -49,6 +49,7 @@ COMMAND_ASSISTS = (
     ("show_reactions", "show_reactions"),
     ("show_pinned", "show_pinned"),
     ("pin_message", "pin_message"),
+    ("push_button [num/name]", "push_button"),
     ("toggle_tab", "toggle_tab"),
     ("switch_tab [num]", "switch_tab"),
     ("vote [num]", "vote"),
@@ -331,6 +332,7 @@ def format_md_all(line, content_start, except_ranges):
     Formatting is not performed inside except_ranges.
     """
     line_format = []
+    indexes = []
     for _ in range(10):   # lets have some limits
         line_content = line[content_start:]
         format_len = 2
@@ -362,6 +364,10 @@ def format_md_all(line, content_start, except_ranges):
             continue
         text = string_match.group(0)[format_len:-format_len]
         line = line[:start] + text + line[end:]
+        # keep indexes of change
+        indexes.extend((start, end - 2 * format_len))
+        if format_len == 2:
+            indexes.extend((start+1, end - 3))
         # rearrange formats at indexes after this format index
         done = False
         for format_part in line_format:
@@ -375,7 +381,7 @@ def format_md_all(line, content_start, except_ranges):
                 done = True
         if not done:
             line_format.append([[attribute], start, end - 2 * format_len])
-    return line, line_format
+    return line, line_format, indexes
 
 
 def format_multiline_one_line(formats_range, line_len, newline_len, color, quote=False):
@@ -874,8 +880,13 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             spoilers.append([match.start(), match.end()])
         spoilers = spoilers[message.get("spoiled"):]   # exclude spoiled messages
 
-        # find all markdown
-        message_line, md_format = format_md_all(message_line, pre_content_len, except_ranges + urls)
+        # find all markdown and correct format indexes
+        message_line, md_format, md_indexes = format_md_all(message_line, pre_content_len, except_ranges + urls)
+        if md_indexes:
+            code_snippets = move_by_indexes(code_snippets, md_indexes)
+            code_blocks = move_by_indexes(code_blocks, md_indexes)
+            urls = move_by_indexes(urls, md_indexes)
+            spoilers = move_by_indexes(spoilers, md_indexes)
         message_line, escaped_indexes = replace_escaped_md(message_line, except_ranges + urls)
         if escaped_indexes:
             code_snippets = move_by_indexes(code_snippets, escaped_indexes)
@@ -1003,7 +1014,6 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             for md in md_format:
                 md[1] += content_index_correction
                 md[2] += content_index_correction
-            except_ranges = code_snippets + code_blocks
             quote_nl = False
 
             # limit new_line and split to next line

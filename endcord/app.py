@@ -162,6 +162,7 @@ class Endcord:
         self.my_id = self.discord.get_my_id()
         self.premium = None
         self.my_user_data = self.discord.get_user(self.my_id, extra=True)
+        self.channel_cache = []
         self.reset()
         self.gateway.connect()
         self.gateway_state = self.gateway.get_state()
@@ -209,7 +210,6 @@ class Endcord:
         self.session_id = None
         self.chat = []
         self.chat_format = []
-        self.channel_cache = []
         self.tab_string = ""
         self.tab_string_format = []
         self.unseen_scrolled = False
@@ -267,6 +267,11 @@ class Endcord:
                 "activities": [],
                 "client_state": "OFFLINE",
             }
+        for num, _ in enumerate(self.channel_cache):
+            if self.channel_cache[num][2]:
+                self.channel_cache[num][3] = True   # mark as invalid
+            else:
+                _ = self.channel_cache.pop(num)
 
 
     def reconnect(self):
@@ -421,7 +426,7 @@ class Endcord:
             from_cache = False
             if self.limit_channle_cache:
                 for num, channel in enumerate(self.channel_cache):
-                    if channel[0] == channel_id:
+                    if channel[0] == channel_id and not channel.get(3):
                         from_cache = True
                         break
 
@@ -640,7 +645,7 @@ class Endcord:
 
     def add_to_channel_cache(self, channel_id, messages, set_pinned):
         """Add messages to channel cache"""
-        # format: channel_cache = [[channel_id, messages], ...]
+        # format: channel_cache = [[channel_id, messages, pinned, *invalid], ...]
         # skipping deleted because they are separately cached
         if self.limit_channle_cache:
             pinned = 0
@@ -2150,6 +2155,41 @@ class Endcord:
             else:
                 self.update_extra_line("Cant pin a message - not permitted.")
 
+        elif cmd_type == 37:   # PUSH_BUTTON
+            msg_index = self.lines_to_msg(chat_sel)
+            message = self.messages[msg_index]
+            if "component_info" in message and message["component_info"]["buttons"]:
+                if "num" in cmd_args:
+                    try:
+                        custom_id = message["component_info"]["buttons"][int(cmd_args["num"])-1][0]
+                    except IndexError:
+                        custom_id = None
+                else:
+                    name = cmd_args["name"].lower()
+                    for button in message["component_info"]["buttons"]:
+                        if button[1].lower() == name:
+                            custom_id = button[0]
+                            break
+                    else:
+                        custom_id = None
+                if custom_id:
+                    command_data = {
+                        "component_type": 2,
+                        "custom_id": custom_id,
+                    }
+                    self.discord.send_interaction(
+                        self.active_channel["guild_id"],
+                        self.active_channel["channel_id"],
+                        self.session_id,
+                        message["user_id"],   # user_id is app_id
+                        3,
+                        command_data,
+                        None,
+                        message_id=message["id"],
+                    )
+                else:
+                    self.update_extra_line("Button not found.")
+
         if reset:
             self.reset_actions()
         self.update_status_line()
@@ -2244,7 +2284,7 @@ class Endcord:
             from_cache = False
             if self.limit_channle_cache:
                 for num, channel in enumerate(self.channel_cache):
-                    if channel[0] == self.active_channel["channel_id"]:
+                    if channel[0] == self.active_channel["channel_id"] and not channel.get(3):
                         from_cache = True
                         break
 
