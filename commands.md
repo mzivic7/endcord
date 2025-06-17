@@ -76,3 +76,5 @@
     Pin sellected message to current channel.
 - `push_button [num/name]`  
     Push button on interactive app message. Specify either button number or button name (case-insensitive).
+- `string_select [string]` / `string_select [num] [string]`  
+    Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if have multiple string selects.

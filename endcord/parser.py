@@ -23,6 +23,8 @@ match_profile = re.compile(r"<@(\d*)>")
 
 match_command_arguments = re.compile(r"--(\S+)=(\w+|\"[^\"]+\")?")
 
+match_string_select = re.compile(r"string_select(?: (\d+))?\s+(.+)")
+
 
 def date_to_snowflake(date, end=False):
     """Convert date to discord snowflake, rounded to day start, if end=True then is rounded to day end"""
@@ -563,6 +565,17 @@ def command_string(text):
             name = text.split(" ")[1]
             cmd_args = {"name": name}
         except IndexError:
+            cmd_type = 0
+
+    # 38 - STRING_SELECT
+    elif text.lower().startswith("string_select"):
+        cmd_type = 38
+        match = re.search(match_string_select, text.lower())
+        if match:
+            num = match.group(1)
+            string = match.group(2)
+            cmd_args = {"num": num, "text": string}
+        else:
             cmd_type = 0
 
     return cmd_type, cmd_args

@@ -1,4 +1,6 @@
-Add string select message component
-Add text input message component
+More app message interactions
+Modal app interactions
+More detailed notification settings
+UI borders
 Voice and video calls
 Localization

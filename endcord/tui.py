@@ -283,7 +283,7 @@ class TUI():
             tuple(self.win_status_line.getmaxyx()),
         )
 
-    def get_selected(self):
+    def get_chat_selected(self):
         """Return index of currently selected line and how much text has been scrolled"""
         return self.chat_selected, self.chat_index
 

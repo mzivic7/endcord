@@ -212,7 +212,7 @@ def prepare_components(components):
     """Convert mesage components into message, urls and embeds, recursive"""
     text = []
     embeds = []
-    component_info = {"buttons": []}
+    component_info = {"buttons": [], "string_selects": [], "text_inputs": []}
     for component in components:
         comp_type = component["type"]
         if comp_type == 1:   # ACTION_ROW
@@ -220,9 +220,9 @@ def prepare_components(components):
             text.append(" | ".join(new_text))
             embeds.extend(new_embeds)
             component_info["buttons"].extend(new_component_info["buttons"])
+            component_info["string_selects"].extend(new_component_info["string_selects"])
+            component_info["text_inputs"].extend(new_component_info["text_inputs"])
         elif comp_type == 2:   # BUTTON
-            if component.get("disabled"):
-                continue
             button_type = int(component.get("style", 0))
             if button_type < 5:   # standard button
                 button_text = component.get("label")
@@ -230,8 +230,12 @@ def prepare_components(components):
                     button_text = component["emoji"]["name"]
                 if not button_text:
                     button_text = "???"
-                text.append(f"*Button: {button_text}*")
-                component_info["buttons"].append((component["custom_id"], button_text))
+                text.append(f"*Button:* `{button_text}`")
+                component_info["buttons"].append({
+                    "id": component["custom_id"],
+                    "text": button_text,
+                    "disabled": component.get("disabled"),
+                })
             elif button_type == 5:   # link button
                 text.append(f"*Button: {component["url"]}*")
             elif button_type == 5:   # purchase button
@@ -239,7 +243,23 @@ def prepare_components(components):
             else:
                 text.append("*Button: unknown_butotn_disabled*")
         elif comp_type == 3:   # STRING_SELECT
-            text.append("*Unimplemented component: string_select*")
+            selected = None
+            for option in component["options"]:
+                if option.get("default"):
+                    selected = option.get("label")
+                    if not selected:
+                        emoji = option.get("emoji")
+                        if emoji:
+                            selected = emoji["name"]
+                    break
+            if not selected:
+                selected = component.get("placeholder", "None selected")
+            text.append(f"*String select:* `{selected}`")
+            component_info["string_selects"].append({
+                "id": component["custom_id"],
+                "options": component["options"],
+                "disabled": component.get("disabled"),
+            })
         elif comp_type == 4:   # TEXT_INPUT
             text.append("*Unimplemented component: text_input*")
         elif comp_type == 5:   # USER_SELECT
@@ -335,6 +355,8 @@ def prepare_components(components):
             text.extend(["  " + x for x in new_text])
             embeds.extend(new_embeds)
             component_info["buttons"].extend(new_component_info["buttons"])
+            component_info["string_selects"].extend(new_component_info["string_selects"])
+            component_info["text_inputs"].extend(new_component_info["text_inputs"])
     return text, embeds, component_info
 
 

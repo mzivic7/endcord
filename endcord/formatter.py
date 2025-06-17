@@ -50,6 +50,7 @@ COMMAND_ASSISTS = (
     ("show_pinned", "show_pinned"),
     ("pin_message", "pin_message"),
     ("push_button [num/name]", "push_button"),
+    ("string_select [string]", "string_select"),
     ("toggle_tab", "toggle_tab"),
     ("switch_tab [num]", "switch_tab"),
     ("vote [num]", "vote"),

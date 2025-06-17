@@ -746,7 +746,7 @@ class Endcord:
                     if channel[2]:
                         pinned += 1
                 if pinned >= self.limit_channle_cache:   # if all are pinned
-                    self.update_extra_line("Cant add tab: channel cache limit reached.")
+                    self.update_extra_line("Can't add tab: channel cache limit reached.")
                 else:
                     self.active_channel["pinned"] = True
             self.update_tabs(add_current=True)
@@ -2136,11 +2136,11 @@ class Endcord:
                         else:
                             self.update_extra_line("Already voted.")
                     else:
-                        self.update_extra_line("Cant vote - selected answer does not exist.")
+                        self.update_extra_line("Can't vote - selected answer does not exist.")
                 else:
-                    self.update_extra_line("Cant vote - poll has ended.")
+                    self.update_extra_line("Can't vote - poll has ended.")
             else:
-                self.update_extra_line("Cant vote - selected message is not a poll.")
+                self.update_extra_line("Can't vote - selected message is not a poll.")
 
         elif cmd_type == 35:   # SHOW_PINNED
             self.view_pinned()
@@ -2153,26 +2153,32 @@ class Endcord:
                     self.messages[msg_index]["id"],
                 )
             else:
-                self.update_extra_line("Cant pin a message - not permitted.")
+                self.update_extra_line("Can't pin a message - not permitted.")
 
         elif cmd_type == 37:   # PUSH_BUTTON
             msg_index = self.lines_to_msg(chat_sel)
             message = self.messages[msg_index]
             if "component_info" in message and message["component_info"]["buttons"]:
+                disabled = False
                 if "num" in cmd_args:
                     try:
-                        custom_id = message["component_info"]["buttons"][int(cmd_args["num"])-1][0]
+                        button = message["component_info"]["buttons"][int(cmd_args["num"])-1]
+                        custom_id = button["id"]
+                        disabled = button["disabled"]
                     except IndexError:
                         custom_id = None
                 else:
                     name = cmd_args["name"].lower()
                     for button in message["component_info"]["buttons"]:
-                        if button[1].lower() == name:
-                            custom_id = button[0]
+                        if button["text"].lower() == name:
+                            custom_id = button["id"]
+                            disabled = button["disabled"]
                             break
                     else:
                         custom_id = None
-                if custom_id:
+                if disabled:
+                    self.update_extra_line("Can't push button, its disabled.")
+                elif custom_id:
                     command_data = {
                         "component_type": 2,
                         "custom_id": custom_id,
@@ -2189,6 +2195,53 @@ class Endcord:
                     )
                 else:
                     self.update_extra_line("Button not found.")
+
+        elif cmd_type == 38:   # STRING_SELECT
+            chat_sel, _ = self.tui.get_chat_selected()
+            msg_index = self.lines_to_msg(chat_sel)
+            message = self.messages[msg_index]
+            if "component_info" in message and message["component_info"]["buttons"]:
+                if cmd_args["num"]:
+                    num = max(int(cmd_args["num"])-1, 0)
+                else:
+                    num = 0
+                custom_id = None
+                try:
+                    string_select = message["component_info"]["string_selects"][num]
+                    custom_id = string_select["id"]
+                    disabled = string_select["disabled"]
+                except IndexError:
+                    custom_id = None
+                if disabled:
+                    self.update_extra_line("Can't select string, its disabled.")
+                elif custom_id:
+                    # check if label is valid and select value
+                    label = cmd_args["text"].lower().strip()
+                    for option in string_select["options"]:
+                        if label == option["label"].lower():
+                            value = option["value"]
+                            break
+                    else:
+                        value = None
+                        self.update_extra_line("Specified value is invalid")
+                    if value:
+                        command_data = {
+                            "component_type": 3,
+                            "custom_id": custom_id,
+                            "values": [value],
+                        }
+                        self.discord.send_interaction(
+                            self.active_channel["guild_id"],
+                            self.active_channel["channel_id"],
+                            self.session_id,
+                            message["user_id"],   # user_id is app_id
+                            3,
+                            command_data,
+                            None,
+                            message_id=message["id"],
+                        )
+                else:
+                    self.update_extra_line("String select not found.")
 
         if reset:
             self.reset_actions()
@@ -3175,6 +3228,32 @@ class Endcord:
                     for key, value in self.config.items():
                         if key != "token":
                             self.assist_found.append((f"set {key} = {value}", f"set {key} = {value}"))
+            elif assist_word.lower().startswith("string_select "):
+                chat_sel, _ = self.tui.get_chat_selected()
+                msg_index = self.lines_to_msg(chat_sel)
+                message = self.messages[msg_index]
+                if "component_info" in message and message["component_info"]["buttons"]:
+                    num = assist_word.split(" ")[1]
+                    try:
+                        num = max(int(num)-1, 0)
+                        assist_words = assist_word.split(" ")[2:]
+                    except (ValueError, IndexError):
+                        num = 0
+                        assist_words = assist_word.split(" ")[1:]
+                    try:
+                        string_select = message["component_info"]["string_selects"][num]
+                    except IndexError:
+                        string_select = None
+                    # allow executing command if space is at the end
+                    if string_select and not (assist_word.endswith(" ") and not all(not x for x in assist_words)):
+                        for option in string_select["options"]:
+                            label = option["label"].lower()
+                            if all(x in label for x in assist_words):
+                                description = option.get("description", "")
+                                if description:
+                                    self.assist_found.append((f"{option["label"]}{description}", f"string_select {num+1} {option["value"]}"))
+                                else:
+                                    self.assist_found.append((option["label"], f"string_select {num+1} {option["value"]}"))
             else:
                 for command in formatter.COMMAND_ASSISTS:
                     if all(x in command[1] for x in assist_words):
@@ -3592,7 +3671,7 @@ class Endcord:
     def update_chat(self, keep_selected=True, change_amount=0):
         """Generate chat and update it in TUI"""
         if keep_selected:
-            selected_line, text_index = self.tui.get_selected()
+            selected_line, text_index = self.tui.get_chat_selected()
             if selected_line == -1:
                 keep_selected = False
             if change_amount > 0:
@@ -4651,7 +4730,7 @@ class Endcord:
         logger.info("Main loop started")
 
         while self.run:
-            selected_line, text_index = self.tui.get_selected()
+            selected_line, text_index = self.tui.get_chat_selected()
 
             # get new messages
             while self.run:

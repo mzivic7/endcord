@@ -31,6 +31,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Toggle reply ping
 - Search messages
 - Client commands
+- App commands and some interactions
 - View user profile
 - Channel tree (Server/DM/Group)
     - Correct channel order
@@ -478,6 +479,7 @@ Or, if you don't have a github account, want more interactive support, to share 
 Go to [TODO](todo.txt).
 
 ### Features that will not be added
-Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned.  
+Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned:  
+Sending friend request, opening new DM, creating new thread, scriptable command macros, anything paument related.  
+
 Therefore they will NOT be implemented in endcord.  
-Features: sending friend request, opening new DM, creating new thread, command macros.  
