@@ -1870,12 +1870,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         "parent_index": None,
     })
     for dm in dms:
-        if dm["name"]:
-            name = dm["name"]
-        elif dm["recipients"]:
-            name = dm["recipients"][0]["username"]
-        else:
-            name = "Unknown DM"
+        name = dm["name"]
         unseen_dm = False
         mentioned_dm = False
         if dm["id"] in unseen:

@@ -34,7 +34,6 @@ if support_media:
     from endcord import clipboard, media
 
 logger = logging.getLogger(__name__)
-APP_NAME = "endcord"
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "audio", "rich")
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
@@ -426,7 +425,7 @@ class Endcord:
             from_cache = False
             if self.limit_channle_cache:
                 for num, channel in enumerate(self.channel_cache):
-                    if channel[0] == channel_id and not channel.get(3):
+                    if channel[0] == channel_id and not (len(channel) > 3 and channel[3]):
                         from_cache = True
                         break
 
@@ -2321,10 +2320,7 @@ class Endcord:
         # check dms
         for dm in self.dms:
             if dm["id"] == channel_id:
-                if dm["name"]:
-                    name = dm["name"]
-                else:
-                    name = dm["recipients"][0]["username"]
+                name = dm["name"]
                 return channel_id, name, None, None, None
         return None, None, None, None, None
 
@@ -2337,7 +2333,7 @@ class Endcord:
             from_cache = False
             if self.limit_channle_cache:
                 for num, channel in enumerate(self.channel_cache):
-                    if channel[0] == self.active_channel["channel_id"] and not channel.get(3):
+                    if channel[0] == self.active_channel["channel_id"] and not (len(channel) > 3 and channel[3]):
                         from_cache = True
                         break
 
@@ -3105,10 +3101,7 @@ class Endcord:
                         self.assist_found.append((name, channel["id"]))
             else:   # all guilds channels and dms
                 for dm in self.dms:
-                    if dm["name"]:
-                        name = dm["name"]
-                    else:
-                        name = dm["recipients"][0]["username"]
+                    name = dm["name"]
                     if all(x in name.lower() for x in assist_words):
                         self.assist_found.append((f"{name} (DM)", dm["id"]))
                 if self.tui.input_buffer.startswith("toggle_mute") or self.tui.input_buffer.startswith("mark_as_read"):
@@ -3769,6 +3762,13 @@ class Endcord:
                     })
                     if len(tabs_names_unsorted) == len(tabs):
                         break
+        for dm in self.dms:
+            if dm["id"] in tabs:
+                tabs_names_unsorted.append({
+                    "channel_id": dm["id"],
+                    "channel_name": dm["name"],
+                    "guild_name": "DM",
+                })
         # sort names
         tabs_names = []
         for tab in tabs:
@@ -4534,9 +4534,33 @@ class Endcord:
                 if notification["channel_id"] == data["channel_id"]:
                     skip = True
             if not skip:
+                if data["guild_id"]:
+                    # find guild and channel name
+                    guild_id = data["guild_id"]
+                    channel_id = data["channel_id"]
+                    channel_name = None
+                    for guild in self.guilds:
+                        if guild["guild_id"] == guild_id:
+                            break
+                    for channel in guild["channels"]:
+                        if channel["id"] == channel_id and channel.get("permitted"):
+                            channel_name = channel["name"]
+                            break
+                    if channel_name:
+                        title = f"{data["global_name"]} (#{channel_name})"
+                    else:
+                        title = data["global_name"]
+                else:
+                    title = data["global_name"]
+                if data["content"]:
+                    body = data["content"]
+                elif data["embeds"]:
+                    body = f"Sent {data["embeds"]} embeds"
+                else:
+                    body = "Unknown content"
                 notification_id = peripherals.notify_send(
-                    APP_NAME,
-                    f"{data["global_name"]}:\n{data["content"]}",
+                    title,
+                    body,
                     sound=self.notification_sound,
                     custom_sound=self.notification_path,
                 )

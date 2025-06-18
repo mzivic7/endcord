@@ -1,6 +1,5 @@
-More app message interactions
+UI borders
 Modal app interactions
 More detailed notification settings
-UI borders
 Voice and video calls
 Localization

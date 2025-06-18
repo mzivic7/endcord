@@ -446,8 +446,13 @@ class Gateway():
                                     break
                         if "name" in dm:   # for group dm
                             name = dm["name"]
+                        elif recipients:
+                            if recipients[0]["global_name"]:
+                                name = recipients[0]["global_name"]
+                            else:
+                                name = recipients[0]["username"]
                         else:
-                            name = recipients[0]["global_name"]
+                            name = "Unknown DM"
                         last_message_id = dm.get("last_message_id", 0)
                         if last_message_id is None:
                             last_message_id = 0

@@ -453,10 +453,6 @@ Locally hidden channels can be restored by removing them in `hidden_channels.jso
 ### Must send at least N messages in official client
 The client will refuse to send message in newly-created DM channels. This measure is to prevent triggering discords spam filter.
 
-### Visual "glitches"
-If there are visual "glitches", garbled output on screen, you can press `Ctrl+L` to redraw entire UI.  
-To lower amount of "glitches" set higher values for `screen_update_delay` in config.  
-
 ### No notification sound
 Custom notification sound can be set in config: `custom_notification_sound = /path/to/file.mp3`.
 
@@ -480,6 +476,6 @@ Go to [TODO](todo.txt).
 
 ### Features that will not be added
 Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned:  
-Sending friend request, opening new DM, creating new thread, scriptable command macros, anything paument related.  
+Sending friend request, opening new DM, creating new thread, scriptable command macros, anything payment related.  
 
 Therefore they will NOT be implemented in endcord.  
