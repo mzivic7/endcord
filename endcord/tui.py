@@ -415,6 +415,7 @@ class TUI():
         0 - tree end
         1 - active channel
         """
+        num = 0
         skipped = 0
         drop_down_skip_guild = False
         drop_down_skip_category = False

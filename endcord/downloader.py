@@ -36,8 +36,8 @@ class Downloader:
 
     def download(self, url):
         """Download that downloads file and stores it in temp folder"""
-        if not os.path.exists(peripherals.temp_path):
-            os.makedirs(os.path.expanduser(os.path.dirname(peripherals.temp_path)), exist_ok=True)
+        if not os.path.exists(os.path.expanduser(peripherals.temp_path)):
+            os.makedirs(os.path.expanduser(os.path.dirname(os.path.expanduser(peripherals.temp_path))), exist_ok=True)
         url_object = urllib.parse.urlparse(url)
         filename = os.path.basename(url_object.path)
         proxy = urllib.parse.urlparse(self.proxy)
@@ -52,7 +52,7 @@ class Downloader:
                 logger.warn("Invalid proxy, continuing without proxy")
         response = http.request("GET", url, preload_content=False)
         extension = response.headers.get("Content-Type", None).split("/")[-1].replace("jpeg", "jpg")
-        destination = os.path.join(peripherals.temp_path, filename)
+        destination = os.path.join(os.path.expanduser(peripherals.temp_path), filename)
         if os.path.splitext(destination)[-1] == "" and extension:
             destination = destination + "." + extension
         self.active += 1

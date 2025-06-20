@@ -73,22 +73,26 @@ if sys.platform == "linux":
         temp_path = os.path.join(path, f"{APP_NAME}/")
     else:
         # per-user temp dir
-        temp_path = f"/run/user/{os.getuid()}/{APP_NAME}"
+        temp_path = f"/run/user/{os.getuid()}/{APP_NAME}/"
+        # fallback to .cache
+        if not os.access(f"/run/user/{os.getuid()}", os.W_OK):
+            temp_path = f"~/.cache/{APP_NAME}"
+
     path = os.environ.get("XDG_DOWNLOAD_DIR", "")
     if path.strip():
         downloads_path = os.path.join(path, f"{APP_NAME}/")
     else:
-        downloads_path = "~/Downloads"
+        downloads_path = "~/Downloads/"
 elif sys.platform == "win32":
     config_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
     log_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
     temp_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"), "")
-    downloads_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/Downloads"), "")
+    downloads_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/Downloads/"), "")
 elif sys.platform == "darwin":
     config_path = f"~/Library/Application Support/{APP_NAME}/"
     log_path = f"~/Library/Application Support/{APP_NAME}/"
-    temp_path = f"~/Library/Caches/TemporaryItems{APP_NAME}"
-    downloads_path = "~/Downloads"
+    temp_path = f"~/Library/Caches/TemporaryItems{APP_NAME}/"
+    downloads_path = "~/Downloads/"
 else:
     sys.exit(f"Unsupported platform: {sys.platform}")
 

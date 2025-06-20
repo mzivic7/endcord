@@ -578,4 +578,8 @@ def command_string(text):
         else:
             cmd_type = 0
 
+    # 39 - DUMP_CHAT
+    elif text.lower().startswith("dump_chat"):
+        cmd_type = 39
+
     return cmd_type, cmd_args

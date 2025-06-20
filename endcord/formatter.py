@@ -57,6 +57,7 @@ COMMAND_ASSISTS = (
     ("paste_clipboard_image", "paste_clipboard_image"),
     ("insert_timestamp YYYY-MM-DD-HH-mm", "insert_timestamp"),
     ("check_standing", "check_standing"),
+    ("dump_chat", "dump_chat"),
     ("set [key] = [value]", "set"),
 )
 
@@ -756,7 +757,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                         if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
                             if content:
                                 content += "\n"
-                            content += f"[{clean_type(embed["type"])} embed]: \n{embed["url"]}"
+                            content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
                 reply_line = (
                     format_reply
                     .replace("%username", normalize_string(message["referenced_message"]["username"], limit_username))
@@ -827,7 +828,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
                 if content:
                     content += "\n"
-                content += f"[{clean_type(embed["type"])} embed]: \n{embed["url"]}"
+                content += f"[{clean_type(embed["type"])} embed]:\n{embed["url"]}"
         for sticker in message["stickers"]:
             sticker_type = sticker["format_type"]
             if content:

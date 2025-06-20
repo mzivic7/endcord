@@ -3,3 +3,5 @@ Modal app interactions
 More detailed notification settings
 Voice and video calls
 Localization
+
+Return numpy to latest, with next soundcard release

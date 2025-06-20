@@ -820,9 +820,11 @@ class Endcord:
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input_forum(self.prompt)
                 input_text = ""
             elif self.restore_input_text[1] == "prompt":
+                self.stop_extra_window()
                 self.restore_input_text = [None, "after_prompt"]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.restore_input_text[1] == "standard":
+                self.stop_extra_window()
                 init_text = self.restore_input_text[0]
                 self.restore_input_text = [None, None]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True)
@@ -1408,15 +1410,7 @@ class Endcord:
                     else:
                         self.restore_input_text = [input_text, "standard"]
                 elif self.extra_window_open:
-                    self.tui.instant_assist = False
-                    self.close_extra_window()
-                    if self.search or self.command:
-                        self.reset_actions()
-                    self.search = False
-                    self.tui.disable_wrap_around(False)
-                    self.search_end = False
-                    self.search_messages = []
-                    self.command = False
+                    self.stop_extra_window(update=False)
                 elif self.replying["id"]:
                     self.reset_actions()
                 elif self.editing:
@@ -2241,6 +2235,14 @@ class Endcord:
                         )
                 else:
                     self.update_extra_line("String select not found.")
+
+        elif cmd_type == 39:   # DUMP_CHAT
+            if self.forum:
+                self.update_extra_line("Cant dump chat, this is forum.")
+            else:
+                unique_name = f"chat_dump_{time.strftime("%Y-%m-%d-%H-%M-%S")}.json"
+                debug.save_json(self.messages, unique_name)
+                self.update_extra_line(f"Chat saved to: {os.path.join(peripherals.log_path, "Debug")}")
 
         if reset:
             self.reset_actions()
@@ -3535,6 +3537,23 @@ class Endcord:
                 self.tui.draw_extra_window(self.extra_bkp[0], self.extra_bkp[1], select=True)
 
 
+    def stop_extra_window(self, update=True):
+        """Properly close extra window, no matter on content"""
+        self.tui.instant_assist = False
+        self.close_extra_window()
+        if self.search or self.command:
+            self.ignore_typing = False
+            self.tui.typing = time.time() - 5
+        self.search = False
+        self.tui.disable_wrap_around(False)
+        self.search_end = False
+        self.search_messages = []
+        self.command = False
+        if update:
+            self.update_status_line()
+            self.stop_assist()
+
+
     def insert_assist(self, input_text, index, start, end):
         """Insert assist from specified at specified position in the text"""
         if index >= len(self.assist_found) or index < 0:
@@ -4644,6 +4663,8 @@ class Endcord:
             logger.info(f"ASCII media is not supported{have_yt_dlp}{have_mpv}")
         if not peripherals.have_sound:
             logger.warn("No sound! Audio system is probably not running")
+        if "~/.cache/" in peripherals.temp_path:
+            logger.warn(f"Temp files will be stored in {peripherals.temp_path}")
 
         if self.config["proxy"]:
             logger.info(f"Using proxy: {self.config["proxy"]}")

@@ -1510,7 +1510,7 @@ class Discord():
             connection.close()
             return None
         if response.status == 200:
-            destination = os.path.join(peripherals.temp_path, f"{pfp_id}.webp")
+            destination = os.path.join(os.path.expanduser(peripherals.temp_path), f"{pfp_id}.webp")
             with open(destination, "wb") as f:
                 f.write(response.read())
             connection.close()

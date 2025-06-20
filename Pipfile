@@ -15,7 +15,7 @@ soundfile = "*"
 pysocks = "*"
 python-socks = "*"
 soundcard = "*"
-numpy = "*"
+numpy = "2.2.6"
 
 [dev-packages]
 pillow = "*"

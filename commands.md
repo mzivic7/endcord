@@ -76,5 +76,7 @@
     Pin sellected message to current channel.
 - `push_button [num/name]`  
     Push button on interactive app message. Specify either button number or button name (case-insensitive).
+- `dump_chat`  
+    Dump current chat to unique json, saved in Debug folder found inside config location.
 - `string_select [string]` / `string_select [num] [string]`  
     Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if have multiple string selects.
