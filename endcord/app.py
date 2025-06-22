@@ -823,8 +823,9 @@ class Endcord:
                 self.stop_extra_window()
                 self.restore_input_text = [None, "after_prompt"]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
-            elif self.restore_input_text[1] == "standard":
-                self.stop_extra_window()
+            elif self.restore_input_text[1] in ("standard", "standard extra"):
+                if self.restore_input_text[1] == "standard":
+                    self.stop_extra_window()
                 init_text = self.restore_input_text[0]
                 self.restore_input_text = [None, None]
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True)
@@ -1096,7 +1097,7 @@ class Endcord:
 
             # view profile info
             elif action == 24:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = [input_text, "standard extra"]
                 msg_index = self.lines_to_msg(chat_sel)
                 user_id = self.messages[msg_index]["user_id"]
                 guild_id = self.active_channel["guild_id"]
@@ -1110,7 +1111,7 @@ class Endcord:
 
             # view channel info
             elif action == 25:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = [input_text, "standard extra"]
                 self.view_selected_channel(tree_sel=tree_sel)
 
             # select in extra window / memeber list
@@ -1173,7 +1174,7 @@ class Endcord:
 
             # view summaries
             elif action == 28:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = [input_text, "standard extra"]
                 self.show_summaries()
 
             # search
@@ -1290,7 +1291,7 @@ class Endcord:
 
             # show detailed reactions
             elif action == 37 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = [input_text, "standard extra"]
                 msg_index = self.lines_to_msg(chat_sel)
                 multiple = self.do_view_reactions(msg_index)
                 if multiple:
@@ -1337,7 +1338,7 @@ class Endcord:
                     self.switch_tab(pressed_num_key - 1)
 
             elif action == 43:   # show pinned
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = [input_text, "standard extra"]
                 self.view_pinned()
 
             # mouse double-click on message
@@ -2241,8 +2242,45 @@ class Endcord:
                 self.update_extra_line("Cant dump chat, this is forum.")
             else:
                 unique_name = f"chat_dump_{time.strftime("%Y-%m-%d-%H-%M-%S")}.json"
-                debug.save_json(self.messages, unique_name)
+                debug.save_json({
+                    "channel": self.current_channel,
+                    "chat": self.messages,
+                }, unique_name)
                 self.update_extra_line(f"Chat saved to: {os.path.join(peripherals.log_path, "Debug")}")
+
+        elif cmd_type == 40:   # SET_NOTIFICATIONS
+            channel_id = cmd_args["id"]
+            if channel_id:
+                _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
+            else:
+                channel_id = self.tree_metadata[tree_sel]["id"]
+                guild_id = self.find_parents(tree_sel)[0]
+            if guild_id:   # set channel/category
+                if cmd_args["setting"].startswith("suppress"):
+                    self.update_extra_line("Cant set that option for channel")
+                else:
+                    self.discord.send_notification_setting_channel(cmd_args["setting"], channel_id, guild_id)
+            else:
+                for dm in self.dms:
+                    if dm["id"] == channel_id:
+                        self.update_extra_line("DM has no notification settings")
+                        break
+                else:   # set guild
+                    for guild in self.guilds:
+                        if guild["guild_id"] == channel_id:
+                            break
+                    else:
+                        guild = None
+                    if guild:
+                        if cmd_args["setting"] == "suppress_everyone":
+                            value = not guild.get("suppress_everyone")
+                        elif cmd_args["setting"] == "suppress_roles":
+                            value = not guild.get("suppress_roles")
+                        else:
+                            value = None
+                        self.discord.send_notification_setting_guild(cmd_args["setting"], channel_id, value)
+                    else:
+                        self.update_extra_line("Guild not found")
 
         if reset:
             self.reset_actions()
@@ -3249,6 +3287,58 @@ class Endcord:
                                     self.assist_found.append((f"{option["label"]}{description}", f"string_select {num+1} {option["value"]}"))
                                 else:
                                     self.assist_found.append((option["label"], f"string_select {num+1} {option["value"]}"))
+            elif assist_word.lower().startswith("set_notifications "):
+                assist_words = assist_word.split(" ")
+                channel_id = None
+                if len(assist_words) > 1:
+                    match = re.search(parser.match_channel, assist_words[1])
+                    if match:
+                        channel_id = match.group(1)
+                if channel_id:
+                    _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
+                else:
+                    tree_sel = self.tui.get_tree_selected()
+                    channel_id = self.tree_metadata[tree_sel]["id"]
+                    guild_id = self.find_parents(tree_sel)[0]
+                if assist_word.endswith(" ") and not all(not x for x in assist_words[1:]):
+                    guild_id = None   # skip all
+                    channel_id = None
+                if guild_id:   # channel/category
+                    channel = None
+                    for guild in self.guilds:
+                        if guild["guild_id"] == guild_id:
+                            for channel in guild["channels"]:
+                                if channel["id"] == channel_id:
+                                    break
+                            break
+                    if channel:
+                        message_notifications = channel.get("message_notifications", 0)
+                        for num, option in enumerate(discord.PING_OPTIONS):
+                            if num == message_notifications:
+                                self.assist_found.append((f"* {option}", f"{" ".join(assist_words[:2])}{option}"))
+                            else:
+                                self.assist_found.append((option, f"{" ".join(assist_words[:2])}{option}"))
+                else:
+                    for dm in self.dms:
+                        if dm["id"] == channel_id:
+                            self.assist_found.append(("No notification settings for DM", None))
+                    else:   # guild
+                        for guild in self.guilds:
+                            if guild["guild_id"] == channel_id:
+                                break
+                        else:
+                            guild = None
+                            self.assist_found.append(("Server/channel not found", None))
+                        if guild:
+                            message_notifications = guild.get("message_notifications", 0)
+                            for num, option in enumerate(discord.PING_OPTIONS):
+                                if num == message_notifications:
+                                    self.assist_found.append((f"* {option}", f"{" ".join(assist_words[:2])}{option}"))
+                                else:
+                                    self.assist_found.append((option, f"{" ".join(assist_words[:2])}{option}"))
+                            self.assist_found.append((f"suppress_everyone = {guild.get("suppress_everyone", False)}", f"{" ".join(assist_words[:2])}suppress_everyone"))
+                            self.assist_found.append((f"suppress_roles = {guild.get("suppress_roles", False)}", f"{" ".join(assist_words[:2])}suppress_roles"))
+
             else:
                 for command in formatter.COMMAND_ASSISTS:
                     if all(x in command[1] for x in assist_words):
@@ -3571,9 +3661,11 @@ class Endcord:
         elif self.assist_type == 4:   # sticker
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
         elif self.assist_type == 5:   # command
-            new_text = self.assist_found[index][1] + " "
-            new_pos = len(new_text)
-            return new_text, new_pos
+            if self.assist_found[index][1]:
+                new_text = self.assist_found[index][1] + " "
+                new_pos = len(new_text)
+                return new_text, new_pos
+            return input_text, len(input_text)
         elif self.assist_type == 6:   # app command
             if self.assist_found[index][1] is None:   # execute app command
                 self.execute_app_command(input_text)
@@ -4880,7 +4972,7 @@ class Endcord:
                     self.discord.send_typing(self.active_channel["channel_id"])
                     self.typing_sent = int(time.time())
 
-            # remove unseen after scrooled to bottom on unseen channel
+            # remove unseen after scrolled to bottom on unseen channel
             if self.unseen_scrolled:
                 if text_index == 0:
                     self.unseen_scrolled = False
@@ -4910,6 +5002,7 @@ class Endcord:
             guilds = self.gateway.get_guilds()
             if guilds:
                 self.guilds = guilds
+                self.dms, self.dms_vis_id = self.gateway.get_dms()
                 self.compute_permissions()
                 self.update_tree()
 

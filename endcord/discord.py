@@ -21,6 +21,8 @@ DISCORD_CDN_HOST = "cdn.discordapp.com"
 DISCORD_EPOCH = 1420070400
 SEARCH_PARAMS = ("content", "channel_id", "author_id", "mentions", "has", "max_id", "min_id", "pinned", "offset")
 SEARCH_HAS_OPTS = ("link", "embed", "poll", "file", "video", "image", "sound", "sticker", "forward")
+PING_OPTIONS = ("all", "mention", "nothing")
+SUPPRESS_OPTIONS = ("suppress_everyone", "suppress_roles")
 logger = logging.getLogger(__name__)
 
 
@@ -196,6 +198,7 @@ class Discord():
                 "pronouns": pronouns,
                 "joined_at": None,
                 "tag": tag,
+                "bot": data["user"].get("bot"),
                 "extra": extra_data,
                 "roles": None,
             }
@@ -252,6 +255,7 @@ class Discord():
                 "pronouns": pronouns,
                 "joined_at": joined_at,
                 "tag": tag,
+                "bot": data["user"].get("bot"),
                 "roles": roles,
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")
@@ -883,7 +887,7 @@ class Discord():
 
 
     def send_mute_guild(self, mute, guild_id):
-        """Mute/unmute channel, category, server or DM"""
+        """Mute/unmute guild"""
         guild_id = str(guild_id)
 
         message_dict = {
@@ -893,7 +897,6 @@ class Discord():
                 },
             },
         }
-
         if mute:
             message_dict["guilds"][guild_id]["mute_config"] = {
                 "end_time": None,
@@ -918,7 +921,7 @@ class Discord():
 
 
     def send_mute_channel(self, mute, channel_id, guild_id):
-        """Mute/unmute channel, category, server or DM"""
+        """Mute/unmute channel or category"""
         channel_id = str(channel_id)
         guild_id = str(guild_id)
 
@@ -927,13 +930,11 @@ class Discord():
                 "muted": mute,
             },
         }
-
         if mute:
             channel_overrides[channel_id]["mute_config"] = {
                 "end_time": None,
                 "selected_time_window": -1,
             }
-
         message_dict = {
             "guilds": {
                 guild_id: {
@@ -960,7 +961,7 @@ class Discord():
 
 
     def send_mute_dm(self, mute, dm_id):
-        """Mute/unmute channel, category, server or DM"""
+        """Mute/unmute DM"""
         dm_id = str(dm_id)
 
         message_dict = {
@@ -970,7 +971,6 @@ class Discord():
                 },
             },
         }
-
         if mute:
             message_dict["channel_overrides"][dm_id]["mute_config"] = {
                 "end_time": None,
@@ -992,6 +992,85 @@ class Discord():
             return True
         logger.error(f"Failed to set DM mute config. Response code: {response.status}")
         connection.close()
+        return False
+
+
+    def send_notification_setting_guild(self, setting, guild_id, value=None):
+        """Send notification settings for guild"""
+        guild_id = str(guild_id)
+        option = None
+        for i, ping_option in enumerate(PING_OPTIONS):
+            if setting == ping_option:
+                option = "message_notifications"
+                value = i
+                break
+        if setting in SUPPRESS_OPTIONS:
+            option = setting
+
+        if option:
+            message_dict = {
+                "guilds": {
+                    guild_id: {
+                        option: value,
+                    },
+                },
+            }
+
+            url = "/api/v9/users/@me/guilds/settings"
+            message_data = json.dumps(message_dict)
+            try:
+                connection = self.get_connection(self.host, 443)
+                connection.request("PATCH", url, message_data, self.header)
+                response = connection.getresponse()
+            except (socket.gaierror, TimeoutError):
+                connection.close()
+                return None
+            if response.status == 200:
+                connection.close()
+                return True
+            logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+            connection.close()
+        return False
+
+
+    def send_notification_setting_channel(self, setting, channel_id, guild_id):
+        """Send notification settings for channel or category"""
+        channel_id = str(channel_id)
+        guild_id = str(guild_id)
+        value = None
+        for i, ping_option in enumerate(PING_OPTIONS):
+            if setting == ping_option:
+                value = i
+                break
+
+        if value is not None:
+            channel_overrides = {
+                channel_id: {
+                    "message_notifications": value,
+                },
+            }
+            message_dict = {
+                "guilds": {
+                    guild_id: {
+                        "channel_overrides": channel_overrides,
+                    },
+                },
+            }
+
+            url = "/api/v9/users/@me/guilds/settings"
+            message_data = json.dumps(message_dict)
+            try:
+                connection = self.get_connection(self.host, 443)
+                connection.request("PATCH", url, message_data, self.header)
+                response = connection.getresponse()
+            except (socket.gaierror, TimeoutError):
+                connection.close()
+                return None
+            if response.status == 200:
+                connection.close()
+                return True
+            logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+            connection.close()
         return False
 
 

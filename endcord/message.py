@@ -195,6 +195,8 @@ def prepare_message(message):
         message_dict["poll"] = poll
     if component_info:
         message_dict["component_info"] = component_info
+    # if message["author"].get("bot"):
+    #     message_dict["bot"] = True
     return message_dict
 
 

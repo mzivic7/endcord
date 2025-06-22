@@ -288,6 +288,11 @@ class TUI():
         return self.chat_selected, self.chat_index
 
 
+    def get_tree_selected(self):
+        """Return index of currently selected tree line"""
+        return self.tree_selected_abs
+
+
     def get_extra_selected(self):
         """Return index of selected line in extra window"""
         return self.extra_selected

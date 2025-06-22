@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 DISCORD_EPOCH_MS = 1420070400000
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
 TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%d-%H-%M", "%H:%M:%S", "%H:%M")
-
+NOTIFICATION_VALUES = ("all", "mention", "nothing", "suppress_everyone", "suppress_roles")
 
 match_from = re.compile(r"from:<@\d*>")
 match_mentions = re.compile(r"mentions:<@\d*>")
@@ -317,7 +317,7 @@ def command_string(text):
     cmd_args = {}
 
     # 1 - SET
-    if text.lower().startswith("set"):
+    if text.lower().startswith("set "):
         # "set [key] = [value]" / "set [key]=[value]"
         cmd_type = 1
         match = re.search(match_setting, text)
@@ -581,5 +581,22 @@ def command_string(text):
     # 39 - DUMP_CHAT
     elif text.lower().startswith("dump_chat"):
         cmd_type = 39
+
+    # 29 - SET_NOTIFICATIONS
+    elif text.lower().startswith("set_notifications"):
+        cmd_type = 40
+        cmd_split = text.split(" ")
+        have_id = False
+        cmd_args = {"id": None, "setting": ""}
+        if len(cmd_split) > 1:
+            match = re.search(match_channel, cmd_split[1])
+            if match:
+                cmd_args["channel_id"] = match.group(1)
+                have_id = True
+        if len(cmd_split) > 1 + have_id:
+            if cmd_split[1 + have_id].lower() in NOTIFICATION_VALUES:
+                cmd_args["setting"] = cmd_split[1 + have_id].lower()
+            else:
+                cmd_type = 0
 
     return cmd_type, cmd_args

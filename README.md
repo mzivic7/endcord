@@ -62,7 +62,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Hide or mask blocked/ignored users
 - No ghost pings (when client is running)
 - Role colors in chat
-- Date separators in chat
+- Change server/channel/category notification settings
 - Partial markdown support (underline, bold, italic, spoiler, quote)
 - Theming
 - Customizable status, title and prompt lines

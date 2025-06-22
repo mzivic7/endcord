@@ -80,3 +80,5 @@
     Dump current chat to unique json, saved in Debug folder found inside config location.
 - `string_select [string]` / `string_select [num] [string]`  
     Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if have multiple string selects.
+- `set_notifications ...` / `set_notifications <#[channel_id]> ...`  
+    Show and modify server/channel notification settings

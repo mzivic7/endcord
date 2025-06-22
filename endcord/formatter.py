@@ -21,7 +21,7 @@ pinned:true/false"""
 
 COMMAND_ASSISTS = (
     ("goto <#[channel_id]>", "goto"),
-    ("view_pfp <@[user_id]>", "view_pfp"),
+    ("view_pfp *<@[user_id]>", "view_pfp"),
     ("react [reaction]", "react"),
     ("status *[type]", "status"),
     ("download *[num]", "download"),
@@ -56,6 +56,7 @@ COMMAND_ASSISTS = (
     ("vote [num]", "vote"),
     ("paste_clipboard_image", "paste_clipboard_image"),
     ("insert_timestamp YYYY-MM-DD-HH-mm", "insert_timestamp"),
+    ("set_notifications *<#[channel_id]> ...", "set_notifications"),
     ("check_standing", "check_standing"),
     ("dump_chat", "dump_chat"),
     ("set [key] = [value]", "set"),
@@ -77,7 +78,7 @@ match_escaped_md = re.compile(r"\\(?=[^a-zA-Z\d\s])")
 match_md_underline = re.compile(r"(?<!\\)((?<=_))?__[^_]+__")
 match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
 match_md_strikethrough = re.compile(r"(?<!\\)((?<=~))?~~[^~]+~~")   # unused
-match_md_spoiler = re.compile(r"(?<!\\)((?<=\|))?\|\|[^_]+\|\|")
+match_md_spoiler = re.compile(r"(?<!\\)((?<=\|))?\|\|[^_]+?\|\|")
 match_md_code_snippet = re.compile(r"(?<!`|\\)`[^`]+`")
 match_md_code_block = re.compile(r"(?s)```.*?```")
 match_md_italic = re.compile(r"\b(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)\b|(((?<=\*))?\*[^\*]+\*)")
@@ -595,6 +596,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     format_date = config["format_date"]
     emoji_as_text = config["emoji_as_text"]
     quote_character = config["quote_character"]
+    use_global_name = "%global_name" in format_message
 
     chat = []
     chat_format = []
@@ -804,12 +806,15 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
         # main message
         quote = False
-        if use_nick and message["nick"]:
-            global_name_nick = message["nick"]
-        elif message["global_name"]:
-            global_name_nick = message["global_name"]
+        if use_global_name:
+            if use_nick and message["nick"]:
+                global_name_nick = message["nick"]
+            elif message["global_name"]:
+                global_name_nick = message["global_name"]
+            else:
+                global_name_nick = message["username"]
         else:
-            global_name_nick = message["username"]
+            global_name_nick = ""
         content = ""
         if "poll" in message:
             message["content"] = format_poll(message["poll"])
@@ -845,7 +850,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         message_line = (
             format_message
             .replace("%username", normalize_string(message["username"], limit_username))
-            .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
+            .replace("%global_name", normalize_string(global_name_nick, limit_global_name))
             .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
             .replace("%edited", edited_string if edited else "")
             .replace("%content", content)
@@ -1425,7 +1430,11 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
     global_name = ""
     if user_data["global_name"]:
         global_name = f"Name: {user_data["global_name"]}"
-    username = f"Username: {user_data["username"]}"
+    if user_data["bot"]:
+        username_string = "BOT name"
+    else:
+        username_string = "Username"
+    username = f"{username_string}: {user_data["username"]}"
     pronouns = ""
     if user_data["pronouns"]:
         pronouns = f"Pronouns: {user_data["pronouns"]}"

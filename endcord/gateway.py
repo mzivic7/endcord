@@ -1127,6 +1127,54 @@ class Gateway():
                         }
                     self.guilds_changed = True
 
+                elif optext == "USER_GUILD_SETTINGS_UPDATE":
+                    data = response["d"]
+                    if data["guild_id"]:   # guild and channel
+                        for guild_num_search, guild_g in enumerate(self.guilds):
+                            guild_g.pop("suppress_everyone", None)   # reset to default
+                            guild_g.pop("suppress_roles", None)
+                            guild_g.pop("message_notifications", None)
+                            guild_g.pop("mute", None)
+                            if guild_g["guild_id"] == data["guild_id"]:
+                                guild_num = guild_num_search
+                                break
+                        else:
+                            continue
+                        self.guilds[guild_num].update({
+                            "suppress_everyone": data["suppress_everyone"],
+                            "suppress_roles": data["suppress_roles"],
+                            "message_notifications": data["message_notifications"],
+                            "muted": data["muted"],
+                        })
+                        for channel_g in self.dms:
+                            channel_g.pop("message_notifications", None)   # reset to default
+                            channel_g.pop("muted", None)
+                        for channel in data["channel_overrides"]:
+                            for channel_num, channel_g in enumerate(self.guilds[guild_num]["channels"]):
+                                if channel_g["id"] == channel["channel_id"]:
+                                    break
+                            else:
+                                continue
+                            self.guilds[guild_num]["channels"][channel_num].update({
+                                "message_notifications": channel["message_notifications"],
+                                "muted": channel["muted"],
+                            })
+                    else:   # dm
+                        for dm_g in self.dms:
+                            dm_g.pop("message_notifications", None)   # reset to default
+                            dm_g.pop("muted", None)
+                        for dm in data["channel_overrides"]:
+                            for dm_num, dm_g in enumerate(self.dms):
+                                if dm_g["id"] == dm["channel_id"]:
+                                    break
+                            else:
+                                continue
+                            self.dms[dm_num].update({
+                                "message_notifications": dm["message_notifications"],
+                                "muted": dm["muted"],
+                            })
+                    self.guilds_changed = True
+
                 elif optext == "APPLICATION_COMMAND_AUTOCOMPLETE_RESPONSE":
                     self.app_command_autocomplete_resp = response["d"]["choices"]
 
