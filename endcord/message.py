@@ -162,7 +162,7 @@ def prepare_message(message):
 
     # components
     component_info = None
-    if "components" in message:
+    if message.get("components"):
         new_content, new_embeds, component_info = prepare_components(message["components"])
         new_content_str = ""
         for line in new_content:

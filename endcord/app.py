@@ -46,6 +46,7 @@ INTERACTION_THROTTLING = 3   # delay between sending app interactions
 APP_COMMAND_AUTOCOMPLETE_DELAY = 0.3   # delay for requesting app command autocompleions after stop typing
 
 match_emoji = re.compile(r"<:(.*):(\d*)>")
+match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
 
 
 recorder = peripherals.Recorder()
@@ -414,12 +415,12 @@ class Endcord:
 
         # generate forum
         if current_channel.get("type") == 15:
-            self.forum = True
+            forum = True
             self.update_forum(guild_id, channel_id)
 
         # fetch messages or load them from cache
         else:
-            self.forum = False
+            forum = False
 
             # check if this channel chat is in cache and remove it
             from_cache = False
@@ -479,7 +480,7 @@ class Endcord:
         self.selected_attachment = 0
         self.gateway.subscribe(channel_id, guild_id)
         self.gateway.set_subscribed_channels([x[0] for x in self.channel_cache] + [channel_id])
-        if not self.forum:
+        if not forum:
             self.set_seen(channel_id)
         if self.recording:
             self.recording = False
@@ -521,9 +522,10 @@ class Endcord:
                 self.current_my_roles = roles["roles"]
                 break
         self.select_current_member_roles()
+        self.forum = forum   # changing it here because previous code takes long time
 
         # update UI
-        if not self.forum:
+        if not forum:
             self.update_chat(keep_selected=False)
         else:
             self.tui.update_chat(self.chat, self.chat_format)
@@ -964,7 +966,7 @@ class Endcord:
                     self.update_status_line()
 
             # download and open media attachment
-            elif action == 17 and support_media:
+            elif action == 17:
                 msg_index = self.lines_to_msg(chat_sel)
                 urls, media_type = self.get_msg_media(msg_index)
                 if len(urls) == 1:
@@ -2288,6 +2290,7 @@ class Endcord:
 
 
     def execute_app_command(self, input_text, autocomplete=False):
+
         """Parse and execute app command/autocomplete"""
         command_data, app_id, need_attachment = parser.app_command_string(
             input_text,
@@ -2482,7 +2485,7 @@ class Endcord:
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
         destination = None
         from_cache = False
-        match = re.search(media.match_youtube, url)
+        match = re.search(match_youtube, url)
         if match:
             url = match.group()
             if open_media:
@@ -3758,18 +3761,18 @@ class Endcord:
         If TUI mode: prevent other UI updates, draw media and wait for input, after quitting - update UI
         If native mode: just open the file/url
         """
-        if self.config["native_media_player"]:
-            if shutil.which(self.config["yt_dlp_path"]) and shutil.which(self.config["mpv_path"]):
-                mpv_path = self.config["mpv_path"]
-            else:
-                mpv_path = ""
-            peripherals.native_open(path, mpv_path)
-        elif support_media:
+        if support_media and not self.config["native_media_player"]:
             self.tui.lock_ui(True)
             self.curses_media.play(path)
             # restore first 255 colors, attributes were not modified
             self.tui.restore_colors()   # 255_curses_bug
             self.tui.lock_ui(False)
+        else:
+            if shutil.which(self.config["yt_dlp_path"]) and shutil.which(self.config["mpv_path"]):
+                mpv_path = self.config["mpv_path"]
+            else:
+                mpv_path = ""
+            peripherals.native_open(path, mpv_path)
 
 
     def update_chat(self, keep_selected=True, change_amount=0):
@@ -4274,6 +4277,7 @@ class Endcord:
                     else:
                         to_sort = True
                         channel["threads"].append(new_thread)
+                    break
             else:
                 new_thread.pop("parent_id")
                 self.threads[num]["channels"].append({
@@ -4289,6 +4293,7 @@ class Endcord:
         self.update_tree()
         if self.forum:
             self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
+            self.tui.update_chat(self.chat, self.chat_format)
 
 
     def thread_togle_join(self, guild_id, channel_id, thread_id, join=None):

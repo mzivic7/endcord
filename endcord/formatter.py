@@ -1727,7 +1727,7 @@ def generate_extra_window_reactions(reaction, details, max_len):
 
 def generate_forum(threads, blocked, max_length, colors, colors_formatted, config):
     """
-    Generate chat according to provided formatting.
+    Generate forum according to provided formatting.
     Possible options for forum_format:
         %thread_name
         %timestamp
@@ -1977,9 +1977,9 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                 muted = channel.get("muted", False)
                 hidden = 1
                 if channel.get("hidden"):
-                    hidden = 2
+                    hidden = 2   # forced hidden
                 else:
-                    hidden = 1
+                    hidden = 1   # hidden unless there are channelss
                 # using local storage instead for collapsed
                 # collapsed = category_set["collapsed"]
                 categories.append({
@@ -2019,7 +2019,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                         # hide restricted channels now because they can be marked as unseen/ping
                         if not channel.get("permitted", False):
                             hidden_ch = True
-                        if not (category["muted"] or category["hidden"] or hidden_ch or muted_ch):
+                        if not (category["muted"] or category["hidden"] == 2 or hidden_ch or muted_ch):
                             if unseen_ch:
                                 category["unseen"] = True
                                 unseen_guild = True
