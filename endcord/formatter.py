@@ -227,6 +227,10 @@ def trim_at_emoji(line, limit):
     return line[:i+1]
 
 
+def count_emojis(text):
+    """Count how many emojis are in the text"""
+    return sum(1 for char in text if char in emoji.EMOJI_DATA)
+
 def replace_discord_emoji(line):
     """
     Transform emoji strings into nicer looking ones:
@@ -775,8 +779,9 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     .replace("%timestamp", "")
                     .replace("%content", message["referenced_message"]["content"].replace("\r", "").replace("\n", ""))
                 )
-            if len(reply_line) > max_length:
-                reply_line = reply_line[:max_length - 3] + "..."   # -3 to leave room for "..."
+            emoji_count = count_emojis(reply_line[:max_length - 3])
+            if len(reply_line) + emoji_count > max_length:
+                reply_line = reply_line[:max_length - (3 + emoji_count)] + "..."   # -3 to leave room for "..." and adjust for emojis
             temp_chat.append(reply_line)
             if disable_formatting or reply_color_format == color_blocked:
                 temp_format.append([reply_color_format])
@@ -793,8 +798,9 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 .replace("%username", message["interaction"]["username"][:limit_username])
                 .replace("%command", message["interaction"]["command"])
             )
-            if len(interaction_line) > max_length:
-                interaction_line = interaction_line[:max_length - 3] + "..."
+            emoji_count = count_emojis(interaction_line[:max_length - 3])
+            if len(interaction_line) + emoji_count > max_length:
+                interaction_line = interaction_line[:max_length - (3 + emoji_count)] + "..."
             temp_chat.append(interaction_line)
             if disable_formatting or reply_color_format == color_blocked:
                 temp_format.append([reply_color_format])
@@ -1764,8 +1770,9 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
             .replace("%timestamp", generate_timestamp(thread["timestamp"], forum_format_timestamp, convert_timezone))
             .replace("%msg_count", normalize_int_str(thread["message_count"], 3))
         )
-        if len(thread_line) > max_length:
-            thread_line = thread_line[:max_length - 3] + "..."   # -3 to leave room for "..."
+        emoji_count = count_emojis(thread_line[:max_length - 3])
+        if len(thread_line) + emoji_count > max_length:
+            thread_line = thread_line[:max_length - (3 + emoji_count)] + "..."   # -3 to leave room for "..." and adjust for emojis
         forum.append(thread_line)
 
         if thread["owner_id"] in blocked:
