@@ -1,4 +1,3 @@
-Add more threads to forum
 Voice and video calls
 Localization
 With next soundcard release, return numpy to latest version in Pipfile

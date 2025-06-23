@@ -99,6 +99,7 @@ class Discord():
         self.my_commands = []
         self.my_apps = []
         self.guild_commands = []
+        self.threads = []
         self.uploading = []
 
 
@@ -1072,6 +1073,58 @@ class Discord():
             logger.error(f"Failed to set guild mute config. Response code: {response.status}")
             connection.close()
         return False
+
+
+    def get_threads(self, channel_id, number=25, offset=0, archived=True):
+        """Get specified number of threads with offset for one forum"""
+        message_data = None
+        url = f"/api/v9/channels/{channel_id}/threads/search?archived={archived}&sort_by=last_message_time&sort_order=desc&limit={number}&tag_setting=match_some&offset={offset}"
+        if offset == 0:   # check in cache
+            for channel in self.threads:
+                if channel["channel_id"] == channel_id:
+                    return len(channel["threads"]), channel["threads"]
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return 0, []
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            threads = []
+            total = data["total_results"]
+            for thread in data["threads"]:
+                threads.append({
+                    "id": thread["id"],
+                    "type": thread["type"],
+                    "owner_id": thread["owner_id"],
+                    "name": thread["name"],
+                    "locked": thread["thread_metadata"]["locked"],
+                    "message_count": thread["message_count"],
+                    "timestamp": thread["thread_metadata"]["create_timestamp"],
+                    "parent_id": thread["parent_id"],
+                    "suppress_everyone": False,   # no config for threads
+                    "suppress_roles": False,
+                    "message_notifications": None,
+                    "muted": False,   # muted and joined are in READY event
+                    "joined": False,
+                })
+            if offset == 0:   # save to cache
+                for channel in self.threads:
+                    if channel["channel_id"] == channel_id:
+                        channel["threads"] = threads
+                        break
+                else:
+                    self.threads.append({
+                        "channel_id": channel_id,
+                        "threads": threads,
+                    })
+            return total, threads
+        logger.error(f"Failed to perform a thread search. Response code: {response.status}")
+        connection.close()
+        return 0, []
 
 
     def join_thread(self, thread_id):

@@ -226,6 +226,8 @@ class Endcord:
         self.last_message_id = 0
         self.my_rpc = []
         self.chat_end = False
+        self.forum_end = False
+        self.forum_old = []
         self.downloader.cancel()
         self.download_threads = []
         self.upload_threads = []
@@ -334,6 +336,8 @@ class Endcord:
 
         self.typing = []
         self.chat_end = False
+        self.forum_end = False
+        self.forum_old = []
         self.gateway.subscribe(
             self.active_channel["channel_id"],
             self.active_channel["guild_id"],
@@ -416,7 +420,9 @@ class Endcord:
         # generate forum
         if current_channel.get("type") == 15:
             forum = True
-            self.update_forum(guild_id, channel_id)
+            self.forum_end = False
+            self.forum_old = []
+            self.get_forum_chunk(force=True)
 
         # fetch messages or load them from cache
         else:
@@ -466,7 +472,7 @@ class Endcord:
         # if this is thread and is locked or archived, prevent sending messages
         elif self.current_channel.get("type") in (11, 12) and self.current_channel.get("locked"):
             self.disable_sending = "Can't send a message: this thread is locked"
-        elif not self.current_channel.get("allow_write", True):
+        elif not self.current_channel.get("allow_write", True) and not forum:
             self.disable_sending = "Can't send a message: No write permissions"
         else:
             self.disable_sending = False
@@ -2756,6 +2762,26 @@ class Endcord:
                     break
 
 
+    def get_forum_chunk(self, force=False):
+        """Get chunk of forum and add it to existing chat, no trimming, entries are cached for each forum"""
+        self.add_running_task("Downloading forum", 4)
+        logger.debug(f"Requesting forum chunk with offset {len(self.forum_old)}")
+        num_threads, new_chunk = self.discord.get_threads(
+            self.active_channel["channel_id"],
+            number=25,
+            offset=len(self.forum_old),
+            archived=True,
+        )
+        if self.forum or force:
+            self.forum_old += new_chunk
+            if num_threads:
+                self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
+                self.tui.update_chat(self.chat, self.chat_format)
+            else:
+                self.chat_end = True
+        self.remove_running_task("Downloading forum", 4)
+
+
     def toggle_member_list(self):
         """Toggle member list if there is enough space"""
         if self.member_list_visible:
@@ -3823,7 +3849,7 @@ class Endcord:
                         break
                 break
         self.chat, self.chat_format = formatter.generate_forum(
-            self.messages,
+            self.messages + self.forum_old,
             self.blocked,
             self.chat_dim[1],
             self.colors,
@@ -5084,6 +5110,10 @@ class Endcord:
                     self.get_chat_chunk(past=False)
                 elif selected_line >= len(self.chat) - 1 and not self.chat_end:
                     self.get_chat_chunk(past=True)
+            elif self.forum and not self.forum_end:
+                len_forum = len(self.messages) + len(self.forum_old)
+                if len_forum <= 1 or selected_line >= len_forum - 2:
+                    self.get_forum_chunk()
 
             # check for message search chunks
             if self.search and self.extra_indexes:

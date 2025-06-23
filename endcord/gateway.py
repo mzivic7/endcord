@@ -963,7 +963,7 @@ class Gateway():
                             "suppress_everyone": False,   # no config for threads
                             "suppress_roles": False,
                             "message_notifications": None,
-                            "muted": False,
+                            "muted": False,   # muted and joined are in READY event
                             "joined": False,
                         })
                     self.threads_buffer.append({
