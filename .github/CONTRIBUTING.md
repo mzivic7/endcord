@@ -22,11 +22,8 @@ So, before even thinking about putting it through LLM, open an issue and save yo
 
 
 ## Running from source
-1. setup pipenv if not already:
-- `pipenv install --dev`
-- `pipenv run python build.py --prepare` (windows only)
-2. Run `main.py`:
-- `pipenv run python main.py`
+1. setup uv environment if not already: `uv sync --all-groups`
+2. Run main.py: `uv run main.py`
 
 
 ## useful debugging things

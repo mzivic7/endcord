@@ -327,9 +327,11 @@ Open link in browser - `Alt+O`
 
 ## Installing
 ### Linux
+- Pre-built binaries (built with nuitka using clang) are available in releases
 - From AUR:
     - `yay -S endcord` - full version with media support, larger executable
     - `yay -S endcord-lite` - lite version without media support
+    - `-git` versions will build from source
 - Build, then copy built executable to system:  
     `sudo cp dist/endcord /usr/local/bin/`
 
@@ -343,15 +345,16 @@ Optional dependencies:
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
-Build, standalone executable can be found in `./dist/endcord.exe`.  
+- Pre-built binaries (built with nuitka using clang) are available in releases
+- Build, standalone executable can be found in `./dist/endcord.exe`.  
 Run exe from wt or cmder. In cmder settings, under "Font" check "Treat font height as device units", so font is always monospace.  
 Optional dependency, for spellchecking: [aspell](https://github.com/adamyg/aspell-win32). It is expected to be installed in `C:\Program Files (x86)\`. If it is not, please open an issue and provide the actual install path. Alongside with base aspell, dictionary must be installed, even en_US.  
 Emoji and Ctrl+key support depends on terminal.  
-To run code from source on windows, there are extra dependencies needed to prepare environment (automatically installed when building). Install them by providing `--prepare` flag to build script.  
 To enable youtube support, download [yt-dlp](https://github.com/yt-dlp/yt-dlp) and provide its executable path in config.  
 
 ### macOS
-Build, standalone executable can be found in `./dist/`.  
+- Pre-built binaries (built with nuitka using clang) are available in releases
+- Build, standalone executable can be found in `./dist/`.  
 Optional dependency, for spellchecking: [aspell](https://github.com/adamyg/aspell-win32). Can be installed with: `brew aspell`.  
 Never tested on macOS. Feedback is welcome.
 
@@ -363,36 +366,33 @@ Never tested on macOS. Feedback is welcome.
 
 
 ## Building
-To see all build script options, run: `pipenv run python build.py -h`.  
+To see all build script options, run: `uv run build.py -h`.  
 To build endcord-lite, add `--lite` flag. No ascii media, slightly less RAM usage, smaller executable, faster startup.  
 To build into directory, not as a single executable, add `--onedir` flag. Will speed up startup.  
 To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, long compile time. See [Nuitka](#nuitka) for more info.
 
 ### Linux
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
-2. Install [pipenv](https://docs.pipenv.org/install/)
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 3. `cd endcord`
-4. Setup virtual environment: `pipenv install`
-5. run build script: `pipenv run python build.py --build`  
+4. Setup virtual environment: `uv sync --all-groups`
+5. run build script: `uv run build.py`  
 
 ### Windows
 1. Install [Python](https://www.python.org/) 3.13 or later
-2. Install [pipenv](https://docs.pipenv.org/install/)
-    - `pip install pipenv`
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
-4. Setup virtual environment: `pipenv install`
-5. run build script: `pipenv run python build.py --build`
+5. Setup virtual environment: `uv sync --all-groups`
+6. run build script: `uv run build.py`
 
 ### macOS
 1. Install [Python](https://www.python.org/) 3.13 or later
-2. Install [pipenv](https://docs.pipenv.org/install/)
-    - `pip install pipenv`
-3. Install libmagic: `brew install libmagic`
+2. Install dependencies: `brew install uv libmagic`
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
-4. Setup virtual environment: `pipenv install`
-5. run build script: `pipenv run python build.py --build`
+5. Setup virtual environment: `uv sync --all-groups`
+6. run build script: `uv run build.py`
 
 ### Nuitka
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  

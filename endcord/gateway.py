@@ -930,9 +930,13 @@ class Gateway():
                         self.querying_members = False
                         self.member_query_results = []
                         for member in data["members"]:
+                            name = member.get("nick")
+                            if not name:
+                                name = member["user"]["global_name"]
                             self.member_query_results.append({
                                 "id": member["user"]["id"],
                                 "username": member["user"]["username"],
+                                "name": name,
                             })
                     else:
                         guild_id = data["guild_id"]

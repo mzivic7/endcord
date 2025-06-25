@@ -3209,9 +3209,13 @@ class Endcord:
                     self.assist_found.append((f"{role_name} - role", f"&{role["id"]}"))
             if query_results:
                 for member in query_results:
-                    member_name = member["username"]
-                    if all(x in member_name for x in assist_words):
-                        self.assist_found.append((member_name, member["id"]))
+                    member_username = member["username"]
+                    if all(x in member_username for x in assist_words):
+                        if member["name"]:
+                            member_name = f" ({member["name"]})"
+                        else:
+                            member_name = ""
+                        self.assist_found.append((f"{member_username}{member_name}", member["id"]))
             else:
                 self.gateway.request_members(
                     self.active_channel["guild_id"],

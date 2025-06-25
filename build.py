@@ -21,49 +21,27 @@ def check_media_support():
 def add_media():
     """Add media support"""
     if not check_media_support():
-        command = "pipenv install --dev"
+        command = "uv sync --group media"
         os.system(command)
 
 
 def remove_media():
     """Remove media support"""
     if check_media_support():
-        command = "pipenv run python -m pip uninstall -y pillow av"
+        command = "uv pip uninstall pillow av"
         os.system(command)
 
 
-def setup_nuitka():
-    """Check if nuitka is installed and install it"""
-    if importlib.util.find_spec("nuitka") is None:
-        command = "pipenv run python -m pip install nuitka"
+def check_dev():
+    """Check if its dev environment and set it up"""
+    if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
+        command = "uv sync --group build"
         os.system(command)
-
-
-def prepare():
-    """OS specific preparations for running and building"""
-    if sys.platform == "linux":
-        pass
-    elif sys.platform == "win32":
-        try:
-            _ = importlib.metadata.distribution("windows-curses")
-        except importlib.metadata.PackageNotFoundError:
-            try:   # python-magic-bin contains required dll
-                importlib.metadata.version("python-magic")
-                uninstall_magic = "pipenv run python -m pip uninstall -y python-magic"
-                os.system(uninstall_magic)
-            except importlib.metadata.PackageNotFoundError:
-                pass
-            install_windows_dependencies = "pipenv run python -m pip install pywin32 pywin32-ctypes windows-toasts windows-curses python-magic-bin"
-            os.system(install_windows_dependencies)
-    elif sys.platform == "darwin":
-        pass
-    else:
-        sys.exit(f"This platform is not supported: {sys.platform}")
 
 
 def build_with_pyinstaller(onedir):
-    """Build with pyistaller"""
-    prepare()
+    """Build with pyinstaller"""
+    check_dev()
     if check_media_support():
         pkgname = APP_NAME
         print("ASCII media support is enabled")
@@ -77,13 +55,13 @@ def build_with_pyinstaller(onedir):
     hidden_imports = "--hidden-import uuid"
 
     if sys.platform == "linux":
-        command = f'pipenv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --clean --name {pkgname} "main.py"'
+        command = f'uv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "win32":
-        command = f'pipenv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --console --clean --name {pkgname} "main.py"'
+        command = f'uv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --console --clean --name {pkgname} "main.py"'
         os.system(command)
     elif sys.platform == "darwin":
-        command = f'pipenv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --console --clean --name {pkgname} "main.py"'
+        command = f'uv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --console --clean --name {pkgname} "main.py"'
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
@@ -97,8 +75,7 @@ def build_with_pyinstaller(onedir):
 
 def build_with_nuitka(onedir, clang):
     """Build with nuitka"""
-    prepare()
-    setup_nuitka()
+    check_dev()
     if check_media_support():
         pkgname = APP_NAME
         print("ASCII media support is enabled")
@@ -117,16 +94,16 @@ def build_with_nuitka(onedir, clang):
     include_package_data = "--include-package-data=emoji --include-package-data=soundcard"
 
     if sys.platform == "linux":
-        command = f"pipenv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "win32":
-        command = f"pipenv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
+        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
         os.system(command)
     elif sys.platform == "darwin":
-        command = f'pipenv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
+        command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
         os.system(command)
     else:
-        sys.exit("Building with Nuitka is currently only supported on Linux")
+        sys.exit(f"This platform is not supported: {sys.platform}")
 
 
 def parser():
@@ -136,16 +113,6 @@ def parser():
         description="setup and build script for endcord",
     )
     parser._positionals.title = "arguments"
-    parser.add_argument(
-        "--prepare",
-        action="store_true",
-        help="prepare build and working environment, OS specific, main.py can be run after this",
-    )
-    parser.add_argument(
-        "--build",
-        action="store_true",
-        help="build endcord, prepare should be ran atleast once before or or together with building",
-    )
     parser.add_argument(
         "--nuitka",
         action="store_true",
@@ -175,13 +142,9 @@ if __name__ == "__main__":
         remove_media()
     else:
         add_media()
-    if args.prepare:
-        prepare()
     if args.nuitka:
         build_with_nuitka(args.onedir, args.clang)
         sys.exit()
-    if args.build:
+    else:
         build_with_pyinstaller(args.onedir)
         sys.exit()
-    if not (args.prepare or args.build or args.lite):
-        sys.exit("No arguments provided")

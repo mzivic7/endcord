@@ -1,17 +1,21 @@
 import os
 import sys
+import tomllib
 
 extensions_white = [".py", ".ini"]
 extensions_black = [".pyc"]
 
 
 def get_version_number():
-    """Get version number from VersionNumber file"""
-    if os.path.exists("VersionNumber"):
-        with open("VersionNumber") as f:
-            version = f.readline()
-        return version.replace("\n", "")
-    print("VersionNumber file not found,")
+    """Get version number from pyproject.toml"""
+    if os.path.exists("pyproject.toml"):
+        with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        if "project" in data and "version" in data["project"]:
+            return str(data["project"]["version"])
+        print("Version not specified in pyproject.toml")
+        sys.exit()
+    print("pyproject.toml file not found")
     sys.exit()
 
 
@@ -19,9 +23,10 @@ def get_file_list():
     """Get list of all files with extensions from extensions_white"""
     file_list = []
     for path, subdirs, files in os.walk(os.getcwd()):
+        subdirs[:] = [d for d in subdirs if not d.startswith(".")]   # skip hidden dirs
         for name in files:
             file_path = os.path.join(path, name)
-            if any(x in file_path for x in extensions_white):
+            if any(x in file_path for x in extensions_white) and not name.startswith("."):
                 if not any(x in file_path for x in extensions_black):
                     file_list.append(file_path)
     return file_list
