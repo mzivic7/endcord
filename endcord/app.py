@@ -722,10 +722,6 @@ class Endcord:
                     # wait to receive
                     time.sleep(0.1)
 
-        # replace discord links
-        for msg_num, message in enumerate(self.messages):
-            self.messages[msg_num] = formatter.replace_discord_url(message, current_guild)
-
 
     def remove_channel_cache(self, num=None, active=False):
         """Remove chached channel"""
@@ -1230,23 +1226,26 @@ class Endcord:
                 channels = []
                 msg_index = self.lines_to_msg(chat_sel)
                 message_text = self.messages[msg_index]["content"]
-                mention_msg = self.messages[msg_index].get("mention_msg")
-                msg_num = 0
-                for match in re.finditer(formatter.match_channel_id_msg_group, message_text):
-                    if match.group(2) and msg_num < len(mention_msg):
-                        message_id = mention_msg[msg_num]
-                        msg_num += 1
-                    else:
+                for match in re.finditer(formatter.match_discord_channel_combined, message_text):
+                    # gropus: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
+                    if match.group(1):
+                        guild_id = self.active_channel["guild_id"]
+                        channel_id = match.group(3)
                         message_id = None
-                    channels.append([match.group(1), message_id])
+                    else:
+                        guild_id = match.group(2)
+                        channel_id = match.group(3)
+                        message_id = match.group(4)
+                    channels.append((guild_id, channel_id, message_id))
                 if not channels:
                     continue
                 if len(channels) == 1:
-                    channel_id = channels[0][0]
-                    message_id = channels[0][1]
-                    channel_name = self.channel_name_from_id(channel_id)
+                    guild_id = channels[0][0]
+                    channel_id = channels[0][1]
+                    message_id = channels[0][2]
+                    channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channel_id)
                     if channel_name:
-                        self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
+                        self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
                         if message_id:
                             self.go_to_message(message_id)
                 else:
@@ -1564,12 +1563,14 @@ class Endcord:
                         self.update_status_line()
                         continue
                     if num <= len(self.going_to_ch):
-                        channel_id = self.going_to_ch[num][0]
-                        message_id = self.going_to_ch[num][1]
-                        channel_name = self.channel_name_from_id(channel_id)
-                        self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
-                        if message_id:
-                            self.go_to_message(message_id)
+                        guild_id = self.going_to_ch[num][0]
+                        channel_id = self.going_to_ch[num][1]
+                        message_id = self.going_to_ch[num][2]
+                        channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channel_id)
+                        if channel_name:
+                            self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
+                            if message_id:
+                                self.go_to_message(message_id)
 
                 elif self.view_reactions["message_id"]:
                     reactions = self.view_reactions["reactions"]
@@ -1948,23 +1949,26 @@ class Endcord:
             msg_index = self.lines_to_msg(chat_sel)
             channels = []
             message_text = self.messages[msg_index]["content"]
-            mention_msg = self.messages[msg_index].get("mention_msg")
-            msg_num = 0
-            for match in re.finditer(formatter.match_channel_id_msg_group, message_text):
-                if match.group(2) and msg_num < len(mention_msg):
-                    message_id = mention_msg[msg_num]
-                    msg_num += 1
-                else:
+            for match in re.finditer(formatter.match_discord_channel_combined, message_text):
+                # gropus: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
+                if match.group(1):
+                    guild_id = self.active_channel["guild_id"]
+                    channel_id = match.group(3)
                     message_id = None
-                channels.append([match.group(1), message_id])
+                else:
+                    guild_id = match.group(2)
+                    channel_id = match.group(3)
+                    message_id = match.group(4)
+                channels.append((guild_id, channel_id, message_id))
             if len(channels) == 1 or select_num is not None:
                 if select_num is None:
                     select_num = 0
-                channel_id = channels[select_num][0]
-                message_id = channels[select_num][1]
-                channel_name = self.channel_name_from_id(channel_id)
+                guild_id = channels[select_num][0]
+                channel_id = channels[select_num][1]
+                message_id = channels[select_num][2]
+                channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channel_id)
                 if channel_name:
-                    self.switch_channel(channel_id, channel_name, self.active_channel["guild_id"], self.active_channel["guild_name"])
+                    self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
                     if message_id:
                         self.go_to_message(message_id)
             elif channels:
@@ -2685,9 +2689,6 @@ class Endcord:
                     # wait to receive
                     time.sleep(0.1)
 
-        # replace discord links
-        for msg_num, message in enumerate(messages):
-            messages[msg_num] = formatter.replace_discord_url(message, current_guild)
         return messages
 
 
@@ -4402,7 +4403,6 @@ class Endcord:
         op = new_message["op"]
         if op == "MESSAGE_CREATE":
             # if latest message is loaded - not viewing old message chunks
-            data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
             if self.messages[0]["id"] == self.last_message_id:
                 self.messages.insert(0, data)
             self.last_message_id = data["id"]
@@ -4432,7 +4432,6 @@ class Endcord:
             for num, loaded_message in enumerate(self.messages):
                 if data["id"] == loaded_message["id"]:
                     if op == "MESSAGE_UPDATE":
-                        data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
                         for element in MESSAGE_UPDATE_ELEMENTS:
                             loaded_message[element] = data[element]
                             loaded_message["spoiled"] = 0
@@ -4491,7 +4490,6 @@ class Endcord:
         data = new_message["d"]
         op = new_message["op"]
         if op == "MESSAGE_CREATE":
-            data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
             self.channel_cache[ch_num][1].insert(0, data)
             if len(self.channel_cache[ch_num][1]) > self.msg_num:
                 self.channel_cache[ch_num][1].pop(-1)
@@ -4499,7 +4497,6 @@ class Endcord:
             for num, loaded_message in enumerate(self.channel_cache[ch_num][1]):
                 if data["id"] == loaded_message["id"]:
                     if op == "MESSAGE_UPDATE":
-                        data = formatter.replace_discord_url(data, self.active_channel["guild_id"])
                         for element in MESSAGE_UPDATE_ELEMENTS:
                             loaded_message[element] = data[element]
                     elif op == "MESSAGE_DELETE":

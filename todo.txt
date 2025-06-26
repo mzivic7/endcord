@@ -2,4 +2,4 @@ Enable dependabot
 Add build-and-release workflow
 Voice and video calls
 Localization
-With next soundcard release, return numpy to latest version in Pipfile
+With next soundcard release, return numpy to latest version

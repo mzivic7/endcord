@@ -1536,6 +1536,7 @@ class TUI():
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and whether channel is changed
         """
+        _, w = self.input_hw
         if reset:
             self.input_buffer = ""
             self.input_index = 0
@@ -1545,8 +1546,8 @@ class TUI():
         if init_text:
             self.input_buffer = init_text
             if not keep_cursor:
+                w += len(self.prompt) - len(prompt)
                 self.input_index = len(self.input_buffer)
-                _, w = self.input_hw
                 self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
                 self.cursor_pos = max(self.cursor_pos, 0)
                 self.cursor_pos = min(w - 1, self.cursor_pos)

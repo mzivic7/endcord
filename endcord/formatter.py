@@ -72,8 +72,6 @@ match_role = re.compile(r"<@&(\d*?)>")
 match_channel = re.compile(r"<#(\d*?)>")
 match_timestamp = re.compile(r"<t:(\d+)(:[tTdDfFR])?>")
 match_channel_id = re.compile(r"(?<=<#)\d*?(?=>)")
-match_channel_id_msg = re.compile(r"(?<=<#)\d*?(?=>>MSG)")
-match_channel_id_msg_group = re.compile(r"((?<=<#)\d*?(?=>))(>>MSG)?")
 match_escaped_md = re.compile(r"\\(?=[^a-zA-Z\d\s])")
 match_md_underline = re.compile(r"(?<!\\)((?<=_))?__[^_]+__")
 match_md_bold = re.compile(r"(?<!\\)((?<=\*))?\*\*[^\*]+\*\*")
@@ -83,8 +81,8 @@ match_md_code_snippet = re.compile(r"(?<!`|\\)`[^`]+`")
 match_md_code_block = re.compile(r"(?s)```.*?```")
 match_md_italic = re.compile(r"\b(?<!\\)(?<!\\_)(((?<=_))?_[^_]+_)\b|(((?<=\*))?\*[^\*]+\*)")
 match_url = re.compile(r"https?:\/\/\w+(\.\w+)+[^\r\n\t\f\v )\]>]*")
-match_discord_channel_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)")
-match_discord_message_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)\/(\d*)")
+match_discord_channel_url = re.compile(r"https:\/\/discord\.com\/channels\/(\d*)\/(\d*)(?:\/(\d*))?")
+match_discord_channel_combined = re.compile(r"<#(\d*?)>|https:\/\/discord\.com\/channels\/(\d*)\/(\d*)(?:\/(\d*))?")
 match_sticker_id = re.compile(r"<;\d*?;>")
 
 
@@ -265,6 +263,16 @@ def replace_roles(line, roles_ids):
                 line = line.replace(match.group(), f"@{role["name"]}")
                 break
     return line
+
+
+def replace_discord_url(text):
+    """Replace discord url for channel and message"""
+    for match in re.finditer(match_discord_channel_url, text):
+        if match.group(3):
+            text = text[:match.start()] + f"<#{match.group(2)}>>MSG" + text[match.end():]
+        else:
+            text = text[:match.start()] + f"<#{match.group(2)}>" + text[match.end():]
+    return text
 
 
 def replace_channels(line, chanels_ids):
@@ -490,25 +498,6 @@ def clean_type(embed_type):
     eg. `image\png` ---> `image`
     """
     return embed_type.split("/")[0]
-
-
-def replace_discord_url(message, current_guild):
-    """Replace discord url only from this guild, for channel or message"""
-    text = message["content"]
-    if not text:
-        return message
-    mention_msg = []
-    for match in re.finditer(match_discord_message_url, text):
-        if match.group(1) == current_guild:
-            text = text[:match.start()] + f"<#{match.group(2)}>>MSG" + text[match.end():]
-            mention_msg.append(match.group(3))
-    for match in re.finditer(match_discord_channel_url, text):
-        if match.group(1) == current_guild:
-            text = text[:match.start()] + f"<#{match.group(2)}>" + text[match.end():]
-    message["content"] = text
-    if mention_msg:
-        message["mention_msg"] = mention_msg
-    return message
 
 
 def format_poll(poll):
@@ -754,6 +743,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     content = replace_discord_emoji(content)
                     content = replace_mentions(content, message["referenced_message"]["mentions"])
                     content = replace_roles(content, roles)
+                    content = replace_discord_url(content)
                     content = replace_channels(content, channels)
                     content = replace_timestamps(content, convert_timezone)
                     if emoji_as_text:
@@ -828,6 +818,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             content = replace_discord_emoji(message["content"])
             content = replace_mentions(content, message["mentions"])
             content = replace_roles(content, roles)
+            content = replace_discord_url(content)
             content = replace_channels(content, channels)
             content = replace_timestamps(content, convert_timezone)
             if emoji_as_text:
@@ -1637,6 +1628,7 @@ def generate_extra_window_search(messages, roles, channels, blocked, total_msg, 
                 content = replace_discord_emoji(message["content"])
                 content = replace_mentions(content, message["mentions"])
                 content = replace_roles(content, roles)
+                content = replace_discord_url(content)
                 content = replace_channels(content, channels)
                 content = replace_timestamps(content, convert_timezone)
                 content = replace_spoilers_oneline(content)

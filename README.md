@@ -327,11 +327,12 @@ Open link in browser - `Alt+O`
 
 ## Installing
 ### Linux
-- Pre-built binaries (built with nuitka using clang) are available in releases
+- Pre-built binaries (built with nuitka using clang) are available in releases  
+    Binaries are built on ubuntu-like distro. Locally bult binaries can be smaller, thus starts faster.
 - From AUR:
     - `yay -S endcord` - full version with media support, larger executable
     - `yay -S endcord-lite` - lite version without media support
-    - `-git` versions will build from source
+    - `-git` versions will build from source, with latest changes
 - Build, then copy built executable to system:  
     `sudo cp dist/endcord /usr/local/bin/`
 
