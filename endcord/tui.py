@@ -18,11 +18,33 @@ if sys.platform == "win32":
 else:
     BACKSPACE = curses.KEY_BACKSPACE
 match_word = re.compile(r"\w")
-
+match_split = re.compile(r"[^\w']")
 
 def ctrl(x):
     """Convert character code to ctrl-modified"""
     return x - 96
+
+
+def resplit(text, pattern=r"[^\w']", diff=False):
+    """Splits string to list of words using regex"""
+    if not diff:
+        return re.split(pattern, text)
+    res = re.split(pattern, text)
+    if res[0] == text:
+        return [""]
+
+
+def rersplit_0(text, pattern=match_split):
+    """text.rsplit(pattern, 1)[0] equivalent in regex to split words"""
+    for i in range(len(text) - 1, -1, -1):
+        if re.match(pattern, text[i]):
+            return text[:i]
+    return text
+
+
+def split_char_in(text):
+    """Check if split character is in text"""
+    return bool(re.search(match_split, text))
 
 
 def set_list_item(input_list, item, index):
@@ -166,6 +188,7 @@ class TUI():
         self.cursor_pos = 0   # on-screen position of cursor
         self.cursor_on = True
         self.enable_autocomplete = False
+        self.bracket_paste = False
         self.spelling_range = [0, 0]
         self.misspelled = []
         self.delta_store = []
@@ -1277,31 +1300,33 @@ class TUI():
 
     def spellcheck(self):
         """Spellcheck words visible on screen"""
+        if self.bracket_paste:
+            return
         w = self.input_hw[1]
         input_buffer = self.input_buffer
         line_start = max(0, len(input_buffer) - w + 1 - self.input_line_index)
         # first space before line_start in input_buffer
-        if " " in input_buffer[:line_start]:
-            range_word_start = len(input_buffer[:line_start].rsplit(" ", 1)[0]) + bool(line_start)
+        if split_char_in(input_buffer[:line_start]):
+            range_word_start = len(rersplit_0(input_buffer[:line_start])) + bool(line_start)
         else:
             range_word_start = 0
         # when input buffer cant fit on screen
         if len(input_buffer) > w:
             # first space after line_start + input_line_w in input_buffer
-            range_word_end = line_start + w + len(input_buffer[line_start+w:].split(" ")[0])
+            range_word_end = line_start + w + len(resplit(input_buffer[line_start+w:])[0])
         else:
             # first space before last word
-            range_word_end = len(input_buffer) - len(input_buffer.split(" ")[-1]) - bool(" " in input_buffer)
+            range_word_end = len(input_buffer) - len(resplit(input_buffer)[-1]) - split_char_in(input_buffer)
         # indexes of words visible on screen
         spelling_range = [range_word_start, range_word_end]
         if spelling_range != self.spelling_range:
-            words_on_screen = input_buffer[range_word_start:range_word_end].split(" ")
+            words_on_screen = resplit(input_buffer[range_word_start:range_word_end])
             misspelled_words_on_screen = self.spellchecker.check_list(words_on_screen)
             misspelled_words_on_screen.append(False)
             # loop over all words visible on screen
             self.misspelled = []
             index = 0
-            for num, word in enumerate(input_buffer[line_start:line_start+w].split(" ")):
+            for num, word in enumerate(resplit(input_buffer[line_start:line_start+w])):
                 word_len = len(word)
                 if misspelled_words_on_screen[num]:
                     self.misspelled.append([index, word_len])
@@ -1559,7 +1584,7 @@ class TUI():
             self.last_key = None
             self.delta_cache = ""
             self.undo_index = None
-        bracket_paste = False
+        self.bracket_paste = False
         selected_completion = 0
         self.keybinding_chain = None
         key = -1
@@ -1622,10 +1647,10 @@ class TUI():
                 if len(sequence) == 3 and sequence[2] == -1:   # ALT+KEY
                     key = f"ALT+{sequence[1]}"
                 elif sequence == [27, 91, 50, 48, 48, 126]:
-                    bracket_paste = True
+                    self.bracket_paste = True
                     continue
                 elif sequence == [27, 91, 50, 48, 49, 126]:
-                    bracket_paste = False
+                    self.bracket_paste = False
                     continue
                 elif sequence[-1] == -1 and sequence[-2] == 27:
                     # holding escape key
@@ -1643,7 +1668,7 @@ class TUI():
 
             if key == 10:   # ENTER
                 # when pasting, dont return, but insert newline character
-                if bracket_paste:
+                if self.bracket_paste:
                     self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                     self.input_index += 1
                     self.add_to_delta_store("\n")

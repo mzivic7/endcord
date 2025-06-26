@@ -22,6 +22,7 @@ from endcord import defaults
 
 logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
+match_split = re.compile(r"[^\w']")
 APP_NAME = "endcord"
 ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
 NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification sound
@@ -532,7 +533,7 @@ class SpellCheck():
         """
         misspelled = []
         if self.enable:
-            for word in sentence.split(" "):
+            for word in re.split(match_split, sentence):
                 if word == "":
                     misspelled.append(False)
                 else:
