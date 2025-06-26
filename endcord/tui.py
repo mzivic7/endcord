@@ -1735,6 +1735,9 @@ class TUI():
                         break
                 self.input_index -= left_len
                 self.input_index = max(self.input_index, 0)
+                input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+                if input_line_index_diff <= 0:
+                    self.input_line_index -= input_line_index_diff - 4   # diff is negative
                 self.input_select_start = None
 
             elif key in self.keybindings["word_right"]:
@@ -1747,6 +1750,9 @@ class TUI():
                         break
                 self.input_index += left_len
                 self.input_index = min(self.input_index, len(self.input_buffer))
+                input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) - w
+                if input_line_index_diff >= 0:
+                    self.input_line_index -= input_line_index_diff + 4   # diff is negative
                 self.input_select_start = None
 
             elif key in self.keybindings["select_word_left"]:
@@ -1761,6 +1767,9 @@ class TUI():
                         break
                 self.input_index -= left_len
                 self.input_index = max(self.input_index, 0)
+                input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+                if input_line_index_diff <= 0:
+                    self.input_line_index -= input_line_index_diff - 4   # diff is negative
                 if self.input_select_start is not None:
                     self.input_select_end -= left_len
 
@@ -1776,6 +1785,9 @@ class TUI():
                         break
                 self.input_index += left_len
                 self.input_index = min(self.input_index, len(self.input_buffer))
+                input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) - w
+                if input_line_index_diff >= 0:
+                    self.input_line_index -= input_line_index_diff + 4   # diff is negative
                 if self.input_select_start is not None:
                     self.input_select_end += left_len
 

@@ -100,7 +100,7 @@ def build_with_nuitka(onedir, clang):
         command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
         os.system(command)
     elif sys.platform == "darwin":
-        command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording audio." main.py'
+        command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message." main.py'
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
