@@ -21,7 +21,7 @@ def check_media_support():
 def add_media():
     """Add media support"""
     if not check_media_support():
-        command = "uv sync --group media"
+        command = "uv sync --all-groups"
         os.system(command)
 
 
@@ -41,7 +41,6 @@ def check_dev():
 
 def build_with_pyinstaller(onedir):
     """Build with pyinstaller"""
-    check_dev()
     if check_media_support():
         pkgname = APP_NAME
         print("ASCII media support is enabled")
@@ -75,7 +74,6 @@ def build_with_pyinstaller(onedir):
 
 def build_with_nuitka(onedir, clang):
     """Build with nuitka"""
-    check_dev()
     if check_media_support():
         pkgname = APP_NAME
         print("ASCII media support is enabled")
@@ -138,6 +136,7 @@ def parser():
 
 if __name__ == "__main__":
     args = parser()
+    check_dev()
     if args.lite:
         remove_media()
     else:
