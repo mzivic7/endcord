@@ -34,32 +34,33 @@ def get_file_list():
 
 def main():
     """Update versions in all files"""
-    print("Running version update script.")
+    print("Running version update script")
     version = get_version_number()
     file_list = get_file_list()
     any_updated = False
-    for filename in file_list:
-        if "version_update.py" not in filename:
-            update = False
-            with open(filename, "r") as f:
+
+    for path in file_list:
+        if "version_update.py" not in path:
+            with open(path, "r") as f:
                 lines = f.readlines()
-                for line in lines:
-                    if line.startswith("VERSION = "):
-                        if line.split("VERSION = ")[-1] != f'"{version}"\n':
-                            update = True
-            if update:
+
+            changed = False
+            for num, line in enumerate(lines):
+                if line.startswith("VERSION = ") and line.split("VERSION = ")[-1] != f'"{version}"\n':
+                    lines[num] = f'VERSION = "{version}"\n'
+                    changed = True
+                    break
+
+            if changed:
+                with open(path, "w") as f:
+                    f.writelines(lines)
+                print(f"Version number updated in: {path}")
                 any_updated = True
-                with open(filename, "w") as f:
-                    for line in lines:
-                        if "VERSION = " in line:
-                            f.write(f'VERSION = "{version}"\n')
-                        else:
-                            f.write(line)
-                print(f"Version number updated in: {filename}")
+
     if any_updated:
         print(f"New version: {version}")
     else:
-        print("Version in all files is already the latest.")
+        print("Version in all files is already the latest")
     sys.exit()
 
 if __name__ == "__main__":

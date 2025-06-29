@@ -2,6 +2,7 @@ import argparse
 import importlib.metadata
 import importlib.util
 import os
+import re
 import shutil
 import sys
 
@@ -37,6 +38,46 @@ def check_dev():
     if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
         command = "uv sync --group build"
         os.system(command)
+
+
+def patch_soundcard():
+    """
+    Search for soundcard/mediafoundation.py in .venv
+    Prepend "if _ole32: " to "_ole32.CoUninitialize()" line while respecting indentation
+    """
+    if not os.path.exists(".venv"):
+        print(".venv dir not found")
+        return
+
+    for root, dirs, files in os.walk(".venv"):
+        if "soundcard" in dirs:
+            soundcard_dir = os.path.join(root, "soundcard")
+            path = os.path.join(soundcard_dir, "mediafoundation.py")
+            if os.path.isfile(path):
+                break
+    else:
+        print("Soundcard library not found")
+        return
+
+    with open(path, "r") as f:
+        lines = f.readlines()
+
+    pattern = re.compile(r"^(\s*)_ole32\.CoUninitialize\(\)")
+    changed = False
+    for num, line in enumerate(lines):
+        match = re.match(pattern, line)
+        if match:
+            indent = match.group(1)
+            lines[num] = f"{indent}if _ole32: _ole32.CoUninitialize()\n"
+            changed = True
+            break
+
+    if changed:
+        with open(path, "w") as f:
+            f.writelines(lines)
+        print(f"Patched file: {path}")
+    else:
+        print(f"Nothing to patch in file {path}")
 
 
 def build_with_pyinstaller(onedir):
@@ -95,6 +136,7 @@ def build_with_nuitka(onedir, clang):
         command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
         os.system(command)
     elif sys.platform == "win32":
+        patch_soundcard()
         command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
         os.system(command)
     elif sys.platform == "darwin":
