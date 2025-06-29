@@ -1,0 +1,195 @@
+name: Build and Release
+run-name: ${{ github.workflow }} for ${{ github.ref_name }}
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        clang-version: [20.1.4]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            python-version: "3.13"
+            nuitka: true
+          - os: windows-latest
+            platform: windows
+            python-version: "3.12"   # https://github.com/Nuitka/Nuitka/issues/3234
+            nuitka: true
+          - os: macos-latest
+            platform: macos
+            python-version: "3.13"
+            nuitka: true
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      ## uncomment to enable caching with artifacts
+      # - name: Set CCACHE_DIR environment variable
+      #   if: ${{ matrix.nuitka }}
+      #   shell: bash
+      #   run: |
+      #     if [[ "${{ runner.os }}" == "Windows" ]]; then
+      #       echo "CCACHE_DIR=${LOCALAPPDATA}\\clcache" >> $GITHUB_ENV
+      #     elif [[ "${{ runner.os }}" == "macOS" ]]; then
+      #       echo "CCACHE_DIR=$HOME/Library/Caches/ccache" >> $GITHUB_ENV
+      #     else
+      #       echo "CCACHE_DIR=$HOME/.cache/ccache" >> $GITHUB_ENV
+      #     fi
+
+      ## uncomment to enable caching with artifacts
+      # - name: Download ccache artifact from previous run
+      #   uses: dawidd6/action-download-artifact@v9
+      #   if: ${{ matrix.nuitka }}
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     workflow: build-and-release.yml
+      #     name: ccache-${{ runner.os }}
+      #     workflow_conclusion: success
+      #     path: ${{ env.CCACHE_DIR }}
+      #     if_no_artifact_found: warn
+      #   continue-on-error: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
+        if: ${{ matrix.nuitka }}
+        with:
+          version: ${{ matrix.clang-version }}
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache
+
+      - name: Install Windows system dependencies
+        if: matrix.os == 'windows-latest'
+        run: choco install ccache -y
+
+      - name: Install macOS system dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install ccache libmagic
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.7.14"
+          enable-cache: false
+
+      - name: Install dependencies with uv
+        run: uv sync --all-groups
+
+      - name: Run build script
+        shell: bash
+        run: |
+            if [[ "${{ matrix.nuitka }}" == "true" ]]; then
+              uv run build.py --nuitka --clang
+            else
+              uv run build.py
+            fi
+
+      - name: Run build lite script
+        shell: bash
+        run: |
+            if [[ "${{ matrix.nuitka }}" == "true" ]]; then
+              uv run build.py --nuitka --clang --lite
+            else
+              uv run build.py --lite
+            fi
+
+      - name: Make binaries executable
+        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
+        run: chmod +x ./dist/endcord ./dist/endcord-lite || true
+
+      - name: Archive files
+        shell: bash
+        run: |
+          version=${GITHUB_REF#refs/tags/}
+          extra="README.md LICENSE commands.md configuration.md"
+          cd dist
+          cp ../{README.md,LICENSE,commands.md,configuration.md} .
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            tar -czf "endcord-$version-${{ matrix.platform }}.tar.gz" endcord $extra
+            tar -czf "endcord-lite-$version-${{ matrix.platform }}.tar.gz" endcord-lite $extra
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a "endcord-$version-${{ matrix.platform }}.zip" endcord.exe $extra
+            7z a "endcord-lite-$version-${{ matrix.platform }}.zip" endcord-lite.exe $extra
+          else
+            zip "endcord-$version-${{ matrix.platform }}.zip" endcord $extra
+            zip "endcord-lite-$version-${{ matrix.platform }}.zip" endcord-lite $extra
+          fi
+          cd ..
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: |
+            ./dist/*.zip
+            ./dist/*.tar.gz
+          compression-level: 0
+
+      ## uncomment to enable caching with artifacts
+      # - name: Upload ccache artifact
+      #   uses: actions/upload-artifact@v4
+      #   if: ${{ matrix.nuitka }}
+      #   with:
+      #     name: ccache-${{ matrix.os }}
+      #     path: ${{ env.CCACHE_DIR }}
+
+      - name: Delete previous workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 1
+          delete_workflow_pattern: build-and-release
+
+
+  draft-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+          merge-multiple: true
+
+      - name: Extract version from tag
+        id: extract_version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate release attestation
+        uses: actions/attest-build-provenance@v2.4.0
+        with:
+          subject-path: "dist/*"
+
+      - name: Draft a release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 'v${{ steps.extract_version.outputs.version }} [DRAFTED BY CI]'
+          tag_name: 'v${{ steps.extract_version.outputs.version }}'
+          target_commitish: ${{ github.sha }}
+          draft: true
+          prerelease: ${{ contains(steps.extract_version.outputs.version, 'dev') }}
+          files: dist/*
+          generate_release_notes: true
