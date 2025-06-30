@@ -1,4 +1,4 @@
-With next soundcard release, return numpy to latest version
-Enable dependabot
+Update soundcard and numpy
+Add command to switch account
 Voice and video calls
 Localization

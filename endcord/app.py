@@ -92,6 +92,7 @@ class Endcord:
         self.use_nick = config["use_nick_when_available"]
         self.status_char = config["tree_dm_status"]
         self.skip_app_command_assist = config["skip_app_command_assist"]
+        self.extra_line_delay = config["extra_line_delay"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -194,6 +195,7 @@ class Endcord:
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
+        self.timed_extra_line = threading.Event()
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.main()
 
@@ -202,6 +204,15 @@ class Endcord:
         """Thread that waits then exits cleanly, so profiler (vprof) can process data"""
         time.sleep(20)
         self.run = False
+
+
+    def extra_line_remover(self):
+        """Thread that removes extra line after specific time"""
+        while self.run:
+            self.timed_extra_line.wait()
+            time.sleep(self.extra_line_delay)
+            self.update_extra_line()
+            self.timed_extra_line.clear()
 
 
     def reset(self, online=False):
@@ -361,7 +372,7 @@ class Endcord:
 
         # dont switch when offline
         if self.my_status["client_state"] in ("OFFLINE", "connecting"):
-            self.update_extra_line("Can't switch channel when offline.")
+            self.update_extra_line("Can't switch channel when offline.", timed=False)
             return
 
         logger.debug(f"Switching channel, has_id: {bool(channel_id)}, has_guild:{bool(guild_id)}, has hint: {bool(parent_hint)}")
@@ -543,7 +554,7 @@ class Endcord:
             self.update_member_list(reset=True)
         self.close_extra_window()
         if self.disable_sending:
-            self.update_extra_line(self.disable_sending)
+            self.update_extra_line(self.disable_sending, timed=False)
         else:
             self.update_extra_line()
         self.update_tabs(no_redraw=True)
@@ -2522,7 +2533,7 @@ class Endcord:
                 if path:
                     if move:
                         if not os.path.exists(self.downloads_path):
-                            os.makedirs(os.path.expanduser(os.path.dirname(self.downloads_path)), exist_ok=True)
+                            os.makedirs(os.path.dirname(self.downloads_path), exist_ok=True)
                         destination = os.path.join(self.downloads_path, os.path.basename(path))
                         shutil.move(path, destination)
                     else:
@@ -2533,6 +2544,8 @@ class Endcord:
                 logger.error(f"Failed downloading file: {e}")
 
             self.remove_running_task("Downloading file", 2)
+            if move:
+                self.update_extra_line(f"File saved to {peripherals.collapseuser(self.downloads_path)}")
 
         # open media
         if open_media:
@@ -2626,7 +2639,7 @@ class Endcord:
         """Start recording audio message"""
         recorder.start()
         self.recording = True
-        self.update_extra_line("RECORDING, Esc to cancel, Enter to send")
+        self.update_extra_line("RECORDING, Esc to cancel, Enter to send", timed=False)
 
 
     def stop_recording(self, cancel=False):
@@ -4083,7 +4096,7 @@ class Endcord:
         )
 
 
-    def update_extra_line(self, custom_text=None, update_only=False):
+    def update_extra_line(self, custom_text=None, update_only=False, timed=True):
         """Generate extra line and update it in TUI"""
         if custom_text:
             if custom_text == self.extra_line:
@@ -4092,6 +4105,8 @@ class Endcord:
             else:
                 self.extra_line = custom_text
                 self.tui.draw_extra_line(self.extra_line)
+            if timed:
+                self.timed_extra_line.set()
         elif update_only and self.extra_line:
             self.tui.draw_extra_line(self.extra_line)
         else:
@@ -4895,6 +4910,9 @@ class Endcord:
         # start RPC server
         if self.enable_rpc:
             self.rpc = rpc.RPC(self.discord, self.my_user_data, self.config)
+
+        # start extra line remover thread
+        threading.Thread(target=self.extra_line_remover, daemon=True).start()
 
         logger.info("Main loop started")
 

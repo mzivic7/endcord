@@ -28,7 +28,8 @@ def prepare_embeds(embeds, message_content):
     ready_embeds = []
     for embed in embeds:
         content = ""
-        content += get_newlined_value(embed, "url")
+        if "tenor.com/" not in embed.get("url", ""):
+            content += get_newlined_value(embed, "url")
         content += get_newlined_value(embed, "title")
         content += get_newlined_value(embed, "description")
         if "fields" in embed:

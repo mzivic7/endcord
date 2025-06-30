@@ -261,6 +261,16 @@ def update_config(config, key, value):
     return config
 
 
+def collapseuser(path):
+    """Opposite of os.path.expanduser()"""
+    home = os.path.expanduser("~")
+    abs_path = os.path.abspath(path)
+    home = os.path.abspath(home)
+    if abs_path.startswith(home):
+        return "~" + abs_path[len(home):]
+    return path
+
+
 def notify_send(title, message, sound="message", custom_sound=None):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":

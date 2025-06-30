@@ -31,6 +31,7 @@ settings = {
     "wrap_around": True,
     "mouse": True,
     "screen_update_delay": 0.01,
+    "extra_line_delay": 5,
     "tenor_gif_type": 1,
     "aspell_mode": "normal",
     "aspell_lang": "en_US",

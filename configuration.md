@@ -73,6 +73,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `screen_update_delay = 0.01`  
     Delay in seconds before screen is updated. Limited to min 0.01.  
     Too low value will cause visual "glitches". Increasing value will add latency between performed action and visual feedback.
+- `extra_line_delay = 5`  
+    How long will temporary extra line pop-ups remain befor they are auto-removed.
 - `tenor_gif_type = 1`  
     Type of the media when gif is downloaded from tenor:  
     0 - gif HD  

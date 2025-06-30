@@ -466,12 +466,12 @@ def split_long_line(line, max_len, align=0):
     while line:
         if len(line) > max_len:
             newline_index = len(line[:max_len].rsplit(" ", 1)[0])
-            if newline_index == 0:
+            if "\n" in line[:max_len]:
+                newline_index = line.index("\n")
+            elif newline_index == 0:
                 newline_index = max_len
             elif newline_index < align:
                 newline_index = max_len
-            if "\n" in line[:newline_index]:
-                newline_index = line.index("\n")
             lines_list.append(line[:newline_index])
             try:
                 if line[newline_index] in (" ", "\n"):   # remove space and \n
@@ -480,7 +480,7 @@ def split_long_line(line, max_len, align=0):
                     line = line[newline_index:]
             except IndexError:
                 line = line[newline_index+1:]
-        elif "\n" in line:
+        if "\n" in line:
             newline_index = line.index("\n")
             lines_list.append(line[:newline_index])
             line = line[newline_index+1:]
@@ -905,18 +905,19 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         quote_nl = True
         if len(message_line) > max_length:
             newline_index = len(message_line[:max_length].rsplit(" ", 1)[0])   #  splits line on space
-            if newline_index <= len(
+            # if there is \n on current line, use its position to split line
+            if "\n" in message_line[:max_length]:
+                newline_index = message_line.index("\n")
+                quote = False
+                newline_sign = True
+                split_on_space = 0
+            elif newline_index <= len(
                 format_newline
                 .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
                 .replace("%content", ""),
                 ):
                     newline_index = max_length
-            # if there is \n on current line, use its position to split line
-            if "\n" in message_line[:newline_index]:
-                newline_index = message_line.index("\n")
-                quote = False
-                newline_sign = True
-                split_on_space = 0
+                    quote_nl = False
             else:
                 quote_nl = False
             if message_line[newline_index] in (" ", "\n"):   # remove space and \n
@@ -936,7 +937,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         else:
             next_line = None
 
-        if newline_sign and next_line.startswith("> "):
+        if newline_sign and next_line and next_line.startswith("> "):
             next_line = next_line[2:]
             quote = True
 
@@ -1024,13 +1025,13 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             newline_sign = False
             if len(new_line) > max_length - bool(code_block_format):
                 newline_index = len(new_line[:max_length - bool(code_block_format)].rsplit(" ", 1)[0])
-                if newline_index <= newline_len + 2*quote:
-                    newline_index = max_length - bool(code_block_format)
-                if "\n" in new_line[:newline_index]:
+                if "\n" in new_line[:max_length]:
                     newline_index = new_line.index("\n")
                     quote = False
                     newline_sign = True
                     split_on_space = 0
+                elif newline_index <= newline_len + 2*quote:
+                    newline_index = max_length - bool(code_block_format)
                 try:
                     if new_line[newline_index] in (" ", "\n"):   # remove space and \n
                         next_line = new_line[newline_index+1:]
