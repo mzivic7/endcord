@@ -444,15 +444,22 @@ class Gateway():
                                         "username": user["username"],
                                         "global_name": user["global_name"],
                                     })
-                                    break
+                        name = None
                         if "name" in dm:   # for group dm
                             name = dm["name"]
-                        elif recipients:
+                        elif "owner_id" in dm:   # unnamed group DM
+                            for user in data["users"]:
+                                if user["id"] == dm["owner_id"]:
+                                    if user["global_name"]:
+                                        name = f"{user["global_name"]}'s Group"
+                                    else:
+                                        name = f"{user["username"]}'s Group"
+                        elif recipients:   # regular DM
                             if recipients[0]["global_name"]:
                                 name = recipients[0]["global_name"]
                             else:
                                 name = recipients[0]["username"]
-                        else:
+                        if not name:
                             name = "Unknown DM"
                         last_message_id = dm.get("last_message_id", 0)
                         if last_message_id is None:
