@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "discord-protos>=0.0.2",
     "emoji>=2.14.1",
-    "numpy==2.2.6",
+    "numpy==2.2.6",   # "numpy>=2.3.1",
     "pexpect>=4.9.0",
     "pysocks>=1.7.1",
     "python-magic>=0.4.27",
@@ -16,7 +16,7 @@ dependencies = [
     "python-socks>=2.7.1",
     "pywin32>=310 ; sys_platform == 'win32'",
     "pywin32-ctypes>=0.2.3 ; sys_platform == 'win32'",
-    "soundcard>=0.4.4",
+    "soundcard>=0.4.4",   # "soundcard>=0.4.5",
     "soundfile>=0.13.1",
     "urllib3>=2.5.0",
     "websocket-client>=1.8.0",

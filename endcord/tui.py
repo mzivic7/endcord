@@ -149,10 +149,7 @@ class TUI():
                         continue
                     elif len(split_binding) > 2:
                         sys.exit(f"Invalid keybinding: {binding}")
-                    try:
-                        logger.info(split_binding[0])
-                    except ValueError:
-                        self.chainable.append(split_binding[0])
+                    self.chainable.append(split_binding[0])
 
         # initial values
         if not (self.blink_cursor_on and self.blink_cursor_off):
@@ -1385,6 +1382,9 @@ class TUI():
         self.input_buffer = self.input_buffer[:input_select_start] + self.input_buffer[input_select_end:]
         # add selection to undo history as backspace
         self.input_index = input_select_end
+        _, w = self.input_hw
+        self.input_line_index -= input_select_end - input_select_start
+        self.input_line_index = min(max(0, self.input_line_index), max(0, len(self.input_buffer) - w))
         for letter in self.input_select_text[::-1]:
             self.input_index -= 1
             self.add_to_delta_store("BACKSPACE", letter)
@@ -1764,6 +1764,7 @@ class TUI():
                 input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
                 if input_line_index_diff <= 0:
                     self.input_line_index -= input_line_index_diff - 4   # diff is negative
+                    self.input_line_index = min(max(0, self.input_line_index), max(0, len(self.input_buffer) - w))
                 self.input_select_start = None
 
             elif key in self.keybindings["word_right"]:
@@ -1779,6 +1780,7 @@ class TUI():
                 input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) - w
                 if input_line_index_diff >= 0:
                     self.input_line_index -= input_line_index_diff + 4   # diff is negative
+                    self.input_line_index = min(max(0, self.input_line_index), max(0, len(self.input_buffer) - w))
                 self.input_select_start = None
 
             elif key in self.keybindings["select_word_left"]:
@@ -1796,8 +1798,10 @@ class TUI():
                 input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
                 if input_line_index_diff <= 0:
                     self.input_line_index -= input_line_index_diff - 4   # diff is negative
+                    self.input_line_index = min(max(0, self.input_line_index), max(0, len(self.input_buffer) - w))
                 if self.input_select_start is not None:
                     self.input_select_end -= left_len
+                    self.input_select_end = min(max(0, self.input_select_end), len(self.input_buffer))
 
             elif key in self.keybindings["select_word_right"]:
                 if self.input_select_start is None:
@@ -1814,8 +1818,11 @@ class TUI():
                 input_line_index_diff = self.input_index - max(0, len(self.input_buffer) - w - self.input_line_index) - w
                 if input_line_index_diff >= 0:
                     self.input_line_index -= input_line_index_diff + 4   # diff is negative
+                    self.input_line_index = min(max(0, self.input_line_index), max(0, len(self.input_buffer) - w))
                 if self.input_select_start is not None:
                     self.input_select_end += left_len
+                    self.input_select_end = min(max(0, self.input_select_end), len(self.input_buffer))
+
 
             elif key in self.keybindings["undo"]:
                 self.add_to_delta_store("UNDO")
@@ -1891,6 +1898,12 @@ class TUI():
 
             elif self.input_select_start is not None and key in self.keybindings["cut_sel"]:
                 self.delete_selection()
+                self.input_select_start = None
+                self.cursor_pos = self.input_index - max(0, len(self.input_buffer) - w + 1 - self.input_line_index)
+                self.cursor_pos = max(self.cursor_pos, 0)
+                self.cursor_pos = min(w - 1, self.cursor_pos)
+                if not self.disable_drawing:
+                    self.draw_input_line()
                 return self.return_input_code(20)
 
             elif self.enable_autocomplete and key == 9:   # TAB - same as CTRL+I
