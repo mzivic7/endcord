@@ -445,15 +445,27 @@ class Gateway():
                                         "global_name": user["global_name"],
                                     })
                         name = None
-                        if "name" in dm:   # for group dm
+                        if "name" in dm and dm["name"]:   # for group dm
                             name = dm["name"]
                         elif "owner_id" in dm:   # unnamed group DM
+                            owner_name = "Unknown"
                             for user in data["users"]:
                                 if user["id"] == dm["owner_id"]:
                                     if user["global_name"]:
-                                        name = f"{user["global_name"]}'s Group"
+                                        owner_name = user["global_name"]
                                     else:
-                                        name = f"{user["username"]}'s Group"
+                                        owner_name = user["username"]
+                            names = ""
+                            for user in recipients:
+                                if user["id"] != dm["owner_id"]:
+                                    if user["global_name"]:
+                                        names += f", {user["global_name"]}"
+                                    else:
+                                        names += f"{user["username"]}"
+                            if names:
+                                name = f"{owner_name}; {names.strip(", ")}"
+                            else:
+                                name = f"{owner_name}'s Group"
                         elif recipients:   # regular DM
                             if recipients[0]["global_name"]:
                                 name = recipients[0]["global_name"]
