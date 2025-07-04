@@ -12,6 +12,7 @@ WINDOW_SIZE = (800, 500)
 MAXIMIZED = True
 FONT_SIZE = 12
 FONT_NAME = "Source Code Pro"
+EMOJI_FONT_NAME = "noto color emoji"
 APP_NAME = "Endcord"
 
 REPEAT_DELAY = 400
@@ -143,7 +144,7 @@ class Window:
 
         self.base_font_path = pygame.font.match_font(FONT_NAME)
         self.font = pygame.freetype.Font(self.base_font_path, FONT_SIZE)
-        self.emoji_font = self.emoji_font = pygame.font.SysFont("noto color emoji", 12)
+        self.emoji_font = self.emoji_font = pygame.font.SysFont(EMOJI_FONT_NAME, FONT_SIZE)
         self.font.pad = True
 
         rect = self.font.get_rect(" ")
@@ -182,11 +183,9 @@ class Window:
         """Render emoji character to a scaled surface to fit character cell."""
         try:
             surf = self.emoji_font.render(ch, True, (255, 255, 255))
-            if surf:
-                return pygame.transform.smoothscale(surf, (self.char_height, self.char_height))
+            return pygame.transform.smoothscale(surf, (self.char_height, self.char_height))
         except pygame.error:
             return None
-        return None
 
 
     def insstr(self, y, x, text, attr=0):
@@ -238,58 +237,52 @@ class Window:
         for y in range(self.nlines):
             row = self.buffer[y]
             i = 0
+            draw_x = 0
             while i < self.ncols:
                 ch, attr = row[i]
+                flags = attr & 0xFFFF0000
 
-                j = i
+                # emoji
+                if is_emoji(ch):
+                    px_x = draw_x * self.char_width
+                    px_y = y * self.char_height
+                    fg, bg = color_map[attr & 0xFFFF]
+                    if flags & A_STANDOUT:
+                        fg, bg = bg, fg
+                    pygame.draw.rect(self.surface, bg, (px_x, px_y, 2 * self.char_width, self.char_height))
+                    emoji = self.render_emoji_scaled(ch)
+                    if emoji:
+                        offset = px_x + (2 * self.char_width - self.char_height) // 2
+                        self.surface.blit(emoji, (offset, px_y))
+                    draw_x += 2   # emoji takes two cells visually
+                    i += 1   # but only one buffer cell
+                    continue
+
+                span_draw_x = draw_x
                 text = ""
-                while j < self.ncols:
-                    next_ch, next_attr = row[j]
-                    if next_attr != attr:
+                while i < self.ncols:
+                    ch, attr2 = row[i]
+                    if attr2 != attr:
                         break
-                    text += next_ch
-                    j += 1
-
-                px_x = i * self.char_width
-                px_y = y * self.char_height
+                    if is_emoji(ch):
+                        break
+                    text += ch
+                    i += 1
+                    draw_x += 1
+                if not text:
+                    continue
 
                 fg, bg = color_map[attr & 0xFFFF]
-                flags = attr & 0xFFFF0000
                 if flags & A_STANDOUT:
                     fg, bg = bg, fg
+                px_x = span_draw_x * self.char_width
+                px_y = y * self.char_height
+                pygame.draw.rect(self.surface, bg, (px_x, px_y, len(text) * self.char_width, self.char_height))
+                self.font.strong = bool(flags & A_BOLD)
+                self.font.oblique = bool(flags & A_ITALIC)
+                self.font.underline = bool(flags & A_UNDERLINE)
+                self.font.render_to(self.surface, (px_x, px_y), text, fg)
 
-                pygame.draw.rect(self.surface, bg, (px_x, px_y, (j - i) * self.char_width, self.char_height))
-
-                if any(is_emoji(c[0]) for c in row[i:j]):
-                    for k in range(i, j):
-                        cx = k * self.char_width
-                        ch_k, attr_k = row[k]
-                        fg_k, bg_k = color_map[attr_k & 0xFFFF]
-                        flags_k = attr_k & 0xFFFF0000
-                        if flags_k & A_STANDOUT:
-                            fg_k, bg_k = bg_k, fg_k
-                        pygame.draw.rect(
-                            self.surface,
-                            bg_k,
-                            (cx, px_y, self.char_width, self.char_height),
-                        )
-                        if ch_k and is_emoji(ch_k):
-                            emoji = self.render_emoji_scaled(ch_k)
-                            if emoji:
-                                offset = cx + (2 * self.char_width - self.char_height) // 2
-                                self.surface.blit(emoji, (offset, px_y))
-                        else:
-                            self.font.strong = bool(flags_k & A_BOLD)
-                            self.font.oblique = bool(flags_k & A_ITALIC)
-                            self.font.underline = bool(flags_k & A_UNDERLINE)
-                            self.font.render_to(self.surface, (cx, px_y), ch_k, fg_k)
-                else:
-                    self.font.strong = bool(flags & A_BOLD)
-                    self.font.oblique = bool(flags & A_ITALIC)
-                    self.font.underline = bool(flags & A_UNDERLINE)
-                    self.font.render_to(self.surface, (px_x, px_y), text, fg)
-
-                i = j
 
 
     def clear(self):
@@ -495,7 +488,7 @@ def color_pair(color_id):
     return color_id
 
 def use_default_colors():
-    """curses.use_DEFAULT_PAIRs clone using pygame, does nothing"""
+    """curses.use_default_colors clone using pygame, does nothing"""
     pass
 
 def curs_set(x):
