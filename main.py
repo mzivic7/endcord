@@ -61,7 +61,8 @@ def main(args):
         section="keybindings",
         gen_config=gen_config,
     )
-    keybindings = peripherals.convert_keybindings(keybindings)
+    if not hasattr(curses, "PGCURSES"):
+        keybindings = peripherals.convert_keybindings(keybindings)
 
     os.environ["ESCDELAY"] = "25"   # 25ms
     if os.environ.get("TERM", "") in ("xterm", "linux"):

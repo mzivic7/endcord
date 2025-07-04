@@ -1,4 +1,4 @@
 Update soundcard and numpy
 Voice and video calls
-Add multiple account support
+Add multi-account support
 Localization

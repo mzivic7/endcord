@@ -462,6 +462,14 @@ If there are no colors in linux tty (but there should be), endcord can run insid
 Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Installation), then set environment variable: `export TERM=fbterm` and run endcord.  
 Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.  
 
+### Experimental windowed mode
+This mode entirely replaces curses with pygame-ce GUI library. UI remains terminal-like, the only difference is that its no longer in terminal but in its own window.  
+Keybinding remain the same, but all codes are like on linux so old keybinding codes may not work.  
+Building with nuitka will create executable that will segfault.  
+Do not report issues related to experimental features!  
+You can toggle experimental mode bu running: `uv run build.py --experimental`.  
+Then run endcord from source: `uv run main.py`.
+
 ### Spacebar and other custom hosts
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
 Then endcord will connect only to that domain instead discord.  Token is different on different hosts!  

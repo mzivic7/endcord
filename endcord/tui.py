@@ -981,14 +981,14 @@ class TUI():
                     self.draw_chat(norefresh=True)
                     member_list_hwyx = (
                         common_h,
-                        self.member_list_width,
+                        self.member_list_width+1,
                         int(self.have_title),
-                        w - self.member_list_width,
+                        w - self.member_list_width-1,
                     )
                     self.win_member_list = self.screen.derwin(*member_list_hwyx)
-                    self.screen.vline(int(self.have_title), w - self.member_list_width - 1, self.vert_line, common_h)
-                    self.screen.noutrefresh()
+                    self.win_member_list.vline(0, 0, self.vert_line, common_h)
                 h, w = self.win_member_list.getmaxyx()
+                w -= 1
                 y = 0
                 for num, line in enumerate(member_list):
                     y =  max(num - self.mlist_index, 0)
@@ -996,7 +996,7 @@ class TUI():
                         break
                     line_format = member_list_format[num]
                     if num == self.mlist_selected:
-                        self.win_member_list.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(4) | self.attrib_map[4])
+                        self.win_member_list.insstr(y, 1, line + " " * (w - len(line)) + "\n", curses.color_pair(4) | self.attrib_map[4])
                     else:
                         for pos, character in enumerate(line + " " * (w - len(line)) + "\n"):
                             if pos >= w:
@@ -1007,13 +1007,13 @@ class TUI():
                                     if color > 255:   # set all colors after 255 to default color
                                         color = self.color_default
                                     color_ready = curses.color_pair(color) | self.attrib_map[color]
-                                    safe_insch(self.win_member_list, y, pos, character, color_ready)
+                                    safe_insch(self.win_member_list, y, pos+1, character, color_ready)
                                     break
                             else:
-                                safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
+                                safe_insch(self.win_member_list, y, pos+1, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
                 y += 1
                 while y < h:
-                    self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
+                    self.win_member_list.insstr(y, 1, "\n", curses.color_pair(1))
                     y += 1
                 self.win_member_list.noutrefresh()
                 self.need_update.set()
@@ -1230,7 +1230,10 @@ class TUI():
         for format_colors in colors:
             format_codes = []
             for color in format_colors:
-                pair_id = self.init_pair(color[:3])
+                new_color = color.copy()
+                if new_color[1] == -2:
+                    new_color[1] = format_colors[0][1]
+                pair_id = self.init_pair(new_color[:3])
                 format_codes.append([pair_id, *color[3:]])
             color_codes.append(format_codes)
         # using bg from alt_color
@@ -1241,7 +1244,6 @@ class TUI():
                     color[1] = alt_color[1]
                 if color[1] == -2:
                     color[1] = format_colors[0][1]
-                    color[1] = alt_color[1]
                 pair_id = self.init_pair(color[:3])
                 format_codes.append([pair_id, *color[3:]])
             color_codes.append(format_codes)

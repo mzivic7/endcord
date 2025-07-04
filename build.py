@@ -80,6 +80,44 @@ def patch_soundcard():
         print(f"Nothing to patch in file {path}")
 
 
+def toggle_experimental():
+    """Toggle experimental mode"""
+    file_list = []
+    for path, subdirs, files in os.walk(os.getcwd()):
+        subdirs[:] = [d for d in subdirs if not d.startswith(".")]
+        for name in files:
+            file_path = os.path.join(path, name)
+            if ".py" in file_path and ".pyc" not in file_path and not name.startswith("."):
+                file_list.append(file_path)
+    enable = False
+    for path in file_list:
+        with open(path, "r") as f:
+            lines = f.readlines()
+        changed = False
+        for num, line in enumerate(lines):
+            if line.startswith("import curses"):
+                lines[num] = "from endcord import pgcurses as curses\n"
+                changed = True
+                enable = True
+                break
+            elif line.startswith("from endcord import pgcurses as curses"):
+                lines[num] = "import curses\n"
+                changed = True
+                enable = False
+                break
+        if changed:
+            with open(path, "w") as f:
+                f.writelines(lines)
+    if enable:
+        command = "uv pip install pygame-ce pyperclip"
+        os.system(command)
+        print("Experimental windowed mode enabled!")
+    else:
+        command = "uv pip uninstall pygame-ce pyperclip"
+        os.system(command)
+        print("Experimental windowed mode disabled!")
+
+
 def build_with_pyinstaller(onedir):
     """Build with pyinstaller"""
     if check_media_support():
@@ -173,12 +211,20 @@ def parser():
         action="store_true",
         help="build into directory instead single executable",
     )
+    parser.add_argument(
+        "--toggle-experimental",
+        action="store_true",
+        help="toggle experimental mode and exit",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parser()
     check_dev()
+    if args.toggle_experimental:
+        toggle_experimental()
+        sys.exit()
     if args.lite:
         remove_media()
     else:
