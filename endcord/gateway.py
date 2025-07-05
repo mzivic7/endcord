@@ -361,7 +361,6 @@ class Gateway():
                             if feature in ("COMMUNITY", "COMMUNITY_CANARY"):
                                 community = True
                                 break
-                        logger.info((guild["properties"]["name"], guild["properties"]["premium_tier"]))
                         self.guilds.append({
                             "guild_id": guild_id,
                             "owned": self.my_id == guild["properties"]["owner_id"],
