@@ -296,7 +296,7 @@ class Gateway():
                     time_log_string = "READY event time profile:\n"
                     last_messages = []
                     self.my_id = data["user"]["id"]
-                    self.premium = data["user"]["premium"]
+                    self.premium = data["user"]["premium_type"]   # 0 - none, 1 - classic, 2 - full, 3 - basic
                     # guilds and channels
                     if ("guilds" not in data) and ("user_guild_settings" in data):
                         logger.warn("Abnormal READY event received, if its always happening, report this")
@@ -361,6 +361,7 @@ class Gateway():
                             if feature in ("COMMUNITY", "COMMUNITY_CANARY"):
                                 community = True
                                 break
+                        logger.info((guild["properties"]["name"], guild["properties"]["premium_tier"]))
                         self.guilds.append({
                             "guild_id": guild_id,
                             "owned": self.my_id == guild["properties"]["owner_id"],
@@ -370,6 +371,7 @@ class Gateway():
                             "channels": guild_channels,
                             "base_permissions": base_permissions,
                             "community": community,
+                            "premium": guild["properties"]["premium_tier"],
                         })
                         # threads
                         threads = []

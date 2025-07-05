@@ -44,6 +44,9 @@ SUMMARY_SAVE_INTERVAL = 300   # 5min
 LIMIT_SUMMARIES = 5   # max number of summaries per channel
 INTERACTION_THROTTLING = 3   # delay between sending app interactions
 APP_COMMAND_AUTOCOMPLETE_DELAY = 0.3   # delay for requesting app command autocompleions after stop typing
+MB = 1024 * 1024
+USER_UPLOAD_LIMITS = (10*MB, 50*MB, 500*MB, 50*MB)   # premium tier 0, 1, 2, 3 (none, classic, full, basic)
+GUILD_UPLOAD_LIMITS = (10*MB, 10*MB, 50*MB, 100*MB)   # premium tier 0, 1, 2, 3
 
 match_emoji = re.compile(r"<:(.*):(\d*)>")
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
@@ -119,6 +122,7 @@ class Endcord:
         self.guilds = []
         self.all_roles = []
         self.current_roles = []
+        self.curent_guild_properties = {}
         self.current_channels = []
         self.current_channel = {}
         self.summaries = []
@@ -325,10 +329,18 @@ class Endcord:
                 break
         self.compute_permissions()
         self.current_channels = []   # dm has no multiple channels
-        for guild_channels in self.guilds:
-            if guild_channels["guild_id"] == self.active_channel["guild_id"]:
-                self.current_channels = guild_channels["channels"]
+        for this_guild in self.guilds:
+            if this_guild["guild_id"] == self.active_channel["guild_id"]:
+                self.curent_guild_properties = {
+                    "owned": this_guild["owned"],
+                    "community": this_guild["community"],
+                    "premium": this_guild["premium"],
+                }
+                self.current_channels = this_guild["channels"]
                 break
+        else:
+            self.curent_guild_properties = {}
+            self.current_channels = []
         self.current_channel = {}
         for channel in self.current_channels:
             if channel["id"] == self.active_channel["channel_id"]:
@@ -463,9 +475,16 @@ class Endcord:
                     return
 
         # if not failed
+        if this_guild:
+            self.curent_guild_properties = {
+                "owned": this_guild["owned"],
+                "community": this_guild["community"],
+                "premium": this_guild["premium"],
+            }
+        else:
+            self.curent_guild_properties = {}
         self.current_channels = current_channels
         self.current_channel = current_channel
-
         # if this is dm, check if user has sent minimum number of messages
         # this is to prevent triggering discords spam filter
         if not guild_id and len(self.messages) < self.msg_num:
@@ -1023,6 +1042,8 @@ class Endcord:
                     self.uploading = True
                     self.ignore_typing = True
                     self.update_status_line()
+                else:
+                    self.update_extra_line("Uploading is not allowed in this channel")
 
             # moving left/right through attachments
             elif action == 14:
@@ -1854,6 +1875,8 @@ class Endcord:
                     self.uploading = True
                     self.ignore_typing = True
                     reset = False
+            else:
+                self.update_extra_line("Uploading is not allowed in this channel")
 
         elif cmd_type == 10:   # SPOIL
             msg_index = self.lines_to_msg(chat_sel)
@@ -2559,6 +2582,15 @@ class Endcord:
         """Thread that uploads file to currently open channel"""
         path = os.path.expanduser(path)
         if os.path.exists(path) and not os.path.isdir(path):
+
+            size = peripherals.get_file_size(path)
+            limit = max(USER_UPLOAD_LIMITS[self.premium], GUILD_UPLOAD_LIMITS[self.premium])
+            if size > limit:
+                self.update_extra_line(f"File is larger than current upload limit: {int(limit/MB)}MB")
+                return
+            if size > 200*MB:
+                self.update_extra_line("Cant upload over cloudflare. File is larger than 200MB")
+                return
 
             # add attachment to list
             for ch_index, channel in enumerate(self.ready_attachments):
@@ -5144,11 +5176,11 @@ class Endcord:
 
             # check if assist is needed
             assist_word, assist_type = self.tui.get_assist()
-            if assist_type:
+            if assist_type and not self.uploading:
                 if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
-                elif assist_type == 6:
-                    if assist_word != self.assist_word:   # app commands
+                elif assist_type == 6:   # app commands
+                    if assist_word != self.assist_word:
                         self.ignore_typing = True
                         if not self.got_commands:
                             # this will be allowed to run when channel changes
