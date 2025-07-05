@@ -404,7 +404,7 @@ def complete_path(path, separator=True):
             completions.append(path + "/")
         else:
             completions.append(path)
-    return completions
+    return sorted(completions)
 
 
 def play_audio(path):
