@@ -26,10 +26,10 @@ dependencies = [
 
 [dependency-groups]
 build = [
-    "nuitka>=2.7.10",
-    "pyinstaller>=6.14.1",
+    "nuitka>=2.7.11",
+    "pyinstaller>=6.14.2",
 ]
 media = [
-    "av>=14.4.0",
-    "pillow>=11.2.1",
+    "av>=15.0.0",
+    "pillow>=11.3.0",
 ]

@@ -168,7 +168,7 @@ def build_with_nuitka(onedir, clang):
     else:
         clang = ""
     hidden_imports = "--include-module=uuid"
-    include_package_data = "--include-package-data=emoji --include-package-data=soundcard"
+    include_package_data = "--include-package-data=emoji:unicode_codes/emoji.json --include-package-data=soundcard"
 
     if sys.platform == "linux":
         command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"

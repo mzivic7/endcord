@@ -376,24 +376,21 @@ To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, l
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
 2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 3. `cd endcord`
-4. Setup virtual environment: `uv sync --all-groups`
-5. run build script: `uv run build.py`  
+4. run build script: `uv run build.py`  
 
 ### Windows
 1. Install [Python](https://www.python.org/) 3.13 or later
 2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
-5. Setup virtual environment: `uv sync --all-groups`
-6. run build script: `uv run build.py`
+5. run build script: `uv run build.py`
 
 ### macOS
 1. Install [Python](https://www.python.org/) 3.13 or later
 2. Install dependencies: `brew install uv libmagic`
 3. Clone this repository, unzip it
 4. Open terminal, cd to unzipped folder
-5. Setup virtual environment: `uv sync --all-groups`
-6. run build script: `uv run build.py`
+5. run build script: `uv run build.py`
 
 ### Nuitka
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  

@@ -74,8 +74,7 @@ def is_emoji(ch):
     """Check if character is emoji"""
     code = ord(ch)
     return (
-        0x1F300 <= code <= 0x1FAFF or
-        0x1F600 <= code <= 0x1F9FF or
+        0x1F300 <= code <= 0x1F9FF or
         0x2600 <= code <= 0x27BF or
         0x2300 <= code <= 0x23FF or
         0x2B00 <= code <= 0x2BFF

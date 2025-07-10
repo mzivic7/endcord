@@ -1,4 +1,5 @@
 import base64
+import gc
 import http.client
 import json
 import logging
@@ -105,7 +106,6 @@ class Gateway():
         self.roles = []
         self.member_roles = []
         self.msg_unseen = []
-        self.msg_ping = []
         self.subscribed = []
         self.dms = []
         self.dms_id = []
@@ -498,12 +498,13 @@ class Gateway():
                     ready_time_mid = time.time()
                     # unread messages and pings
                     msg_unseen = []
+                    msg_ping = []
                     for channel in data["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
                         if "last_message_id" in channel and "mention_count" in channel:
                             if channel["mention_count"] != 0:
                                 msg_unseen.append(channel["id"])
-                                self.msg_ping.append(channel["id"])
+                                msg_ping.append(channel["id"])
                             else:
                                 for last_message in last_messages:
                                     if (
@@ -529,6 +530,7 @@ class Gateway():
                             "channel_id": channel_id,
                             "guild_id": guild_id,
                             "last_message_id": last_message_id,
+                            "mentions": channel_id in msg_ping,
                         })
                     time_log_string += f"    unread and mentions - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
@@ -633,12 +635,12 @@ class Gateway():
                         debug.save_json(debug.anonymize_guilds(self.guilds), "guilds.json")
                     # blocked users
                     time_log_string += f"    debug data - {round(time.time() - ready_time_mid, 3)}s\n"
-                    # READY is huge so lets save some memory
-                    del (guild, guild_channels, role, guild_roles, last_messages)
                     self.ready = True
                     time_log_string += f"    total - {round(time.time() - ready_time_start, 3)}s"
                     logger.debug(time_log_string)
-                    del time_log_string
+                    # READY is huge so lets save some memory
+                    del (response, data, guild, guild_channels, role, guild_roles, last_messages, time_log_string)
+                    gc.collect()
 
                 elif optext == "READY_SUPPLEMENTAL":
                     for guild in data["merged_presences"]["guilds"]:
@@ -686,8 +688,9 @@ class Gateway():
                             "custom_status": custom_status,
                             "activities": activities,
                         })
-                    del (guild)   # this is large dict so lets save some memory
                     self.dm_activities_changed = True
+                    del (guild)   # this is large dict so lets save some memory
+                    gc.collect()
 
                 elif optext == "SESSIONS_REPLACE":
                     # received when new client is connected
@@ -922,7 +925,6 @@ class Gateway():
 
                 elif self.want_summaries and optext == "CONVERSATION_SUMMARY_UPDATE":
                     # received when new conversation summary is generated
-
                     for summary in data["summaries"]:
                         if summary["type"] == 3:
                             self.summaries_buffer.append({
@@ -996,7 +998,6 @@ class Gateway():
                     })
 
                 elif optext == "THREAD_UPDATE":
-
                     self.threads_buffer.append({
                         "guild_id": data["guild_id"],
                         "threads": [{
@@ -1538,11 +1539,6 @@ class Gateway():
         return self.msg_unseen
 
 
-    def get_pings(self):
-        """Get list of channels with mentions ater connecting"""
-        return self.msg_ping
-
-
     def get_dms(self):
         """
         Get list of open DMs with their recipient
@@ -1628,14 +1624,6 @@ class Gateway():
         return None
 
 
-    def get_member_roles(self):
-        """Get member roles, updated regularly."""
-        if self.roles_changed:
-            self.roles_changed = False
-            return self.member_roles
-        return None
-
-
     def get_activities(self):
         """
         Get member activities, updated regularly.
@@ -1662,6 +1650,14 @@ class Gateway():
             self.subscribed_activities_changed = []
             return self.subscribed_activities, cache
         return [], []
+
+
+    def get_member_roles(self):
+        """Get member roles, updated regularly."""
+        if self.roles_changed:
+            self.roles_changed = False
+            return self.member_roles
+        return None
 
 
     def get_app_command_autocomplete_resp(self):

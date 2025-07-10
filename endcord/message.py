@@ -172,7 +172,7 @@ def prepare_message(message):
         message["content"] += new_content_str
         embeds.extend(new_embeds)
 
-    message_dict =  {
+    message_dict = {
         "id": message["id"],
         "channel_id": message["channel_id"],
         "guild_id": message.get("guild_id"),
@@ -287,8 +287,12 @@ def prepare_components(components):
                 text.append(media_str)
                 if item.get("description"):
                     text.append(f"*{item["description"]}*")
-                media["hidden"] = True
-                embeds.append(media)
+                embeds.append({
+                    "type": media.get("content_type", "unknown"),
+                    "name": None,
+                    "url": media["url"],
+                    "hidden": True,
+                })
         elif comp_type == 13:   # FILE
             file = component["file"]
             file_type = file.get("type")
@@ -297,8 +301,12 @@ def prepare_components(components):
                 file_str += f"[{file_type}]"
             file_str += f" {file["url"]}"
             text.append(file_str)
-            file["hidden"] = True
-            embeds.append(file)
+            embeds.append({
+                "type": file.get("content_type", "unknown"),
+                "name": None,
+                "url": file["url"],
+                "hidden": True,
+            })
         elif comp_type == 14:   # SEPARATOR
             text.append("------------")
         # 15 - ???

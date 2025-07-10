@@ -1263,7 +1263,7 @@ class TUI():
                     continue
             num = self.last_free_id
             for role in guild["roles"]:
-                color = role["ansi"]
+                color = role["color"]
                 found = False
                 if not guild_id:
                     num = 0
@@ -1272,7 +1272,7 @@ class TUI():
                         for role_i in guild_i["roles"]:
                             if "color_id" not in role_i:
                                 break
-                            if role_i["ansi"] == color:
+                            if role_i["color"] == color:
                                 role["color_id"] = role_i["color_id"]
                                 role["alt_color_id"] = role_i["alt_color_id"]
                                 found = True

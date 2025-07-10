@@ -42,8 +42,7 @@ def convert_role_colors(all_roles):
         for role in guild["roles"]:
             rgb = int_to_rgb(role["color"])
             ansi = closest_color(rgb)[0]
-            role["color"] = rgb
-            role["ansi"] = ansi
+            role["color"] = ansi
     return all_roles
 
 

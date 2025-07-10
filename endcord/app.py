@@ -122,7 +122,7 @@ class Endcord:
         self.guilds = []
         self.all_roles = []
         self.current_roles = []
-        self.curent_guild_properties = {}
+        self.current_guild_properties = {}
         self.current_channels = []
         self.current_channel = {}
         self.summaries = []
@@ -194,7 +194,7 @@ class Endcord:
         self.assist_word = None
         self.assist_type = None
         self.assist_found = []
-        self.restore_input_text = [None, None]
+        self.restore_input_text = (None, None)
         self.extra_bkp = None
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
@@ -331,7 +331,7 @@ class Endcord:
         self.current_channels = []   # dm has no multiple channels
         for this_guild in self.guilds:
             if this_guild["guild_id"] == self.active_channel["guild_id"]:
-                self.curent_guild_properties = {
+                self.current_guild_properties = {
                     "owned": this_guild["owned"],
                     "community": this_guild["community"],
                     "premium": this_guild["premium"],
@@ -339,7 +339,7 @@ class Endcord:
                 self.current_channels = this_guild["channels"]
                 break
         else:
-            self.curent_guild_properties = {}
+            self.current_guild_properties = {}
             self.current_channels = []
         self.current_channel = {}
         for channel in self.current_channels:
@@ -476,13 +476,13 @@ class Endcord:
 
         # if not failed
         if this_guild:
-            self.curent_guild_properties = {
+            self.current_guild_properties = {
                 "owned": this_guild["owned"],
                 "community": this_guild["community"],
                 "premium": this_guild["premium"],
             }
         else:
-            self.curent_guild_properties = {}
+            self.current_guild_properties = {}
         self.current_channels = current_channels
         self.current_channel = current_channel
         # if this is dm, check if user has sent minimum number of messages
@@ -592,11 +592,6 @@ class Endcord:
 
     def open_guild(self, guild_id, select=False, restore=False):
         """When opening guild in tree"""
-        guild = {}
-        for guild_index, guild in enumerate(self.guilds):
-            if guild["guild_id"] == guild_id:
-                break
-
         # check in tree_format if it should be un-/collapsed
         collapse = False
         for num, obj in enumerate(self.tree_metadata):
@@ -855,21 +850,21 @@ class Endcord:
                 input_text = ""
             elif self.restore_input_text[1] == "prompt":
                 self.stop_extra_window()
-                self.restore_input_text = [None, "after_prompt"]
+                self.restore_input_text = (None, "after_prompt")
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.restore_input_text[1] in ("standard", "standard extra"):
                 if self.restore_input_text[1] == "standard":
                     self.stop_extra_window()
                 init_text = self.restore_input_text[0]
-                self.restore_input_text = [None, None]
+                self.restore_input_text = (None, None)
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True)
             elif self.restore_input_text[1] == "autocomplete":
-                self.restore_input_text = [None, None]
+                self.restore_input_text = (None, None)
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
             elif self.restore_input_text[1] in ("search", "command", "react", "edit"):
                 init_text = self.restore_input_text[0]
                 prompt_text = self.restore_input_text[1].upper()
-                self.restore_input_text = [None, None]
+                self.restore_input_text = (None, None)
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(f"[{prompt_text}] > ", init_text=init_text)
             else:
                 restore_text = None
@@ -912,24 +907,24 @@ class Endcord:
                         "global_name": self.messages[msg_index]["global_name"],
                         "mention": mention,
                     }
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 self.update_status_line()
 
             # set edit
             elif action == 2 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["user_id"] == self.my_id:
                     if "deleted" not in self.messages[msg_index]:
                         self.reset_actions()
                         self.editing = self.messages[msg_index]["id"]
                         self.add_to_store(self.active_channel["channel_id"], input_text)
-                        self.restore_input_text = [self.messages[msg_index]["content"], "edit"]
+                        self.restore_input_text = (self.messages[msg_index]["content"], "edit")
                         self.update_status_line()
 
             # set delete
             elif action == 3 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 msg_index = self.lines_to_msg(chat_sel)
                 if self.messages[msg_index]["user_id"] == self.my_id or self.active_channel["admin"]:
                     if "deleted" not in self.messages[msg_index]:
@@ -937,23 +932,23 @@ class Endcord:
                         self.ignore_typing = True
                         self.deleting = self.messages[msg_index]["id"]
                         self.add_to_store(self.active_channel["channel_id"], input_text)
-                        self.restore_input_text = [None, "prompt"]
+                        self.restore_input_text = (None, "prompt")
                         self.update_status_line()
 
             # toggle mention ping
             elif action == 6:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 self.replying["mention"] = None if self.replying["mention"] is None else not self.replying["mention"]
                 self.update_status_line()
 
             # warping to chat bottom
             elif action == 7 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 self.go_bottom()
 
             # go to replied message
             elif action == 8 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 msg_index = self.lines_to_msg(chat_sel)
                 self.go_replied(msg_index)
 
@@ -965,7 +960,7 @@ class Endcord:
                     if embed["url"]:
                         urls.append(embed["url"])
                 if len(urls) == 1:
-                    self.restore_input_text = [input_text, "standard"]
+                    self.restore_input_text = (input_text, "standard")
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], )))
                     self.download_threads[-1].start()
                 elif len(urls) > 1:
@@ -976,7 +971,7 @@ class Endcord:
                         "open": False,
                     }
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "prompt"]
+                    self.restore_input_text = (None, "prompt")
                     self.update_status_line()
 
             # open link in browser
@@ -984,7 +979,7 @@ class Endcord:
                 msg_index = self.lines_to_msg(chat_sel)
                 urls = self.get_msg_urls(msg_index)
                 if len(urls) == 1:
-                    self.restore_input_text = [input_text, "standard"]
+                    self.restore_input_text = (input_text, "standard")
                     webbrowser.open(urls[0], new=0, autoraise=True)
                 elif len(urls) > 1:
                     self.ignore_typing = True
@@ -994,7 +989,7 @@ class Endcord:
                         "open": False,
                     }
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "prompt"]
+                    self.restore_input_text = (None, "prompt")
                     self.update_status_line()
 
             # download and open media attachment
@@ -1003,7 +998,7 @@ class Endcord:
                 urls, media_type = self.get_msg_media(msg_index)
                 if len(urls) == 1:
                     logger.debug(f"Trying to play attachment with type: {media_type}")
-                    self.restore_input_text = [input_text, "standard"]
+                    self.restore_input_text = (input_text, "standard")
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], False, True)))
                     self.download_threads[-1].start()
                 elif len(urls) > 1:
@@ -1013,13 +1008,13 @@ class Endcord:
                         "open": True,
                     }
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "prompt"]
+                    self.restore_input_text = (None, "prompt")
                     self.update_status_line()
 
             # cancel all downloads and uploads
             elif action == 11:
                 self.add_to_store(self.active_channel["channel_id"], input_text)
-                self.restore_input_text = [None, "prompt"]
+                self.restore_input_text = (None, "prompt")
                 self.reset_actions()
                 self.ignore_typing = True
                 self.cancel_download = True
@@ -1027,13 +1022,13 @@ class Endcord:
 
             # copy message to clipboard
             elif action == 12 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 msg_index = self.lines_to_msg(chat_sel)
                 peripherals.copy_to_clipboard(self.messages[msg_index]["content"])
 
             # upload attachment
             elif action == 13 and self.messages and not self.disable_sending:
-                self.restore_input_text = [None, "autocomplete"]
+                self.restore_input_text = (None, "autocomplete")
                 self.add_to_store(self.active_channel["channel_id"], input_text)
                 if self.current_channel.get("allow_attach", True):
                     if self.recording:   # stop recording voice message
@@ -1047,12 +1042,12 @@ class Endcord:
 
             # moving left/right through attachments
             elif action == 14:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 if self.selected_attachment > 0:
                     self.selected_attachment -= 1
                     self.update_extra_line()
             elif action == 15:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 num_attachments = 0
                 for attachments in self.ready_attachments:
                     if attachments["channel_id"] == self.active_channel["channel_id"]:
@@ -1063,31 +1058,32 @@ class Endcord:
 
             # cancel selected attachment
             elif action == 16:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 self.cancel_attachment()
                 self.update_extra_line()
 
             # reveal one-by-one spoiler in a message
             elif action == 18:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 msg_index = self.lines_to_msg(chat_sel)
                 self.spoil(msg_index)
 
             # open guild in tree
             elif action == 19:
-                self.restore_input_text = [input_text, "standard"]
-                guild_id = self.tree_metadata[tree_sel]["id"]
+                self.restore_input_text = (input_text, "standard")
+                if self.tree_metadata[tree_sel]:
+                    guild_id = self.tree_metadata[tree_sel]["id"]
                 self.open_guild(guild_id, select=True)
 
             # copy/cut on input line
             elif action == 20:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 peripherals.copy_to_clipboard(self.tui.input_select_text)
 
             # join/leave selected thread in tree
             elif action == 21:
-                self.restore_input_text = [input_text, "standard"]
-                if self.tree_metadata[tree_sel]["type"] in (11, 12):
+                self.restore_input_text = (input_text, "standard")
+                if self.tree_metadata[tree_sel] and self.tree_metadata[tree_sel]["type"] in (11, 12):
                     # find threads parent channel and guild
                     thread_id = self.tree_metadata[tree_sel]["id"]
                     guild_id, channel_id, _ = self.find_parents(tree_sel)
@@ -1096,7 +1092,7 @@ class Endcord:
                     self.update_tree()
 
             # open thread from forum
-            elif action == 22 and "owner_id" in self.messages[chat_sel]:
+            elif action == 22 and self.forum:
                 if input_text and input_text != "\n":
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                 # failsafe if messages got rewritten
@@ -1111,7 +1107,7 @@ class Endcord:
                 self.update_status_line()
 
             # open and join thread from forum
-            elif action == 23 and "owner_id" in self.messages[chat_sel]:
+            elif action == 23 and self.forum:
                 if input_text and input_text != "\n":
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                 parent_hint = self.active_channel["channel_id"]
@@ -1133,7 +1129,7 @@ class Endcord:
 
             # view profile info
             elif action == 24:
-                self.restore_input_text = [input_text, "standard extra"]
+                self.restore_input_text = (input_text, "standard extra")
                 msg_index = self.lines_to_msg(chat_sel)
                 user_id = self.messages[msg_index]["user_id"]
                 guild_id = self.active_channel["guild_id"]
@@ -1147,12 +1143,12 @@ class Endcord:
 
             # view channel info
             elif action == 25:
-                self.restore_input_text = [input_text, "standard extra"]
+                self.restore_input_text = (input_text, "standard extra")
                 self.view_selected_channel(tree_sel=tree_sel)
 
             # select in extra window / memeber list
             elif action in (27, 39):
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 if self.extra_window_open and action == 27:
                     if self.extra_indexes:
                         extra_selected = self.tui.get_extra_selected()
@@ -1187,14 +1183,14 @@ class Endcord:
                             self.update_status_line()
                         if new_input_text:
                             if self.search and self.extra_bkp:
-                                self.restore_input_text = [new_input_text, "search"]
+                                self.restore_input_text = (new_input_text, "search")
                                 self.ignore_typing = True
                             elif self.command and self.extra_bkp:
-                                self.restore_input_text = [new_input_text, "command"]
+                                self.restore_input_text = (new_input_text, "command")
                                 self.ignore_typing = True
                                 self.tui.instant_assist = True
                             else:
-                                self.restore_input_text = [new_input_text, "standard"]
+                                self.restore_input_text = (new_input_text, "standard")
                             self.tui.set_input_index(new_index)
                 elif self.member_list_visible:   # controls for memeber list when no extra window
                     member = self.current_members[self.tui.get_mlist_selected()]
@@ -1210,7 +1206,7 @@ class Endcord:
 
             # view summaries
             elif action == 28:
-                self.restore_input_text = [input_text, "standard extra"]
+                self.restore_input_text = (input_text, "standard extra")
                 self.show_summaries()
 
             # search
@@ -1218,7 +1214,7 @@ class Endcord:
                 if not self.search:
                     self.reset_actions()
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "search"]
+                    self.restore_input_text = (None, "search")
                     self.search = True
                     self.tui.disable_wrap_around(True)
                     self.ignore_typing = True
@@ -1239,22 +1235,22 @@ class Endcord:
 
             # copy channel link
             elif action == 30:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 guild_id = self.active_channel["guild_id"]
-                channel_id = self.tree_metadata[tree_sel]["id"]
-                if guild_id:
+                if guild_id and self.tree_metadata[tree_sel]:
+                    channel_id = self.tree_metadata[tree_sel]["id"]
                     url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
                     peripherals.copy_to_clipboard(url)
 
             # copy message link
             elif action == 31 and self.messages:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 msg_index = self.lines_to_msg(chat_sel)
                 self.copy_msg_url(msg_index)
 
             # go to channel/message mentioned in this message
             elif action == 32:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 channels = []
                 msg_index = self.lines_to_msg(chat_sel)
                 message_text = self.messages[msg_index]["content"]
@@ -1289,7 +1285,7 @@ class Endcord:
 
             # cycle status
             elif action == 33:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 if self.my_status["client_state"] == "online":
                     for num, status in enumerate(STATUS_STRINGS):
                         if status == self.my_status["status"]:
@@ -1302,7 +1298,7 @@ class Endcord:
 
             # record audio message
             elif action == 34 and self.messages and not self.disable_sending and not self.uploading:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 if self.recording:
                     self.stop_recording()
                 else:
@@ -1310,7 +1306,7 @@ class Endcord:
 
             # toggle member list
             elif self.get_members and action == 35:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 self.toggle_member_list()
 
             # add reaction
@@ -1318,7 +1314,7 @@ class Endcord:
                 msg_index = self.lines_to_msg(chat_sel)
                 self.add_to_store(self.active_channel["channel_id"], input_text)
                 if "deleted" not in self.messages[msg_index]:
-                    self.restore_input_text = [None, "react"]
+                    self.restore_input_text = (None, "react")
                     self.ignore_typing = True
                     self.reacting = {
                         "id": self.messages[msg_index]["id"],
@@ -1330,12 +1326,12 @@ class Endcord:
 
             # show detailed reactions
             elif action == 37 and self.messages:
-                self.restore_input_text = [input_text, "standard extra"]
+                self.restore_input_text = (input_text, "standard extra")
                 msg_index = self.lines_to_msg(chat_sel)
                 multiple = self.do_view_reactions(msg_index)
                 if multiple:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "prompt"]
+                    self.restore_input_text = (None, "prompt")
 
             # command
             elif action == 38:
@@ -1343,7 +1339,7 @@ class Endcord:
                     self.update_extra_line()
                     self.reset_actions()
                     self.add_to_store(self.active_channel["channel_id"], input_text)
-                    self.restore_input_text = [None, "command"]
+                    self.restore_input_text = (None, "command")
                     self.command = True
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
@@ -1366,7 +1362,7 @@ class Endcord:
 
             # toggle tab
             elif action == 41:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 self.toggle_tab()
 
             # switch tab
@@ -1377,12 +1373,12 @@ class Endcord:
                     self.switch_tab(pressed_num_key - 1)
 
             elif action == 43:   # show pinned
-                self.restore_input_text = [input_text, "standard extra"]
+                self.restore_input_text = (input_text, "standard extra")
                 self.view_pinned()
 
             # mouse double-click on message
             elif action == 40:
-                self.restore_input_text = [input_text, "standard"]
+                self.restore_input_text = (input_text, "standard")
                 clicked_chat, mouse_x = self.tui.get_clicked_chat()
                 if clicked_chat is not None and mouse_x is not None:
                     chat_line_map = self.chat_map[clicked_chat]
@@ -1437,32 +1433,32 @@ class Endcord:
                     self.stop_recording(cancel=True)
                 elif self.reacting["id"]:
                     self.reset_actions()
-                    self.restore_input_text = [None, None]
+                    self.restore_input_text = (None, None)
                 elif self.assist_word and not self.tui.instant_assist:
                     if self.search:
-                        self.restore_input_text = [input_text, "search"]
+                        self.restore_input_text = (input_text, "search")
                     elif self.command:
-                        self.restore_input_text = [input_text, "command"]
+                        self.restore_input_text = (input_text, "command")
                     elif self.assist_type == 6:   # app command
                         self.reset_actions()
                         self.tui.set_input_index(0)
-                        self.restore_input_text = ["", "standard"]
+                        self.restore_input_text = ("", "standard")
                     else:
-                        self.restore_input_text = [input_text, "standard"]
+                        self.restore_input_text = (input_text, "standard")
                 elif self.extra_window_open:
                     self.stop_extra_window(update=False)
                 elif self.replying["id"]:
                     self.reset_actions()
                 elif self.editing:
-                    self.restore_input_text = [None, None]
+                    self.restore_input_text = (None, None)
                     self.reset_actions()
                 elif self.restore_input_text[1] == "after_prompt":
                     self.reset_actions()
-                    self.restore_input_text = [None, None]
+                    self.restore_input_text = (None, None)
                 else:
                     self.update_extra_line()
                     self.reset_actions()
-                    self.restore_input_text = [input_text, "standard"]
+                    self.restore_input_text = (input_text, "standard")
                 self.update_status_line()
                 self.stop_assist()
 
@@ -1473,7 +1469,7 @@ class Endcord:
             # enter
             elif (action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]) or self.command:
                 if self.assist_word and self.assist_found and not self.uploading:
-                    self.restore_input_text = [input_text, "standard"]
+                    self.restore_input_text = (input_text, "standard")
                     new_input_text, new_index = self.insert_assist(
                         input_text,
                         self.tui.get_extra_selected(),
@@ -1485,16 +1481,16 @@ class Endcord:
                         self.update_status_line()
                     if new_input_text is not None:
                         if self.search and self.extra_bkp:
-                            self.restore_input_text = [new_input_text, "search"]
+                            self.restore_input_text = (new_input_text, "search")
                             self.ignore_typing = True
                         elif self.command and self.extra_bkp:
-                            self.restore_input_text = [new_input_text, "command"]
+                            self.restore_input_text = (new_input_text, "command")
                             self.ignore_typing = True
                         elif self.reacting["id"]:
-                            self.restore_input_text = [new_input_text, "react"]
+                            self.restore_input_text = (new_input_text, "react")
                             self.ignore_typing = True
                         else:
-                            self.restore_input_text = [new_input_text, "standard"]
+                            self.restore_input_text = (new_input_text, "standard")
                         self.tui.set_input_index(new_index)
                     continue
 
@@ -1558,7 +1554,7 @@ class Endcord:
 
                 elif self.search:
                     self.do_search(input_text)
-                    self.restore_input_text = [None, "search"]
+                    self.restore_input_text = (None, "search")
                     self.reset_actions()
                     self.ignore_typing = True
                     self.update_status_line()
@@ -1756,7 +1752,7 @@ class Endcord:
         """Execute custom command"""
         logger.debug(f"Executing command, type: {cmd_type}, args: {cmd_args}")
         reset = True
-        self.restore_input_text = [None, None]
+        self.restore_input_text = (None, None)
         if cmd_type == 0:
             if cmd_args:
                 self.update_extra_line("Invalid command arguments.")
@@ -1802,7 +1798,7 @@ class Endcord:
                     "web": False,
                     "open": False,
                 }
-                self.restore_input_text = [None, "prompt"]
+                self.restore_input_text = (None, "prompt")
                 reset = False
 
         elif cmd_type == 5:   # OPEN_LINK
@@ -1824,7 +1820,7 @@ class Endcord:
                     "web": True,
                     "open": False,
                 }
-                self.restore_input_text = [None, "prompt"]
+                self.restore_input_text = (None, "prompt")
                 reset = False
 
         elif cmd_type == 6 and support_media:   # PLAY
@@ -1847,12 +1843,12 @@ class Endcord:
                     "web": False,
                     "open": True,
                 }
-                self.restore_input_text = [None, "prompt"]
+                self.restore_input_text = (None, "prompt")
                 reset = False
 
         elif cmd_type == 7:   # CANCEL
             reset = False
-            self.restore_input_text = [None, "prompt"]
+            self.restore_input_text = (None, "prompt")
             self.reset_actions()
             self.ignore_typing = True
             self.cancel_download = True
@@ -1868,7 +1864,7 @@ class Endcord:
                     self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(path, )))
                     self.upload_threads[-1].start()
                 else:
-                    self.restore_input_text = [None, "autocomplete"]
+                    self.restore_input_text = (None, "autocomplete")
                     if self.recording:   # stop recording voice message
                         self.recording = False
                         _ = recorder.stop()
@@ -1882,7 +1878,7 @@ class Endcord:
             msg_index = self.lines_to_msg(chat_sel)
             self.spoil(msg_index)
 
-        elif cmd_type == 11 and self.tree_metadata[tree_sel]["type"] in (11, 12):   # TOGGLE_THREAD
+        elif cmd_type == 11 and self.tree_metadata[tree_sel] and self.tree_metadata[tree_sel]["type"] in (11, 12):   # TOGGLE_THREAD
             thread_id = self.tree_metadata[tree_sel]["id"]
             guild_id, channel_id, _ = self.find_parents(tree_sel)
             self.thread_togle_join(guild_id, channel_id, thread_id)
@@ -1921,7 +1917,7 @@ class Endcord:
             else:
                 channel_sel = self.tree_metadata[tree_sel]["type"]
             if channel_sel and channel_sel["type"] not in (-1, 1, 11, 12):
-                self.restore_input_text = [None, "prompt"]
+                self.restore_input_text = (None, "prompt")
                 reset = False
                 self.reset_actions()
                 self.ignore_typing = True
@@ -1937,7 +1933,7 @@ class Endcord:
             if search_text:
                 reset = False
                 self.do_search(search_text)
-                self.restore_input_text = [None, "search"]
+                self.restore_input_text = (None, "search")
                 self.reset_actions()
                 self.extra_window_open = True
                 self.search = True
@@ -1946,7 +1942,7 @@ class Endcord:
             elif not self.search:
                 reset = False
                 self.reset_actions()
-                self.restore_input_text = [None, "search"]
+                self.restore_input_text = (None, "search")
                 self.search = True
                 self.tui.disable_wrap_around(True)
                 self.ignore_typing = True
@@ -2039,7 +2035,7 @@ class Endcord:
             if not react_text:
                 reset = False
                 if "deleted" not in self.messages[msg_index]:
-                    self.restore_input_text = [None, "react"]
+                    self.restore_input_text = (None, "react")
                     self.ignore_typing = True
                     self.reacting = {
                         "id": self.messages[msg_index]["id"],
@@ -2055,7 +2051,7 @@ class Endcord:
             msg_index = self.lines_to_msg(chat_sel)
             multiple = self.do_view_reactions(msg_index)
             if multiple:
-                self.restore_input_text = [None, "prompt"]
+                self.restore_input_text = (None, "prompt")
 
         elif cmd_type == 25:   # GOTO
             channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(cmd_args["channel_id"])
@@ -3117,7 +3113,7 @@ class Endcord:
                         self.messages[msg_index]["id"],
                         f"{emoji_name}:{emoji_id}",
                     )
-        self.restore_input_text = [None, None]
+        self.restore_input_text = (None, None)
 
 
     def close_extra_window(self):
@@ -4167,7 +4163,7 @@ class Endcord:
             self.guilds,
             self.threads,
             [x["channel_id"] for x in self.unseen],
-            [x["channel_id"] for x in self.pings],
+            [x.channel_id for x in self.unseen if x["mentions"]],
             self.guild_positions,
             self.activities,
             collapsed,
@@ -4272,10 +4268,6 @@ class Endcord:
         for num, unseen_channel in enumerate(self.unseen):   # remove unseen
             if channel_id == unseen_channel["channel_id"]:
                 self.unseen.pop(num)
-        for num, pinged_channel in enumerate(self.pings):   # remove ping
-            if channel_id == pinged_channel["channel_id"]:
-                self.pings.pop(num)
-                break
         if self.enable_notifications:   # remove notification
             for num, notification in enumerate(self.notifications):
                 if notification["channel_id"] == channel_id:
@@ -4607,12 +4599,8 @@ class Endcord:
                             break
                     break
             if not muted:
-                if new_message_channel_id not in [x["channel_id"] for x in self.unseen]:
-                    if not skip_unread:
-                        self.unseen.append({
-                            "channel_id": new_message_channel_id,
-                            "guild_id": data["guild_id"],
-                        })
+                # check if this message should ping
+                ping = False
                 mentions = data["mentions"]
                 # select my roles from same guild as message
                 my_roles = []
@@ -4626,11 +4614,16 @@ class Endcord:
                     new_message_channel_id in self.dms_vis_id
                 ):
                     if not skip_unread:
-                        self.pings.append({
-                            "channel_id": new_message_channel_id,
-                            "message_id": data["id"],
-                        })
+                        ping = True
                     self.send_desktop_notification(new_message)
+
+                # set unseen
+                self.pings.append({
+                    "channel_id": new_message_channel_id,
+                    "message_id": data["id"],
+                    "mentions": ping,
+                    })
+
                 if not skip_unread:
                     self.update_tree()
 
@@ -4862,12 +4855,6 @@ class Endcord:
                 break
 
         # load pings, unseen and blocked
-        self.pings = []
-        for channel_id in self.gateway.get_pings():
-            self.pings.append({
-                "channel_id": channel_id,
-                "message_id": None,
-            })
         self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.run = True

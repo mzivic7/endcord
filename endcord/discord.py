@@ -226,8 +226,8 @@ class Discord():
                 nick = data["guild_member"]["nick"]
                 roles = data["guild_member"]["roles"]
                 joined_at = data["guild_member"]["joined_at"][:10]
-            else:
-                nick = None   # just in case
+            else:   # just in case
+                nick = None
                 roles = None
                 joined_at = None
             bio = data["user"].get("bio")
