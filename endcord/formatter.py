@@ -1130,7 +1130,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(color_reactions)
             reactions_map = []
             offset = 0
-            for reaction in reaction:
+            for reaction in reactions:
                 reactions_map.append([pre_reaction_len + offset, pre_reaction_len + len(reaction) + offset])
                 offset += len(reactions_separator) + len(reaction)
             temp_chat_map.append((num, None, False, reactions_map))

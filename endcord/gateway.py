@@ -818,19 +818,20 @@ class Gateway():
                                 mentions.append({
                                     "id": mention["id"],
                                 })
+                        ready_data = {
+                            "id": message["id"],
+                            "channel_id": message["channel_id"],
+                            "guild_id": message.get("guild_id"),
+                            "content": message["content"],
+                            "mentions": mentions,
+                            "mention_roles": message["mention_roles"],
+                            "mention_everyone": message["mention_everyone"],
+                            "user_id": message["author"]["id"],
+                            "global_name": message["author"]["global_name"],
+                        }
                         self.messages_buffer.append({
                             "op": "MESSAGE_CREATE",
-                            "d": {
-                                "id": message["id"],
-                                "channel_id": message["channel_id"],
-                                "guild_id": message.get("guild_id"),
-                                "content": message["content"],
-                                "mentions": mentions,
-                                "mention_roles": message["mention_roles"],
-                                "mention_everyone": message["mention_everyone"],
-                                "user_id": message["author"]["id"],
-                                "global_name": message["author"]["global_name"],
-                            },
+                            "d": ready_data,
                         })
 
                 elif optext == "MESSAGE_UPDATE":
@@ -846,7 +847,6 @@ class Gateway():
                     })
 
                 elif optext == "MESSAGE_DELETE":
-
                     ready_data = {
                         "id": data["id"],
                         "channel_id": data["channel_id"],
@@ -1217,7 +1217,6 @@ class Gateway():
                     self.app_command_autocomplete_resp = response["d"]["choices"]
 
                 elif optext in ("MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE"):
-
                     data["id"] = data.pop("message_id")
                     self.messages_buffer.append({
                         "op": optext,
