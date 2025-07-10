@@ -99,6 +99,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "discord-protos" },
     { name = "emoji" },
+    { name = "nuitka" },
     { name = "numpy" },
     { name = "pexpect" },
     { name = "pysocks" },
@@ -129,6 +130,7 @@ media = [
 requires-dist = [
     { name = "discord-protos", specifier = ">=0.0.2" },
     { name = "emoji", specifier = ">=2.14.1" },
+    { name = "nuitka", specifier = ">=2.7.12" },
     { name = "numpy", specifier = "==2.2.6" },
     { name = "pexpect", specifier = ">=4.9.0" },
     { name = "pysocks", specifier = ">=1.7.1" },
@@ -170,13 +172,13 @@ wheels = [
 
 [[package]]
 name = "nuitka"
-version = "2.7.11"
+version = "2.7.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ordered-set" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bf/5a/19e8bd1c30a83189808cc68883480406b9cd9e8ea99654c313c81d71bec1/Nuitka-2.7.11.tar.gz", hash = "sha256:8009d7acb7d0467c96ecd02e4105fc488e0c12e5296cb49b0a9197de883c8123", size = 3887328, upload-time = "2025-06-28T12:51:24.768Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/9c/f51b7c7dae304f2381b5af20a5ac6ccb56f0a773d16470b269146f5909db/Nuitka-2.7.12.tar.gz", hash = "sha256:ee28e5699005904e83250ad1b3192cf2c5b46bebbf4ae12f6fc5efa4a0368c16", size = 3887702, upload-time = "2025-07-08T16:04:10.371Z" }
 
 [[package]]
 name = "numpy"

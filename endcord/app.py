@@ -2330,7 +2330,6 @@ class Endcord:
 
 
     def execute_app_command(self, input_text, autocomplete=False):
-
         """Parse and execute app command/autocomplete"""
         command_data, app_id, need_attachment = parser.app_command_string(
             input_text,
