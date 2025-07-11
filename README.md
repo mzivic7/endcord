@@ -418,9 +418,9 @@ Nuitka requirements:
 - Do not leave endcord on busy channels running in background.
 - Do not repeatedly view user profiles.
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
-- Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence.
-- Disable `send_typing in config` - it calls REST API every 7s when typing.
-- Increase `limit_channel_cache` in settings - so REST API is not called on every channel switch. This will also increase RAM and CPU usage.
+- Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence, but it shouldn't be critical.
+- Disable `send_typing in config` - it calls REST API every 7s when typing, but it shouldn't be critical.
+- Increase `limit_channel_cache` in settings - so REST API is not called on every channel switch. This will also slightly increase RAM and CPU usage.
 - `anonymous` mode in `client_properties` setting might be more risky than `default` mode.
 - Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
 
