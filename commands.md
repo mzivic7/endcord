@@ -1,6 +1,6 @@
 ## Commands
 - `react` / `react [reaction]`  
-    Propt to type reaction or send provided reaction to selected message.
+    Prompt to type reaction or send provided reaction to selected message.
 - `status` / `status [type]`, types: 1 - "online", 2 - "idle", 3 - "dnd", 4 - "invisible"  
     Cycle statuses, or set it by specifying its type name or index.  
 - `download` / `download [num]`  
@@ -24,7 +24,7 @@
 - `copy_message`  
     Copy selected message contents to clipboard.
 - `spoil`  
-    Reveal one-by-one spoiler in selected messgae.
+    Reveal one-by-one spoiler in selected message.
 - `link_channel` / `link_channel <#[channel_id]>`  
     Copy link of selected channel in tree to clipboard, or from provided channel id.
 - `link_message`  
@@ -32,7 +32,7 @@
 - `goto_mention` / `goto_mention [num]`  
     Go to channel/message mentioned in this message.
 - `cancel`  
-    Prmpt to cancel all downloads and uploads.
+    Prompt to cancel all downloads and uploads.
 - `member_list`  
     Toggle member list.
 - `toggle_thread`  
@@ -73,7 +73,7 @@
 - `vote [num]`  
     If selected message is ongoing poll, vote for specified answer index.
 - `pin_message`  
-    Pin sellected message to current channel.
+    Pin selected message to current channel.
 - `push_button [num/name]`  
     Push button on interactive app message. Specify either button number or button name (case-insensitive).
 - `dump_chat`  

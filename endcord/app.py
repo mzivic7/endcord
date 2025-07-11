@@ -497,13 +497,13 @@ class Endcord:
                     if my_messages >= MSG_MIN:
                         break
             if my_messages < MSG_MIN:
-                self.disable_sending = f"Can't send a message: please send at least {MSG_MIN} messages with the official client"
+                self.disable_sending = f"Can't send a message: send at least {MSG_MIN} messages with the official client."
 
         # if this is thread and is locked or archived, prevent sending messages
         elif self.current_channel.get("type") in (11, 12) and self.current_channel.get("locked"):
-            self.disable_sending = "Can't send a message: this thread is locked"
+            self.disable_sending = "Can't send a message: this thread is locked."
         elif not self.current_channel.get("allow_write", True) and not forum:
-            self.disable_sending = "Can't send a message: No write permissions"
+            self.disable_sending = "Can't send a message: No write permissions."
         else:
             self.disable_sending = False
             self.tui.remove_extra_line()
@@ -1038,7 +1038,7 @@ class Endcord:
                     self.ignore_typing = True
                     self.update_status_line()
                 else:
-                    self.update_extra_line("Uploading is not allowed in this channel")
+                    self.update_extra_line("Uploading is not allowed in this channel.")
 
             # moving left/right through attachments
             elif action == 14:
@@ -1872,7 +1872,7 @@ class Endcord:
                     self.ignore_typing = True
                     reset = False
             else:
-                self.update_extra_line("Uploading is not allowed in this channel")
+                self.update_extra_line("Uploading is not allowed in this channel.")
 
         elif cmd_type == 10:   # SPOIL
             msg_index = self.lines_to_msg(chat_sel)
@@ -2093,9 +2093,9 @@ class Endcord:
                     self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(path, )))
                     self.upload_threads[-1].start()
                 else:
-                    self.update_extra_line("Image not found in clipboard")
+                    self.update_extra_line("Image not found in clipboard.")
             else:
-                self.update_extra_line("No media support")
+                self.update_extra_line("No media support.")
 
         elif cmd_type == 29:   # TOGGLE_MUTE
             channel_id = cmd_args.get("channel_id")
@@ -2172,7 +2172,7 @@ class Endcord:
                         else:
                             self.update_extra_line("Already voted.")
                     else:
-                        self.update_extra_line("Can't vote - selected answer does not exist.")
+                        self.update_extra_line("Can't vote - selected answer doesn't exist.")
                 else:
                     self.update_extra_line("Can't vote - poll has ended.")
             else:
@@ -2277,7 +2277,7 @@ class Endcord:
                             message_id=message["id"],
                         )
                 else:
-                    self.update_extra_line("String select not found.")
+                    self.update_extra_line("String selection not found.")
 
         elif cmd_type == 39:   # DUMP_CHAT
             if self.forum:
@@ -2299,13 +2299,13 @@ class Endcord:
                 guild_id = self.find_parents(tree_sel)[0]
             if guild_id:   # set channel/category
                 if cmd_args["setting"].startswith("suppress"):
-                    self.update_extra_line("Cant set that option for channel")
+                    self.update_extra_line("Cant set that option for channel.")
                 else:
                     self.discord.send_notification_setting_channel(cmd_args["setting"], channel_id, guild_id)
             else:
                 for dm in self.dms:
                     if dm["id"] == channel_id:
-                        self.update_extra_line("DM has no notification settings")
+                        self.update_extra_line("DM has no notification settings.")
                         break
                 else:   # set guild
                     for guild in self.guilds:
@@ -2322,7 +2322,7 @@ class Endcord:
                             value = None
                         self.discord.send_notification_setting_guild(cmd_args["setting"], channel_id, value)
                     else:
-                        self.update_extra_line("Guild not found")
+                        self.update_extra_line("Guild not found.")
 
         if reset:
             self.reset_actions()
@@ -2533,7 +2533,7 @@ class Endcord:
                 self.media_thread.start()
                 self.remove_running_task("Loading video", 2)
             else:
-                self.update_extra_line("Can only play YouTube video")
+                self.update_extra_line("Can only play YouTube video.")
             return
 
         # check if file is already downloaded
@@ -2584,7 +2584,7 @@ class Endcord:
                 self.update_extra_line(f"File is larger than current upload limit: {int(limit/MB)}MB")
                 return
             if size > 200*MB:
-                self.update_extra_line("Cant upload over cloudflare. File is larger than 200MB")
+                self.update_extra_line("Cant upload over cloudflare. File is larger than 200MB.")
                 return
 
             # add attachment to list
@@ -2626,7 +2626,7 @@ class Endcord:
                     elif code == 2:
                         self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
             except IndexError:
-                self.update_extra_line("Failed uploading attachemnt")
+                self.update_extra_line("Failed uploading attachment.")
             self.update_extra_line()
             self.remove_running_task("Uploading file", 2)
 
@@ -2666,7 +2666,7 @@ class Endcord:
         """Start recording audio message"""
         recorder.start()
         self.recording = True
-        self.update_extra_line("RECORDING, Esc to cancel, Enter to send", timed=False)
+        self.update_extra_line("RECORDING, Esc to cancel, Enter to send.", timed=False)
 
 
     def stop_recording(self, cancel=False):
@@ -2827,7 +2827,7 @@ class Endcord:
         """Toggle member list if there is enough space"""
         if self.member_list_visible:
             if self.screen.getmaxyx()[1] - self.config["tree_width"] - self.member_list_width - 2 < 32:
-                self.update_extra_line("Not enough space to draw member list")
+                self.update_extra_line("Not enough space to draw member list.")
             else:
                 self.tui.remove_member_list()
                 self.member_list_visible = False
@@ -2863,7 +2863,7 @@ class Endcord:
     def view_profile(self, user_data):
         """Format and show extra window with profile information"""
         if not user_data:
-            self.update_extra_line("No profile informations found")
+            self.update_extra_line("No profile informations found.")
         max_w = self.tui.get_dimensions()[2][1]
         roles = []
         if user_data["roles"]:

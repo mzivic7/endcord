@@ -35,13 +35,13 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `ack_throttling = 5`  
     Delay in seconds between each ack send. Minimum is 3s. The larger it is, the longer will `[New unreads]` stay in status line.
 - `member_list = True`  
-    Wether to download member activities. Disable for lower CPU, RAM and network usage. If disabled, member list will be empty and there will be no presences in profile view screen.
+    Whether to download member activities. Disable for lower CPU, RAM and network usage. If disabled, member list will be empty and there will be no presences in profile view screen.
 - `member_list_auto_open = True`  
     Automatically opem member list on startup and on channel switch to different guild, if enough space.
 - `use_nick_when_avail = True`  
     Replace global_name with nick when it is available.
 - `remember_state = True`  
-    Remeber last open channel on exit and reopen it on start.
+    Remember last open channel on exit and reopen it on start.
 - `reply_mention = True`  
     Ping someone by default when replying.
 - `cache_typed = True`  
@@ -58,23 +58,23 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     1 - Mask blocked messages  
     2 - Hide blocked messages  
 - `hide_spam = True`  
-    Wether to hide or show spam DM request channels in DM list.
+    Whether to hide or show spam DM request channels in DM list.
 - `keep_deleted = False`  
-    Wether to keep deleted messages in chat, with different color, or remove them.
+    Whether to keep deleted messages in chat, with different color, or remove them.
 - `limit_cache_deleted = 30`  
     Limit lumber of cached deleted messages per channel.
 - `tree_show_invisible = False`  
     Show "invisible" status in tree when DM user is online but invisible.  
     Probably a discord bug, might get removed in the future.  
 - `wrap_around = True`  
-    Wether to wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
+    Whether to wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
 - `mouse = True`  
     Disable if there are issues with mouse controls.  
 - `screen_update_delay = 0.01`  
     Delay in seconds before screen is updated. Limited to min 0.01.  
     Too low value will cause visual "glitches". Increasing value will add latency between performed action and visual feedback.
 - `extra_line_delay = 5`  
-    How long will temporary extra line pop-ups remain befor they are auto-removed.
+    How long will temporary extra line pop-ups remain before they are auto-removed.
 - `tenor_gif_type = 1`  
     Type of the media when gif is downloaded from tenor:  
     0 - gif HD  
@@ -90,17 +90,17 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     To list all installed languages, run `aspell dump dicts`.
     Additional dictionaries can be installed with package manager or downloaded [here](https://ftp.gnu.org/gnu/aspell/dict/0index.html) (extract archive and run "configure" script).  
 - `media_mute = False`  
-    Wether to mute video in media player or not. If true, will not initialize audio at all.
+    Whether to mute video in media player or not. If true, will not initialize audio at all.
 - `media_cap_fps = 30`  
     Maximum framerate when playing videos.
 - `rpc_external = True`  
-    Wether to use external resources for Rich Presence (like custom pictures).
+    Whether to use external resources for Rich Presence (like custom pictures).
 - `emoji_as_text = False`  
     Will convert emoji characters to their names. Enable if emoji are not supported by terminal.
 - `native_media_player = False`  
     Use system native media player instead in-terminal ASCII art.
 - `save_sumamries = True`  
-    Wether to save summaries to disk. Disable to save RAM and reduce disk writes.
+    Whether to save summaries to disk. Disable to save RAM and reduce disk writes.
 - `default_stickers = True`  
     Download discord default stickers and add them to sticker search. Disable to save some RAM.
 - `only_one_open_server = False`  
@@ -115,7 +115,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
 -  `client_properties = "default"`  
     Client properties are used by discord in spam detection system. They contain various system information like operating system and browser user agent. There are 2 options available: `"default"` and `"anonymous"`.  
-    - `"default"` - Approximately what official desktop client sends. Includes: OS version, architecture, linux window manager, locale.  
+    - `"default"` - Approximately what official desktop client sends. Includes: OS version, architecture, Linux window manager, locale.  
     - `"anonymous"` - Approximately what official web client sends. But there is higher risk to trigger spam heuristics.  
 - `custom_user_agent = None`  
     Custom [user agent string](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent) for `client_properties`.  

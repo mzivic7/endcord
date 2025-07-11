@@ -12,7 +12,7 @@ So, before even thinking about putting it through LLM, open an issue and save yo
 
 ## Contributing rules
 - Don't use inheritance. It makes code even more unreadable.
-- Don't use dataclasses, they are slow and I dont like them, use nested lists and dicts.
+- Don't use dataclasses, its too late now, use nested lists and dicts.
 - NO typing!
 - Don't refactor, format (other than existing ruff config), clean, unnecessary optimize. I like the code the way it is.
 - Don't use `requests`, it uses 3MB more RAM than `http.client`.
