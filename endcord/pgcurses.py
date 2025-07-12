@@ -9,7 +9,7 @@ import pyperclip
 from pygame._sdl2 import Window as pg_Window
 
 WINDOW_SIZE = (800, 500)
-MAXIMIZED = False
+MAXIMIZED = True
 FONT_SIZE = 12
 FONT_NAME = "Source Code Pro"
 EMOJI_FONT_NAME = "noto color emoji"
