@@ -143,7 +143,7 @@ class Window:
 
         self.base_font_path = pygame.font.match_font(FONT_NAME)
         self.font = pygame.freetype.Font(self.base_font_path, FONT_SIZE)
-        self.emoji_font = self.emoji_font = pygame.font.SysFont(EMOJI_FONT_NAME, FONT_SIZE)
+        self.emoji_font = pygame.font.SysFont(EMOJI_FONT_NAME, FONT_SIZE)
         self.font.pad = True
 
         rect = self.font.get_rect(" ")
@@ -156,6 +156,7 @@ class Window:
         self.next_key_repeat_time = 0
 
         self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
+        self.dirty_lines = set()
 
 
     def derwin(self, nlines, ncols, begy, begx):
@@ -202,6 +203,7 @@ class Window:
             for j, ch in enumerate(ready_line[:self.ncols - x]):
                 col = x + j
                 self.buffer[row][col] = (ch, attr)
+            self.dirty_lines.add(row)
 
 
     def insch(self, y, x, ch, color_id=0):
@@ -234,7 +236,7 @@ class Window:
 
     def render(self):
         """Render buffer onto screen"""
-        for y in range(self.nlines):
+        for y in self.dirty_lines:
             row = self.buffer[y]
             i = 0
             draw_x = 0
@@ -242,7 +244,6 @@ class Window:
                 ch, attr = row[i]
                 flags = attr & 0xFFFF0000
 
-                # emoji
                 if is_emoji(ch):
                     px_x = draw_x * self.char_width
                     px_y = y * self.char_height
@@ -283,6 +284,7 @@ class Window:
                 self.font.underline = bool(flags & A_UNDERLINE)
                 self.font.render_to(self.surface, (px_x, px_y), text, fg)
 
+        self.dirty_lines.clear()
 
 
     def clear(self):
