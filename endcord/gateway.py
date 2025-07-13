@@ -528,9 +528,8 @@ class Gateway():
                                 break
                         self.msg_unseen.append({
                             "channel_id": channel_id,
-                            "guild_id": guild_id,
                             "last_message_id": last_message_id,
-                            "mentions": channel_id in msg_ping,
+                            "mentions": ["True"] if channel_id in msg_ping else [],   # mesage_id is unknown
                         })
                     time_log_string += f"    unread and mentions - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()

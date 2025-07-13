@@ -233,7 +233,6 @@ class Endcord:
         self.update_prompt()
         self.typing = []
         self.unseen = []
-        self.pings = []
         self.notifications = []
         self.typing_sent = int(time.time())
         self.sent_ack_time = time.time()
@@ -312,12 +311,6 @@ class Endcord:
         if new_activities:
             self.activities = new_activities
             self.update_tree()
-        self.pings = []
-        for channel_id in self.gateway.get_pings():
-            self.pings.append({
-                "channel_id": channel_id,
-                "message_id": None,
-            })
         self.unseen = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.select_current_member_roles()
@@ -4162,7 +4155,7 @@ class Endcord:
             self.guilds,
             self.threads,
             [x["channel_id"] for x in self.unseen],
-            [x.channel_id for x in self.unseen if x["mentions"]],
+            [x["channel_id"] for x in self.unseen if x["mentions"]],
             self.guild_positions,
             self.activities,
             collapsed,
@@ -4217,7 +4210,7 @@ class Endcord:
         Force will set even if its not marked as unseen, used for active channel.
         """
         for unseen_channel in self.unseen:
-            if unseen_channel["channel_id"] == target_id or force:   # find this unseen chanel
+            if unseen_channel["channel_id"] == target_id:   # find this unseen chanel
                 if ack:
                     self.discord.send_ack(target_id, self.messages[0]["id"])
                 if not force:   # dont remove notification when marking seen current channel
@@ -4230,11 +4223,14 @@ class Endcord:
             for guild in self.guilds:
                 if guild["guild_id"] == target_id:
                     for channel in self.unseen:
-                        if channel["guild_id"] == target_id:
-                            channels.append({
-                                "channel_id": channel["channel_id"],
-                                "message_id": channel["last_message_id"],
-                            })
+                        channel_id = channel["channel_id"]
+                        for channel_g in guild["channels"]:
+                            if channel_id == channel_g["id"]:
+                                channels.append({
+                                    "channel_id": channel["channel_id"],
+                                    "message_id": channel["last_message_id"],
+                                })
+                                break
                     break
             # check categories
             _, _, guild_id, _, parent_id = self.find_parents_from_id(target_id)
@@ -4617,26 +4613,32 @@ class Endcord:
                     self.send_desktop_notification(new_message)
 
                 # set unseen
-                self.pings.append({
-                    "channel_id": new_message_channel_id,
-                    "message_id": data["id"],
-                    "mentions": ping,
-                    })
-
-                if not skip_unread:
-                    self.update_tree()
+                if not self.unseen_scrolled:
+                    for num, channel in enumerate(self.unseen):
+                        if channel["channel_id"] == new_message_channel_id:
+                            if ping:
+                                self.unseen[num]["mentions"].append(data["id"])
+                            break
+                    else:
+                        self.unseen.append({
+                            "channel_id": new_message_channel_id,
+                            "mentions": [data["id"]] if ping else [],
+                        })
+                    if not skip_unread:
+                        self.update_tree()
 
 
     def process_msg_events_ghost_ping(self, new_message):
         """Check message events for deleted message and remove ghost pings"""
         if new_message["op"] == "MESSAGE_DELETE" and not self.keep_deleted:
             new_message_channel_id = new_message["d"]["channel_id"]
-            for num, pinged_channel in enumerate(self.pings):
+            for num, pinged_channel in enumerate(self.unseen):
                 if (
                     new_message_channel_id == pinged_channel["channel_id"] and
-                    new_message["d"]["id"] == pinged_channel["message_id"]
+                    new_message["d"]["id"] in pinged_channel["mentions"]   # if channel is from ready event - message is unknown
                 ):
-                    self.pings.pop(num)
+                    self.unreads[num]["mentions"].remove(new_message["d"]["id"])
+                    self.update_tree()
                     if self.enable_notifications:
                         for num_1, notification in enumerate(self.notifications):
                             if notification["channel_id"] == new_message_channel_id:
