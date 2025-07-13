@@ -344,7 +344,18 @@ class TUI():
 
 
     def get_assist(self):
-        """Return word to be assisted with completing and type of assist needed"""
+        """
+        Return word to be assisted with completing and type of assist needed
+        Assist types:
+        1 - channel
+        2 - username/role
+        3 - emoji
+        4 - sticker
+        5 - client command
+        6 - app command
+        7 - upload file selct
+        100 - stop assist
+        """
         if self.assist_start >= 0:
             if self.assist_start < self.input_index - (MIN_ASSIST_LETTERS - 1):
                 if (
@@ -362,6 +373,8 @@ class TUI():
                 return None, 100
             if self.assist_start > self.input_index:
                 return None, 100
+        if self.enable_autocomplete and self.input_buffer:
+            return self.input_buffer, 7
         if self.input_buffer and self.input_buffer[0] == APP_COMMAND_ASSIST_TRIEGGER:
             return self.input_buffer, 6
         if self.instant_assist and self.input_buffer:
@@ -1564,12 +1577,12 @@ class TUI():
         Return typed text, absolute_tree_position and whether channel is changed
         """
         _, w = self.input_hw
+        self.enable_autocomplete = autocomplete
         if reset:
             self.input_buffer = ""
             self.input_index = 0
             self.input_line_index = 0
             self.cursor_pos = 0
-            self.enable_autocomplete = autocomplete
         if init_text:
             self.input_buffer = init_text
             if not keep_cursor:
@@ -1692,7 +1705,6 @@ class TUI():
                 self.input_index += 1
                 self.typing = int(time.time())
                 if self.enable_autocomplete:
-                    completion_base = self.input_buffer
                     selected_completion = 0
                 self.add_to_delta_store(chr(key))
                 self.show_cursor()
@@ -1709,7 +1721,6 @@ class TUI():
                     self.input_buffer = self.input_buffer[:self.input_index-1] + self.input_buffer[self.input_index:]
                     self.input_index -= 1
                     if self.enable_autocomplete:
-                        completion_base = self.input_buffer
                         selected_completion = 0
                     self.add_to_delta_store("BACKSPACE", removed_char)
                     self.show_cursor()
@@ -1752,6 +1763,10 @@ class TUI():
             elif key == curses.KEY_END:
                 self.input_index = len(self.input_buffer)
                 self.input_select_start = None
+
+            elif key in self.keybindings["preview_upload"]:
+                # first check this because it can be duplicate with orther keybinding
+                return self.return_input_code(44)
 
             elif key in self.keybindings["word_left"]:
                 left_len = 0
@@ -1910,7 +1925,7 @@ class TUI():
 
             elif self.enable_autocomplete and key == 9:   # TAB - same as CTRL+I
                 if self.input_buffer and self.input_index == len(self.input_buffer):
-                    completions = peripherals.complete_path(completion_base, separator=False)
+                    completions = peripherals.complete_path(self.input_buffer, separator=False)
                     if completions:
                         path = completions[selected_completion]
                         self.input_buffer = path

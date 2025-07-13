@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -347,6 +348,10 @@ class CursesMedia():
         """Select runner based on file type"""
         if not path:
             return
+        if not os.path.exists(path):
+            return
+        if os.path.isdir(path):
+            return
         self.path = path
         self.run = True
         self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
@@ -554,6 +559,10 @@ def wait_input(screen, keybindings, curses_media):
 def ascii_runner(screen, path, config, keybindings):
     """Main function"""
     path = os.path.expanduser(path)
+    if not os.path.exists(path):
+        sys.exit("Cant play media: File not found.")
+    if os.path.isdir(path):
+        sys.exit("Cant play media: Specified path is a directory.")
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()

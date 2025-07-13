@@ -157,7 +157,7 @@ def load_config(path, default, section="main", gen_config=False):
         for key in default:
             if key in list(config[section].keys()):
                 try:
-                    eval_value = literal_eval(config_data_raw[key])
+                    eval_value = literal_eval(config_data_raw[key].replace("\\", "\\\\"))
                     config_data[key] = eval_value
                 except ValueError:
                     config_data[key] = config_data_raw[key]
@@ -434,6 +434,8 @@ def get_audio_waveform(path):
 
 def native_open(path, mpv_path=""):
     """Open media file in native application, cross-system"""
+    if not path:
+        return
     if path.startswith("https://") and "youtu" in path:
         if mpv_path:
             current_runner = mpv_path

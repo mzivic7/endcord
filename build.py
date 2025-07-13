@@ -59,7 +59,7 @@ def patch_soundcard():
         print("Soundcard library not found")
         return
 
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     pattern = re.compile(r"^(\s*)_ole32\.CoUninitialize\(\)")
@@ -73,14 +73,14 @@ def patch_soundcard():
             break
 
     if changed:
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.writelines(lines)
         print(f"Patched file: {path}")
     else:
         print(f"Nothing to patch in file {path}")
 
 
-def toggle_experimental():
+def toggle_experimental(check_only=False):
     """Toggle experimental mode"""
     file_list = []
     for path, subdirs, files in os.walk(os.getcwd()):
@@ -91,7 +91,7 @@ def toggle_experimental():
                 file_list.append(file_path)
     enable = False
     for path in file_list:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         changed = False
         for num, line in enumerate(lines):
@@ -105,9 +105,11 @@ def toggle_experimental():
                 changed = True
                 enable = False
                 break
-        if changed:
-            with open(path, "w") as f:
+        if changed and not check_only:
+            with open(path, "w", encoding="utf-8") as f:
                 f.writelines(lines)
+    if check_only:
+        return not enable
     if enable:
         command = "uv pip install pygame-ce pyperclip"
         os.system(command)
@@ -116,6 +118,7 @@ def toggle_experimental():
         command = "uv pip uninstall pygame-ce pyperclip"
         os.system(command)
         print("Experimental windowed mode disabled!")
+    return not enable
 
 
 def build_with_pyinstaller(onedir):
@@ -229,6 +232,10 @@ if __name__ == "__main__":
         remove_media()
     else:
         add_media()
+    if toggle_experimental(check_only=True):
+        command = "uv pip install pygame-ce pyperclip"
+        os.system(command)
+        print("Experimental windowed mode enabled!")
     if args.nuitka:
         build_with_nuitka(args.onedir, args.clang)
         sys.exit()

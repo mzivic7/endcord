@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 from queue import Queue
 
@@ -12,7 +13,6 @@ WINDOW_SIZE = (800, 500)
 MAXIMIZED = True
 FONT_SIZE = 12
 FONT_NAME = "Source Code Pro"
-EMOJI_FONT_NAME = "noto color emoji"
 APP_NAME = "Endcord"
 
 REPEAT_DELAY = 400
@@ -141,9 +141,16 @@ class Window:
         self.clock = pygame.time.Clock()
         self.nodelay_state = False
 
+        if sys.platform == "win32":
+            emoji_font_name = "Segoe UI Emoji"
+        elif sys.platform == "darwin":
+            emoji_font_name = "Apple Color Emoji"
+        else:
+            emoji_font_name = "Noto Color Emoji"
+
         self.base_font_path = pygame.font.match_font(FONT_NAME)
         self.font = pygame.freetype.Font(self.base_font_path, FONT_SIZE)
-        self.emoji_font = pygame.font.SysFont(EMOJI_FONT_NAME, FONT_SIZE)
+        self.emoji_font = pygame.font.SysFont(emoji_font_name, FONT_SIZE)
         self.font.pad = True
 
         rect = self.font.get_rect(" ")
@@ -489,6 +496,10 @@ class error(Exception):   # noqa
 def color_pair(color_id):
     """curses.color_pair clone using pygame, returns color id"""
     return color_id
+
+def start_color():
+    """curses.start_color clone using pygame, does nothing"""
+    pass
 
 def use_default_colors():
     """curses.use_default_colors clone using pygame, does nothing"""

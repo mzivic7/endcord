@@ -187,6 +187,7 @@ keybindings = {
     "extra_up": 573,   # Alt+Up
     "extra_down": 532,   # Alt+Down
     "extra_select": "ALT+10",   # Alt+Enter
+    "preview_upload": 16,   # Ctrl+P - allowed duplicate
     # media
     "media_pause": 32,   # C
     "media_replay": 122,   # Z

@@ -41,7 +41,7 @@ def main():
 
     for path in file_list:
         if "version_update.py" not in path:
-            with open(path, "r") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
             changed = False
@@ -52,7 +52,7 @@ def main():
                     break
 
             if changed:
-                with open(path, "w") as f:
+                with open(path, "w", encoding="utf-8") as f:
                     f.writelines(lines)
                 print(f"Version number updated in: {path}")
                 any_updated = True

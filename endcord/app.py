@@ -808,6 +808,7 @@ class Endcord:
         self.going_to_ch = None
         self.ignore_typing = False
         self.tui.typing = time.time() - 5
+        self.update_status_line()
 
 
     def add_running_task(self, task, priority=5):
@@ -843,7 +844,7 @@ class Endcord:
                 input_text = ""
             elif self.restore_input_text[1] == "prompt":
                 self.stop_extra_window()
-                self.restore_input_text = (None, "after_prompt")
+                self.restore_input_text = (None, "after prompt")
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
             elif self.restore_input_text[1] in ("standard", "standard extra"):
                 if self.restore_input_text[1] == "standard":
@@ -852,13 +853,14 @@ class Endcord:
                 self.restore_input_text = (None, None)
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True)
             elif self.restore_input_text[1] == "autocomplete":
+                init_text = self.restore_input_text[0]
                 self.restore_input_text = (None, None)
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, autocomplete=True)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt("PATH"), init_text=init_text, autocomplete=True)
             elif self.restore_input_text[1] in ("search", "command", "react", "edit"):
                 init_text = self.restore_input_text[0]
                 prompt_text = self.restore_input_text[1].upper()
                 self.restore_input_text = (None, None)
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(f"[{prompt_text}] > ", init_text=init_text)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt(prompt_text), init_text=init_text)
             else:
                 restore_text = None
                 input_index = 0
@@ -1365,9 +1367,20 @@ class Endcord:
                 if pressed_num_key:
                     self.switch_tab(pressed_num_key - 1)
 
-            elif action == 43:   # show pinned
+            # show pinned
+            elif action == 43:
                 self.restore_input_text = (input_text, "standard extra")
                 self.view_pinned()
+
+            # preview file to upload
+            elif action == 44 and self.uploading:
+                self.restore_input_text = (input_text, "autocomplete")
+                self.ignore_typing = True
+                extra_index = self.tui.get_extra_selected()
+                file_path = self.assist_found[extra_index][1]
+                if isinstance(file_path, str):
+                    self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(file_path, ))
+                    self.media_thread.start()
 
             # mouse double-click on message
             elif action == 40:
@@ -1438,6 +1451,10 @@ class Endcord:
                         self.restore_input_text = ("", "standard")
                     else:
                         self.restore_input_text = (input_text, "standard")
+                elif self.uploading:
+                    self.reset_actions()
+                    self.tui.set_input_index(0)
+                    self.restore_input_text = ("", None)   # load text from cache
                 elif self.extra_window_open:
                     self.stop_extra_window(update=False)
                 elif self.replying["id"]:
@@ -1445,7 +1462,7 @@ class Endcord:
                 elif self.editing:
                     self.restore_input_text = (None, None)
                     self.reset_actions()
-                elif self.restore_input_text[1] == "after_prompt":
+                elif self.restore_input_text[1] == "after prompt":
                     self.reset_actions()
                     self.restore_input_text = (None, None)
                 else:
@@ -1461,7 +1478,7 @@ class Endcord:
 
             # enter
             elif (action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]) or self.command:
-                if self.assist_word and self.assist_found and not self.uploading:
+                if self.assist_word and self.assist_found:
                     self.restore_input_text = (input_text, "standard")
                     new_input_text, new_index = self.insert_assist(
                         input_text,
@@ -1481,6 +1498,9 @@ class Endcord:
                             self.ignore_typing = True
                         elif self.reacting["id"]:
                             self.restore_input_text = (new_input_text, "react")
+                            self.ignore_typing = True
+                        elif self.uploading:
+                            self.restore_input_text = (new_input_text, "autocomplete")
                             self.ignore_typing = True
                         else:
                             self.restore_input_text = (new_input_text, "standard")
@@ -1540,10 +1560,6 @@ class Endcord:
                     self.download_threads = []
                     self.cancel_upload()
                     self.upload_threads = []
-
-                elif self.uploading:
-                    self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(input_text, )))
-                    self.upload_threads[-1].start()
 
                 elif self.search:
                     self.do_search(input_text)
@@ -2569,59 +2585,64 @@ class Endcord:
     def upload(self, path):
         """Thread that uploads file to currently open channel"""
         path = os.path.expanduser(path)
-        if os.path.exists(path) and not os.path.isdir(path):
+        if not os.path.exists(path):
+            self.update_extra_line("Cant upload file: file does not exist")
+            return
+        if os.path.isdir(path):
+            self.update_extra_line("Cant upload directory")
+            return
 
-            size = peripherals.get_file_size(path)
-            limit = max(USER_UPLOAD_LIMITS[self.premium], GUILD_UPLOAD_LIMITS[self.premium])
-            if size > limit:
-                self.update_extra_line(f"File is larger than current upload limit: {int(limit/MB)}MB")
-                return
-            if size > 200*MB:
-                self.update_extra_line("Cant upload over cloudflare. File is larger than 200MB.")
-                return
+        size = peripherals.get_file_size(path)
+        limit = max(USER_UPLOAD_LIMITS[self.premium], GUILD_UPLOAD_LIMITS[self.premium])
+        if size > limit:
+            self.update_extra_line(f"File is larger than current upload limit: {int(limit/MB)}MB")
+            return
+        if size > 200*MB:
+            self.update_extra_line("Cant upload over cloudflare. File is larger than 200MB.")
+            return
 
-            # add attachment to list
-            for ch_index, channel in enumerate(self.ready_attachments):
-                if channel["channel_id"] == self.active_channel["channel_id"]:
-                    break
-            else:
-                self.ready_attachments.append({
-                    "channel_id": self.active_channel["channel_id"],
-                    "attachments": [],
-                })
-                ch_index = len(self.ready_attachments) - 1
-            self.ready_attachments[ch_index]["attachments"].append({
-                "path": path,
-                "name": os.path.basename(path),
-                "upload_url": None,
-                "upload_filename": None,
-                "state": 0,
+        # add attachment to list
+        for ch_index, channel in enumerate(self.ready_attachments):
+            if channel["channel_id"] == self.active_channel["channel_id"]:
+                break
+        else:
+            self.ready_attachments.append({
+                "channel_id": self.active_channel["channel_id"],
+                "attachments": [],
             })
-            at_index = len(self.ready_attachments[ch_index]["attachments"]) - 1
+            ch_index = len(self.ready_attachments) - 1
+        self.ready_attachments[ch_index]["attachments"].append({
+            "path": path,
+            "name": os.path.basename(path),
+            "upload_url": None,
+            "upload_filename": None,
+            "state": 0,
+        })
+        at_index = len(self.ready_attachments[ch_index]["attachments"]) - 1
 
-            self.add_running_task("Uploading file", 2)
-            self.update_extra_line()
-            upload_data, code = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
-            try:
-                if upload_data:
-                    uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
-                    if uploaded:
-                        self.ready_attachments[ch_index]["attachments"][at_index]["upload_url"] = upload_data["upload_url"]
-                        self.ready_attachments[ch_index]["attachments"][at_index]["upload_filename"] = upload_data["upload_filename"]
-                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 1
-                    else:
-                        self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
-                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
+        self.add_running_task("Uploading file", 2)
+        self.update_extra_line()
+        upload_data, code = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
+        try:
+            if upload_data:
+                uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
+                if uploaded:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["upload_url"] = upload_data["upload_url"]
+                    self.ready_attachments[ch_index]["attachments"][at_index]["upload_filename"] = upload_data["upload_filename"]
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 1
                 else:
                     self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
-                    if code == 1:
-                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
-                    elif code == 2:
-                        self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
-            except IndexError:
-                self.update_extra_line("Failed uploading attachment.")
-            self.update_extra_line()
-            self.remove_running_task("Uploading file", 2)
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
+            else:
+                self.ready_attachments[ch_index]["attachments"][at_index]["path"] = None
+                if code == 1:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 4
+                elif code == 2:
+                    self.ready_attachments[ch_index]["attachments"][at_index]["state"] = 2
+        except IndexError:
+            self.update_extra_line("Failed uploading attachment.")
+        self.update_extra_line()
+        self.remove_running_task("Uploading file", 2)
 
 
     def cancel_upload(self):
@@ -3184,6 +3205,7 @@ class Endcord:
 
     def assist(self, assist_word, assist_type, query_results=None):
         """Assist when typing: channel, username, role, emoji and sticker"""
+        assist_word_real = assist_word
         assist_word = assist_word.lower()
         assist_words = assist_word.split("_")
         self.assist_type = assist_type
@@ -3671,12 +3693,27 @@ class Endcord:
                                             for choice in self.app_command_autocomplete_resp:
                                                 self.assist_found.append((choice["name"], choice["value"]))
 
+        elif assist_type == 7:   # upload file select
+            if query_results:
+                for path in query_results:
+                    name = os.path.basename(os.path.normpath(path))
+                    if os.path.isdir(path):
+                        name += "/"
+                    self.assist_found.append((name, path))
+            elif os.path.exists(assist_word):
+                if os.path.isdir(assist_word):
+                    self.assist_found.append(("Provided path is a directory", False))
+                else:
+                    self.assist_found.append(("Press enter to upload this file", True))
+            else:
+                self.assist_found.append(("Provided path is invalid", True))
+
         max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_assist(self.assist_found, assist_type, max_w)
         self.extra_window_open = True
         if (self.search or self.command) and not (self.assist_word or self.assist_word == " "):
             self.extra_bkp = (self.tui.extra_window_title, self.tui.extra_window_body)
-        self.assist_word = assist_word
+        self.assist_word = assist_word_real
         self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
 
 
@@ -3708,6 +3745,7 @@ class Endcord:
         self.search_end = False
         self.search_messages = []
         self.command = False
+        self.uploading = False
         if update:
             self.update_status_line()
             self.stop_assist()
@@ -3757,6 +3795,19 @@ class Endcord:
                     new_text = ""
             if not new_text.endswith("="):   # dont add space if its option
                 new_text = new_text + " "
+            new_pos = len(new_text)
+            return new_text, new_pos
+        elif self.assist_type == 7:   # upload file select
+            if self.assist_found[index][1] is True or self.assist_found[index][1] == input_text:
+                if self.uploading:
+                    self.upload_threads.append(threading.Thread(target=self.upload, daemon=True, args=(input_text, )))
+                    self.upload_threads[-1].start()
+                self.uploading = False
+                self.stop_assist()
+                return "", 0
+            if self.assist_found[index][1] is False:
+                return input_text, len(input_text)
+            new_text = self.assist_found[index][1]
             new_pos = len(new_text)
             return new_text, new_pos
         new_text = input_text[:start-1] + insert_string + input_text[end:]
@@ -4113,6 +4164,15 @@ class Endcord:
         self.prompt = formatter.generate_prompt(
             self.my_user_data,
             self.active_channel,
+            self.config["format_prompt"],
+            limit_prompt=self.config["limit_prompt"],
+        )
+
+
+    def custom_prompt(self, text):
+        """Generate prompt for input line with custom text"""
+        return formatter.generate_custom_prompt(
+            text,
             self.config["format_prompt"],
             limit_prompt=self.config["limit_prompt"],
         )
@@ -5196,6 +5256,9 @@ class Endcord:
                         self.assist(assist_word, assist_type)
                 elif assist_word != self.assist_word:
                     self.assist(assist_word, assist_type)
+            elif assist_type == 7 and assist_word != self.assist_word:   # path
+                paths = peripherals.complete_path(assist_word, separator=True)
+                self.assist(assist_word, assist_type, query_results=paths)
 
             # check member assist query results
             if self.assist_type == 2:

@@ -153,6 +153,7 @@ Open link in browser - `Ctrl+O` *
 Download attachment - `Ctrl+W`  
 View attached media (image, gif, video, audio) - `Ctrl+V` *  
 Upload attachments - `Ctrl+U`  
+Preview selected file in upload assist - `Ctrl+P` **
 Cancel all downloads/uploads - `Ctrl+X`  
 Cancel selected attachment - `Ctrl+K`  
 Reveal one spoiler in selected messages - `Ctrl+T`  
@@ -174,6 +175,7 @@ Cancel action, leave media viewer - `Escape`
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 \* - Rebound keybinding on some OS, see [OS specific keybindings](#os-specific-keybindings).  
+\*\* - Can be duplicate of most other keybindings, only works in its own scope (eg. preview file only when typing path to upload).  
 
 ### Mouse controls
 Scroll up/down in all windows  

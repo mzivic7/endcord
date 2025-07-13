@@ -54,7 +54,7 @@ def load_token():
                 f"{APP_NAME} token",
                 win32cred.CRED_TYPE_GENERIC,
             )
-            return cred["CredentialBlob"].decode("utf-16")
+            return cred["CredentialBlob"]
         except pywintypes.error:
             return None
 
@@ -86,7 +86,7 @@ def save_token(token):
             win32cred.CredWrite({
                 "Type": win32cred.CRED_TYPE_GENERIC,
                 "TargetName": f"{APP_NAME} token",
-                "CredentialBlob": token.encode("utf-16"),
+                "CredentialBlob": token,
                 "Persist": win32cred.CRED_PERSIST_LOCAL_MACHINE,
             }, 0)
         except pywintypes.error as e:

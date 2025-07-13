@@ -1393,6 +1393,23 @@ def generate_prompt(my_user_data, active_channel, format_prompt, limit_prompt=15
     )
 
 
+def generate_custom_prompt(text, format_prompt, limit_prompt=15):
+    """Generate prompt with custom text"""
+    prompt = format_prompt.replace("%global_name", text[:limit_prompt])
+    if prompt != format_prompt:
+        text = ""
+    prompt = format_prompt.replace("%username", text[:limit_prompt])
+    if prompt != format_prompt:
+        text = ""
+    prompt = format_prompt.replace("%server", text[:limit_prompt])
+    if prompt != format_prompt:
+        text = ""
+    prompt = format_prompt.replace("%channel", text[:limit_prompt])
+    if prompt != format_prompt:
+        text = ""
+    return prompt
+
+
 def generate_extra_line(attachments, selected, max_len):
     """
     Generate extra line containing attachments information, with format:
@@ -1692,16 +1709,15 @@ def generate_extra_window_assist(found, assist_type, max_len):
         prefix = "@"
     elif assist_type == 3:
         title_line = "Emoji assist:"
-        prefix = ""   # handled externally
+        # prefix handled externally
     elif assist_type == 4:
         title_line = "Sticker assist:"
-        prefix = ""
     elif assist_type == 5:
         title_line = "Command:"
-        prefix = ""
     elif assist_type == 6:
         title_line = "App command:"
-        prefix = ""
+    elif assist_type == 7:
+        title_line = "File select:"
     for item in found:
         body.append(f"{prefix}{item[0]}"[:max_len])
     if not body:
