@@ -175,7 +175,10 @@ def build_with_nuitka(onedir, clang):
 
     hidden_imports = "--include-module=uuid"
     if sys.platform == "win32":
-        os_hidden_imports = " --include-package=winrt.windows.foundation"
+        os_hidden_imports = " --include-package=winrt.windows.foundation" \
+        " --include-package=winrt.windows.ui.notifications" \
+        " --include-package=winrt.windows.data.xml.dom" \
+        " --include-package-data=winrt"
     else:
         os_hidden_imports = ""
     hidden_imports += os_hidden_imports
@@ -187,7 +190,7 @@ def build_with_nuitka(onedir, clang):
         os.system(command)
     elif sys.platform == "win32":
         patch_soundcard()
-        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --show-modules --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
+        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
         os.system(command)
     elif sys.platform == "darwin":
         command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message." main.py'
