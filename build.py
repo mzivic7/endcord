@@ -162,15 +162,24 @@ def build_with_nuitka(onedir, clang):
     else:
         pkgname = f"{APP_NAME}-lite"
         print("ASCII media support is disabled")
+
     if onedir:
         onedir = "--standalone"
     else:
         onedir = "--onefile"
+
     if clang:
         clang = "--clang"
     else:
         clang = ""
+
     hidden_imports = "--include-module=uuid"
+    if sys.pletform == "win32":
+        os_hidden_imports = " --include-package=winrt.windows.foundation"
+    else:
+        os_hidden_imports = ""
+    hidden_imports += os_hidden_imports
+
     include_package_data = "--include-package-data=emoji:unicode_codes/emoji.json --include-package-data=soundcard"
 
     if sys.platform == "linux":
@@ -178,7 +187,7 @@ def build_with_nuitka(onedir, clang):
         os.system(command)
     elif sys.platform == "win32":
         patch_soundcard()
-        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
+        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --show-modules --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
         os.system(command)
     elif sys.platform == "darwin":
         command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message." main.py'
