@@ -174,7 +174,7 @@ def build_with_nuitka(onedir, clang):
         clang = ""
 
     hidden_imports = "--include-module=uuid"
-    if sys.pletform == "win32":
+    if sys.platform == "win32":
         os_hidden_imports = " --include-package=winrt.windows.foundation"
     else:
         os_hidden_imports = ""
