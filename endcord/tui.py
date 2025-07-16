@@ -496,9 +496,12 @@ class TUI():
 
     def tree_select(self, tree_pos):
         """Select specific item in tree by its index"""
+        if tree_pos is None:
+            return
         skipped = 0
         drop_down_skip_guild = False
         drop_down_skip_category = False
+        drop_down_skip_channel = False
         for num, code in enumerate(self.tree_format):
             if code == 1100:
                 skipped += 1
@@ -508,7 +511,11 @@ class TUI():
                 skipped += 1
                 drop_down_skip_category = False
                 continue
-            elif drop_down_skip_guild or drop_down_skip_category:
+            elif code == 1300:
+                skipped += 1
+                drop_down_skip_channel = False
+                continue
+            elif drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
                 skipped += 1
                 continue
             first_digit = code % 10
@@ -516,11 +523,25 @@ class TUI():
                 drop_down_skip_guild = True
             elif first_digit == 0 and code < 300:
                 drop_down_skip_category = True
+            elif first_digit == 0 and 500 <= code <= 599:
+                drop_down_skip_channel = True
             if num == tree_pos:
                 self.tree_selected = num - skipped
                 self.tree_index = max(self.tree_selected - self.tree_hw[0] + 3, 0)
                 break
         self.draw_tree()
+
+
+    def toggle_category(self, tree_pos, only_open=False):
+        """Toggle category drop-down state in tree"""
+        if tree_pos >= 0:
+            if (self.tree_format[tree_pos] % 10):
+                if not only_open:
+                    self.tree_format[tree_pos] -= 1
+            else:
+                self.tree_format[tree_pos] += 1
+            self.draw_tree()
+            self.tree_format_changed = True
 
 
     def redraw_ui(self):
@@ -1475,17 +1496,6 @@ class TUI():
                 self.draw_tree()
             self.tree_format_changed = True
 
-        elif key in self.keybindings["tree_collapse_threads"]:
-            if (self.tree_format[self.tree_selected_abs] % 10):
-                self.tree_format[self.tree_selected_abs] -= 1
-            else:
-                self.tree_format[self.tree_selected_abs] += 1
-            self.draw_tree()
-            self.tree_format_changed = True
-
-        elif key in self.keybindings["tree_join_thread"]:
-            return 21
-
         elif key in self.keybindings["extra_up"]:
             if self.extra_window_body and not mouse:
                 if self.extra_select and self.extra_selected >= 0:
@@ -1534,33 +1544,6 @@ class TUI():
                     self.mlist_selected += 1
                     self.draw_member_list(self.member_list, self.member_list_format)
 
-        elif key in self.keybindings["extra_select"]:
-            return 27
-
-        elif key in self.keybindings["channel_info"] and self.tree_selected > 0:
-            self.extra_index = 0
-            self.extra_selected = -1
-            return 25
-
-        elif key in self.keybindings["cycle_status"]:
-            return 33
-
-        elif key in self.keybindings["toggle_member_list"]:
-            return 35
-
-        elif key in self.keybindings["command_palette"]:
-            return 38
-
-        elif isinstance(key, str):
-            try:
-                modifier = key[:-3]   # skipping +/- sign
-                num = int(key[-2:])
-            except ValueError:
-                return None
-            if modifier == self.keybindings["switch_tab_modifier"][0][:-4] and 49 <= num <= 57:
-                self.pressed_num_key = num - 48
-                return 42
-
         return None
 
 
@@ -1571,7 +1554,7 @@ class TUI():
         return tmp, self.chat_selected, self.tree_selected_abs, code
 
 
-    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, autocomplete=False, clear_delta=False):
+    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, autocomplete=False, clear_delta=False, forum=False):
         """
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and whether channel is changed
@@ -1689,6 +1672,11 @@ class TUI():
                     self.add_to_delta_store("\n")
                     pass
                 else:
+                    if forum:
+                        self.input_index = 0
+                        self.input_line_index = 0
+                        self.cursor_pos = 0
+                        self.draw_input_line()
                     self.cursor_on = True
                     self.input_select_start = None
                     return self.return_input_code(0)
@@ -1697,7 +1685,17 @@ class TUI():
             if code:
                 return self.return_input_code(code)
 
-            if isinstance(key, int) and 32 <= key <= 126:   # all regular characters
+            if isinstance(key, str):
+                try:
+                    modifier = key[:-3]   # skipping +/- sign
+                    num = int(key[-2:])
+                except ValueError:
+                    return None
+                if modifier == self.keybindings["switch_tab_modifier"][0][:-4] and 49 <= num <= 57:
+                    self.pressed_num_key = num - 48
+                    return 42
+
+            elif isinstance(key, int) and 32 <= key <= 126:   # all regular characters
                 if self.input_select_start is not None:
                     self.delete_selection()
                     self.input_select_start = None
@@ -1766,7 +1764,7 @@ class TUI():
 
             elif key in self.keybindings["preview_upload"]:
                 # first check this because it can be duplicate with orther keybinding
-                return self.return_input_code(44)
+                return self.return_input_code(22)
 
             elif key in self.keybindings["word_left"]:
                 left_len = 0
@@ -1935,6 +1933,14 @@ class TUI():
                         if selected_completion > len(completions) - 1:
                             selected_completion = 0
 
+            elif key in self.keybindings["tree_collapse_threads"]:
+                if (self.tree_format[self.tree_selected_abs] % 10):
+                    self.tree_format[self.tree_selected_abs] -= 1
+                else:
+                    self.tree_format[self.tree_selected_abs] += 1
+                self.draw_tree()
+                self.tree_format_changed = True
+
             elif key in self.keybindings["attach_prev"]:
                 return self.return_input_code(14)
 
@@ -1946,23 +1952,22 @@ class TUI():
                 self.input_index += 1
                 self.show_cursor()
 
-            elif key in self.keybindings["reply"] and self.chat_selected != -1:
+            elif key in self.keybindings["reply"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(1)
 
-            elif key in self.keybindings["edit"] and self.chat_selected != -1:
+            elif key in self.keybindings["edit"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(2)
 
-            elif key in self.keybindings["delete"] and self.chat_selected != -1:
+            elif key in self.keybindings["delete"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(3)
 
-            elif key in self.keybindings["toggle_ping"]:
+            elif key in self.keybindings["toggle_ping"] and not forum:
                 return self.return_input_code(6)
 
             elif key in self.keybindings["scroll_bottom"]:
                 return self.return_input_code(7)
 
-
-            elif key in self.keybindings["go_replied"] and self.chat_selected != -1:
+            elif key in self.keybindings["go_replied"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(8)
 
             elif key in self.keybindings["download"] and self.chat_selected != -1:
@@ -1974,10 +1979,10 @@ class TUI():
             elif key in self.keybindings["cancel"]:
                 return self.return_input_code(11)
 
-            elif key in self.keybindings["copy_msg"]:
+            elif key in self.keybindings["copy_msg"] and not forum:
                 return self.return_input_code(12)
 
-            elif key in self.keybindings["upload"]:
+            elif key in self.keybindings["upload"] and not forum:
                 self.enable_autocomplete = True
                 self.misspelled = []
                 return self.return_input_code(13)
@@ -1996,46 +2001,69 @@ class TUI():
             elif key in self.keybindings["view_media"] and self.chat_selected != -1:
                 return self.return_input_code(17)
 
-            elif key in self.keybindings["spoil"] and self.chat_selected != -1:
+            elif key in self.keybindings["spoil"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(18)
 
-            elif key in self.keybindings["profile_info"] and self.chat_selected != -1:
+            elif key in self.keybindings["tree_join_thread"]:
+                return self.return_input_code(21)
+
+            elif key in self.keybindings["forum_join_thread"] and forum:
+                return self.return_input_code(23)
+
+            elif key in self.keybindings["profile_info"] and self.chat_selected != -1 and not forum:
                 self.extra_index = 0
                 self.extra_selected = -1
                 return self.return_input_code(24)
+
+            elif key in self.keybindings["channel_info"] and self.tree_selected > 0:
+                self.extra_index = 0
+                self.extra_selected = -1
+                return self.return_input_code(25)
+
+            elif key in self.keybindings["extra_select"]:
+                return self.return_input_code(27)
 
             elif key in self.keybindings["show_summaries"]:
                 self.extra_index = 0
                 self.extra_selected = -1
                 return self.return_input_code(28)
 
-            elif key in self.keybindings["search"]:
+            elif key in self.keybindings["search"] and not forum:
                 self.extra_index = 0
                 self.extra_selected = -1
                 return self.return_input_code(29)
 
-            elif key in self.keybindings["copy_channel_link"] and self.tree_selected > 0:
+            elif key in self.keybindings["copy_channel_link"] and self.tree_selected > 0 and not forum:
                 return self.return_input_code(30)
 
-            elif key in self.keybindings["copy_message_link"] and self.chat_selected != -1:
+            elif key in self.keybindings["copy_message_link"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(31)
 
-            elif key in self.keybindings["go_channel"] and self.chat_selected != -1:
+            elif key in self.keybindings["go_channel"] and self.chat_selected != -1 and not forum:
                 return self.return_input_code(32)
 
-            elif key in self.keybindings["record_audio"]:
+            elif key in self.keybindings["cycle_status"]:
+                return self.return_input_code(33)
+
+            elif key in self.keybindings["record_audio"] and not forum:
                 return self.return_input_code(34)
 
-            elif key in self.keybindings["add_reaction"]:
+            elif key in self.keybindings["toggle_member_list"]:
+                return self.return_input_code(35)
+
+            elif key in self.keybindings["add_reaction"] and not forum:
                 return self.return_input_code(36)
 
-            elif key in self.keybindings["show_reactions"]:
+            elif key in self.keybindings["command_palette"]:
+                return self.return_input_code(38)
+
+            elif key in self.keybindings["show_reactions"] and not forum:
                 return self.return_input_code(37)
 
             elif key in self.keybindings["toggle_tab"]:
                 return self.return_input_code(41)
 
-            elif key in self.keybindings["show_pinned"]:
+            elif key in self.keybindings["show_pinned"] and not forum:
                 return self.return_input_code(43)
 
             elif key == curses.KEY_RESIZE:
@@ -2052,106 +2080,6 @@ class TUI():
                 self.spellcheck()
             if not self.disable_drawing:
                 self.draw_input_line()
-        return None, None, None, None
-
-
-    def wait_input_forum(self, prompt=""):
-        """
-        Same as wait_input() but only for forums, does no process any text.
-        Return absolute_tree_position and whether channel is changed
-        """
-        self.input_buffer = ""
-        self.input_index = 0
-        self.input_line_index = 0
-        self.cursor_pos = 0
-        self.enable_autocomplete = False
-        self.chat_selected = -1
-        self.chat_index = 0
-        self.draw_chat()
-        self.delta_store = []
-        self.last_key = None
-        self.delta_cache = ""
-        self.update_prompt(prompt)   # draw_input_line() is called in heren
-        key = -1
-        while self.run:
-            key = self.screen.getch()
-
-            if self.mouse and key == curses.KEY_MOUSE:
-                code = self.mouse_events(key)
-                if code:
-                    return self.return_input_code(code)
-                continue
-
-            if self.disable_drawing:
-                if key == 27:   # ESCAPE
-                    self.screen.nodelay(True)
-                    key = self.screen.getch()
-                    if key in (-1, 27):
-                        self.input_buffer = ""
-                        self.screen.nodelay(False)
-                        return None, 0, 0, 100
-                    self.screen.nodelay(False)
-                elif key == curses.KEY_RESIZE:
-                    pass
-                continue   # disable all inputs from main UI
-
-            if key == 27:   # ESCAPE
-                # terminal waits when Esc is pressed, but not when sending escape sequence
-                self.screen.nodelay(True)
-                key = self.screen.getch()
-                if key == -1:
-                    # escape key
-                    self.screen.nodelay(False)
-                    return self.return_input_code(5)
-                # sequence (bracketed paste or ALT+KEY)
-                sequence = [27, key]
-                # -1 means no key is pressed, 126 is end of escape sequence
-                while key != -1:
-                    key = self.screen.getch()
-                    sequence.append(key)
-                    if key == 126:
-                        break
-                    if key == 27:   # holding escape key
-                        sequence.append(-1)
-                        break
-                self.screen.nodelay(False)
-                # match sequences
-                if len(sequence) == 3 and sequence[2] == -1:   # ALT+KEY
-                    key = f"ALT+{sequence[1]}"
-                elif sequence[-1] == -1 and sequence[-2] == 27:
-                    # holding escape key
-                    return self.return_input_code(5)
-
-            if key == 10:   # ENTER
-                self.input_index = 0
-                self.input_line_index = 0
-                self.cursor_pos = 0
-                self.cursor_on = True
-                self.input_select_start = None
-                self.draw_input_line()
-                return self.return_input_code(22)
-
-            code = self.common_keybindings(key)
-            if code:
-                return self.return_input_code(code)
-
-            if key in self.keybindings["cancel"]:
-                return self.return_input_code(11)
-
-            if key in self.keybindings["forum_join_thread"]:
-                return self.return_input_code(23)
-
-            if key in self.keybindings["redraw"]:
-                self.screen.clear()
-                self.screen.redrawwin()
-                if sys.platform == "win32":
-                    self.screen.noutrefresh()   # ??? needed only with windows-curses
-                    self.need_update.set()
-                self.resize()
-
-            elif key == curses.KEY_RESIZE:
-                self.resize()
-
         return None, None, None, None
 
 

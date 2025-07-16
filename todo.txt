@@ -1,3 +1,5 @@
+Dont stop assist on space
+Add fuzzy search
 Update soundcard and numpy
 Voice and video calls
 Add multi-account support

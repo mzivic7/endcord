@@ -47,6 +47,7 @@ APP_COMMAND_AUTOCOMPLETE_DELAY = 0.3   # delay for requesting app command autoco
 MB = 1024 * 1024
 USER_UPLOAD_LIMITS = (10*MB, 50*MB, 500*MB, 50*MB)   # premium tier 0, 1, 2, 3 (none, classic, full, basic)
 GUILD_UPLOAD_LIMITS = (10*MB, 10*MB, 50*MB, 100*MB)   # premium tier 0, 1, 2, 3
+FORUM_COMMANDS = (1, 2, 7, 13, 14, 15, 17, 20, 22, 25, 27, 29, 30, 31, 32, 40)
 
 match_emoji = re.compile(r"<:(.*):(\d*)>")
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
@@ -583,7 +584,7 @@ class Endcord:
         logger.debug("Channel switching complete")
 
 
-    def open_guild(self, guild_id, select=False, restore=False):
+    def open_guild(self, guild_id, select=False, restore=False, open_only=False):
         """When opening guild in tree"""
         # check in tree_format if it should be un-/collapsed
         collapse = False
@@ -591,6 +592,10 @@ class Endcord:
             if obj and obj["id"] == guild_id:
                 collapse = bool(self.tree_format[num] % 10)   # get first digit
                 break
+
+        # dont collapse if its should stay open
+        if open_only and collapse:
+            return
 
         # keep dms, collapsed and all guilds except one at cursor position
         # copy over dms
@@ -834,33 +839,37 @@ class Endcord:
         return None
 
 
+    def tree_pos_from_id(self, object_id):
+        """Get object position in tree from its id"""
+        for tree_pos, obj in enumerate(self.tree_metadata):
+            if obj and obj["id"] == object_id:
+                return tree_pos
+
+
     def wait_input(self):
         """Thread that handles: getting input, formatting, sending, replying, editing, deleting message and switching channel"""
         logger.info("Input handler loop started")
 
         while self.run:
-            if self.forum:
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input_forum(self.prompt)
-                input_text = ""
-            elif self.restore_input_text[1] == "prompt":
+            if self.restore_input_text[1] == "prompt":
                 self.stop_extra_window()
                 self.restore_input_text = (None, "after prompt")
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, forum=self.forum)
             elif self.restore_input_text[1] in ("standard", "standard extra"):
                 if self.restore_input_text[1] == "standard":
                     self.stop_extra_window()
                 init_text = self.restore_input_text[0]
                 self.restore_input_text = (None, None)
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=init_text, reset=False, keep_cursor=True, forum=self.forum)
             elif self.restore_input_text[1] == "autocomplete":
                 init_text = self.restore_input_text[0]
                 self.restore_input_text = (None, None)
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt("PATH"), init_text=init_text, autocomplete=True)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt("PATH"), init_text=init_text, autocomplete=True, forum=self.forum)
             elif self.restore_input_text[1] in ("search", "command", "react", "edit"):
                 init_text = self.restore_input_text[0]
                 prompt_text = self.restore_input_text[1].upper()
                 self.restore_input_text = (None, None)
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt(prompt_text), init_text=init_text)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt(prompt_text), init_text=init_text, forum=self.forum)
             else:
                 restore_text = None
                 input_index = 0
@@ -872,9 +881,9 @@ class Endcord:
                             break
                 if restore_text:
                     self.tui.set_input_index(input_index)
-                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, keep_cursor=True, reset=False, clear_delta=True)
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, init_text=restore_text, keep_cursor=True, reset=False, clear_delta=True, forum=self.forum)
                 else:
-                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, clear_delta=True)
+                    input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, clear_delta=True, forum=self.forum)
             logger.debug(f"Input code: {action}")
 
             # switch channel
@@ -1086,20 +1095,15 @@ class Endcord:
                     self.thread_togle_join(guild_id, channel_id, thread_id)
                     self.update_tree()
 
-            # open thread from forum
-            elif action == 22 and self.forum:
-                if input_text and input_text != "\n":
-                    self.add_to_store(self.active_channel["channel_id"], input_text)
-                # failsafe if messages got rewritten
-                self.switch_channel(
-                    self.messages[chat_sel]["id"],
-                    self.messages[chat_sel]["name"],
-                    self.active_channel["guild_id"],
-                    self.active_channel["guild_name"],
-                    parent_hint=self.active_channel["channel_id"],
-                )
-                self.reset_actions()
-                self.update_status_line()
+            # preview file to upload
+            elif action == 44 and self.uploading:
+                self.restore_input_text = (input_text, "autocomplete")
+                self.ignore_typing = True
+                extra_index = self.tui.get_extra_selected()
+                file_path = self.assist_found[extra_index][1]
+                if isinstance(file_path, str):
+                    self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(file_path, ))
+                    self.media_thread.start()
 
             # open and join thread from forum
             elif action == 23 and self.forum:
@@ -1372,16 +1376,6 @@ class Endcord:
                 self.restore_input_text = (input_text, "standard extra")
                 self.view_pinned()
 
-            # preview file to upload
-            elif action == 44 and self.uploading:
-                self.restore_input_text = (input_text, "autocomplete")
-                self.ignore_typing = True
-                extra_index = self.tui.get_extra_selected()
-                file_path = self.assist_found[extra_index][1]
-                if isinstance(file_path, str):
-                    self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(file_path, ))
-                    self.media_thread.start()
-
             # mouse double-click on message
             elif action == 40:
                 self.restore_input_text = (input_text, "standard")
@@ -1632,9 +1626,12 @@ class Endcord:
                         pass
 
                 elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands, self.guild_commands_permitted) and not self.disable_sending:
-                    self.execute_app_command(input_text)
+                    if self.forum:
+                        self.update_extra_line("Cant run app command in furum.")
+                    else:
+                        self.execute_app_command(input_text)
 
-                elif not self.disable_sending:
+                elif not self.disable_sending and not self.forum:
                     # select attachment
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
@@ -1675,6 +1672,20 @@ class Endcord:
 
             # enter with no text
             elif input_text == "":
+                if self.forum:
+                    if input_text and input_text != "\n":
+                        self.add_to_store(self.active_channel["channel_id"], input_text)
+                    # failsafe if messages got rewritten
+                    self.switch_channel(
+                        self.messages[chat_sel]["id"],
+                        self.messages[chat_sel]["name"],
+                        self.active_channel["guild_id"],
+                        self.active_channel["guild_name"],
+                        parent_hint=self.active_channel["channel_id"],
+                    )
+                    self.reset_actions()
+                    self.update_status_line()
+
                 if self.deleting:
                     self.discord.send_delete_message(
                         channel_id=self.active_channel["channel_id"],
@@ -1687,7 +1698,7 @@ class Endcord:
                     self.cancel_upload()
                     self.upload_threads = []
 
-                elif self.ready_attachments:
+                elif self.ready_attachments and not self.disable_sending and not self.forum:
                     this_attachments = None
                     for num, attachments in enumerate(self.ready_attachments):
                         if attachments["channel_id"] == self.active_channel["channel_id"]:
@@ -1757,11 +1768,24 @@ class Endcord:
                 self.update_status_line()
 
 
+    def can_run_command(self, cmd_type):
+        """Check if this command can be run in current scope"""
+        if self.forum:
+            if cmd_type not in FORUM_COMMANDS:
+                return False
+        return True
+
+
     def execute_command(self, cmd_type, cmd_args, chat_sel, tree_sel):
         """Execute custom command"""
         logger.debug(f"Executing command, type: {cmd_type}, args: {cmd_args}")
         reset = True
         self.restore_input_text = (None, None)
+        if not self.can_run_command(cmd_type):
+            self.reset_actions()
+            self.update_status_line()
+            self.update_extra_line("This command cant be executed in forum.")
+            return
         if cmd_type == 0:
             if cmd_args:
                 self.update_extra_line("Invalid command arguments.")
@@ -2063,8 +2087,40 @@ class Endcord:
                 self.restore_input_text = (None, "prompt")
 
         elif cmd_type == 25:   # GOTO
-            channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(cmd_args["channel_id"])
-            self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
+            object_id = cmd_args["channel_id"]
+            channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(object_id)
+            # guild
+            if not channel_id:
+                self.tui.tree_select(self.tree_pos_from_id(object_id))
+                self.open_guild(object_id, select=True, open_only=True)
+            # category
+            elif not parent_hint and guild_id:
+                self.open_guild(guild_id, select=True, open_only=True)
+                tree_pos = self.tree_pos_from_id(object_id)
+                if tree_pos is not None:
+                    self.tui.tree_select(tree_pos)
+                    self.tui.toggle_category(tree_pos, only_open=True)
+                else:
+                    self.tui.tree_select(self.tree_pos_from_id(guild_id))
+            # channel/dm
+            else:
+                if guild_id is not None:   # channel
+                    self.open_guild(guild_id, select=True, open_only=True)
+                    category_tree_pos = self.tree_pos_from_id(parent_hint)
+                    if category_tree_pos:
+                        self.tui.toggle_category(category_tree_pos, only_open=True)
+                        channel_tree_pos = self.tree_pos_from_id(channel_id)
+                        if channel_tree_pos:
+                            self.tui.tree_select(channel_tree_pos)
+                        else:
+                            self.tui.tree_select(category_tree_pos)
+                    else:
+                        self.tui.tree_select(self.tree_pos_from_id(guild_id))
+                else:   # dm
+                    self.open_guild(0, select=True, open_only=True)
+                    self.tui.tree_select(self.tree_pos_from_id(object_id))
+                    time.sleep(0.1)   # sometimes dms list gets collapsed if no delay
+                self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
 
         elif cmd_type == 26:   # VIEW_PFP
             user_id = cmd_args.get("user_id", None)
@@ -3226,12 +3282,12 @@ class Endcord:
                         else:
                             name = channel["name"]
                         self.assist_found.append((name, channel["id"]))
-            else:   # all guilds channels and dms
+            else:   # all guilds, channels, and dms
                 for dm in self.dms:
                     name = dm["name"]
                     if all(x in name.lower() for x in assist_words):
                         self.assist_found.append((f"{name} (DM)", dm["id"]))
-                if self.tui.input_buffer.startswith("toggle_mute") or self.tui.input_buffer.startswith("mark_as_read"):
+                if self.tui.input_buffer.startswith("toggle_mute") or self.tui.input_buffer.startswith("mark_as_read") or self.tui.input_buffer.startswith("goto"):
                     full = True   # include guilds and categories
                 else:
                     full = False
@@ -3775,7 +3831,10 @@ class Endcord:
             return input_text, len(input_text)
         elif self.assist_type == 6:   # app command
             if self.assist_found[index][1] is None:   # execute app command
-                self.execute_app_command(input_text)
+                if self.forum:
+                    self.update_extra_line("Cant run app command in furum")
+                else:
+                    self.execute_app_command(input_text)
                 return "", 0
             # check if this is option choice
             match = re.search(parser.match_command_arguments, input_text.split(" ")[-1])
@@ -3810,6 +3869,8 @@ class Endcord:
             new_text = self.assist_found[index][1]
             new_pos = len(new_text)
             return new_text, new_pos
+        if not end:
+            end = len(input_text)
         new_text = input_text[:start-1] + insert_string + input_text[end:]
         new_pos = len(input_text[:start-1] + insert_string)
         self.stop_assist()
@@ -4986,8 +5047,8 @@ class Endcord:
         )
 
         # start input thread
-        self.send_message_thread = threading.Thread(target=self.wait_input, daemon=True, args=())
-        self.send_message_thread.start()
+        self.wait_input_thread = threading.Thread(target=self.wait_input, daemon=True, args=())
+        self.wait_input_thread.start()
 
         # start RPC server
         if self.enable_rpc:
@@ -5147,7 +5208,9 @@ class Endcord:
                     self.tui.update_chat(self.chat, self.chat_format)
                 else:
                     self.update_chat()
-                self.update_tree()
+                if self.tui.get_dimensions()[1] != self.tree_dim:
+                    self.update_tree()
+                    self.tree_dim = self.tui.get_dimensions()[1]
                 self.update_extra_line(update_only=True)
 
             # check and update my status
@@ -5228,7 +5291,7 @@ class Endcord:
                 if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
                 elif assist_type == 6:   # app commands
-                    if assist_word != self.assist_word:
+                    if assist_word != self.assist_word and not (self.disable_sending or self.forum):
                         self.ignore_typing = True
                         if not self.got_commands:
                             # this will be allowed to run when channel changes

@@ -98,6 +98,7 @@ Go to [configuration](configuration.md).
 ### Token
 Token is used to access Discord through your account without logging-in.  
 It is required to to use endcord.  
+See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 After obtaining token, you can either:  
 - Provide token in token manager (recommended) - token will be stored in secure system keyring  
   Token manager will be shown only if token is not provided in config nor as command argument  
@@ -106,7 +107,6 @@ After obtaining token, you can either:
 - Save token in config  
 Note that if you save it as argument, it might get saved in your terminal history file.  
 **Do not share your token!** Remove it form config before sharing it.  
-See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 
 ### Keybinding
 Keybindings are configured in separate section in `config.ini`.  

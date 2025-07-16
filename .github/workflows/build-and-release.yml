@@ -158,6 +158,7 @@ jobs:
 
 
   draft-release:
+    name: Draft GitHub Release
     needs: build
     runs-on: ubuntu-latest
     permissions:

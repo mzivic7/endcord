@@ -52,7 +52,7 @@
 
 ## Special commands (no keybinding)
 - `goto <#[channel_id]>`  
-    Go to specified channel from any server
+    Go to specified channel/category/server from anywhere. If server or category is specified, they will be selected in tree.  
 - `view_pfp` / `view_pfp <@[user_id]>`  
     View profile picture of user from currently selected message or specified user.
 - `paste_clipboard_image`  
