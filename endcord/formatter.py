@@ -1773,10 +1773,16 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
                 thread["global_name"] = "blocked"
                 thread["nick"] = "blocked"
 
+        if thread["timestamp"]:
+            timestamp = generate_timestamp(thread["timestamp"], forum_format_timestamp, convert_timezone)
+        else:
+            placeholder_timestamp = generate_timestamp("2015-01-01T00:00:00.000000+00:00", forum_format_timestamp)
+            timestamp = normalize_string("Unknown", len(placeholder_timestamp))
+
         thread_line = (
             forum_thread_format
             .replace("%thread_name", normalize_string(thread["name"], limit_thread_name))
-            .replace("%timestamp", generate_timestamp(thread["timestamp"], forum_format_timestamp, convert_timezone))
+            .replace("%timestamp", timestamp)
             .replace("%msg_count", normalize_int_str(thread["message_count"], 3))
         )
         emoji_count = count_emojis(thread_line[:max_length - 3])

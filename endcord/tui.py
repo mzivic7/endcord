@@ -377,7 +377,7 @@ class TUI():
             return self.input_buffer, 7
         if self.input_buffer and self.input_buffer[0] == APP_COMMAND_ASSIST_TRIEGGER:
             return self.input_buffer, 6
-        if self.instant_assist and self.input_buffer:
+        if self.instant_assist:
             return self.input_buffer, 5
         return None, None
 

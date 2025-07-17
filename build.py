@@ -5,9 +5,7 @@ import os
 import re
 import shutil
 import sys
-
-APP_NAME = "endcord"
-VERSION = "0.9.0"
+import tomllib
 
 
 def check_media_support():
@@ -38,6 +36,32 @@ def check_dev():
     if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
         command = "uv sync --group build"
         os.system(command)
+
+
+def get_app_name():
+    """Get app name from pyproject.toml"""
+    if os.path.exists("pyproject.toml"):
+        with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        if "project" in data and "version" in data["project"]:
+            return str(data["project"]["name"])
+        print("App name not specified in pyproject.toml")
+        sys.exit()
+    print("pyproject.toml file not found")
+    sys.exit()
+
+
+def get_version_number():
+    """Get version number from pyproject.toml"""
+    if os.path.exists("pyproject.toml"):
+        with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        if "project" in data and "version" in data["project"]:
+            return str(data["project"]["version"])
+        print("Version not specified in pyproject.toml")
+        sys.exit()
+    print("pyproject.toml file not found")
+    sys.exit()
 
 
 def patch_soundcard():
@@ -124,10 +148,10 @@ def toggle_experimental(check_only=False):
 def build_with_pyinstaller(onedir):
     """Build with pyinstaller"""
     if check_media_support():
-        pkgname = APP_NAME
+        pkgname = get_app_name()
         print("ASCII media support is enabled")
     else:
-        pkgname = f"{APP_NAME}-lite"
+        pkgname = f"{get_app_name()}-lite"
         print("ASCII media support is disabled")
     if onedir:
         onedir = "--onedir"
@@ -157,10 +181,10 @@ def build_with_pyinstaller(onedir):
 def build_with_nuitka(onedir, clang):
     """Build with nuitka"""
     if check_media_support():
-        pkgname = APP_NAME
+        pkgname = get_app_name()
         print("ASCII media support is enabled")
     else:
-        pkgname = f"{APP_NAME}-lite"
+        pkgname = f"{get_app_name()}-lite"
         print("ASCII media support is disabled")
 
     if onedir:
@@ -178,6 +202,7 @@ def build_with_nuitka(onedir, clang):
         os_hidden_imports = " --include-package=winrt.windows.foundation" \
         " --include-package=winrt.windows.ui.notifications" \
         " --include-package=winrt.windows.data.xml.dom" \
+        " --include-package=win32timezone" \
         " --include-package-data=winrt"
     else:
         os_hidden_imports = ""
@@ -193,7 +218,7 @@ def build_with_nuitka(onedir, clang):
         command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
         os.system(command)
     elif sys.platform == "darwin":
-        command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={APP_NAME} --macos-app-version={VERSION} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message." main.py'
+        command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={get_app_name()} --macos-app-version={get_version_number()} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message." main.py'
         os.system(command)
     else:
         sys.exit(f"This platform is not supported: {sys.platform}")
@@ -203,7 +228,7 @@ def parser():
     """Setup argument parser for CLI"""
     parser = argparse.ArgumentParser(
         prog="build.py",
-        description="setup and build script for endcord",
+        description="build script for endcord",
     )
     parser._positionals.title = "arguments"
     parser.add_argument(

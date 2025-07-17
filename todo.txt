@@ -1,5 +1,5 @@
-Dont stop assist on space
-Add fuzzy search
+Optimize with cython
+Add description to command assist
 Update soundcard and numpy
 Voice and video calls
 Add multi-account support

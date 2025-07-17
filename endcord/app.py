@@ -22,6 +22,7 @@ from endcord import (
     peripherals,
     perms,
     rpc,
+    search,
     tui,
 )
 
@@ -37,7 +38,6 @@ logger = logging.getLogger(__name__)
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "audio", "rich")
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
-COMMAND_OPT_TYPE = ("subcommand", "group", "string", "integer", "True/False", "user ID", "channel ID", "role ID", "mentionable ID", "number", "attachment")
 ERROR_TEXT = "\nUnhandled exception occurred. Please report here: https://github.com/mzivic7/endcord/issues"
 MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
@@ -95,8 +95,10 @@ class Endcord:
         self.member_list_width = config["member_list_width"]
         self.use_nick = config["use_nick_when_available"]
         self.status_char = config["tree_dm_status"]
-        self.skip_app_command_assist = config["skip_app_command_assist"]
+        self.assist_skip_app_command = config["assist_skip_app_command"]
         self.extra_line_delay = config["extra_line_delay"]
+        self.assist_limit = config["assist_limit"]
+        self.assist_score_cutoff = config["assist_score_cutoff"]
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -856,7 +858,7 @@ class Endcord:
                 self.restore_input_text = (None, "after prompt")
                 input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.prompt, forum=self.forum)
             elif self.restore_input_text[1] in ("standard", "standard extra"):
-                if self.restore_input_text[1] == "standard":
+                if self.restore_input_text[1] == "standard" and not self.restore_input_text[0].startswith("/"):
                     self.stop_extra_window()
                 init_text = self.restore_input_text[0]
                 self.restore_input_text = (None, None)
@@ -1472,7 +1474,7 @@ class Endcord:
 
             # enter
             elif (action == 0 and input_text and input_text != "\n" and self.active_channel["channel_id"]) or self.command:
-                if self.assist_word and self.assist_found:
+                if self.assist_word is not None and self.assist_found:
                     self.restore_input_text = (input_text, "standard")
                     new_input_text, new_index = self.insert_assist(
                         input_text,
@@ -3261,184 +3263,94 @@ class Endcord:
 
     def assist(self, assist_word, assist_type, query_results=None):
         """Assist when typing: channel, username, role, emoji and sticker"""
-        assist_word_real = assist_word
-        assist_word = assist_word.lower()
-        assist_words = assist_word.split("_")
         self.assist_type = assist_type
         self.assist_found = []
 
         if assist_type == 1:   # channels
             if not self.command:   # current guild channels
-                for channel in self.current_channels:
-                    # skip categories (type 4)
-                    channel_name = channel["name"].lower()
-                    if channel["permitted"] and channel["type"] != 4 and all(x in channel_name for x in assist_words):
-                        if channel["type"] == 2:
-                            name = f"{channel["name"]} - voice"
-                        elif channel["type"] in (11, 12):
-                            name = f"{channel["name"]} - thread"
-                        elif channel["type"] == 15:
-                            name = f"{channel["name"]} - forum"
-                        else:
-                            name = channel["name"]
-                        self.assist_found.append((name, channel["id"]))
+                self.assist_found = search.search_channels_guild(
+                    self.current_channels,
+                    assist_word,
+                    limit=self.assist_limit,
+                    score_cutoff=self.assist_score_cutoff,
+                )
             else:   # all guilds, channels, and dms
-                for dm in self.dms:
-                    name = dm["name"]
-                    if all(x in name.lower() for x in assist_words):
-                        self.assist_found.append((f"{name} (DM)", dm["id"]))
-                if self.tui.input_buffer.startswith("toggle_mute") or self.tui.input_buffer.startswith("mark_as_read") or self.tui.input_buffer.startswith("goto"):
-                    full = True   # include guilds and categories
-                else:
-                    full = False
-                for guild in self.guilds:
-                    guild_name = guild["name"]
-                    guild_name_lower = guild_name.lower()
-                    if full and all(x in f"{guild_name_lower} - guild" for x in assist_words):
-                        self.assist_found.append((f"{guild["name"]} - guild", guild["guild_id"]))
-                    for channel in guild["channels"]:
-                        channel_name = channel["name"].lower()
-                        check_string = f"{channel_name} {guild_name_lower}"
-                        # skip categories (type 4)
-                        if channel["permitted"] and all(x in check_string for x in assist_words):
-                            if channel["type"] == 2:
-                                name = f"{channel["name"]} - voice ({guild["name"]})"
-                            elif full and channel["type"] == 4:
-                                name = f"{channel["name"]} - category ({guild["name"]})"
-                            elif channel["type"] in (11, 12):
-                                name = f"{channel["name"]} - thread ({guild["name"]})"
-                            elif channel["type"] == 15:
-                                name = f"{channel["name"]} - forum ({guild["name"]})"
-                            else:
-                                name = f"{channel["name"]} ({guild["name"]})"
-                            self.assist_found.append((name, channel["id"]))
-
-
-        elif assist_type == 2:   # username/role
-            # roles first
-            for role in self.current_roles:
-                role_name = role["name"]
-                role_name_lower = role_name.lower()
-                if all(x in role_name_lower for x in assist_words):
-                    self.assist_found.append((f"{role_name} - role", f"&{role["id"]}"))
-            if query_results:
-                for member in query_results:
-                    member_username = member["username"]
-                    if all(x in member_username for x in assist_words):
-                        if member["name"]:
-                            member_name = f" ({member["name"]})"
-                        else:
-                            member_name = ""
-                        self.assist_found.append((f"{member_username}{member_name}", member["id"]))
-            else:
-                self.gateway.request_members(
-                    self.active_channel["guild_id"],
-                    None,
-                    query=assist_word,
-                    limit=10,
+                self.assist_found = search.search_channels_all(
+                    self.guilds,
+                    self.dms,
+                    assist_word,
+                    self.tui.input_buffer,
+                    limit=self.assist_limit,
+                    score_cutoff=self.assist_score_cutoff,
                 )
 
+        elif assist_type == 2:   # username/role
+            self.assist_found = search.search_usernames_roles(
+                self.current_roles,
+                query_results,
+                self.active_channel["guild_id"],
+                self.gateway,
+                assist_word,
+                limit=self.assist_limit,
+                score_cutoff=self.assist_score_cutoff,
+            )
+
         elif assist_type == 3:   # emoji
-            # guild emoji
-            emojis = []
-            if self.premium:
-                emojis = self.gateway.get_emojis()
-            else:
-                for guild in self.gateway.get_emojis():
-                    if guild["guild_id"] == self.active_channel["guild_id"]:
-                        emojis = [guild]
-                        break
-            for guild in emojis:
-                guild_name = guild["guild_name"]
-                guild_name_lower = guild_name.lower()
-                for guild_emoji in guild["emojis"]:
-                    check_string = f"{guild_emoji["name"].lower()} {guild_name_lower}"
-                    if all(x in check_string for x in assist_words):
-                        self.assist_found.append((
-                            f"{guild_emoji["name"]} ({guild_name})",
-                            f"<:{guild_emoji["name"]}:{guild_emoji["id"]}>",
-                        ))
-                        if len(self.assist_found) >= 50:
-                            break
-                if len(self.assist_found) >= 50:
-                    break
-            # standard emoji
-            for key, item in emoji.EMOJI_DATA.items():
-                # emoji.EMOJI_DATA = {emoji: {"en": ":emoji_name:", "status": 2, "E": 3}...}
-                # using only qualified emojis (status: 2)
-                if item["status"] == 2 and all(x in item["en"] for x in assist_words):
-                    self.assist_found.append((f"{item["en"]} - {key}", item["en"]))
-                    if len(self.assist_found) >= 50:
-                        break
-            # sort emoji so shorter are first
-            self.assist_found = sorted(self.assist_found, key=lambda x: len(x[0]))
+            self.assist_found = search.search_emojis(
+                self.gateway.get_emojis(),
+                self.premium,
+                self.active_channel["guild_id"],
+                assist_word,
+                limit=self.assist_limit,
+                score_cutoff=self.assist_score_cutoff,
+            )
 
         elif assist_type == 4:   # sticker
-            stickers = []
-            if self.premium:
-                stickers += self.gateway.get_stickers()
-            else:
-                for pack in self.gateway.get_stickers():
-                    if pack["pack_id"] == self.active_channel["guild_id"]:
-                        stickers.append(pack)
-                        break
             if self.config["default_stickers"]:
-                stickers += self.discord.get_stickers()
-            for pack in stickers:
-                pack_name = pack["pack_name"]
-                pack_name_lower = pack_name.lower()
-                for sticker in pack["stickers"]:
-                    check_string = f"{sticker["name"].lower()} {pack_name_lower}"
-                    if all(x in check_string for x in assist_words):
-                        sticker_name = f"{sticker["name"]} ({pack_name})"
-                        self.assist_found.append((sticker_name, sticker["id"]))
-                        if len(self.assist_found) > 50:
-                            break
-                if len(self.assist_found) > 50:
-                    break
+                default_stickers = self.discord.get_stickers()
+            else:
+                default_stickers = []
+            self.assist_found = search.search_stickers(
+                self.gateway.get_stickers(),
+                default_stickers,
+                self.premium,
+                self.active_channel["guild_id"],
+                assist_word,
+                limit=self.assist_limit,
+                score_cutoff=self.assist_score_cutoff,
+            )
 
         elif assist_type == 5:   # client command
             if assist_word.lower().startswith("set "):
-                assist_words = assist_word[4:].split("_")
-                if assist_words:
-                    for key, value in self.config.items():
-                        if all(x in key for x in assist_words) and key != "token":
-                            self.assist_found.append((f"set {key} = {value}", f"set {key} = {value}"))
+                if assist_word[4:]:
+                    self.assist_found = search.search_settings(
+                        self.config,
+                        assist_word[4:],
+                        limit=self.assist_limit,
+                        score_cutoff=self.assist_score_cutoff,
+                    )
                 else:
                     for key, value in self.config.items():
                         if key != "token":
-                            self.assist_found.append((f"set {key} = {value}", f"set {key} = {value}"))
+                            self.assist_found.append((f"{key} = {value}", f"set {key} = {value}"))
+
             elif assist_word.lower().startswith("string_select "):
                 chat_sel, _ = self.tui.get_chat_selected()
                 msg_index = self.lines_to_msg(chat_sel)
                 message = self.messages[msg_index]
                 if "component_info" in message and message["component_info"]["buttons"]:
-                    num = assist_word.split(" ")[1]
-                    try:
-                        num = max(int(num)-1, 0)
-                        assist_words = assist_word.split(" ")[2:]
-                    except (ValueError, IndexError):
-                        num = 0
-                        assist_words = assist_word.split(" ")[1:]
-                    try:
-                        string_select = message["component_info"]["string_selects"][num]
-                    except IndexError:
-                        string_select = None
-                    # allow executing command if space is at the end
-                    if string_select and not (assist_word.endswith(" ") and not all(not x for x in assist_words)):
-                        for option in string_select["options"]:
-                            label = option["label"].lower()
-                            if all(x in label for x in assist_words):
-                                description = option.get("description", "")
-                                if description:
-                                    self.assist_found.append((f"{option["label"]}{description}", f"string_select {num+1} {option["value"]}"))
-                                else:
-                                    self.assist_found.append((option["label"], f"string_select {num+1} {option["value"]}"))
+                    self.assist_found = search.search_string_selects(
+                        message,
+                        assist_word,
+                        limit=self.assist_limit,
+                        score_cutoff=self.assist_score_cutoff,
+                    )
+
             elif assist_word.lower().startswith("set_notifications "):
-                assist_words = assist_word.split(" ")
+                query_words = assist_word.split(" ")
                 channel_id = None
-                if len(assist_words) > 1:
-                    match = re.search(parser.match_channel, assist_words[1])
+                if len(query_words) > 1:
+                    match = re.search(parser.match_channel, query_words[1])
                     if match:
                         channel_id = match.group(1)
                 if channel_id:
@@ -3447,307 +3359,54 @@ class Endcord:
                     tree_sel = self.tui.get_tree_selected()
                     channel_id = self.tree_metadata[tree_sel]["id"]
                     guild_id = self.find_parents(tree_sel)[0]
-                if assist_word.endswith(" ") and not all(not x for x in assist_words[1:]):
+                if assist_word.endswith(" ") and not all(not x for x in query_words[1:]):
                     guild_id = None   # skip all
                     channel_id = None
-                if guild_id:   # channel/category
-                    channel = None
-                    for guild in self.guilds:
-                        if guild["guild_id"] == guild_id:
-                            for channel in guild["channels"]:
-                                if channel["id"] == channel_id:
-                                    break
-                            break
-                    if channel:
-                        message_notifications = channel.get("message_notifications", 0)
-                        for num, option in enumerate(discord.PING_OPTIONS):
-                            if num == message_notifications:
-                                self.assist_found.append((f"* {option}", f"{" ".join(assist_words[:2])}{option}"))
-                            else:
-                                self.assist_found.append((option, f"{" ".join(assist_words[:2])}{option}"))
-                else:
-                    for dm in self.dms:
-                        if dm["id"] == channel_id:
-                            self.assist_found.append(("No notification settings for DM", None))
-                    else:   # guild
-                        for guild in self.guilds:
-                            if guild["guild_id"] == channel_id:
-                                break
-                        else:
-                            guild = None
-                            self.assist_found.append(("Server/channel not found", None))
-                        if guild:
-                            message_notifications = guild.get("message_notifications", 0)
-                            for num, option in enumerate(discord.PING_OPTIONS):
-                                if num == message_notifications:
-                                    self.assist_found.append((f"* {option}", f"{" ".join(assist_words[:2])}{option}"))
-                                else:
-                                    self.assist_found.append((option, f"{" ".join(assist_words[:2])}{option}"))
-                            self.assist_found.append((f"suppress_everyone = {guild.get("suppress_everyone", False)}", f"{" ".join(assist_words[:2])}suppress_everyone"))
-                            self.assist_found.append((f"suppress_roles = {guild.get("suppress_roles", False)}", f"{" ".join(assist_words[:2])}suppress_roles"))
+                self.assist_found = search.search_set_notifications(
+                    self.guilds,
+                    self.dms,
+                    guild_id,
+                    channel_id,
+                    discord.PING_OPTIONS,
+                    assist_word,
+                )
 
+            elif assist_word:
+                self.assist_found = search.search_client_commands(
+                    formatter.COMMAND_ASSISTS,
+                    assist_word,
+                    limit=self.assist_limit,
+                    score_cutoff=self.assist_score_cutoff,
+                )
             else:
-                for command in formatter.COMMAND_ASSISTS:
-                    if all(x in command[1] for x in assist_words):
-                        self.assist_found.append(command)
+                self.assist_found = formatter.COMMAND_ASSISTS
 
         elif assist_type == 6:   # app commands
             assist_words = assist_word[1:].split(" ")
             depth = len(assist_words)
-            if depth == 1 and self.skip_app_command_assist:
-                depth = 2   # skip app assist on depth 1
-            if depth == 1:   # app
-                # list apps
-                assist_app = assist_words[0].lower().split("_")
-                for app in self.guild_apps:
-                    if all(x in app["name"].lower() for x in assist_app):
-                        clean_name = app["name"].lower().replace(" ", "_")
-                        self.assist_found.append((f"{clean_name} - guild app", f"/{clean_name}"))
-                for app in self.my_apps:
-                    if all(x in app["name"].lower() for x in assist_app):
-                        clean_name = app["name"].lower().replace(" ", "_")
-                        self.assist_found.append((f"{clean_name} - user app", f"/{clean_name}"))
-            elif depth == 2:   # command
-                if self.skip_app_command_assist:
-                    assist_app_name = None
-                    assist_command = assist_words[0].lower().split("_")
-                else:
-                    assist_app_name = assist_words[0].lower()
-                    assist_command = assist_words[1].lower().split("_")
-                dm = not self.active_channel["guild_id"]
-                # list commands
-                found = False
-                for num, command in enumerate(self.guild_commands):
-                    command_name = command["name"].lower()
-                    if (command["app_name"].lower().replace(" ", "_") == assist_app_name or self.skip_app_command_assist) and self.guild_commands_permitted[num] and all(x in command_name for x in assist_command):
-                        if self.skip_app_command_assist:
-                            name = f"{command_name.replace(" ", "_")} ({command["app_name"]})"
-                            value = f"{command["app_name"].lower().replace(" ", "_")} {command_name.replace(" ", "_")}"
-                        else:
-                            name = command_name.replace(" ", "_")
-                            value = command_name.replace(" ", "_")
-                        if command.get("description"):
-                            name += f" - {command["description"]}"
-                        self.assist_found.append((name, value))
-                        found = True
-                if not found:    # skip my commands if found in guild commands
-                    for command in self.my_commands:
-                        command_name = command["name"].lower()
-                        if (command["app_name"].lower().replace(" ", "_") == assist_app_name or self.skip_app_command_assist) and all(x in command_name for x in assist_command) and ((not dm) or command.get("dm")):
-                            if self.skip_app_command_assist:
-                                name = f"{command_name.replace(" ", "_")} ({command["app_name"]})"
-                                value = f"{command["app_name"].lower().replace(" ", "_")} {command_name.replace(" ", "_")}"
-                            else:
-                                name = command_name.replace(" ", "_")
-                                value = command_name.replace(" ", "_")
-                            if command.get("description"):
-                                name += f" - {command["description"]}"
-                            self.assist_found.append((name, value))
-            elif depth == 3:   # group/subcommand/option
-                self.assist_found.append(("EXECUTE", None))
-                assist_app_name = assist_words[0].lower()
-                assist_command = assist_words[1].lower()
-                assist_subcommand = assist_words[2].lower().split("_")
-                dm = not self.active_channel["guild_id"]
-                # find command
-                for num, command in enumerate(self.guild_commands):
-                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
-                        break
-                else:
-                    for command in self.my_commands:
-                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
-                            break
-                    else:
-                        command = None
-                if command:
-                    # list groups/subcommands/options
-                    for subcommand in command.get("options", []):
-                        subcommand_name = subcommand["name"].lower()
-                        if all(x in subcommand_name for x in assist_subcommand):
-                            if subcommand["type"] == 1:
-                                name = f"{subcommand_name.replace(" ", "_")} - subcommand"
-                                value = subcommand_name.replace(" ", "_")
-                            elif subcommand["type"] == 2:
-                                name = f"{subcommand_name.replace(" ", "_")} - group"
-                                value = subcommand_name.replace(" ", "_")
-                            else:
-                                name = f"{subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(subcommand["type"])-1]}"
-                                value = f"--{subcommand_name.replace(" ", "_")}="
-                            if subcommand.get("required"):
-                                name += " (required)"
-                            if subcommand.get("description"):
-                                name += f" - {subcommand["description"]}"
-                            self.assist_found.append((name, value))
-                    # list option choices
-                    else:
-                        match = re.search(parser.match_command_arguments, assist_words[2].lower())
-                        if match:
-                            for option in command.get("options", []):
-                                if option["name"].lower() == match.group(1):
-                                    break
-                            else:
-                                option = None
-                            if option and "choices" in option:
-                                value = match.group(2).split("_") if match.group(2) else ""
-                                for choice in option["choices"]:
-                                    choice_name = choice["name"].lower()
-                                    if all(x in choice_name for x in value):
-                                        self.assist_found.append((choice["name"], choice["value"]))
-                            elif option and option.get("autocomplete"):
-                                if self.allow_app_command_autocomplete and self.app_command_autocomplete != assist_word and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
-                                    self.app_command_autocomplete = assist_word
-                                    self.execute_app_command(assist_word, autocomplete=True)
-                                    self.app_command_sent_time = time.time()
-                                elif self.app_command_autocomplete_resp:
-                                    for choice in self.app_command_autocomplete_resp:
-                                        self.assist_found.append((choice["name"], choice["value"]))
-            elif depth == 4:   # groups subcommand and options
-                self.assist_found.append(("EXECUTE", None))
-                assist_app_name = assist_words[0].lower()
-                assist_command = assist_words[1].lower()
-                assist_subcommand = assist_words[2].lower()
-                assist_group_subcommand = assist_words[3].lower().split("_")
-                dm = not self.active_channel["guild_id"]
-                options_only = False
-                # find command
-                for num, command in enumerate(self.guild_commands):
-                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
-                        break
-                else:
-                    for command in self.my_commands:
-                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
-                            break
-                    else:
-                        command = None
-                if command:
-                    # find subcommand
-                    for subcommand in command.get("options", []):
-                        if subcommand["name"].lower().replace(" ", "_") == assist_subcommand:
-                            break
-                    else:
-                        if re.search(parser.match_command_arguments, assist_subcommand):
-                            subcommand = command   # when adding multiple options
-                            options_only = True
-                        else:
-                            subcommand = None
-                    if subcommand:
-                        # list group_subcommands/options
-                        for group_subcommand in subcommand.get("options", []):
-                            group_subcommand_name = group_subcommand["name"].lower()
-                            if all(x in group_subcommand_name for x in assist_group_subcommand):
-                                if options_only and group_subcommand["type"] in (1, 2):
-                                    continue   # skip non-options
-                                if group_subcommand["type"] == 1:
-                                    name = f"{group_subcommand_name.replace(" ", "_")} - subcommand"
-                                    value = group_subcommand_name.replace(" ", "_")
-                                else:
-                                    name = f"{group_subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(group_subcommand["type"])-1]}"
-                                    value = f"--{group_subcommand_name.replace(" ", "_")}="
-                                if group_subcommand.get("required"):
-                                    name += " (required)"
-                                if group_subcommand.get("description"):
-                                    name += f" - {group_subcommand["description"]}"
-                                self.assist_found.append((name, value))
-                        # list option choices
-                        else:
-                            match = re.search(parser.match_command_arguments, assist_words[3].lower())
-                            if match:
-                                for option in subcommand.get("options", []):
-                                    if option["name"].lower() == match.group(1):
-                                        break
-                                else:
-                                    option = None
-                                if option and "choices" in option:
-                                    value = match.group(2).split("_") if match.group(2) else ""
-                                    for choice in option["choices"]:
-                                        choice_name = choice["name"].lower()
-                                        if all(x in choice_name for x in value):
-                                            self.assist_found.append((choice["name"], choice["value"]))
-                                elif option and option.get("autocomplete"):
-                                    if self.allow_app_command_autocomplete and self.app_command_autocomplete != assist_word and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
-                                        self.app_command_autocomplete = assist_word
-                                        self.execute_app_command(assist_word, autocomplete=True)
-                                        self.app_command_sent_time = time.time()
-                                    elif self.app_command_autocomplete_resp:
-                                        for choice in self.app_command_autocomplete_resp:
-                                            self.assist_found.append((choice["name"], choice["value"]))
-            elif depth >= 5:   # options
-                self.assist_found.append(("EXECUTE", None))
-                assist_app_name = assist_words[0].lower()
-                assist_command = assist_words[1].lower()
-                assist_subcommand = assist_words[2].lower()
-                assist_group_subcommand = assist_words[3].lower()
-                assist_option = assist_words[4].lower().split("_")
-                dm = not self.active_channel["guild_id"]
-                # find command
-                for num, command in enumerate(self.guild_commands):
-                    if command["app_name"].lower().replace(" ", "_") == assist_app_name and self.guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
-                        break
-                else:
-                    for command in self.my_commands:
-                        if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
-                            break
-                    else:
-                        command = None
-                if command:
-                    # find subcommand
-                    for subcommand in command.get("options", []):
-                        if subcommand["name"].lower().replace(" ", "_") == assist_subcommand:
-                            break
-                    else:
-                        if re.search(parser.match_command_arguments, assist_subcommand):
-                            subcommand = command   # when adding multiple options
-                            options_only = True
-                        else:
-                            subcommand = None
-                    if subcommand:
-                        # find group subcommand
-                        for group_subcommand in subcommand.get("options", []):
-                            if group_subcommand["name"].lower().replace(" ", "_") == assist_group_subcommand:
-                                break
-                        else:
-                            if re.search(parser.match_command_arguments, assist_group_subcommand):
-                                group_subcommand = subcommand   # when adding multiple options
-                                options_only = True
-                            else:
-                                group_subcommand = None
-                        if group_subcommand:
-                            # list options
-                            for option in group_subcommand.get("options", []):
-                                option_name = option["name"].lower()
-                                if all(x in option_name for x in assist_option):
-                                    if options_only and option["type"] in (1, 2):
-                                        continue   # skip non-options
-                                    name = f"{option_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(option["type"])-1]}"
-                                    value = f"--{option_name.replace(" ", "_")}="
-                                    if option.get("required"):
-                                        name += " (required)"
-                                    if option.get("description"):
-                                        name += f" - {option["description"]}"
-                                    self.assist_found.append((name, value))
-                            # list option choices
-                            else:
-                                match = re.search(parser.match_command_arguments, assist_words[4].lower())
-                                if match:
-                                    for option in group_subcommand.get("options", []):
-                                        if option["name"].lower() == match.group(1):
-                                            break
-                                    else:
-                                        option = None
-                                    if option and "choices" in option:
-                                        value = match.group(2).split("_") if match.group(2) else ""
-                                        for choice in option["choices"]:
-                                            choice_name = choice["name"].lower()
-                                            if all(x in choice_name for x in value):
-                                                self.assist_found.append((choice["name"], choice["value"]))
-                                    elif option and option.get("autocomplete"):
-                                        if self.allow_app_command_autocomplete and self.app_command_autocomplete != assist_word and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
-                                            self.app_command_autocomplete = assist_word
-                                            self.execute_app_command(assist_word, autocomplete=True)
-                                            self.app_command_sent_time = time.time()
-                                        elif self.app_command_autocomplete_resp:
-                                            for choice in self.app_command_autocomplete_resp:
-                                                self.assist_found.append((choice["name"], choice["value"]))
+            self.assist_found, autocomplete = search.search_app_commands(
+                self.guild_apps,
+                self.guild_commands,
+                self.my_apps,
+                self.my_commands,
+                depth,
+                self.guild_commands_permitted,
+                not self.active_channel["guild_id"],
+                self.assist_skip_app_command,
+                parser.match_command_arguments,
+                assist_word[1:],
+                self.assist_limit,
+                self.assist_score_cutoff,
+            )
+            if autocomplete:
+                query = assist_word.lower()
+                if self.allow_app_command_autocomplete and self.app_command_autocomplete != query and time.time() - self.app_command_sent_time > INTERACTION_THROTTLING:
+                    self.app_command_autocomplete = assist_word.lower()
+                    self.execute_app_command(query, autocomplete=True)
+                    self.app_command_sent_time = time.time()
+                elif self.app_command_autocomplete_resp:
+                    for choice in self.app_command_autocomplete_resp:
+                        self.assist_found.append((choice["name"], choice["value"]))
 
         elif assist_type == 7:   # upload file select
             if query_results:
@@ -3769,7 +3428,7 @@ class Endcord:
         self.extra_window_open = True
         if (self.search or self.command) and not (self.assist_word or self.assist_word == " "):
             self.extra_bkp = (self.tui.extra_window_title, self.tui.extra_window_body)
-        self.assist_word = assist_word_real
+        self.assist_word = assist_word
         self.tui.draw_extra_window(extra_title, extra_body, select=True, start_zero=True)
 
 
@@ -5288,7 +4947,7 @@ class Endcord:
             # check if assist is needed
             assist_word, assist_type = self.tui.get_assist()
             if assist_type and not self.uploading:
-                if assist_type == 100 or (" " in assist_word and assist_type not in (5, 6)):
+                if assist_type == 100:   # or (" " in assist_word and assist_type not in (5, 6)):
                     self.stop_assist()
                 elif assist_type == 6:   # app commands
                     if assist_word != self.assist_word and not (self.disable_sending or self.forum):

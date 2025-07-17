@@ -48,13 +48,14 @@ def convert_role_colors(all_roles):
 
 def check_color(color):
     """Check if color format is valid and repair it"""
-    if color is None:
+    color_new = color[:]
+    if color_new is None:
         return [-1, -1]
-    if color[0] is None:
-        color[0] = -1
-    elif color[1] is None:
-        color[1] = -1
-    return color
+    if color_new[0] is None:
+        color_new[0] = -1
+    elif color_new[1] is None:
+        color_new[1] = -1
+    return color_new
 
 
 def check_color_formatted(color_format):
@@ -62,12 +63,13 @@ def check_color_formatted(color_format):
     Check if color format is valid and repair it.
     Replace -2 values for non-default colors with default for this format.
     """
-    if color_format is None:
+    color_format_new = [row[:] for row in color_format] if color_format is not None else None
+    if color_format_new is None:
         return [[-1, -1]]
-    for color in color_format[1:]:
+    for color in color_format_new[1:]:
         if color[0] == -2:
-            color[0] = color_format[0][0]
-    return color_format
+            color[0] = color_format_new[0][0]
+    return color_format_new
 
 
 def extract_colors(config):

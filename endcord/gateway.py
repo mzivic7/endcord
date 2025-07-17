@@ -983,7 +983,7 @@ class Gateway():
                             "name": thread["name"],
                             "locked": thread["thread_metadata"]["locked"],
                             "message_count": thread["message_count"],
-                            "timestamp": thread["thread_metadata"]["create_timestamp"],
+                            "timestamp": thread["thread_metadata"].get("create_timestamp", None),
                             "parent_id": thread["parent_id"],
                             "suppress_everyone": False,   # no config for threads
                             "suppress_roles": False,

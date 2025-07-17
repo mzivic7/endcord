@@ -247,7 +247,6 @@ Assist triggers are (the first character): `@username`, `@role`, `#channel`, `:e
 Press `Esc` to stop assist. Re-type trigger to start it again.  
 Navigation: `Alt+Up/Down` - Go up/down, `Alt+Enter` or `Enter` - insert selected item.  
 When inserted in input line, item will usually be shown as `<some_numbers>` - that is intended - do not alter it.  
-To search multiple words use `_`, space will end assist.  
 Stickers and emojis are sorted into packs, and will be shown as `pack name - emoji/sticker name`, and search is performed on that string.  
 Sticker will also be added to message text and removed when sending.  
 
@@ -269,11 +268,12 @@ App commands assist is initiated by typing `/` at the start of input line.
 Pressing Enter will insert current assist selection.  
 If selection is `EXECUTE` then pressing enter will try to send that command.  
 App commands format is like this:  
-`/[bot_name] [command] [subcommand/group] [subcommand_after_group] --[option_name]=[option value]`  
-`[bot_name]` is case insensitive, but `_` must be used instead space.  
+`/[bot_name] [command] [subcommand/group] [subcommand_after_group] --[option_name]=[option_value]`  
+`[bot_name]` is case insensitive, and `_` must be used instead space.  
+Space is used only to separate command segments, except in option_value with quotes.  
 `[subcommand/group]` is either single subcommand or subcommand group, and is optional.  
-Subcommand group must be followed by `[subcommand_after_group]`.  
-`[option value]` can be put in `""`, useful when it has spaces in the value. Options are sometimes not required.  
+Subcommand group must be followed by `[subcommand_after_group]`, which is subcommand selected from this group.  
+`[option_value]` can be put in `""`, useful when it has spaces in the value. Options are sometimes not required.  
 If option is of type "attachment", it can be left without value, but attachemnt must be provided (with `Ctrl+U`) before sending the command.  
 If `skip_app_command_assist = True` in config, then all app commands are shown in initial assist after `/`. Then, inserting command will also insert bot_name.  
 
@@ -397,9 +397,9 @@ To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, l
 ### Nuitka
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  
 Nuitka built binaries are much more optimized and can play videos at higher framerate.  
-Optionally, add `--clang` flag to tell nuitka to build code using llvm, which might run even faster.  
+Optionally, add `--clang` flag to tell nuitka to compile using llvm, which might run even faster.  
 Nuitka requirements:
-- on Linux: GCC or clang from system and `patchelf` package
+- on Linux: GCC or clang and `patchelf` package
 - on Windows: [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)
 - on macOS install XCode via Apple Store
 
