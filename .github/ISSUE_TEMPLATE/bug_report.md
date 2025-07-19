@@ -16,9 +16,10 @@ A clear and concise description of what the bug is.
  - Platform: [e.g. Linux x86_64]
  - OS: [e.g. Arch 6.12.7]
  - Terminal: [e.g. Alacritty]
- - Version [e.g. 0.6.0]
+ - Version [e.g. 0.6.0 full/lite]
+  - Install method: [e.g. downloaded binary / custom build / from AUR]
 
-**To Reproduce**
+**Steps to reproduce**
 Steps to reproduce the behavior:
 1.
 2.

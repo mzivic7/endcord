@@ -7,23 +7,27 @@ on:
 
 jobs:
   build:
+    name: build (${{ matrix.os }}, ${{ matrix.python-version }}${{ matrix.clang && format(', {0}', matrix.clang-version) || '' }})
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15]
         clang-version: [20.1.4]
+        os: [ubuntu-latest, windows-latest, macos-15]
         include:
           - os: ubuntu-latest
             platform: linux
-            python-version: "3.13"
+            python-version: 3.13
             nuitka: true
+            clang: true
           - os: windows-latest
             platform: windows
-            python-version: "3.12"   # https://github.com/Nuitka/Nuitka/issues/3234
+            python-version: 3.12   # https://github.com/Nuitka/Nuitka/issues/3234
             nuitka: true
+            clang: false   # https://github.com/Nuitka/Nuitka/issues/3370
           - os: macos-15
             platform: macos
-            python-version: "3.13"
+            python-version: 3.13
             nuitka: true
+            clang: true
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -31,7 +35,7 @@ jobs:
 
       ## uncomment to enable caching with artifacts
       # - name: Set CCACHE_DIR environment variable
-      #   if: ${{ matrix.nuitka }}
+      #   if: matrix.nuitka == 'true'
       #   shell: bash
       #   run: |
       #     if [[ "${{ runner.os }}" == "Windows" ]]; then
@@ -45,7 +49,7 @@ jobs:
       ## uncomment to enable caching with artifacts
       # - name: Download ccache artifact from previous run
       #   uses: dawidd6/action-download-artifact@v9
-      #   if: ${{ matrix.nuitka }}
+      #   if: matrix.nuitka == 'true'
       #   with:
       #     github_token: ${{ secrets.GITHUB_TOKEN }}
       #     workflow: build-and-release.yml
@@ -62,16 +66,16 @@ jobs:
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v2
-        if: ${{ matrix.nuitka }}
+        if: matrix.nuitka == 'true'
         with:
           version: ${{ matrix.clang-version }}
 
       - name: Install Linux system dependencies
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache
+        run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache lld
 
       - name: Install Windows system dependencies
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && matrix.nuitka == 'true'
         run: choco install ccache -y
 
       - name: Install macOS system dependencies
@@ -92,20 +96,18 @@ jobs:
       - name: Run build script
         shell: bash
         run: |
-            if [[ "${{ matrix.nuitka }}" == "true" ]]; then
-              uv run build.py --nuitka --clang
-            else
-              uv run build.py
-            fi
+            args=()
+            [[ "${{ matrix.nuitka }}" == "true" ]] && args+=("--nuitka")
+            [[ "${{ matrix.clang }}" == "true" ]] && args+=("--clang")
+            uv run build.py "${args[@]}"
 
       - name: Run build lite script
         shell: bash
         run: |
-            if [[ "${{ matrix.nuitka }}" == "true" ]]; then
-              uv run build.py --nuitka --clang --lite
-            else
-              uv run build.py --lite
-            fi
+            args=()
+            [[ "${{ matrix.nuitka }}" == "true" ]] && args+=("--nuitka")
+            [[ "${{ matrix.clang }}" == "true" ]] && args+=("--clang")
+            uv run build.py --lite "${args[@]}"
 
       - name: Make binaries executable
         if: matrix.os == 'macos-15' || matrix.os == 'ubuntu-latest'
@@ -142,7 +144,7 @@ jobs:
       ## uncomment to enable caching with artifacts
       # - name: Upload ccache artifact
       #   uses: actions/upload-artifact@v4
-      #   if: ${{ matrix.nuitka }}
+      #   if: matrix.nuitka == 'true'
       #   with:
       #     name: ccache-${{ matrix.os }}
       #     path: ${{ env.CCACHE_DIR }}

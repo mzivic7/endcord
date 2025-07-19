@@ -11,56 +11,6 @@ DAY_MS = 24*60*60*1000
 DISCORD_EPOCH_MS = 1420070400000
 TREE_EMOJI_REPLACE = "▮"
 
-SEARCH_HELP_TEXT = """from:user_id
-mentions:user_id
-has:link/embed/file/video/image/sound/sticker
-before:date (format: 2015-01-01)
-after:date (format: 2015-01-01)
-in:channel_id
-pinned:true/false"""
-
-COMMAND_ASSISTS = (
-    ("goto <#[channel_id]>", "goto"),
-    ("view_pfp *<@[user_id]>", "view_pfp"),
-    ("react [reaction]", "react"),
-    ("status *[type]", "status"),
-    ("download *[num]", "download"),
-    ("open_link *[num]", "open_link"),
-    ("play *[num]", "play"),
-    ("search *[search_string]", "search"),
-    ("record / record cancel", "record"),
-    ("upload *[path]", "upload"),
-    ("profile *<@[user_id]>", "profile"),
-    ("channel *<#[channel_id]>", "channel"),
-    ("summaries *<#[channel_id]>", "summaries"),
-    ("hide *<#[channel_id]>", "hide"),
-    ("toggle_mute *<#[channel_id]>", "toggle_mute"),
-    ("mark_as_read *<#[channel_id]>", "mark_as_read"),
-    ("copy_message", "copy_message"),
-    ("spoil", "spoil"),
-    ("link_channel *<#[channel_id]>", "link_channel"),
-    ("link_message", "link_message"),
-    ("goto_mention *[num]", "goto_mention"),
-    ("cancel (up/download)", "cancel"),
-    ("member_list", "member_list"),
-    ("toggle_thread", "toggle_thread"),
-    ("bottom", "bottom"),
-    ("go_reply", "go_reply"),
-    ("show_reactions", "show_reactions"),
-    ("show_pinned", "show_pinned"),
-    ("pin_message", "pin_message"),
-    ("push_button [num/name]", "push_button"),
-    ("string_select [string]", "string_select"),
-    ("toggle_tab", "toggle_tab"),
-    ("switch_tab [num]", "switch_tab"),
-    ("vote [num]", "vote"),
-    ("paste_clipboard_image", "paste_clipboard_image"),
-    ("insert_timestamp YYYY-MM-DD-HH-mm", "insert_timestamp"),
-    ("set_notifications *<#[channel_id]> ...", "set_notifications"),
-    ("check_standing", "check_standing"),
-    ("dump_chat", "dump_chat"),
-    ("set [key] = [value]", "set"),
-)
 
 TIME_DIVS = [1, 60, 3600, 86400, 2678400, 31190400]
 TIME_UNITS = ["second", "minute", "hour", "day", "month", "year"]
@@ -379,23 +329,33 @@ def format_md_all(line, content_start, except_ranges):
             continue
         text = string_match.group(0)[format_len:-format_len]
         line = line[:start] + text + line[end:]
-        # keep indexes of change
-        indexes.extend((start, end - 2 * format_len))
+        true_end = end - 2 * format_len
+        # keep indexes of changes
+        indexes.extend((start, true_end))
         if format_len == 2:
             indexes.extend((start+1, end - 3))
         # rearrange formats at indexes after this format index
         done = False
         for format_part in line_format:
             if format_part[1] > start:
-                format_part[1] -= 2 * format_len
+                format_part[1] -= format_len
+                format_part[2] -= format_len
+            if format_part[2] >= end:
                 format_part[2] -= 2 * format_len
-            if format_part[1] == start:
-                format_part[2] -= 2 * format_len
-            if format_part[1] == start and format_part[2] == end - 2 * format_len and format_part[1] != attribute:
-                format_part[0] += [attribute]
+            # merge formats
+            if format_part[1] == start and format_part[2] == true_end and format_part[1] != attribute:
+                format_part[0] |= attribute
                 done = True
+            # add to format inside
+            elif (format_part[1] >= start or format_part[2] <= true_end) and format_part[0] != attribute:
+                format_part[0] |= attribute
+            # inherit from format around
+            elif (format_part[1] < start or format_part[2] > true_end) and format_part[0] != attribute:
+                attribute |= format_part[0]
         if not done:
-            line_format.append([[attribute], start, end - 2 * format_len])
+            line_format.append([attribute, start, end - 2 * format_len])
+    # sort by format start so tui can draw nested format on top of previous one
+    line_format = sorted(line_format, key=lambda x: x[1], reverse=True)
     return line, line_format, indexes
 
 

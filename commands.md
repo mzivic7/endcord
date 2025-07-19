@@ -38,15 +38,15 @@
 - `toggle_thread`  
     Join/Leave selected thread in tree.
 - `bottom`  
-    Go to chat bottom
+    Go to chat bottom.
 - `go_reply`  
-    Go to replied message from currently selected message.
+    Go to message that selected message is replying to.
 - `show_reactions`  
     Show reactions details for selected message.
 - `toggle_tab`  
     Toggle tabbed (pinned) state of currently active channel.
 - `switch_tab [num]`  
-    Switch to specified tab number.
+    Switch to specified tab by ist number.
 - `show_pinned`  
     Show pinned messages for current channel.
 
@@ -81,4 +81,4 @@
 - `string_select [string]` / `string_select [num] [string]`  
     Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if have multiple string selects.
 - `set_notifications ...` / `set_notifications <#[channel_id]> ...`  
-    Show and modify server/channel notification settings
+    Show and modify server/channel notification settings.

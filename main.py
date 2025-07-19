@@ -87,7 +87,12 @@ def main(args):
         ):
             sys.exit("Ascii media player is not supported")
         from endcord import media
-        curses.wrapper(media.ascii_runner, args.media, config, keybindings)
+        try:
+            curses.wrapper(media.ascii_runner, args.media, config, keybindings)
+        except curses.error as e:
+            if str(e) != "endwin() returned ERR":
+                logger.error(traceback.format_exc())
+                sys.exit("Curses error, see log for more info")
         sys.exit(0)
 
     if args.proxy:

@@ -1,4 +1,5 @@
 import curses
+import importlib.util
 import logging
 import re
 import sys
@@ -80,6 +81,62 @@ def select_word(text, index):
     while end < len(text) - 1 and re.match(match_word, text[end + 1]):
         end += 1
     return start, end
+
+
+def draw_chat(win_chat, h, w, chat_buffer, chat_format, chat_index, chat_selected, attrib_map, color_default):
+    """Draw chat with applied color formatting"""
+    y = h
+    # drawing from down to up
+    chat_format = chat_format[chat_index:]
+    for num in range(len(chat_buffer) - chat_index):
+        line_idx = chat_index + num
+        if line_idx >= len(chat_buffer):
+            break
+        y = h - (num + 1)
+        if y < 0 or y >= h:
+            break
+
+        line = chat_buffer[line_idx]
+        if num == chat_selected - chat_index:
+            fill_len = w - len(line)
+            win_chat.insstr(y, 0, line + (" " * fill_len) + "\n", curses.color_pair(16))
+        else:
+            line_format = chat_format[num]
+            default_color_id = line_format[0][0]
+            # filled with spaces so background is drawn all the way
+            default_color = curses.color_pair(default_color_id) | attrib_map[default_color_id]
+            win_chat.insstr(y, 0, " " * w + "\n", curses.color_pair(default_color_id))
+
+            for pos in range(min(len(line), w)):
+                character = line[pos]
+                for format_part in line_format[1:]:
+                    color = format_part[0]
+                    start = format_part[1]
+                    end = format_part[2]
+                    if start <= pos < end:
+                        # assuming never to have id > 65536, if value is that large its definitely attribute
+                        if color >= 0x00010000:
+                            # using base color because it is in message content anyway
+                            color_ready = curses.color_pair(default_color_id) | color
+                        else:
+                            if color > 255:   # set all colors after 255 to default color
+                                color = color_default
+                            color_ready = curses.color_pair(color) | attrib_map[color]
+                        safe_insch(win_chat, y, pos, character, color_ready)
+                        break
+                else:
+                    safe_insch(win_chat, y, pos, character, default_color)
+
+    # fill empty lines with spaces so background is drawn all the way
+    y -= 1
+    while y >= 0:
+        win_chat.insstr(y, 0, "\n", curses.color_pair(0))
+        y -= 1
+
+
+# use cython if available
+if importlib.util.find_spec("endcord_cython.tui"):   # ~1.5 times faster
+    from endcord_cython.tui import draw_chat
 
 
 class TUI():
@@ -702,47 +759,18 @@ class TUI():
     def draw_chat(self, norefresh=False):
         """Draw chat with applied color formatting"""
         with self.lock:
-            h, w = self.chat_hw
-            # drawing from down to up
-            y = h
-            chat_format = self.chat_format[self.chat_index:]
             try:
-                for num, line in enumerate(self.chat_buffer[self.chat_index:]):
-                    y = h - (num + 1)
-                    if y < 0 or y >= h:
-                        break
-                    if num == self.chat_selected - self.chat_index:
-                        self.win_chat.insstr(y, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(16))
-                    else:
-                        line_format = chat_format[num]
-                        default_color_id = line_format[0][0]
-                        # filled with spaces so background is drawn all the way
-                        default_color = curses.color_pair(default_color_id) | self.attrib_map[default_color_id]
-                        self.win_chat.insstr(y, 0, " " * w + "\n", curses.color_pair(default_color_id))
-                        for pos, character in enumerate(line):
-                            if pos >= w:
-                                break
-                            for format_part in line_format[1:]:
-                                if format_part[1] <= pos < format_part[2]:
-                                    color = format_part[0]
-                                    if isinstance(color, list):   # attribute-only color is a list
-                                        # using base color because it is in message content anyway
-                                        color_ready = curses.color_pair(default_color_id)
-                                        for attribute in color:
-                                            color_ready |= attribute
-                                    else:
-                                        if color > 255:   # set all colors after 255 to default color
-                                            color = self.color_default
-                                        color_ready = curses.color_pair(color) | self.attrib_map[color]
-                                    safe_insch(self.win_chat, y, pos, character, color_ready)
-                                    break
-                            else:
-                                safe_insch(self.win_chat, y, pos, character, default_color)
-                # fill empty lines with spaces so background is drawn all the way
-                y -= 1
-                while y >= 0:
-                    self.win_chat.insstr(y, 0, "\n", curses.color_pair(0))
-                    y -= 1
+                draw_chat(
+                    self.win_chat,
+                    self.chat_hw[0],
+                    self.chat_hw[1],
+                    self.chat_buffer,
+                    self.chat_format,
+                    self.chat_index,
+                    self.chat_selected,
+                    self.attrib_map,
+                    self.color_default,
+                )
                 self.win_chat.noutrefresh()
                 if not norefresh:
                     self.need_update.set()

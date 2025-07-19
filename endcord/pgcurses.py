@@ -201,15 +201,17 @@ class Window:
         len_lines = len(lines)
         for i, line in enumerate(lines):
             if i < len_lines - 1:
-                ready_line = line[:self.ncols - x].ljust(self.ncols - x)
+                line_len = self.ncols - x
+                ready_line = (line[:line_len]).ljust(line_len)
             else:
                 ready_line = line
             row = y + i
             if row >= self.nlines:
                 break
+            row_buffer = self.buffer[row]
             for j, ch in enumerate(ready_line[:self.ncols - x]):
                 col = x + j
-                self.buffer[row][col] = (ch, attr)
+                row_buffer[col] = (ch, attr)
             self.dirty_lines.add(row)
 
 
@@ -257,7 +259,7 @@ class Window:
                     fg, bg = color_map[attr & 0xFFFF]
                     if flags & A_STANDOUT:
                         fg, bg = bg, fg
-                    pygame.draw.rect(self.surface, bg, (px_x, px_y, 2 * self.char_width, self.char_height))
+                    self.surface.fill(bg, (px_x, px_y, 2 * self.char_width, self.char_height))
                     emoji = self.render_emoji_scaled(ch)
                     if emoji:
                         offset = px_x + (2 * self.char_width - self.char_height) // 2
@@ -267,25 +269,26 @@ class Window:
                     continue
 
                 span_draw_x = draw_x
-                text = ""
+                text_buffer = []
                 while i < self.ncols:
                     ch, attr2 = row[i]
                     if attr2 != attr:
                         break
                     if is_emoji(ch):
                         break
-                    text += ch
+                    text_buffer.append(ch)
                     i += 1
                     draw_x += 1
-                if not text:
+                if not text_buffer:
                     continue
+                text = "".join(text_buffer)
 
                 fg, bg = color_map[attr & 0xFFFF]
                 if flags & A_STANDOUT:
                     fg, bg = bg, fg
                 px_x = span_draw_x * self.char_width
                 px_y = y * self.char_height
-                pygame.draw.rect(self.surface, bg, (px_x, px_y, len(text) * self.char_width, self.char_height))
+                self.surface.fill(bg, (px_x, px_y, len(text) * self.char_width, self.char_height))
                 self.font.strong = bool(flags & A_BOLD)
                 self.font.oblique = bool(flags & A_ITALIC)
                 self.font.underline = bool(flags & A_UNDERLINE)

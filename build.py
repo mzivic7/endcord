@@ -4,6 +4,7 @@ import importlib.util
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 
@@ -20,22 +21,19 @@ def check_media_support():
 def add_media():
     """Add media support"""
     if not check_media_support():
-        command = "uv sync --all-groups"
-        os.system(command)
+        subprocess.run(["uv", "sync", "--all-groups"], check=True)
 
 
 def remove_media():
     """Remove media support"""
     if check_media_support():
-        command = "uv pip uninstall pillow av"
-        os.system(command)
+        subprocess.run(["uv", "pip", "uninstall", "pillow" , "av"], check=True)
 
 
 def check_dev():
     """Check if its dev environment and set it up"""
     if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
-        command = "uv sync --group build"
-        os.system(command)
+        subprocess.run(["uv", "sync", "--group", "build"], check=True)
 
 
 def get_app_name():
@@ -111,7 +109,7 @@ def toggle_experimental(check_only=False):
         subdirs[:] = [d for d in subdirs if not d.startswith(".")]
         for name in files:
             file_path = os.path.join(path, name)
-            if ".py" in file_path and ".pyc" not in file_path and not name.startswith("."):
+            if not name.startswith(".") and (file_path.endswith(".py") or file_path.endswith(".pyx")):
                 file_list.append(file_path)
     enable = False
     for path in file_list:
@@ -135,14 +133,26 @@ def toggle_experimental(check_only=False):
     if check_only:
         return not enable
     if enable:
-        command = "uv pip install pygame-ce pyperclip"
-        os.system(command)
+        subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
         print("Experimental windowed mode enabled!")
     else:
-        command = "uv pip uninstall pygame-ce pyperclip"
-        os.system(command)
+        subprocess.run(["uv", "pip", "uninstall", " pygame-ce", "pyperclip"], check=True)
         print("Experimental windowed mode disabled!")
     return not enable
+
+
+def build_cython(clang):
+    """Build cython extensions"""
+    if clang:
+        os.environ["CC"] = "clang"
+        os.environ["CXX"] = "clang++"
+
+    subprocess.run(["uv", "run", "python", "setup.py", "build_ext", "--inplace"], check=True)
+
+    files = [f for f in os.listdir("endcord_cython") if f.endswith(".c")]
+    for f in files:
+        os.remove(os.path.join("endcord_cython", f))
+    shutil.rmtree("build")
 
 
 def build_with_pyinstaller(onedir):
@@ -153,23 +163,38 @@ def build_with_pyinstaller(onedir):
     else:
         pkgname = f"{get_app_name()}-lite"
         print("ASCII media support is disabled")
-    if onedir:
-        onedir = "--onedir"
-    else:
-        onedir = "--onefile"
-    hidden_imports = "--hidden-import uuid"
 
+    mode = "--onedir" if onedir else "--onefile"
+    hidden_imports = ["--hidden-import=uuid"]
+    package_data = ["--collect-data=emoji"]
+
+    # platform-specific
     if sys.platform == "linux":
-        command = f'uv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --clean --name {pkgname} "main.py"'
-        os.system(command)
+        options = []
     elif sys.platform == "win32":
-        command = f'uv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --console --clean --name {pkgname} "main.py"'
-        os.system(command)
+        options = ["--console"]
     elif sys.platform == "darwin":
-        command = f'uv run python -m PyInstaller {onedir} {hidden_imports} --collect-data=emoji --noconfirm --console --clean --name {pkgname} "main.py"'
-        os.system(command)
-    else:
-        sys.exit(f"This platform is not supported: {sys.platform}")
+        options = []
+
+    # prepare command and run it
+    cmd = [
+        "uv", "run", "python", "-m", "PyInstaller",
+        mode,
+        *hidden_imports,
+        *package_data,
+        *options,
+        "--noconfirm",
+        "--clean",
+        f"--name={pkgname}",
+        "main.py",
+    ]
+    cmd = [arg for arg in cmd if arg != ""]
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Build failed: {e}")
+        sys.exit(e.returncode)
+
     # cleanup
     try:
         os.remove(f"{pkgname}.spec")
@@ -187,41 +212,62 @@ def build_with_nuitka(onedir, clang):
         pkgname = f"{get_app_name()}-lite"
         print("ASCII media support is disabled")
 
-    if onedir:
-        onedir = "--standalone"
-    else:
-        onedir = "--onefile"
+    mode = "--standalone" if onedir else "--onefile"
+    clang = "--clang" if clang else ""
+    python_flags = ["--python-flag=-OO"]
+    hidden_imports = ["--include-module=uuid"]
+    package_data = [
+        "--include-package-data=emoji:unicode_codes/emoji.json",
+        "--include-package-data=soundcard",
+    ]
 
-    if clang:
-        clang = "--clang"
-    else:
-        clang = ""
-
-    hidden_imports = "--include-module=uuid"
-    if sys.platform == "win32":
-        os_hidden_imports = " --include-package=winrt.windows.foundation" \
-        " --include-package=winrt.windows.ui.notifications" \
-        " --include-package=winrt.windows.data.xml.dom" \
-        " --include-package=win32timezone" \
-        " --include-package-data=winrt"
-    else:
-        os_hidden_imports = ""
-    hidden_imports += os_hidden_imports
-
-    include_package_data = "--include-package-data=emoji:unicode_codes/emoji.json --include-package-data=soundcard"
-
+    # platform-specific
     if sys.platform == "linux":
-        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} main.py"
-        os.system(command)
+        options = []
     elif sys.platform == "win32":
         patch_soundcard()
-        command = f"uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --assume-yes-for-downloads main.py"
-        os.system(command)
+        options = ["--assume-yes-for-downloads"]
+        hidden_imports += [
+            "--include-package=winrt.windows.foundation",
+            "--include-package=winrt.windows.ui.notifications",
+            "--include-package=winrt.windows.data.xml.dom",
+            "--include-package=win32timezone",
+        ]
+        package_data += ["--include-package-data=winrt"]
     elif sys.platform == "darwin":
-        command = f'uv run python -m nuitka {clang} {onedir} {hidden_imports} {include_package_data} --remove-output --output-dir=dist --output-filename={pkgname} --macos-app-name={get_app_name()} --macos-app-version={get_version_number()} --macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message." main.py'
-        os.system(command)
-    else:
-        sys.exit(f"This platform is not supported: {sys.platform}")
+        options = [
+            f"--macos-app-name={get_app_name()}",
+            f"--macos-app-version={get_version_number()}",
+            '--macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message."',
+        ]
+
+    # prepare command and run it
+    cmd = [
+        "uv", "run", "python", "-m", "nuitka",
+        mode,
+        clang,
+        *python_flags,
+        *hidden_imports,
+        *package_data,
+        *options,
+        "--remove-output",
+        "--output-dir=dist",
+        f"--output-filename={pkgname}",
+        "main.py",
+    ]
+    cmd = [arg for arg in cmd if arg != ""]
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Build failed: {e}")
+        sys.exit(e.returncode)
+
+    # cleanup
+    try:
+        os.remove(f"{pkgname}.spec")
+        shutil.rmtree("build")
+    except FileNotFoundError:
+        pass
 
 
 def parser():
@@ -252,6 +298,11 @@ def parser():
         help="build into directory instead single executable",
     )
     parser.add_argument(
+        "--nocython",
+        action="store_true",
+        help="build without compiling cython code",
+    )
+    parser.add_argument(
         "--toggle-experimental",
         action="store_true",
         help="toggle experimental mode and exit",
@@ -270,9 +321,15 @@ if __name__ == "__main__":
     else:
         add_media()
     if toggle_experimental(check_only=True):
-        command = "uv pip install pygame-ce pyperclip"
-        os.system(command)
+        subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
         print("Experimental windowed mode enabled!")
+    if sys.platform not in ("linux", "win32", "darwin"):
+        sys.exit(f"This platform is not supported: {sys.platform}")
+    if not args.nocython:
+        try:
+            build_cython(args.clang)
+        except Exception as e:
+            print(f"Failed building cython extensions, error: {e}")
     if args.nuitka:
         build_with_nuitka(args.onedir, args.clang)
         sys.exit()

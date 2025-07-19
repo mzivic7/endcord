@@ -109,7 +109,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Skip assist for app_name when typing app command. Instead show all app commands and insert app_name with selected command.
 - `assist_limit = 50`  
     Maximum number of results when showing assist.
-- `assist_score_cutoff = 35`  
+- `assist_score_cutoff = 15`  
     Cutoff for assist match score. Lower value will result in more results.
 - `yt_dlp_path = "yt-dlp"`  
     Path to [yt-dlp](https://github.com/yt-dlp/yt-dlp) executable or command. Used for playing youtube videos.

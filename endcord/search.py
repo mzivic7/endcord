@@ -1,4 +1,5 @@
 import heapq
+import importlib.util
 import re
 
 import emoji
@@ -36,7 +37,7 @@ def fuzzy_match_score_single(query, candidate):
 
 def fuzzy_match_score(query, candidate):
     """
-    Calcualtes score for fuzzy matching of query containing one or multiple words.
+    Calcualte score for fuzzy matching of query containing one or multiple words.
     Consecutive matches will have larger score.
     Matches closer to the start of the candidate string will have larger score.
     Score is not limited.
@@ -50,7 +51,12 @@ def fuzzy_match_score(query, candidate):
     return total_score
 
 
-def search_channels_guild(channels, query, limit=50, score_cutoff=40):
+# use cython if available
+if importlib.util.find_spec("endcord_cython.search"):   # ~6.7 times faster
+    from endcord_cython.search import fuzzy_match_score
+
+
+def search_channels_guild(channels, query, limit=50, score_cutoff=15):
     """Search for channels in one guild"""
     results = []
     worst_score = score_cutoff
@@ -78,7 +84,7 @@ def search_channels_guild(channels, query, limit=50, score_cutoff=40):
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=40):
+def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=15):
     """Search for guilds/categories/channels/DMs"""
     results = []
     worst_score = score_cutoff
@@ -130,7 +136,7 @@ def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=4
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_usernames_roles(roles, query_results, guild_id, gateway, query, limit=50, score_cutoff=40):
+def search_usernames_roles(roles, query_results, guild_id, gateway, query, limit=50, score_cutoff=15):
     """Search for usernames and roles"""
     results = []
     worst_score = score_cutoff
@@ -171,7 +177,7 @@ def search_usernames_roles(roles, query_results, guild_id, gateway, query, limit
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=40):
+def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=15):
     """Search for emoji"""
     results = []
     worst_score = score_cutoff
@@ -213,7 +219,7 @@ def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=4
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_stickers(all_stickers, default_stickers, premium, guild_id, query, limit=50, score_cutoff=40):
+def search_stickers(all_stickers, default_stickers, premium, guild_id, query, limit=50, score_cutoff=15):
     """Search for stickers"""
     results = []
     worst_score = score_cutoff
@@ -241,7 +247,7 @@ def search_stickers(all_stickers, default_stickers, premium, guild_id, query, li
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_settings(config, query, limit=50, score_cutoff=40):
+def search_settings(config, query, limit=50, score_cutoff=15):
     """Search for settings"""
     results = []
     worst_score = score_cutoff
@@ -261,7 +267,7 @@ def search_settings(config, query, limit=50, score_cutoff=40):
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_string_selects(message, query_in, limit=50, score_cutoff=40):
+def search_string_selects(message, query_in, limit=50, score_cutoff=15):
     """Search for string selects"""
     results = []
     worst_score = score_cutoff
@@ -342,7 +348,7 @@ def search_set_notifications(guilds, dms, guild_id, channel_id, ping_options, qu
     return results
 
 
-def search_client_commands(commands, query, limit=50, score_cutoff=40):
+def search_client_commands(commands, query, limit=50, score_cutoff=15):
     """Search for client commands"""
     results = []
     worst_score = score_cutoff
@@ -359,7 +365,7 @@ def search_client_commands(commands, query, limit=50, score_cutoff=40):
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth, guild_commands_permitted, dm, assist_skip_app_command, match_command_arguments, query, limit=50, score_cutoff=40):
+def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth, guild_commands_permitted, dm, assist_skip_app_command, match_command_arguments, query, limit=50, score_cutoff=15):
     """Search for app commands"""
     results = []
     worst_score = score_cutoff

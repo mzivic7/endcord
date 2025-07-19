@@ -274,6 +274,9 @@ class Gateway():
                 self.resumable = True
                 break
             logger.debug(f"Received: opcode={opcode}, optext={response["t"] if (response and "t" in response and response["t"] and "LIST" not in response["t"]) else 'None'}")
+            # debug_events
+            # if response.get("t"):
+            #     debug.save_json(response, f"{response["t"]}.json", False)
 
             if opcode == 11:
                 self.heartbeat_received = True
@@ -1236,9 +1239,6 @@ class Gateway():
                 self.resumable = True
                 break
 
-            # debug_events
-            # if response.get("t"):
-            #     debug.save_json(response, f"{response["t"]}.json", False)
         self.state = 0
         logger.info("Receiver stopped")
         self.reconnect_requested = True

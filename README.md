@@ -372,7 +372,8 @@ Never tested on macOS. Feedback is welcome.
 To see all build script options, run: `uv run build.py -h`.  
 To build endcord-lite, add `--lite` flag. No ascii media, slightly less RAM usage, smaller executable, faster startup.  
 To build into directory, not as a single executable, add `--onedir` flag. Will speed up startup.  
-To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, long compile time. See [Nuitka](#nuitka) for more info.
+To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, long compile time. See [Nuitka](#nuitka) for more info.  
+If compiler is not available, or muilt binary is failing, try building with `--nocython`, which will produce slightly less optimized binaries.  
 
 ### Linux
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`

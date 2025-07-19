@@ -25,6 +25,7 @@ from endcord import (
     search,
     tui,
 )
+from endcord.assist_data import COMMAND_ASSISTS, SEARCH_HELP_TEXT
 
 support_media = (
     importlib.util.find_spec("PIL") is not None and
@@ -33,6 +34,7 @@ support_media = (
 )
 if support_media:
     from endcord import clipboard, media
+cythonized = importlib.util.find_spec("endcord_cython.search") is not None
 
 logger = logging.getLogger(__name__)
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
@@ -111,6 +113,19 @@ class Endcord:
         self.colors_formatted = color.extract_colors_formatted(config)
         self.default_msg_color = self.colors_formatted[0][0][:]
         self.default_msg_alt_color = self.colors[1]
+
+        # write properties to log
+        properties = [peripherals.detect_runtime()]
+        if support_media:
+            properties.append("ASCII media")
+        if shutil.which(self.config["yt_dlp_path"]):
+            properties.append("have yt-dlp")
+        if shutil.which(self.config["mpv_path"]):
+            properties.append("have mpv")
+        if cythonized:
+            properties.append("cythonized")
+        logger.info("Properties: " + ", ".join(properties))
+        del (properties)
 
         # variables
         self.run = False
@@ -383,7 +398,7 @@ class Endcord:
             self.update_extra_line("Can't switch channel when offline.", timed=False)
             return
 
-        logger.debug(f"Switching channel, has_id: {bool(channel_id)}, has_guild:{bool(guild_id)}, has hint: {bool(parent_hint)}")
+        logger.debug(f"Switching channel, has_id: {bool(channel_id)}, has_guild: {bool(guild_id)}, has hint: {bool(parent_hint)}")
 
         # save deleted
         if self.keep_deleted:
@@ -1220,7 +1235,7 @@ class Endcord:
                     self.tui.disable_wrap_around(True)
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
-                    extra_title, extra_body = formatter.generate_extra_window_text("Search:", formatter.SEARCH_HELP_TEXT, max_w)
+                    extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
                     self.stop_assist(close=False)
                     self.tui.draw_extra_window(extra_title, extra_body)
                     self.extra_window_open = True
@@ -1344,9 +1359,9 @@ class Endcord:
                     self.command = True
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
-                    extra_title, extra_body = formatter.generate_extra_window_assist(formatter.COMMAND_ASSISTS, 5, max_w)
+                    extra_title, extra_body = formatter.generate_extra_window_assist(COMMAND_ASSISTS, 5, max_w)
                     self.stop_assist(close=False)
-                    self.assist_found = formatter.COMMAND_ASSISTS
+                    self.assist_found = COMMAND_ASSISTS
                     self.assist_word = " "
                     self.assist_type = 5
                     self.tui.instant_assist = True
@@ -1436,6 +1451,10 @@ class Endcord:
                 elif self.reacting["id"]:
                     self.reset_actions()
                     self.restore_input_text = (None, None)
+                elif self.uploading:
+                    self.reset_actions()
+                    self.tui.set_input_index(0)
+                    self.restore_input_text = (None, None)   # load text from cache
                 elif self.assist_word and not self.tui.instant_assist:
                     if self.search:
                         self.restore_input_text = (input_text, "search")
@@ -1447,10 +1466,6 @@ class Endcord:
                         self.restore_input_text = ("", "standard")
                     else:
                         self.restore_input_text = (input_text, "standard")
-                elif self.uploading:
-                    self.reset_actions()
-                    self.tui.set_input_index(0)
-                    self.restore_input_text = ("", None)   # load text from cache
                 elif self.extra_window_open:
                     self.stop_extra_window(update=False)
                 elif self.replying["id"]:
@@ -1501,6 +1516,8 @@ class Endcord:
                         else:
                             self.restore_input_text = (new_input_text, "standard")
                         self.tui.set_input_index(new_index)
+                    else:
+                        self.restore_input_text = (None, None)
                     continue
 
                 # message will be received from gateway and then added to self.messages
@@ -1982,7 +1999,7 @@ class Endcord:
                 self.tui.disable_wrap_around(True)
                 self.ignore_typing = True
                 max_w = self.tui.get_dimensions()[2][1]
-                extra_title, extra_body = formatter.generate_extra_window_text("Search:", formatter.SEARCH_HELP_TEXT, max_w)
+                extra_title, extra_body = formatter.generate_extra_window_text("Search:", SEARCH_HELP_TEXT, max_w)
                 self.stop_assist(close=False)
                 self.tui.draw_extra_window(extra_title, extra_body)
                 self.extra_window_open = True
@@ -3373,13 +3390,13 @@ class Endcord:
 
             elif assist_word:
                 self.assist_found = search.search_client_commands(
-                    formatter.COMMAND_ASSISTS,
+                    COMMAND_ASSISTS,
                     assist_word,
                     limit=self.assist_limit,
                     score_cutoff=self.assist_score_cutoff,
                 )
             else:
-                self.assist_found = formatter.COMMAND_ASSISTS
+                self.assist_found = COMMAND_ASSISTS
 
         elif assist_type == 6:   # app commands
             assist_words = assist_word[1:].split(" ")
@@ -3484,6 +3501,18 @@ class Endcord:
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
         elif self.assist_type == 5:   # command
             if self.assist_found[index][1]:
+                if input_text.endswith(" "):
+                    self.tui.instant_assist = False
+                    command_type, command_args = parser.command_string(input_text)
+                    self.close_extra_window()
+                    self.execute_command(
+                        command_type,
+                        command_args,
+                        self.tui.get_chat_selected(),
+                        self.tui.get_tree_selected(),
+                    )
+                    self.command = False
+                    return None, 0
                 new_text = self.assist_found[index][1] + " "
                 new_pos = len(new_text)
                 return new_text, new_pos
@@ -3522,7 +3551,7 @@ class Endcord:
                     self.upload_threads[-1].start()
                 self.uploading = False
                 self.stop_assist()
-                return "", 0
+                return None, 0
             if self.assist_found[index][1] is False:
                 return input_text, len(input_text)
             new_text = self.assist_found[index][1]
@@ -4599,20 +4628,17 @@ class Endcord:
             self.hide_channel(hidden["channel_id"], hidden["guild_id"])
 
         # initialize media
-        have_yt_dlp = ", have yt-dlp" if shutil.which(self.config["yt_dlp_path"]) else ""
-        have_mpv = ", have mpv" if shutil.which(self.config["mpv_path"]) else ""
         if support_media:
             # must be run after all colors are initialized in endcord.tui
-            logger.info(f"ASCII media is supported{have_yt_dlp}{have_mpv}")
             self.curses_media = media.CursesMedia(self.screen, self.config, last_free_color_id)
         else:
             self.curses_media = None
-            logger.info(f"ASCII media is not supported{have_yt_dlp}{have_mpv}")
+
+        # some checks
         if not peripherals.have_sound:
             logger.warn("No sound! Audio system is probably not running")
         if "~/.cache/" in peripherals.temp_path:
             logger.warn(f"Temp files will be stored in {peripherals.temp_path}")
-
         if self.config["proxy"]:
             logger.info(f"Using proxy: {self.config["proxy"]}")
 

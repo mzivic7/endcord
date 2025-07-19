@@ -271,6 +271,17 @@ def collapseuser(path):
     return path
 
 
+def detect_runtime():
+    """Detect if code is running from source, pyinstaller or nuitka binary"""
+    if hasattr(sys, "_MEIPASS"):
+        return "pyinstaller"
+    if "__compiled__" in globals():
+        return "nuitka"
+    if getattr(sys, "frozen", False):
+        return "unknown"
+    return "source"
+
+
 def notify_send(title, message, sound="message", custom_sound=None):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":

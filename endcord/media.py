@@ -1,4 +1,5 @@
 import curses
+import importlib.util
 import logging
 import os
 import re
@@ -20,6 +21,51 @@ from endcord import xterm256
 logger = logging.getLogger(__name__)
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
 
+def img_to_curses(screen, img, img_gray, start_color_id, ascii_palette, ascii_palette_len, screen_width, screen_height, width, height):
+    """Draw image using curses with padding"""
+    pixels = img.load()
+    pixels_gray = img_gray.load()
+
+    padding_h = (screen_height - height) // 2
+    padding_w = (screen_width - width) // 2
+    bg_color = curses.color_pair(start_color_id + 1)
+
+    # top padding
+    for y_fill in range(padding_h):
+        screen.insstr(y_fill, 0, " " * screen_width, bg_color)
+
+    # image rows
+    for y in range(height):
+        row_y = y + padding_h
+
+        # left padding
+        if padding_w > 0:
+            screen.insstr(row_y, 0, " " * padding_w, bg_color)
+
+        for x in range(width):
+            gray_val = pixels_gray[x, y]
+            character = ascii_palette[(gray_val * ascii_palette_len) // 255]
+            color = start_color_id + pixels[x, y] + 16
+            screen.insch(row_y, x + padding_w, character, curses.color_pair(color))
+
+        # right padding
+        if x + padding_w + 1 < screen_width:
+            screen.insstr(row_y, x + padding_w + 1, " " * (screen_width - (x + padding_w + 1)), bg_color)
+
+    # bottom padding
+    if screen_height != height:
+        for y_fill in range(padding_h + 1):
+            try:
+                screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, bg_color)
+            except curses.error:
+                pass
+
+    screen.noutrefresh()
+
+# use cython if available
+if importlib.util.find_spec("endcord_cython.media"):   # ~1.15 times faster
+    from endcord_cython.media import img_to_curses
+
 # get speaker
 try:
     speaker = soundcard.default_speaker()
@@ -34,7 +80,7 @@ class CursesMedia():
         logging.getLogger("libav").setLevel(logging.ERROR)
         self.screen = screen
         self.font_scale = config["media_font_scale"]   # 2.25
-        self.ascii_palette = config["media_ascii_palette"]   # "  ..',;:c*loexk#O0XNW"
+        self.ascii_palette = list(config["media_ascii_palette"])   # "  ..',;:c*loexk#O0XNW"
         self.saturation = config["media_saturation"]   # 1.2
         self.cap_fps = config["media_cap_fps"]   # 30
         self.color_media_bg = config["media_color_bg"]   # -1
@@ -97,10 +143,6 @@ class CursesMedia():
         img = img.resize((width, height), Image.Resampling.LANCZOS)
         img_gray = img.convert("L")
 
-        # get filler sizes
-        filler_h = int((screen_height - height) / 2)
-        filler_w = int((screen_width - width) / 2)
-
         # increase saturation
         if self.saturation:
             sat = ImageEnhance.Color(img)
@@ -117,26 +159,18 @@ class CursesMedia():
         img = img.quantize(palette=img_palette, dither=0)
 
         # draw with curses
-        pixels = img.load()
-        pixels_gray = img_gray.load()
-        for y_fill in range(filler_h):
-            self.media_screen.insstr(y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
-        for y in range(height):
-            if filler_w > 0:
-                self.media_screen.insstr(y + filler_h, 0, " " * filler_w, curses.color_pair(self.start_color_id+1))
-            for x in range(width):
-                character = self.ascii_palette[round(pixels_gray[x, y] * self.ascii_palette_len / 255)]
-                color = self.start_color_id + pixels[x, y] + 16
-                self.media_screen.insch(y + filler_h, x + filler_w, character, curses.color_pair(color))
-            if x + filler_w + 1 < screen_width:
-                self.media_screen.insstr(y + filler_h, x + filler_w + 1, " " * (screen_width - (x + filler_w + 1)) + "/n", curses.color_pair(self.start_color_id+1))
-        if screen_height != height:
-            for y_fill in range(filler_h + 1):
-                try:
-                    self.media_screen.insstr(screen_height - 1 - y_fill, 0, " " * screen_width, curses.color_pair(self.start_color_id+1))
-                except curses.error:
-                    pass
-        self.media_screen.noutrefresh()
+        img_to_curses(
+            self.media_screen,
+            img,
+            img_gray,
+            self.start_color_id,
+            self.ascii_palette,
+            self.ascii_palette_len,
+            screen_width,
+            screen_height,
+            width,
+            height,
+        )
         self.need_update.set()
 
 
