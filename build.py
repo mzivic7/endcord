@@ -165,7 +165,7 @@ def build_with_pyinstaller(onedir):
         print("ASCII media support is disabled")
 
     mode = "--onedir" if onedir else "--onefile"
-    hidden_imports = ["--hidden-import=uuid"]
+    hidden_imports = ["--hidden-import=uuid", "--hidden-import=win32timezone"]
     package_data = ["--collect-data=emoji"]
 
     # platform-specific

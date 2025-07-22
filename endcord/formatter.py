@@ -1681,6 +1681,29 @@ def generate_extra_window_search(messages, roles, channels, blocked, total_msg, 
     return title_line, body, indexes
 
 
+def generate_extra_window_search_gif(gifs, max_len):
+    """Generate extra window title and body for gif search view"""
+    title_line = f"Gif search results: {len(gifs)} gifs"
+    body = []
+
+    for gif in gifs:
+        url = gif["url"]
+        if url.startswith("https://tenor.com/view/"):
+            # remove prefix url
+            gif_title = url[len("https://tenor.com/view/"):]
+            # remove trailing numbers
+            last_dash_index = gif_title.rfind("-")
+            if last_dash_index != -1:
+                gif_title = gif_title[:last_dash_index]
+            # custom format
+            gif_title = f"Tenor: {gif_title}"
+        else:
+            gif_title = url
+        body.append(gif_title[:max_len])
+
+    return title_line, body
+
+
 def generate_extra_window_text(title_text, body_text, max_len):
     """Generate extra window title and body for summaries list view"""
     title_line = title_text[:max_len]

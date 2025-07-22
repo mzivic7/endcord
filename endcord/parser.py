@@ -582,7 +582,7 @@ def command_string(text):
     elif text.lower().startswith("dump_chat"):
         cmd_type = 39
 
-    # 29 - SET_NOTIFICATIONS
+    # 40 - SET_NOTIFICATIONS
     elif text.lower().startswith("set_notifications"):
         cmd_type = 40
         cmd_split = text.split(" ")
@@ -598,5 +598,11 @@ def command_string(text):
                 cmd_args["setting"] = cmd_split[1 + have_id].lower()
             else:
                 cmd_type = 0
+
+    # 41 - GIF
+    elif text.lower().startswith("gif"):
+        cmd_type = 41
+        search_text = text[4:].strip(" ")
+        cmd_args = {"search_text": search_text}
 
     return cmd_type, cmd_args

@@ -1177,7 +1177,7 @@ class Discord():
         min_id      - (after) convert date to (ceil) snowflake
         channel_id  - (in) channel_id
         pinned      - true, false
-        content     - search text
+        content     - search query
         offset      - starting number
         """
         message_data = None
@@ -1441,6 +1441,34 @@ class Discord():
             return False
         connection.close()
         return True
+
+
+    def search_gifs(self, query):
+        """Search gifs from query and return their links with preview"""
+        message_data = None
+        query = urllib.parse.quote(query)
+        url = f"/api/v9/gifs/search?q={query}&media_format=webm&provider=tenor&locale=en-US"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return []
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            gifs = []
+            for gif in data:
+                gifs.append({
+                    "url": gif["url"],
+                    "webm": gif["src"],
+                    "gif": gif["gif_src"],
+                })
+            return gifs
+        logger.error(f"Failed to perform a gif search. Response code: {response.status}")
+        connection.close()
+        return []
 
 
     def request_attachment_link(self, channel_id, path, custom_name=None):

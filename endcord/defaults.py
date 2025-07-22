@@ -178,6 +178,7 @@ keybindings = {
     "copy_message_link": "ALT+117",   # Alt+U
     "go_channel": "ALT+103",   # Alt+G
     "add_reaction": "ALT+101",   # Alt+E
+    "search_gif": "ALT+102",   # Alt+F
     "record_audio": "ALT+114",   # Alt+R
     "show_reactions": "ALT+119",   # Alt+W
     "show_pinned": "ALT+110",   # Alt+N
@@ -189,7 +190,7 @@ keybindings = {
     "extra_up": 573,   # Alt+Up
     "extra_down": 532,   # Alt+Down
     "extra_select": "ALT+10",   # Alt+Enter
-    "preview_upload": 16,   # Ctrl+P - allowed duplicate
+    "preview_upload": "ALT+118",   # Alt+V
     # media
     "media_pause": 32,   # C
     "media_replay": 122,   # Z
@@ -199,7 +200,7 @@ keybindings = {
     "redraw": 12,   # Ctrl+L
     "cancel": 24,   # Ctrl+X
     "forum_join_thread": "ALT+107",   # Alt+K
-    "cycle_status": "ALT+118",   # Alt+V
+    "cycle_status": "ALT+100",   # Alt+D
     "toggle_member_list": "ALT+109",   # Alt+M
     "toggle_tab": "ALT+98",   # Alt+B
     "switch_tab_modifier": "ALT+NUM",   # Alt+Num

@@ -49,6 +49,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Spellchecking
 - Tabs
 - Assist when typing channel/username/role/emoji/sticker
+- Search, preview and send gifs
 - Record and send voice messages
 - Undo/Redo in input line
 - Open link in browser
@@ -148,12 +149,13 @@ View user profile (selected message) - `Alt+P`
 View channel info (selected in tree) - `Alt+I`  
 Show summaries for current channel - `Alt+S`  
 Search messages in current channel - `Ctrl+F`  
+Search gifs - `Alt+F`  
 Copy message to clipboard - `Ctrl+B` *  
 Open link in browser - `Ctrl+O` *  
 Download attachment - `Ctrl+W`  
 View attached media (image, gif, video, audio) - `Ctrl+V` *  
 Upload attachments - `Ctrl+U`  
-Preview selected file in upload assist - `Ctrl+P` **
+Preview selected file in upload assist or when searching gif - `Alt+V`  
 Cancel all downloads/uploads - `Ctrl+X`  
 Cancel selected attachment - `Ctrl+K`  
 Reveal one spoiler in selected messages - `Ctrl+T`  
@@ -163,10 +165,11 @@ Redo input line - `Alt+Shift+Z`
 Show pinned messages in current channel - `Alt+N`  
 Un/collapse channel with threads in tree - `Alt+T`  
 Join/leave selected thread in tree - `Alt+J`  
+Cycle status (online/away/DnD/invisible) - `Alt+D`  
 Open selected post in forum - `Enter`  
 Open and join selected post in forum - `Alt+K`  
 Copy selected message url to clipboard - `Alt+U`  
-Copy selected channel ( in tree) url to clipboard - `Alt+Shift+U`  
+Copy selected channel (in tree) url to clipboard - `Alt+Shift+U`  
 Go to #channel/message mentioned in selected message - `Alt+G`  
 Toggle channel tabbed (pinned) state - `Alt+B`  
 Switch to tab: `Alt+NUM` (`NUM`: 1-9 in number row, not numeric keypad)  
@@ -175,7 +178,6 @@ Cancel action, leave media viewer - `Escape`
 If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 \* - Rebound keybinding on some OS, see [OS specific keybindings](#os-specific-keybindings).  
-\*\* - Can be duplicate of most other keybindings, only works in its own scope (eg. preview file only when typing path to upload).  
 
 ### Mouse controls
 Scroll up/down in all windows  
@@ -313,7 +315,7 @@ Default themes are assumed to be drawn on dark terminal background (preferably b
 Very large number of image and video formats are supported thanks to pillow and PyAV.  
 All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
 But there is also setting in config to open media in external app (cross-system, will use default system app for that file format).  
-"endcord-lite", without ASCII media support, can be built by not specifying `--lite` flag to build script. Lite version is significantly smaller in size, but still can open media in external app.  
+"endcord-lite" (without ASCII media support), can be built by specifying `--lite` flag to build script. Lite version is significantly smaller in size, but still can open media in external app.  
 
 
 ### OS specific keybindings

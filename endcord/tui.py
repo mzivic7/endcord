@@ -1790,10 +1790,6 @@ class TUI():
                 self.input_index = len(self.input_buffer)
                 self.input_select_start = None
 
-            elif key in self.keybindings["preview_upload"]:
-                # first check this because it can be duplicate with orther keybinding
-                return self.return_input_code(22)
-
             elif key in self.keybindings["word_left"]:
                 left_len = 0
                 for word in self.input_buffer[:self.input_index].split(" ")[::-1]:
@@ -2035,6 +2031,9 @@ class TUI():
             elif key in self.keybindings["tree_join_thread"]:
                 return self.return_input_code(21)
 
+            elif key in self.keybindings["preview_upload"]:
+                return self.return_input_code(22)
+
             elif key in self.keybindings["forum_join_thread"] and forum:
                 return self.return_input_code(23)
 
@@ -2093,6 +2092,9 @@ class TUI():
 
             elif key in self.keybindings["show_pinned"] and not forum:
                 return self.return_input_code(43)
+
+            elif key in self.keybindings["search_gif"] and not forum:
+                return self.return_input_code(44)
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

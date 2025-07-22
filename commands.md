@@ -9,8 +9,10 @@
     Prompt for index of url to open in browser, or provide it in the command.
 - `play` / `play [num]`  
     Prompt for index of media attachment to play, or provide it in the command.
-- `search` / `search [search_string]`  
+- `search` / `search [query]`  
     Show message search prompt or perform search with provided string.
+- `gif` / `gif [query]`  
+    Show gif search prompt or perform gif search with provided string.
 - `record` / `record cancel`  
     Toggle recording, will send when stopped.
 - `upload` / `upload [path]`  
