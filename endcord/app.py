@@ -1016,7 +1016,7 @@ class Endcord:
             # download and open media attachment
             elif action == 17:
                 msg_index = self.lines_to_msg(chat_sel)
-                urls, media_type = self.get_msg_media(msg_index)
+                urls, media_type = self.get_msg_embeds(msg_index)
                 if len(urls) == 1:
                     logger.debug(f"Trying to play attachment with type: {media_type}")
                     self.restore_input_text = (input_text, "standard")
@@ -1401,11 +1401,9 @@ class Endcord:
                     chat_line_map = self.chat_map[clicked_chat]
                     if chat_line_map:
                         msg_index = chat_line_map[0]
-                        clicked_type = 1
+                        clicked_type = None
                         selected = None
-                        if len(chat_line_map) == 1:
-                            clicked_type = 1   # message body
-                        elif chat_line_map[1] and chat_line_map[1][0] < mouse_x < chat_line_map[1][1]:
+                        if chat_line_map[1] and chat_line_map[1][0] < mouse_x < chat_line_map[1][1]:
                             clicked_type = 2   # username
                         elif chat_line_map[2]:
                             clicked_type = 3   # replied line
@@ -1415,6 +1413,13 @@ class Endcord:
                                     clicked_type = 4   # reaction
                                     selected = num
                                     break
+                        elif chat_line_map[4] and chat_line_map[4][0] < mouse_x < chat_line_map[4][1]:
+                            clicked_type = 1   # message body
+                        elif chat_line_map[5]:   # url/embed
+                            for num, url in enumerate(chat_line_map[5]):
+                                if url[0] < mouse_x < url[1]:
+                                    clicked_type = 5
+                                    url_index = url[2]
                         # execute
                         if clicked_type == 1 and "deleted" not in self.messages[msg_index]:   # start reply
                             if self.messages[msg_index]["user_id"] == self.my_id:
@@ -1429,6 +1434,7 @@ class Endcord:
                             }
                             self.update_status_line()
                         elif clicked_type == 2:   # show profile
+                            self.restore_input_text = (input_text, "standard extra")
                             user_id = self.messages[msg_index]["user_id"]
                             guild_id = self.active_channel["guild_id"]
                             if self.viewing_user_data["id"] != user_id or self.viewing_user_data["guild_id"] != guild_id:
@@ -1438,11 +1444,30 @@ class Endcord:
                                     self.viewing_user_data = self.discord.get_user(user_id)
                             self.stop_assist(close=False)
                             self.view_profile(self.viewing_user_data)
-                            pass
                         elif clicked_type == 3:   # go to replied
                             self.go_replied(msg_index)
                         elif clicked_type == 4 and selected is not None:   # add/remove reaction
                             self.build_reaction(str(selected + 1), msg_index=msg_index)
+                        elif clicked_type == 5:   # click on url
+                            urls = self.get_msg_urls_chat(msg_index)
+                            url = urls[url_index]
+                            embed_url = False
+                            for embed in self.get_msg_embeds(msg_index, media_only=False)[0]:
+                                if embed == url:
+                                    embed_url = True
+                                    break
+                            match = re.search(match_youtube, url)
+                            if match:
+                                if shutil.which(self.config["yt_dlp_path"]) and ((support_media and not self.config["native_media_player"]) or shutil.which(self.config["mpv_path"])):
+                                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, False, True)))
+                                    self.download_threads[-1].start()
+                                else:
+                                    webbrowser.open(url, new=0, autoraise=True)
+                            elif embed_url:
+                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, False, False, True)))
+                                self.download_threads[-1].start()
+                            else:
+                                webbrowser.open(url, new=0, autoraise=True)
 
             # escape in main UI
             elif action == 5:
@@ -1877,7 +1902,7 @@ class Endcord:
 
         elif cmd_type == 6 and support_media:   # PLAY
             msg_index = self.lines_to_msg(chat_sel)
-            urls, media_type = self.get_msg_media(msg_index)
+            urls, media_type = self.get_msg_embeds(msg_index)
             select_num = max(cmd_args.get("num", 0), 0)
             if select_num > 0 and select_num <= len(urls):
                 select_num -= 1
@@ -2540,8 +2565,8 @@ class Endcord:
             self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
 
 
-    def get_msg_urls(self, msg_index):
-        """Get all urls from message in chat"""
+    def get_msg_urls(self, msg_index, embeds=True):
+        """Get all urls from message"""
         urls = []
         code_snippets = []
         code_blocks = []
@@ -2563,10 +2588,45 @@ class Endcord:
                     break
             if not skip:
                 urls.append(match.group())
-        for embed in self.messages[msg_index]["embeds"]:
-            if embed["url"]:
-                urls.append(embed["url"])
+        if embeds:
+            for embed in self.messages[msg_index]["embeds"]:
+                if embed["url"]:
+                    urls.append(embed["url"])
         return urls
+
+
+    def get_msg_urls_chat(self, msg_index):
+        """Get all urls from message, as visible in chat"""
+        urls = self.get_msg_urls(msg_index, embeds=False)
+        message = self.messages[msg_index]
+        content = ""
+
+        if "poll" in message:
+            content = formatter.format_poll(message["poll"])
+
+        for embed in message["embeds"]:
+            if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
+                if content:
+                    content += "\n"
+                content += f"[{formatter.clean_type(embed["type"])} embed]:\n{embed["url"]}"
+
+        for sticker in message["stickers"]:
+            sticker_type = sticker["format_type"]
+            if content:
+                content += "\n"
+            if sticker_type == 1:
+                content += f"[png sticker] (can be opened): {sticker["name"]}"
+            elif sticker_type == 2:
+                content += f"[apng sticker] (can be opened): {sticker["name"]}"
+            elif sticker_type == 3:
+                content += f"[lottie sticker] (cannot be opened): {sticker["name"]}"
+            else:
+                content += f"[gif sticker] (can be opened): {sticker["name"]}"
+
+        for match in re.finditer(formatter.match_url, content):
+            urls.append(match.group())
+        return urls
+
 
     def copy_msg_url(self, msg_index):
         """Copy message url to clipboard"""
@@ -2577,14 +2637,17 @@ class Endcord:
         peripherals.copy_to_clipboard(url)
 
 
-    def get_msg_media(self, msg_index):
+    def get_msg_embeds(self, msg_index, media_only=True):
         """Get all palyable media embeds from message in chat"""
         urls = []
         media_type = None
         for embed in self.messages[msg_index]["embeds"]:
             media_type = embed["type"].split("/")[0]
-            if embed["url"] and media_type in MEDIA_EMBEDS:
-                urls.append(embed["url"])
+            if embed["url"] and (not media_only or media_type in MEDIA_EMBEDS):
+                if embed.get("main_url"):
+                    urls.append(embed["main_url"])
+                else:
+                    urls.append(embed["url"])
         for sticker in self.messages[msg_index]["stickers"]:
             media_type = f"sticker_{sticker["format_type"]}"
             sticker_url = discord.get_sticker_url(sticker)
@@ -2602,7 +2665,7 @@ class Endcord:
         self.update_chat(keep_selected=True)
 
 
-    def download_file(self, url, move=True, open_media=False):
+    def download_file(self, url, move=True, open_media=False, open_move=False):
         """Thread that downloads and moves file to downloads dir"""
         if "https://media.tenor.com/" in url:
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
@@ -2621,10 +2684,12 @@ class Endcord:
             return
 
         # check if file is already downloaded
-        if open_media:
+        if open_media or open_move:
             for file in self.cached_downloads:
                 if url == file[0] and os.path.exists(file[1]):
                     destination = file[1]
+                    if open_move and peripherals.get_can_play(destination):
+                        open_media = True
                     break
 
         # download
@@ -2633,6 +2698,11 @@ class Endcord:
             try:
                 path = self.downloader.download(url)
                 if path:
+                    if open_move:
+                        if peripherals.get_can_play(path):
+                            open_media = True
+                        else:
+                            move = True
                     if move:
                         if not os.path.exists(self.downloads_path):
                             os.makedirs(os.path.dirname(self.downloads_path), exist_ok=True)
@@ -3508,7 +3578,7 @@ class Endcord:
                     self.execute_command(
                         command_type,
                         command_args,
-                        self.tui.get_chat_selected(),
+                        self.tui.get_chat_selected()[0],
                         self.tui.get_tree_selected(),
                     )
                     self.command = False

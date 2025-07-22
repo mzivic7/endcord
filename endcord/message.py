@@ -28,17 +28,24 @@ def prepare_embeds(embeds, message_content):
     ready_embeds = []
     for embed in embeds:
         content = ""
+        main_url = None
+        skip_main_url = False
         if "tenor.com/" not in embed.get("url", ""):
             content += get_newlined_value(embed, "url")
+            main_url = embed["url"]
+            skip_main_url = True
         content += get_newlined_value(embed, "title")
         content += get_newlined_value(embed, "description")
         if "fields" in embed:
             for field in embed["fields"]:
                 content += "\n" + field["name"] + "\n" + field["value"]  + "\n"
-        if "video" in embed and "url" in embed["video"]:
-            content += embed["video"]["url"] + "\n"
         if "image" in embed and "url" in embed["image"]:
             content += embed["image"]["url"] + "\n"
+            main_url = embed["image"]["url"]
+        if "video" in embed and "url" in embed["video"]:
+            content += embed["video"]["url"] + "\n"
+            if not skip_main_url:
+                main_url = embed["video"]["url"]
         if "title" in embed:
             content += embed["title"] + "\n"
         if "footer" in embed:
@@ -49,6 +56,7 @@ def prepare_embeds(embeds, message_content):
                 "type": embed["type"],
                 "name": None,
                 "url": content,
+                "main_url": main_url,
             })
     return ready_embeds
 

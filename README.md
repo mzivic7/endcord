@@ -186,11 +186,11 @@ Extra window - select item
 Member list - view member profile  
 Input line - select a word  
 Double click in chat:  
-On mesage - start replying to message  
-On replied message - go to that message  
+On message time - start replying to message  
+On message reply line - go to that message  
 On username - view profile
 On reaction - toggle that reaction
-
+On URL - open media / download file / open in browser
 
 ### Channel Tree
 If tree object has `>` before the object name, it means it has sub-objects (its drop-down).  

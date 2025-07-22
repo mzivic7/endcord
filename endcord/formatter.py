@@ -139,6 +139,15 @@ def generate_discord_timestamp(timestamp, discord_format, timezone=True):
     return datetime.strftime(time_obj, format_string)
 
 
+def find_timestamp(full_string, timestamp):
+    """Return timestamp indexes of a matching timestamp"""
+    start_index = full_string.find(timestamp)
+    if start_index == -1:
+        return None
+    end_index = start_index + len(timestamp) - 1
+    return start_index, end_index
+
+
 def move_by_indexes(data, indexes, start=0):
     """Move format by indexes"""
     for format_part in data:
@@ -360,7 +369,7 @@ def format_md_all(line, content_start, except_ranges):
 
 
 def format_multiline_one_line(formats_range, line_len, newline_len, color, quote=False):
-    """Generate format for multiline matches, for one line, with custom end position"""
+    """Generate format for multiline matches, for one line"""
     line_format = []
     if not color:
         return line_format
@@ -380,7 +389,7 @@ def format_multiline_one_line(formats_range, line_len, newline_len, color, quote
 
 
 def format_multiline_one_line_format(formats, line_len, newline_len, quote=False):
-    """Adjust existing format, for one line, with custom end position"""
+    """Adjust existing format, for one line"""
     line_format = []
     for format_range in formats:
         if format_range[1] >= line_len or format_range[2] < newline_len:
@@ -415,6 +424,24 @@ def format_multiline_one_line_end(formats_range, line_len, newline_len, color, e
         else:
             line_format.append([color, newline_len + quote*2, end])
     return line_format
+
+
+def urls_multiline_one_line(urls_range, line_len, newline_len, quote=False):
+    """Generate ranges of urls for one line"""
+    line_ranges = []
+    for num, url_range in enumerate(urls_range):
+        if url_range[0] >= line_len or url_range[1] < newline_len:
+            continue
+        if url_range[0] >= newline_len:
+            if url_range[1] < line_len:
+                line_ranges.append([url_range[0], url_range[1], num])
+            else:
+                line_ranges.append([url_range[0], line_len, num])
+        elif url_range[1] < line_len:
+            line_ranges.append([newline_len + quote*2, url_range[1], num])
+        else:
+            line_ranges.append([newline_len + quote*2, line_len, num])
+    return line_ranges
 
 
 def split_long_line(line, max_len, align=0):
@@ -554,7 +581,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     chat = []
     chat_format = []
     indexes = []
-    chat_map = []   # ((num, username:(start, end), is_reply, reactions:((start, end), ...)), ...)
+    chat_map = []   # ((num, username:(st, end), is_reply, reactions:((st, end), ...), date:(st, end), url:(st, end, index)), ...)
     len_edited = len(edited_string)
     enable_separator = format_date and date_separator
     # load colors
@@ -580,13 +607,15 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     color_mention_reactions = colors_formatted[11]
 
     placeholder_timestamp = generate_timestamp("2015-01-01T00:00:00.000000+00:00", format_timestamp)
-    pre_content_len = len(format_message
+    placeholder_message = (format_message
         .replace("%username", " " * limit_username)
         .replace("%global_name", " " * limit_global_name)
         .replace("%timestamp", placeholder_timestamp)
         .replace("%edited", "")
-        .replace("%content", ""),
-    ) - 1
+        .replace("%content", "")
+    )
+    pre_content_len = len(placeholder_message) - 1
+    timestamp_range = find_timestamp(placeholder_message, placeholder_timestamp)
     pre_name_len = len(format_message
         .replace("%username", "\n")
         .replace("%global_name", "\n")
@@ -739,7 +768,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(color_mention_reply)
             else:
                 temp_format.append(color_reply)
-            temp_chat_map.append((num, None, True, None))
+            temp_chat_map.append((num, None, True, None, None, None))
 
         # bot interaction
         elif message["interaction"]:
@@ -758,7 +787,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 temp_format.append(color_mention_reply)
             else:
                 temp_format.append(color_reply)
-            temp_chat_map.append((num, None, False, None))
+            temp_chat_map.append((num, None, False, None, None, None))
 
         # main message
         quote = False
@@ -914,7 +943,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             message_line = message_line.ljust(max_length-1)
 
         temp_chat.append(message_line)
-        temp_chat_map.append((num, (pre_name_len, end_name), False, None))
+        urls_this_line = urls_multiline_one_line(urls, newline_index+1, 0, quote)
+        temp_chat_map.append((num, (pre_name_len, end_name), False, None, timestamp_range, urls_this_line))
 
         # formatting
         if disable_formatting:
@@ -1031,7 +1061,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 new_line = new_line.ljust(max_length-1)
 
             temp_chat.append(new_line)
-            temp_chat_map.append((num, ))
+            urls_this_line = urls_multiline_one_line(urls, newline_index+1, 0, quote)
+            temp_chat_map.append((num, None, None, None, None, urls_this_line))
 
             # formatting
             if disable_formatting:
@@ -1093,7 +1124,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             for reaction in reactions:
                 reactions_map.append([pre_reaction_len + offset, pre_reaction_len + len(reaction) + offset])
                 offset += len(reactions_separator) + len(reaction)
-            temp_chat_map.append((num, None, False, reactions_map))
+            temp_chat_map.append((num, None, False, reactions_map, None, None))
         indexes.append(len(temp_chat))
 
         # invert message lines order and append them to chat

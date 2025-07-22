@@ -1717,13 +1717,13 @@ class TUI():
                 try:
                     modifier = key[:-3]   # skipping +/- sign
                     num = int(key[-2:])
+                    if modifier == self.keybindings["switch_tab_modifier"][0][:-4] and 49 <= num <= 57:
+                        self.pressed_num_key = num - 48
+                        return 42
                 except ValueError:
-                    return None
-                if modifier == self.keybindings["switch_tab_modifier"][0][:-4] and 49 <= num <= 57:
-                    self.pressed_num_key = num - 48
-                    return 42
+                    pass
 
-            elif isinstance(key, int) and 32 <= key <= 126:   # all regular characters
+            if isinstance(key, int) and 32 <= key <= 126:   # all regular characters
                 if self.input_select_start is not None:
                     self.delete_selection()
                     self.input_select_start = None

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import webbrowser
 from ast import literal_eval
 from configparser import ConfigParser
 
@@ -404,6 +405,11 @@ def get_is_clip(path):
     return magic.from_file(path, mime=True).split("/")[0] == "video"
 
 
+def get_can_play(path):
+    """Get wether file can be played as media"""
+    return magic.from_file(path, mime=True).split("/")[0] in ("image", "video", "audio")
+
+
 def complete_path(path, separator=True):
     """Get possible completions for path"""
     if not path:
@@ -451,7 +457,7 @@ def native_open(path, mpv_path=""):
         if mpv_path:
             current_runner = mpv_path
         else:
-            return
+            webbrowser.open(path, new=0, autoraise=True)
     else:
         current_runner = runner
     _ = subprocess.Popen(
