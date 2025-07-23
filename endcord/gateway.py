@@ -1100,8 +1100,9 @@ class Gateway():
                                         "small_text": assets.get("small_text"),
                                         "large_text": assets.get("large_text"),
                                     })
+                            member_id = member_data["user"]["id"]
                             ready_data = {
-                                "id": member_data["user"]["id"],
+                                "id": member_id,
                                 "username": member_data["user"]["username"],
                                 "global_name": member_data["user"]["global_name"],
                                 "nick": member_data["nick"],
@@ -1112,7 +1113,12 @@ class Gateway():
                             }
                             if memlist["op"] == "UPDATE":
                                 try:
-                                    self.activities[guild_index]["members"][memlist["index"]].update(ready_data)
+                                    if self.activities[guild_index]["members"][memlist["index"]].get("id") == member_id:
+                                        self.activities[guild_index]["members"][memlist["index"]].update(ready_data)
+                                    else:   # failsafe
+                                        for num, member in enumerate(self.activities[guild_index]["members"]):
+                                            if member.get("id") == member_id:
+                                                self.activities[guild_index]["members"][num].update(ready_data)
                                 except IndexError:
                                     pass
                             else:   # INSERT

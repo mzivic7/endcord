@@ -4542,7 +4542,7 @@ class Endcord:
                                     break
 
 
-    def process_msg_events_other_channels(self, new_message):
+    def process_msg_events_other_channels(self, new_message, this_channel):
         """Process message events that should ping and send notification"""
         data = new_message["d"]
         op = new_message["op"]
@@ -4580,7 +4580,7 @@ class Endcord:
                     self.send_desktop_notification(new_message)
 
                 # set unseen
-                if not self.unseen_scrolled:
+                if not self.unseen_scrolled and not this_channel:
                     for num, channel in enumerate(self.unseen):
                         if channel["channel_id"] == new_message_channel_id:
                             if ping:
@@ -4924,7 +4924,7 @@ class Endcord:
                             self.process_msg_events_cached_channel(new_message, ch_num)
                     # handle unseen and mentions
                     if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
-                        self.process_msg_events_other_channels(new_message)
+                        self.process_msg_events_other_channels(new_message, this_channel)
                     # remove ghost pings
                     self.process_msg_events_ghost_ping(new_message)
                 else:

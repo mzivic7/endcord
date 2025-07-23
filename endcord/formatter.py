@@ -1061,7 +1061,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 new_line = new_line.ljust(max_length-1)
 
             temp_chat.append(new_line)
-            urls_this_line = urls_multiline_one_line(urls, newline_index+1, 0, quote)
+            urls_this_line = urls_multiline_one_line(urls, len(new_line), newline_len, quote)
             temp_chat_map.append((num, None, None, None, None, urls_this_line))
 
             # formatting
