@@ -176,6 +176,7 @@ class Endcord:
             client_prop_gateway,
             proxy=config["proxy"],
         )
+        self.gateway.connect()
         self.downloader = downloader.Downloader(config["proxy"])
         self.tui = tui.TUI(self.screen, self.config, keybindings)
         self.colors = self.tui.init_colors(self.colors)
@@ -187,7 +188,6 @@ class Endcord:
         self.my_user_data = self.discord.get_user(self.my_id, extra=True)
         self.channel_cache = []
         self.reset()
-        self.gateway.connect()
         self.gateway_state = self.gateway.get_state()
         self.chat_dim, self.tree_dim, _  = self.tui.get_dimensions()
         self.state = {

@@ -235,7 +235,7 @@ class Gateway():
 
     def receiver(self):
         """Receive and handle all traffic from gateway, should be run in a thread"""
-        logger.info("Receiver stared")
+        logger.info("Receiver started")
         self.resumable = False
         abnormal = False
         while self.run and not self.wait:
