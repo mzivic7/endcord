@@ -10,7 +10,7 @@ cdef void safe_insch(object win_chat, int y, int x, unicode ch, unsigned int att
     Writes a character safely to the curses window.
     Uses insstr for emoji/multibyte characters, insch for ASCII-safe ones.
     """
-    if ord(ch) > 255:
+    if ord(ch) > 127:   # for some reason insch wont draw 2-byte chars is cython
         win_chat.insstr(y, x, ch, attr)
     else:
         win_chat.insch(y, x, ch, attr)
