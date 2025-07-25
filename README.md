@@ -477,6 +477,11 @@ Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-l
 Then endcord will connect only to that domain instead discord.  Token is different on different hosts!  
 Note that using custom host is completely untested, and support depends on how different the API is from original discord API, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
 
+### Virus scanners are flagging endcord binaries as malware
+These are false positives. Binaries are built using nuitka, the problem is that its regularly used by other people to distribute malware. So some AVs flag all Nuitka-built binaries as malware. [Ref](https://nuitka.net/user-documentation/common-issue-solutions.html#windows-virus-scanners).  
+Its the same with all other python freezing tools, like pyinstaller, cx-freeze...  
+So to run endcord, either allow it in anti-virus/windows-defender or run it from source.  
+
 ### Support
 Open an issue in [issue tracker](https://github.com/mzivic7/endcord/issues).  
 Or, if you don't have a github account, want more interactive support, to share a theme or have a question: [Endcord Discord Server](https://discord.gg/judQSxw5K2).
