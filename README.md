@@ -142,7 +142,7 @@ Reply to selected message - `Ctrl+R`
 Edit selected message - `Ctrl+E`  
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
-Add reaction with assist to selected message - `Alt+E`  
+Add reaction with assist to selected message - `Ctrl+L`  
 Show reactions details for selected message - `Alt+W`  
 Go to replied message - `Ctrl+G`  
 View user profile (selected message) - `Alt+P`  
@@ -151,31 +151,30 @@ Show summaries for current channel - `Alt+S`
 Search messages in current channel - `Ctrl+F`  
 Search gifs - `Alt+F`  
 Copy message to clipboard - `Ctrl+B` *  
-Open link in browser - `Ctrl+O` *  
-Download attachment - `Ctrl+W`  
-View attached media (image, gif, video, audio) - `Ctrl+V` *  
+Open selected link in browser - `Ctrl+O` *  
+Download selected attachment - `Ctrl+W`  
+View selected attached media (image, gif, video, audio) - `Ctrl+V` *  
 Upload attachments - `Ctrl+U`  
 Preview selected file in upload assist or when searching gif - `Alt+V`  
 Cancel all downloads/uploads - `Ctrl+X`  
 Cancel selected attachment - `Ctrl+K`  
-Reveal one spoiler in selected messages - `Ctrl+T`  
+Reveal one spoiler in selected messages - `Alt+T`  
 Paste text - terminal paste, usually `Ctrl+Shift+V`  
 Undo input line - `Alt+Z`  
 Redo input line - `Alt+Shift+Z`  
 Show pinned messages in current channel - `Alt+N`  
-Un/collapse channel with threads in tree - `Alt+T`  
+Un/collapse channel with threads in tree - `Alt+E`  
 Join/leave selected thread in tree - `Alt+J`  
 Cycle status (online/away/DnD/invisible) - `Alt+D`  
 Open selected post in forum - `Enter`  
 Open and join selected post in forum - `Alt+K`  
 Copy selected message url to clipboard - `Alt+U`  
 Copy selected channel (in tree) url to clipboard - `Alt+Shift+U`  
-Go to #channel/message mentioned in selected message - `Alt+G`  
-Toggle channel tabbed (pinned) state - `Alt+B`  
+Go to channel/message mentioned in selected message - `Alt+G`  
+Toggle channel tabbed (pinned) state - `Ctrl+T`  
 Switch to tab: `Alt+NUM` (`NUM`: 1-9 in number row, not numeric keypad)  
 Media player: quit - `escape`, pause - `Space`, seek - `Left/Right`, replay - `Z`  
 Cancel action, leave media viewer - `Escape`  
-If UI ever gets messed up, redraw it - `Ctrl+L`  
 Quit - `Ctrl+C`  
 \* - Rebound keybinding on some OS, see [OS specific keybindings](#os-specific-keybindings).  
 
@@ -196,7 +195,7 @@ On URL - open media / download file / open in browser
 
 ### Channel Tree
 If tree object has `>` before the object name, it means it has sub-objects (its drop-down).  
-Objects are un/collapsed with `Ctrl+Space`. Channels with threads are un/collapsed on `Alt+T`.  
+Objects can be un/collapsed with `Ctrl+Space`. Channels with threads can be un/collapsed on `Alt+E`.  
 Channel with threads are collapsed by default.  
 Thread can be joined or left (toggle) on `Alt+J`.  
 
@@ -295,6 +294,9 @@ Select post and `Enter` to open it, or `Alt+K` to open and join.
 Posts are treated same as threads in channel tree, but only participated posts will be shown.  
 If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
 
+### Redraw
+If UI ever gets messed up, redraw it with command: press `Ctrl+/` then type `redraw`, and press `Enter` to execute it.  
+
 ### Terminal size
 Recommended terminal size for proper viewing is minimum 118 columns and 32 rows, for default theme.
 
@@ -316,7 +318,6 @@ Very large number of image and video formats are supported thanks to pillow and 
 All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
 But there is also setting in config to open media in external app (cross-system, will use default system app for that file format).  
 "endcord-lite" (without ASCII media support), can be built by specifying `--lite` flag to build script. Lite version is significantly smaller in size, but still can open media in external app.  
-
 
 ### OS specific keybindings
 Some keybindings are used by terminals or OS itself, so they are by default rebount to something else.  

@@ -4,11 +4,11 @@
 - `status` / `status [type]`, types: 1 - "online", 2 - "idle", 3 - "dnd", 4 - "invisible"  
     Cycle statuses, or set it by specifying its type name or index.  
 - `download` / `download [num]`  
-    Prompt for index of url to download, or provide it in the command.
+    Download selected attachment.
 - `open_link` / `open_link [num]`  
-    Prompt for index of url to open in browser, or provide it in the command.
+    Open selected url in browser, prompt if there are multiple on same line.
 - `play` / `play [num]`  
-    Prompt for index of media attachment to play, or provide it in the command.
+    Play selected attachment.
 - `search` / `search [query]`  
     Show message search prompt or perform search with provided string.
 - `gif` / `gif [query]`  
@@ -32,7 +32,7 @@
 - `link_message`  
     Copy link of selected message to clipboard,
 - `goto_mention` / `goto_mention [num]`  
-    Go to channel/message mentioned in this message.
+    Go to channel/message mentioned in selected message.
 - `cancel`  
     Prompt to cancel all downloads and uploads.
 - `member_list`  
@@ -84,3 +84,5 @@
     Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if have multiple string selects.
 - `set_notifications ...` / `set_notifications <#[channel_id]> ...`  
     Show and modify server/channel notification settings.
+- `redraw`  
+    Redraw UI if it ever gets messed up.

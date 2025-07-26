@@ -68,7 +68,7 @@ class Endcord:
         # load often used values from config
         self.enable_rpc = config["rpc"]
         self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
-        self.limit_channle_cache = config["limit_channel_cache"]
+        self.limit_channel_cache = config["limit_channel_cache"]
         self.msg_num = max(min(config["download_msg"], 100), 20)
         self.limit_typing = max(config["limit_typing_string"], 25)
         self.send_my_typing = config["send_typing"]
@@ -154,7 +154,6 @@ class Endcord:
             client_prop = client_properties.get_anonymous_properties()
         else:
             client_prop = client_properties.get_default_properties()
-
         if config["custom_user_agent"]:
             client_prop = client_properties.add_user_agent(client_prop, config["custom_user_agent"])
         client_prop_gateway = client_properties.add_for_gateway(client_prop)
@@ -465,7 +464,7 @@ class Endcord:
 
             # check if this channel chat is in cache and remove it
             from_cache = False
-            if self.limit_channle_cache:
+            if self.limit_channel_cache:
                 for num, channel in enumerate(self.channel_cache):
                     if channel[0] == channel_id and not (len(channel) > 3 and channel[3]):
                         from_cache = True
@@ -695,12 +694,12 @@ class Endcord:
         """Add messages to channel cache"""
         # format: channel_cache = [[channel_id, messages, pinned, *invalid], ...]
         # skipping deleted because they are separately cached
-        if self.limit_channle_cache:
+        if self.limit_channel_cache:
             pinned = 0
             for channel in self.channel_cache:
                 if channel[2]:
                     pinned += 1
-            if pinned >= self.limit_channle_cache:   # skip if all are pinned
+            if pinned >= self.limit_channel_cache:   # skip if all are pinned
                 return
             messages = [x for x in messages if not x.get("deleted")]
             for num, channel in enumerate(self.channel_cache):
@@ -709,7 +708,7 @@ class Endcord:
                     break
             else:
                 self.channel_cache.append([channel_id, messages[:self.msg_num], set_pinned])
-                if len(self.channel_cache) > self.limit_channle_cache:
+                if len(self.channel_cache) > self.limit_channel_cache:
                     for num, channel in enumerate(self.channel_cache):
                         if not channel[2]:   # dont remove pinned
                             self.channel_cache.pop(num)
@@ -789,7 +788,7 @@ class Endcord:
                 for channel in self.channel_cache:
                     if channel[2]:
                         pinned += 1
-                if pinned >= self.limit_channle_cache:   # if all are pinned
+                if pinned >= self.limit_channel_cache:   # if all are pinned
                     self.update_extra_line("Can't add tab: channel cache limit reached.")
                 else:
                     self.active_channel["pinned"] = True
@@ -984,18 +983,23 @@ class Endcord:
             # download file
             elif action == 9:
                 msg_index = self.lines_to_msg(chat_sel)
-                urls = []
+                embeds = []
                 for embed in self.messages[msg_index]["embeds"]:
                     if embed["url"]:
-                        urls.append(embed["url"])
-                if len(urls) == 1:
+                        embeds.append(embed["url"])
+                selected_urls = []
+                urls = self.get_msg_urls_chat(msg_index)
+                for num in self.get_url_from_selected_line(chat_sel):
+                    if urls[num] in embeds:
+                        selected_urls.append(urls[num])
+                if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
-                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], )))
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_urls[0], )))
                     self.download_threads[-1].start()
-                elif len(urls) > 1:
+                else:
                     self.ignore_typing = True
                     self.downloading_file = {
-                        "urls": urls,
+                        "urls": selected_urls,
                         "web": False,
                         "open": False,
                     }
@@ -1006,14 +1010,17 @@ class Endcord:
             # open link in browser
             elif action == 10:
                 msg_index = self.lines_to_msg(chat_sel)
-                urls = self.get_msg_urls(msg_index)
-                if len(urls) == 1:
+                selected_urls = []
+                urls = self.get_msg_urls_chat(msg_index)
+                for num in self.get_url_from_selected_line(chat_sel):
+                    selected_urls.append(urls[num])
+                if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
-                    webbrowser.open(urls[0], new=0, autoraise=True)
-                elif len(urls) > 1:
+                    webbrowser.open(selected_urls[0], new=0, autoraise=True)
+                else:
                     self.ignore_typing = True
                     self.downloading_file = {
-                        "urls": urls,
+                        "urls": selected_urls,
                         "web": True,
                         "open": False,
                     }
@@ -1021,18 +1028,23 @@ class Endcord:
                     self.restore_input_text = (None, "prompt")
                     self.update_status_line()
 
-            # download and open media attachment
+            # play media attachment
             elif action == 17:
                 msg_index = self.lines_to_msg(chat_sel)
-                urls, media_type = self.get_msg_embeds(msg_index)
-                if len(urls) == 1:
-                    logger.debug(f"Trying to play attachment with type: {media_type}")
+                embeds = self.get_msg_embeds(msg_index)
+                selected_urls = []
+                urls = self.get_msg_urls_chat(msg_index)
+                for num in self.get_url_from_selected_line(chat_sel):
+                    if urls[num] in embeds:
+                        selected_urls.append(urls[num])
+                if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
-                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[0], False, True)))
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_urls[0], False, True)))
                     self.download_threads[-1].start()
-                elif len(urls) > 1:
+                else:
+                    self.ignore_typing = True
                     self.downloading_file = {
-                        "urls": urls,
+                        "urls": selected_urls,
                         "web": False,
                         "open": True,
                     }
@@ -1290,10 +1302,9 @@ class Endcord:
             # go to channel/message mentioned in this message
             elif action == 32:
                 self.restore_input_text = (input_text, "standard")
-                channels = []
                 msg_index = self.lines_to_msg(chat_sel)
-                message_text = self.messages[msg_index]["content"]
-                for match in re.finditer(formatter.match_discord_channel_combined, message_text):
+                channels = []
+                for match in re.finditer(formatter.match_discord_channel_combined, self.messages[msg_index]["content"]):
                     # gropus: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
                     if match.group(1):
                         guild_id = self.active_channel["guild_id"]
@@ -1307,10 +1318,7 @@ class Endcord:
                 if not channels:
                     continue
                 if len(channels) == 1:
-                    guild_id = channels[0][0]
-                    channel_id = channels[0][1]
-                    message_id = channels[0][2]
-                    channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channel_id)
+                    channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channels[0][1])
                     if channel_name:
                         self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
                         if message_id:
@@ -1320,6 +1328,7 @@ class Endcord:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.ignore_typing = True
                     self.going_to_ch = channels
+                    self.restore_input_text = (None, "prompt")
                     self.update_status_line()
 
             # cycle status
@@ -1492,7 +1501,7 @@ class Endcord:
                             urls = self.get_msg_urls_chat(msg_index)
                             url = urls[url_index]
                             embed_url = False
-                            for embed in self.get_msg_embeds(msg_index, media_only=False)[0]:
+                            for embed in self.get_msg_embeds(msg_index, media_only=False):
                                 if embed == url:
                                     embed_url = True
                                     break
@@ -1914,24 +1923,25 @@ class Endcord:
 
         elif cmd_type == 4:   # DOWNLOAD
             msg_index = self.lines_to_msg(chat_sel)
-            urls = []
+            select_num = cmd_args.get("num", 0)
+            embeds = []
             for embed in self.messages[msg_index]["embeds"]:
                 if embed["url"]:
-                    urls.append(embed["url"])
-            select_num = max(cmd_args.get("num", 0), 0)
-            if select_num > 0 and select_num <= len(urls):
-                select_num -= 1
-            else:
-                select_num = None
-            if len(urls) == 1 or select_num is not None:
-                if select_num is None:
-                    select_num = 0
-                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[select_num], )))
+                    embeds.append(embed["url"])
+            selected_urls = []
+            urls = self.get_msg_urls_chat(msg_index)
+            for num in self.get_url_from_selected_line(chat_sel):
+                if urls[num] in embeds:
+                    selected_urls.append(urls[num])
+            if len(selected_urls) == 1 or select_num:
+                select_num = max(min(select_num-1, len(selected_urls)-1), 0)
+                selected_url = selected_urls[select_num]
+                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, )))
                 self.download_threads[-1].start()
-            elif len(urls) > 1:
+            else:
                 self.ignore_typing = True
                 self.downloading_file = {
-                    "urls": urls,
+                    "urls": selected_urls,
                     "web": False,
                     "open": False,
                 }
@@ -1940,43 +1950,43 @@ class Endcord:
 
         elif cmd_type == 5:   # OPEN_LINK
             msg_index = self.lines_to_msg(chat_sel)
-            urls = self.get_msg_urls(msg_index)
-            select_num = max(cmd_args.get("num", 0), 0)
-            if select_num > 0 and select_num <= len(urls):
-                select_num -= 1
+            select_num = cmd_args.get("num", 0)
+            selected_urls = []
+            urls = self.get_msg_urls_chat(msg_index)
+            for num in self.get_url_from_selected_line(chat_sel):
+                selected_urls.append(urls[num])
+            if len(selected_urls) == 1 or select_num:
+                select_num = max(min(select_num-1, len(selected_urls)-1), 0)
+                selected_url = selected_urls[select_num]
+                webbrowser.open(selected_url, new=0, autoraise=True)
             else:
-                select_num = None
-            if len(urls) == 1 or select_num is not None:
-                if select_num is None:
-                    select_num = 0
-                webbrowser.open(urls[select_num], new=0, autoraise=True)
-            elif len(urls) > 1:
                 self.ignore_typing = True
                 self.downloading_file = {
-                    "urls": urls,
+                    "urls": selected_urls,
                     "web": True,
                     "open": False,
                 }
                 self.restore_input_text = (None, "prompt")
                 reset = False
 
-        elif cmd_type == 6 and support_media:   # PLAY
+        elif cmd_type == 6:   # PLAY
             msg_index = self.lines_to_msg(chat_sel)
-            urls, media_type = self.get_msg_embeds(msg_index)
-            select_num = max(cmd_args.get("num", 0), 0)
-            if select_num > 0 and select_num <= len(urls):
-                select_num -= 1
-            else:
-                select_num = None
-            if len(urls) == 1 or select_num is not None:
-                if select_num is None:
-                    select_num = 0
-                logger.debug(f"Trying to play attachment with type: {media_type}")
-                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[select_num], False, True)))
+            select_num = cmd_args.get("num", 0)
+            embeds = self.get_msg_embeds(msg_index)
+            selected_urls = []
+            urls = self.get_msg_urls_chat(msg_index)
+            for num in self.get_url_from_selected_line(chat_sel):
+                if urls[num] in embeds:
+                    selected_urls.append(urls[num])
+            if len(selected_urls) == 1 or select_num:
+                select_num = max(min(select_num-1, len(selected_urls)-1), 0)
+                selected_url = selected_urls[select_num]
+                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, False, True)))
                 self.download_threads[-1].start()
-            elif len(urls) > 1:
+            else:
+                self.ignore_typing = True
                 self.downloading_file = {
-                    "urls": urls,
+                    "urls": selected_urls,
                     "web": False,
                     "open": True,
                 }
@@ -2106,17 +2116,10 @@ class Endcord:
             self.copy_msg_url(msg_index)
 
         elif cmd_type == 19:   # GOTO_MENTION
+            msg_index = self.lines_to_msg(chat_sel)
             select_num = max(cmd_args.get("num", 0), 0)
-            msg_index = self.lines_to_msg(chat_sel)
-            urls = self.get_msg_urls(msg_index)
-            if select_num > 0 and select_num <= len(urls):
-                select_num -= 1
-            else:
-                select_num = None
-            msg_index = self.lines_to_msg(chat_sel)
             channels = []
-            message_text = self.messages[msg_index]["content"]
-            for match in re.finditer(formatter.match_discord_channel_combined, message_text):
+            for match in re.finditer(formatter.match_discord_channel_combined, self.messages[msg_index]["content"]):
                 # gropus: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
                 if match.group(1):
                     guild_id = self.active_channel["guild_id"]
@@ -2130,10 +2133,8 @@ class Endcord:
             if len(channels) == 1 or select_num is not None:
                 if select_num is None:
                     select_num = 0
-                guild_id = channels[select_num][0]
-                channel_id = channels[select_num][1]
-                message_id = channels[select_num][2]
-                channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channel_id)
+                select_num = max(min(select_num-1, len(channels)-1), 0)
+                channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(channels[select_num][1])
                 if channel_name:
                     self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
                     if message_id:
@@ -2142,6 +2143,8 @@ class Endcord:
                 self.ignore_typing = True
                 self.going_to_ch = channels
                 self.update_status_line()
+                self.restore_input_text = (None, "prompt")
+                reset = False
 
         elif cmd_type == 20:   # STATUS
             new_status = cmd_args.get("status")
@@ -2519,8 +2522,12 @@ class Endcord:
                 self.tui.remove_extra_window()
                 self.extra_window_open = True
 
+        elif cmd_type == 42:   # GIF
+            self.tui.force_redraw()
+
         if reset:
             self.reset_actions()
+            self.restore_input_text = (None, None)
         self.update_status_line()
 
 
@@ -2608,7 +2615,7 @@ class Endcord:
         if self.messages[0]["id"] != self.last_message_id:
             # check if this channel chat is in cache and remove it
             from_cache = False
-            if self.limit_channle_cache:
+            if self.limit_channel_cache:
                 for num, channel in enumerate(self.channel_cache):
                     if channel[0] == self.active_channel["channel_id"] and not (len(channel) > 3 and channel[3]):
                         from_cache = True
@@ -2681,6 +2688,16 @@ class Endcord:
         return urls
 
 
+    def get_url_from_selected_line(self, chat_sel):
+        """Get selected url indexes in selected message from selected line in chat"""
+        chat_line_map = self.chat_map[chat_sel]
+        if not chat_line_map or not chat_line_map[5]:
+            return [0]
+        line_urls = []
+        for url in chat_line_map[5]:
+            line_urls.append(url[2])
+        return line_urls
+
     def get_msg_urls_chat(self, msg_index):
         """Get all urls from message, as visible in chat"""
         urls = self.get_msg_urls(msg_index, embeds=False)
@@ -2724,9 +2741,8 @@ class Endcord:
 
 
     def get_msg_embeds(self, msg_index, media_only=True):
-        """Get all palyable media embeds from message in chat"""
+        """Get all palyable media embeds and stickers from message in chat"""
         urls = []
-        media_type = None
         for embed in self.messages[msg_index]["embeds"]:
             media_type = embed["type"].split("/")[0]
             if embed["url"] and (not media_only or media_type in MEDIA_EMBEDS):
@@ -2735,11 +2751,10 @@ class Endcord:
                 else:
                     urls.append(embed["url"])
         for sticker in self.messages[msg_index]["stickers"]:
-            media_type = f"sticker_{sticker["format_type"]}"
             sticker_url = discord.get_sticker_url(sticker)
             if sticker_url:
                 urls.append(sticker_url)
-        return urls, media_type
+        return urls
 
 
     def spoil(self, msg_index):
@@ -2753,7 +2768,6 @@ class Endcord:
 
     def download_file(self, url, move=True, open_media=False, open_move=False):
         """Thread that downloads and moves file to downloads dir"""
-        #logger.info((url, move, open_media, open_move))
         if "https://media.tenor.com/" in url:
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
         destination = None
@@ -4914,7 +4928,7 @@ class Endcord:
                     if this_channel:
                         self.process_msg_events_active_channel(new_message, selected_line)
                     # handle cached channels
-                    elif self.limit_channle_cache:
+                    elif self.limit_channel_cache:
                         in_cache = False
                         for ch_num, channel in enumerate(self.channel_cache):
                             if channel[0] == new_message_channel_id:

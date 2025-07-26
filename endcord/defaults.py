@@ -142,14 +142,14 @@ keybindings = {
     "tree_up": 575,   # Ctrl+Up
     "tree_down": 534,   # Ctrl+Donw
     "tree_select": 0,   # Ctrl+Space
-    "tree_collapse_threads": "ALT+116",   # Alt+T
+    "tree_collapse_threads": "ALT+101",   # Alt+E
     "tree_join_thread": "ALT+106",   # Alt+J
     "channel_info": "ALT+105",   # Alt+I
     "copy_channel_link": "ALT+85",   # Alt+Shift+U
     # input line
     "word_left": 554,   # Ctrl+Left
     "word_right": 569,   # Ctrl+Right
-    "ins_newline": 14,   # Ctrl+N
+    "insert_newline": 14,   # Ctrl+N
     "undo": "ALT+122",   # Alt+Z
     "redo": "ALT+90",   # Alt+Shift+Z
     "select_left": 393,   # Shift+Left
@@ -171,13 +171,13 @@ keybindings = {
     "browser": 15,   # Ctrl+O
     "copy_msg": 8,   # Ctrl+H
     "view_media": 22,   # Ctrl+V
-    "spoil": 20,   # Ctrl+T
+    "spoil": "ALT+116",   # Alt+T
     "search": 6,   # Ctrl+F
     "profile_info": "ALT+112",   # Alt+P
     "show_summaries": "ALT+115",   # Alt+S
     "copy_message_link": "ALT+117",   # Alt+U
     "go_channel": "ALT+103",   # Alt+G
-    "add_reaction": "ALT+101",   # Alt+E
+    "add_reaction": "12",   # Ctrl+L
     "search_gif": "ALT+102",   # Alt+F
     "record_audio": "ALT+114",   # Alt+R
     "show_reactions": "ALT+119",   # Alt+W
@@ -197,12 +197,11 @@ keybindings = {
     "media_seek_forward": 261,   # Right
     "media_seek_backward": 260,   # Left
     # other
-    "redraw": 12,   # Ctrl+L
     "cancel": 24,   # Ctrl+X
     "forum_join_thread": "ALT+107",   # Alt+K
     "cycle_status": "ALT+100",   # Alt+D
     "toggle_member_list": "ALT+109",   # Alt+M
-    "toggle_tab": "ALT+98",   # Alt+B
+    "toggle_tab": 20,   # Ctrl+T
     "switch_tab_modifier": "ALT+NUM",   # Alt+Num
     "command_palette": 31,   # Ctrl+/
 }

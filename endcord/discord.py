@@ -79,11 +79,18 @@ class Discord():
 
     def __init__(self, token, host, client_prop, user_agent, proxy=None):
         if host:
-            self.host = urllib.parse.urlparse(host).netloc
-            self.cdn_host = f"cdn.{urllib.parse.urlparse(host).netloc}"
+            host_obj = urllib.parse.urlparse(host)
+            if host_obj.netloc:
+                self.host = host_obj.netloc
+            else:
+                self.host = host_obj.path
+            if self.host.startswith("api."):
+                host_netloc = self.host.lstrip("api.")
+            self.cdn_host = f"cdn.{host_netloc}"
         else:
             self.host = DISCORD_HOST
             self.cdn_host = DISCORD_CDN_HOST
+        logger.debug(f"Endpoints: API={self.host}, CDN={self.cdn_host}")
         self.token = token
         self.header = {
             "Authorization": self.token,

@@ -188,78 +188,108 @@ def count_emojis(text):
     """Count how many emojis are in the text"""
     return sum(1 for char in text if char in emoji.EMOJI_DATA)
 
-def replace_discord_emoji(line):
+def replace_discord_emoji(text):
     """
     Transform emoji strings into nicer looking ones:
     `some text <:emoji_name:emoji_id> more text` --> `some text :emoji_name: more text`
     """
-    for match in re.finditer(match_d_emoji, line):
-        line = line.replace(match.group(), f":{match.group(1)}:")
-    return line
+    result = []
+    last_pos = 0
+    for match in re.finditer(match_d_emoji, text):
+        result.append(text[last_pos:match.start()])
+        result.append(f":{match.group(1)}:")
+        last_pos = match.end()
+    result.append(text[last_pos:])
+    return "".join(result)
 
 
-def replace_mentions(line, usernames_ids):
+def replace_mentions(text, usernames_ids):
     """
     Transforms mention string into nicer looking one:
     `some text <@user_id> more text` --> `some text @username more text`
     """
-    for match in re.finditer(match_mention, line):
+    result = []
+    last_pos = 0
+    for match in re.finditer(match_mention, text):
+        result.append(text[last_pos:match.start()])
         for user in usernames_ids:
             if match.group(1) == user["id"]:
-                line = line.replace(match.group(), f"@{user["username"]}")
+                result.append(f"@{user["username"]}")
                 break
-    return line
+        last_pos = match.end()
+    result.append(text[last_pos:])
+    return "".join(result)
 
 
-def replace_roles(line, roles_ids):
+def replace_roles(text, roles_ids):
     """
     Transforms roles string into nicer looking one:
     `some text <@role_id> more text` --> `some text @role_name more text`
     """
-    for match in re.finditer(match_role, line):
+    result = []
+    last_pos = 0
+    for match in re.finditer(match_role, text):
+        result.append(text[last_pos:match.start()])
         for role in roles_ids:
             if match.group(1) == role["id"]:
-                line = line.replace(match.group(), f"@{role["name"]}")
+                result.append(f"@{role["name"]}")
                 break
-    return line
+        last_pos = match.end()
+    result.append(text[last_pos:])
+    return "".join(result)
 
 
 def replace_discord_url(text):
     """Replace discord url for channel and message"""
+    result = []
+    last_pos = 0
     for match in re.finditer(match_discord_channel_url, text):
+        result.append(text[last_pos:match.start()])
         if match.group(3):
-            text = text[:match.start()] + f"<#{match.group(2)}>>MSG" + text[match.end():]
+            result.append(f"<#{match.group(2)}>>MSG")
         else:
-            text = text[:match.start()] + f"<#{match.group(2)}>" + text[match.end():]
-    return text
+            result.append(f"<#{match.group(2)}>")
+        last_pos = match.end()
+    result.append(text[last_pos:])
+    return "".join(result)
 
 
-def replace_channels(line, chanels_ids):
+def replace_channels(text, chanels_ids):
     """
     Transforms channels string into nicer looking one:
     `some text <#channel_id> more text` --> `some text #channel_name more text`
     """
-    for match in re.finditer(match_channel, line):
+    result = []
+    last_pos = 0
+    for match in re.finditer(match_channel, text):
+        result.append(text[last_pos:match.start()])
         for channel in chanels_ids:
             if match.group(1) == channel["id"]:
-                line = line.replace(match.group(), f"#{channel["name"]}")
+                result.append(f"#{channel["name"]}")
                 break
-    return line
+        last_pos = match.end()
+    result.append(text[last_pos:])
+    return "".join(result)
 
 
-def replace_timestamps(line, timezone):
+def replace_timestamps(text, timezone):
     """
     Transforms timestamp string into nicer looking one:
     `some text <t:timestamp:type> more text` --> discord specified format
     """
-    for match in re.finditer(match_timestamp, line):
+    result = []
+    last_pos = 0
+    for match in re.finditer(match_timestamp, text):
+        result.append(text[last_pos:match.start()])
         timestamp = match.group(1)
         discord_format = match.group(2)
         if discord_format:
             discord_format = discord_format[1]
         formatted_time = generate_discord_timestamp(timestamp, discord_format, timezone=timezone)
-        line = line.replace(match.group(), f"`{formatted_time}`")
-    return line
+        result.append(f"`{formatted_time}`")
+        last_pos = match.end()
+    result.append(text[last_pos:])
+    return "".join(result)
 
 
 def replace_escaped_md(line, except_ranges=[]):

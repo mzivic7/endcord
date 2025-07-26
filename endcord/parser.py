@@ -605,4 +605,8 @@ def command_string(text):
         search_text = text[4:].strip(" ")
         cmd_args = {"search_text": search_text}
 
+    # 42 - REDRAW
+    elif text.lower().startswith("redraw"):
+        cmd_type = 42
+
     return cmd_type, cmd_args

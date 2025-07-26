@@ -134,8 +134,8 @@ def draw_chat(win_chat, h, w, chat_buffer, chat_format, chat_index, chat_selecte
         y -= 1
 
 
-# use cython if available
-if importlib.util.find_spec("endcord_cython.tui"):   # ~1.5 times faster
+# use cython if available, ~1.5 times faster
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.tui"):
     from endcord_cython.tui import draw_chat
 
 
@@ -621,6 +621,16 @@ class TUI():
         self.draw_extra_line(self.extra_line_text)
         self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
         self.draw_member_list(self.member_list, self.member_list_format)
+
+
+    def force_redraw(self):
+        """Forcibly redraw entire screen"""
+        self.screen.clear()
+        self.screen.redrawwin()
+        if sys.platform == "win32":
+            self.screen.noutrefresh()   # ??? needed only with windows-curses
+            self.need_update.set()
+        self.resize()
 
 
     def draw_status_line(self):
@@ -1122,14 +1132,15 @@ class TUI():
             end = start + w - 1
             line_text = self.input_buffer[start:end].replace("\n", "␤")
             character = " "
-            if self.cursor_pos < len(line_text):
-                character = line_text[self.cursor_pos]
-            if self.cursor_pos == w - 1:
-                self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
-            else:
-                self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
-            self.win_input_line.noutrefresh()
-            self.need_update.set()
+            if self.cursor_pos < w:
+                if self.cursor_pos < len(line_text):
+                    character = line_text[self.cursor_pos]
+                if self.cursor_pos == w - 1:
+                    self.win_input_line.insch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
+                else:
+                    self.win_input_line.addch(0, self.cursor_pos, character, curses.color_pair(color_id) | self.attrib_map[color_id])
+                self.win_input_line.noutrefresh()
+                self.need_update.set()
 
 
     def blink_cursor(self):
@@ -1971,7 +1982,7 @@ class TUI():
             elif key in self.keybindings["attach_next"]:
                 return self.return_input_code(15)
 
-            elif key in self.keybindings["ins_newline"]:
+            elif key in self.keybindings["insert_newline"]:
                 self.input_buffer = self.input_buffer[:self.input_index] + "\n" + self.input_buffer[self.input_index:]
                 self.input_index += 1
                 self.show_cursor()
@@ -2010,14 +2021,6 @@ class TUI():
                 self.enable_autocomplete = True
                 self.misspelled = []
                 return self.return_input_code(13)
-
-            elif key in self.keybindings["redraw"]:
-                self.screen.clear()
-                self.screen.redrawwin()
-                if sys.platform == "win32":
-                    self.screen.noutrefresh()   # ??? needed only with windows-curses
-                    self.need_update.set()
-                self.resize()
 
             elif key in self.keybindings["attach_cancel"]:
                 return self.return_input_code(16)

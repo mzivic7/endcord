@@ -54,7 +54,11 @@ class Gateway():
 
     def __init__(self, token, host, client_prop, proxy=None):
         if host:
-            self.host = urllib.parse.urlparse(host).netloc
+            host_obj = urllib.parse.urlparse(host)
+            if host_obj.netloc:
+                self.host = host_obj.netloc
+            else:
+                self.host = host_obj.path
         else:
             self.host = DISCORD_HOST
         self.client_prop = client_prop

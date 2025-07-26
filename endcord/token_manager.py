@@ -54,7 +54,7 @@ def load_token():
                 f"{APP_NAME} token",
                 win32cred.CRED_TYPE_GENERIC,
             )
-            return cred["CredentialBlob"]
+            return str(cred["CredentialBlob"].decode("utf-16le"))
         except pywintypes.error:
             return None
 

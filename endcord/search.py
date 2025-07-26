@@ -51,8 +51,8 @@ def fuzzy_match_score(query, candidate):
     return total_score
 
 
-# use cython if available
-if importlib.util.find_spec("endcord_cython.search"):   # ~6.7 times faster
+# use cython if available, ~6.7 times faster
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.search"):
     from endcord_cython.search import fuzzy_match_score
 
 

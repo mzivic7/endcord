@@ -62,8 +62,8 @@ def img_to_curses(screen, img, img_gray, start_color_id, ascii_palette, ascii_pa
 
     screen.noutrefresh()
 
-# use cython if available
-if importlib.util.find_spec("endcord_cython.media"):   # ~1.15 times faster
+# use cython if available, ~1.15 times faster
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.media"):
     from endcord_cython.media import img_to_curses
 
 # get speaker
