@@ -84,8 +84,7 @@ class Discord():
                 self.host = host_obj.netloc
             else:
                 self.host = host_obj.path
-            if self.host.startswith("api."):
-                host_netloc = self.host.lstrip("api.")
+            host_netloc = self.host.lstrip("api.")
             self.cdn_host = f"cdn.{host_netloc}"
         else:
             self.host = DISCORD_HOST
