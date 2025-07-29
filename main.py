@@ -68,7 +68,9 @@ def main(args):
     if os.environ.get("TERM", "") in ("xterm", "linux"):
         os.environ["TERM"] = "xterm-256color"
     if sys.platform == "linux":
-        os.environ["SSL_CERT_FILE"] = "/etc/ssl/certs/ca-certificates.crt"
+        cert_path = "/etc/ssl/certs/ca-certificates.crt"
+        if os.path.exists(cert_path):
+            os.environ["SSL_CERT_FILE"] = cert_path
 
     if args.colors:
         # import here for faster startup

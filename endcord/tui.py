@@ -83,6 +83,41 @@ def select_word(text, index):
     return start, end
 
 
+def get_key(screen):
+    """Reads a key from curses and returns int for ascii, special and ctrl+key, str for utf-8 wide chars"""
+    first = screen.getch()
+    if first == -1:
+        return -1
+
+    # ascii, control, special keys
+    if first < 0x80 or first > 0xFF:
+        return first
+
+    # utf-8 lead byte
+    buf = bytes([first])
+    if 0xC0 <= first <= 0xDF:
+        n_bytes = 2
+    elif 0xE0 <= first <= 0xEF:
+        n_bytes = 3
+    elif 0xF0 <= first <= 0xF7:
+        n_bytes = 4
+    else:
+        return first
+
+    # rest of utf-8 sequence
+    for _ in range(n_bytes - 1):
+        ch = screen.getch()
+        if ch == -1 or ch < 0x80 or ch > 0xBF:
+            return first
+        buf += bytes([ch])
+
+    # decode sequence
+    try:
+        return buf.decode("utf-8")
+    except UnicodeDecodeError:
+        return first
+
+
 def draw_chat(win_chat, h, w, chat_buffer, chat_format, chat_index, chat_selected, attrib_map, color_default):
     """Draw chat with applied color formatting"""
     y = h
@@ -178,6 +213,7 @@ class TUI():
         self.color_default = self.last_free_id + 1
         self.role_color_start_id = self.last_free_id   # starting id for role colors
         self.keybindings = {key: (val,) if not isinstance(val, tuple) else val for key, val in keybindings.items()}
+        self.switch_tab_modifier = self.keybindings["switch_tab_modifier"][0][:-4]
         self.screen = screen
 
         # load config
@@ -1626,7 +1662,7 @@ class TUI():
         self.keybinding_chain = None
         key = -1
         while self.run:
-            key = self.screen.getch()
+            key = get_key(self.screen)
 
             if self.mouse and key == curses.KEY_MOUSE:
                 code = self.mouse_events(key)
@@ -1638,7 +1674,7 @@ class TUI():
             if self.disable_drawing:
                 if key == 27:   # ESCAPE
                     self.screen.nodelay(True)
-                    key = self.screen.getch()
+                    key = get_key(self.screen)
                     if key in (-1, 27):
                         self.input_buffer = ""
                         self.screen.nodelay(False)
@@ -1661,7 +1697,7 @@ class TUI():
             if key == 27:   # ESCAPE
                 # terminal waits when Esc is pressed, but not when sending escape sequence
                 self.screen.nodelay(True)
-                key = self.screen.getch()
+                key = get_key(self.screen)
                 if key == -1:
                     # escape key
                     self.screen.nodelay(False)
@@ -1672,7 +1708,7 @@ class TUI():
                 sequence = [27, key]
                 # -1 means no key is pressed, 126 is end of escape sequence
                 while key != -1:
-                    key = self.screen.getch()
+                    key = get_key(self.screen)
                     sequence.append(key)
                     if key == 126:
                         break
@@ -1725,14 +1761,29 @@ class TUI():
                 return self.return_input_code(code)
 
             if isinstance(key, str):
-                try:
-                    modifier = key[:-3]   # skipping +/- sign
-                    num = int(key[-2:])
-                    if modifier == self.keybindings["switch_tab_modifier"][0][:-4] and 49 <= num <= 57:
-                        self.pressed_num_key = num - 48
-                        return 42
-                except ValueError:
-                    pass
+                if len(key) > 1 and key.startswith("ALT+"):
+                    try:
+                        modifier = key[:-3]   # skipping +/- sign
+                        num = int(key[-2:])
+                        if 49 <= num <= 57 and modifier == self.switch_tab_modifier:
+                            self.pressed_num_key = num - 48
+                            return 42
+                    except ValueError:
+                        pass
+                else:   # unicode letterss
+                    if self.input_select_start is not None:
+                        self.delete_selection()
+                        self.input_select_start = None
+                    self.input_buffer = self.input_buffer[:self.input_index] + key + self.input_buffer[self.input_index:]
+                    self.input_index += 1
+                    self.typing = int(time.time())
+                    if self.enable_autocomplete:
+                        selected_completion = 0
+                    self.add_to_delta_store(key)
+                    self.show_cursor()
+                    if self.assist:
+                        if key in ASSIST_TRIGGERS:
+                            self.assist_start = self.input_index
 
             if isinstance(key, int) and 32 <= key <= 126:   # all regular characters
                 if self.input_select_start is not None:

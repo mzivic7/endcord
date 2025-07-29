@@ -460,6 +460,11 @@ The client will refuse to send message in newly-created DM channels. This measur
 ### No notification sound
 Custom notification sound can be set in config: `custom_notification_sound = /path/to/file.mp3`.
 
+### Some keybindings don't work with non-Latin keyboard layouts (non-ascii)
+This happens with `Alt+Key` keybindings, but may happen with other modifiers too. That happens because terminal emulators translate pressed keys with non-Latin keyboard layuts to unicode. So when `ALT+B` is pressed, but Greek layout is used, endcord will receive `ALT+β`.  
+But this also means that it can be added to keybinding config, instead byte, provide character itself eg.: `β` or `ALT+β`.  
+See [keybinding](#keybinding) for instructions on how to add multiple keybindings for same action.
+
 ### No colors in headless Linux tty
 If there are no colors in Linux tty (but there should be), endcord can run inside [fbterm](https://salsa.debian.org/debian/fbterm).  
 Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Installation), then set environment variable: `export TERM=fbterm` and run endcord.  
