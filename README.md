@@ -347,7 +347,7 @@ Optional dependencies:
 - `aspell` - Spellchecking (and `aspell-en` dictionary)
 - `yt-dlp` - youtube support
 - `mpv` - Play youtube videos in native player (non-ascii)
-- `libsecret` - Store token in system keyring (running keyring daemon is also required like gnome-keyring)
+- `libsecret` - Store token in system keyring (`gnome-keyring` is also required, with `dbus` as dependency)
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  

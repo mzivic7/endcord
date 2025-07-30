@@ -1,6 +1,6 @@
-Better seeking in MP
 Add unicode to experimental mode
 Fix crashes with spacebar
+Test binaries on windows
 
 Update soundcard and numpy
 Voice and video calls

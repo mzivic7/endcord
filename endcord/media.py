@@ -101,6 +101,9 @@ class CursesMedia():
         self.pause_after_seek = False
         self.path = None
         self.media_type = None
+        self.seek = None
+
+        self.lock = threading.RLock()
 
         self.need_update = threading.Event()
         self.show_ui()
@@ -121,9 +124,10 @@ class CursesMedia():
         while self.run:
             self.need_update.wait()
             # here must be delay, otherwise output gets messed up
-            time.sleep(0.005)   # lower delay so video is not late
-            curses.doupdate()
-            self.need_update.clear()
+            with self.lock:
+                time.sleep(0.005)   # lower delay so video is not late
+                curses.doupdate()
+                self.need_update.clear()
 
 
     def pil_img_to_curses(self, img, remove_alpha=True):
@@ -220,11 +224,12 @@ class CursesMedia():
                 frame = 0
 
 
-    def play_audio(self, path, seek=None):
+    def play_audio(self, path):
         """Play only audio"""
         self.init_colrs()   # 255_curses_bug
         self.show_ui()
 
+        self.seek = None
         if not have_sound:
             self.ended = True
             return
@@ -232,8 +237,6 @@ class CursesMedia():
         container = av.open(path)
         self.ended = False
         self.video_time = 0   # using video_time to simplify controls
-        if seek is None:
-            self.seek = None
 
         # fill screen
         self.media_screen.clear()
@@ -259,8 +262,10 @@ class CursesMedia():
 
         with speaker.player(samplerate=audio_stream.rate, channels=audio_stream.channels, blocksize=1152) as stream:
             for frame in container.decode(audio=0):
-                if self.seek and self.seek > self.video_time:
-                    self.video_time += frame.samples * frame_duration
+                if self.seek is not None:
+                    container.seek(int(self.seek / audio_stream.time_base), stream=audio_stream)
+                    self.video_time = self.seek
+                    self.seek = None
                     if self.pause_after_seek:
                         self.pause_after_seek = False
                         self.pause = True
@@ -298,31 +303,32 @@ class CursesMedia():
             start_time = time.time()
             img = frame.to_image()
             if audio_queue.qsize() >= 1:
-                self.pil_img_to_curses(img, remove_alpha=False)
+                with self.lock:
+                    self.pil_img_to_curses(img, remove_alpha=False)
             if audio_queue.qsize() >= 3:
                 time.sleep(max(frame_duration - (time.time() - start_time), 0))
             while self.pause:
                 time.sleep(0.1)
 
 
-    def play_video(self, path, seek=None):
+    def play_video(self, path):
         """Decode video and audio frames and manage queues"""
         self.init_colrs()   # 255_curses_bug
         self.show_ui()
+        self.seek = None
+
         container = av.open(path)
         self.ended = False
-        if seek is None:
-            self.seek = None
         self.video_time = 0
 
         video_stream = container.streams.video[0]
-        if container.streams.video[0].duration:
+        if video_stream.duration:
             self.video_duration = float(video_stream.duration * video_stream.time_base)
         else:
             self.video_duration = video_stream.frames / video_stream.average_rate * video_stream.time_base
         if self.video_duration == 0:
             self.video_duration = 1   # just in case
-        video_fps = container.streams.video[0].guessed_rate
+        video_fps = video_stream.guessed_rate
         frame_duration = 1 / video_fps
         frame_index = max(int(video_fps / self.cap_fps), 1)
 
@@ -347,9 +353,10 @@ class CursesMedia():
 
         num = 0
         for frame in container.decode():
-            if self.seek and self.seek > self.video_time:
-                if isinstance(frame, av.video.frame.VideoFrame):
-                    self.video_time += frame_duration
+            if self.seek is not None:
+                container.seek(int(self.seek / video_stream.time_base), stream=video_stream)
+                self.video_time = self.seek
+                self.seek = None
                 if self.pause_after_seek:
                     self.pause_after_seek = False
                     self.pause = True
@@ -460,16 +467,7 @@ class CursesMedia():
         elif code == 102 and self.media_type in ("audio", "video"):   # replay
             self.show_ui()
             self.pause = False
-            self.playing = False
-            while not self.ended:
-                time.sleep(0.1)
-            self.playing = True
-            if self.media_type == "video":
-                self.player_thread = threading.Thread(target=self.play_video, daemon=True, args=(self.path, ))
-                self.player_thread.start()
-            elif self.media_type == "audio":
-                self.player_thread = threading.Thread(target=self.play_audio, daemon=True, args=(self.path, ))
-                self.player_thread.start()
+            self.seek = 0
         elif code == 103 and self.media_type in ("audio", "video") and not self.ended:   # seek forward
             self.show_ui()
             if self.pause:
@@ -478,24 +476,10 @@ class CursesMedia():
             self.seek = min(self.video_time + 5, self.video_duration)
         elif code == 104 and self.media_type in ("audio", "video") and not self.ended:   # seek backward
             self.show_ui()
-            pause = self.pause
-            if pause:
+            if self.pause:
                 self.pause = False
-            self.playing = False
-            while not self.ended:
-                time.sleep(0.1)
-            if pause:
-                self.pause = True
-            self.playing = True
+                self.pause_after_seek = True
             self.seek = max(self.video_time - 5, 0)
-            if self.media_type == "video":
-                self.player_thread = threading.Thread(target=self.play_video, daemon=True, args=(self.path, self.seek))
-                self.player_thread.start()
-            elif self.media_type == "audio":
-                self.player_thread = threading.Thread(target=self.play_audio, daemon=True, args=(self.path, self.seek))
-                self.player_thread.start()
-        elif code == 105:
-            self.screen.clear()
 
 
     def start_ui_thread(self):
@@ -506,19 +490,21 @@ class CursesMedia():
 
     def show_ui(self):
         """Show UI after its been hidden"""
-        self.ui_timer = 0
-        h, w = self.screen.getmaxyx()
-        media_screen_hwyx = (h - 1, w, 0, 0)
-        self.media_screen = self.screen.derwin(*media_screen_hwyx)
-        ui_line_hwyx = (1, w, h - 1, 0)
-        self.ui_line = self.screen.derwin(*ui_line_hwyx)
+        with self.lock:
+            self.ui_timer = 0
+            h, w = self.screen.getmaxyx()
+            media_screen_hwyx = (h - 1, w, 0, 0)
+            self.media_screen = self.screen.derwin(*media_screen_hwyx)
+            ui_line_hwyx = (1, w, h - 1, 0)
+            self.ui_line = self.screen.derwin(*ui_line_hwyx)
 
 
     def hide_ui(self):
         """Hide UI"""
-        h, w = self.screen.getmaxyx()
-        self.media_screen = self.screen
-        self.ui_line = None
+        with self.lock:
+            h, w = self.screen.getmaxyx()
+            self.media_screen = self.screen
+            self.ui_line = None
 
 
     def draw_ui_loop(self):
@@ -556,10 +542,11 @@ class CursesMedia():
                 pause = "|"
             else:
                 pause = ">"
-            ui_line = f"   {pause} {current_time} {bar} {total_time}  "
-            self.ui_line.addstr(0, 0, ui_line, curses.color_pair(self.default_color))
-            self.ui_line.noutrefresh()
-            self.need_update.set()
+            with self.lock:
+                ui_line = f"   {pause} {current_time} {bar} {total_time}  "
+                self.ui_line.addstr(0, 0, ui_line, curses.color_pair(self.default_color))
+                self.ui_line.noutrefresh()
+                self.need_update.set()
 
 
 def wait_input(screen, keybindings, curses_media):
@@ -584,8 +571,6 @@ def wait_input(screen, keybindings, curses_media):
             curses_media.control_codes(103)
         elif key in keybindings["media_seek_backward"]:
             curses_media.control_codes(104)
-        elif key in keybindings["redraw"]:
-            curses_media.control_codes(105)
         elif key == curses.KEY_RESIZE:
             pass
 
