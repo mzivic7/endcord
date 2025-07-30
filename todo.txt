@@ -1,4 +1,3 @@
-Add unicode to experimental mode
 Fix crashes with spacebar
 Test binaries on windows
 

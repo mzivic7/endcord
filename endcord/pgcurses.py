@@ -336,35 +336,38 @@ class Window:
     def do_key_press(self, event, mods):
         """Map pygame keys to curses codes"""
         key = event.key
-        if event.mod & pygame.KMOD_SHIFT and key == pygame.K_RETURN:   # Alt+Enter
-            self.input_buffer.append(10)
-            return 27
-        code = map_key(event)
-        if code is not None:
-            return code
-        if key == pygame.K_c and (event.mod & pygame.KMOD_CTRL):   # Ctrl+C
-            main_thread_queue.put(None)
-            return -1
-
         char = event.unicode or ""
 
+        if event.mod & pygame.KMOD_SHIFT and key == pygame.K_RETURN:
+            self.input_buffer.extend(b"\n")
+            return 27
+        if key == pygame.K_c and (event.mod & pygame.KMOD_CTRL):
+            main_thread_queue.put(None)
+            return -1
         if key == pygame.K_ESCAPE and not char:
             return 27
-        if mods & pygame.KMOD_ALT and char:
-            self.input_buffer.append(ord(char))
-            return 27
-        if mods & pygame.KMOD_CTRL and char:
-            if char.isalpha():
+
+        if mods & pygame.KMOD_CTRL:
+            if char and char.isalpha():
                 return ord(char.lower()) - ord("a") + 1
-            return ord(char)
+            if char:
+                return ord(char)
+
+        if mods & pygame.KMOD_ALT and char:
+            self.input_buffer.extend(char.encode("utf-8"))
+            return 27
+
         if char:
-            return ord(char)
+            self.input_buffer.extend(char.encode("utf-8"))
+            return None
+
         return None
 
 
     def getch(self):
         """curses.getch clone using pygame"""
         global mouse_event
+
         if self.input_buffer:
             return self.input_buffer.pop(0)
 
@@ -386,8 +389,7 @@ class Window:
                         pasted = pyperclip.paste()
                         if pasted:   # bracket pasting
                             bracketed = "\x1b[200~" + pasted + "\x1b[201~"
-                            for ch in bracketed:
-                                self.input_buffer.append(ord(ch))
+                            self.input_buffer.extend(bracketed.encode("utf-8"))
                         return -1
 
                     self.held_key_event = event
@@ -399,7 +401,6 @@ class Window:
 
                 elif event.type == pygame.KEYUP:
                     self.held_key_event = None
-
 
                 elif event.type == pygame.VIDEORESIZE:
                     return KEY_RESIZE
@@ -427,10 +428,21 @@ class Window:
                 if code is not None:
                     return code
 
+            if self.input_buffer:
+                return self.input_buffer.pop(0)
+
+            if self.held_key_event is not None and current_time >= self.next_key_repeat_time:
+                self.next_key_repeat_time += REPEAT_INTERVAL
+                mods = pygame.key.get_mods()
+                code = self.do_key_press(self.held_key_event, mods)
+                if code is not None:
+                    return code
+
             if self.nodelay_state:
                 return -1
 
             self.clock.tick(60)
+
 
 
 def getmouse():
