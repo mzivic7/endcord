@@ -1,6 +1,6 @@
-Handle keyring errors
-Fix crashes with spacebar
 Better seeking in MP
+Add unicode to experimental mode
+Fix crashes with spacebar
 
 Update soundcard and numpy
 Voice and video calls

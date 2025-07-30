@@ -1,5 +1,6 @@
 import curses
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -33,6 +34,34 @@ TOKEN_MANAGER_TEXT = """ Token is required to access Discord through your accoun
  Enter to confirm, Esc to cancel.
  """
 logger = logging.getLogger(__name__)
+
+
+def setup_secret_service():
+    """Check if secret-tool can be run, and if not, setup gnome-keyring daemon running on dbus"""
+    try:
+        # ensure dbus is running
+        if "DBUS_SESSION_BUS_ADDRESS" not in os.environ:
+            if not shutil.which("dbus-launch"):
+                sys.exit("Cant start token manager: 'dbus' package is not installed. Token can still be provided with argument -t or in config.")
+            output = subprocess.check_output(["dbus-launch"]).decode()
+            for line in output.strip().splitlines():
+                if "=" in line:
+                    key, value = line.strip().split("=", 1)
+                    os.environ[key] = value
+
+        # ensure gnome-keyring is running
+        # this should start gnome-keyring-daemon
+        result = subprocess.run(
+            ["secret-tool", "lookup", "service", "keyring-check"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if "not activatable" in result.stderr.decode():
+            sys.exit("Cant start token manager: failed to start 'gnome-keyring' daemon, it is probably not installed. Token can still be provided with argument -t or in config.")
+
+    except subprocess.CalledProcessError:
+        sys.exit("Cant start token manager: failed to start gnome-keyring. Token can still be provided with argument -t or in config.")
 
 
 def load_token():
@@ -206,12 +235,16 @@ def get_token(force=False):
     Try to get token from keyring, if unavailable, show UI prompt to save it.
     If secret-tool command is not installed, return None.
     """
+    if sys.platform == "linux" and not shutil.which("secret-tool"):
+        sys.exit("Cant start token manager: 'libsecret' package is not installed. Token can still be provided with argument -t or in config.")
+
     token = load_token()
     if token and not force:
         return token
 
-    if sys.platform == "linux" and not shutil.which("secret-tool"):
-        sys.exit("secret-tool command not found on system, probably because 'libsecret' is not installed. Token can be provided with argument -t or in config.")
+    # if token is None there has been an error
+    if sys.platform == "linux" and token is None:
+        setup_secret_service()
 
     try:
         token = curses.wrapper(token_prompt)
