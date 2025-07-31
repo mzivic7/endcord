@@ -4,7 +4,19 @@ import re
 
 import emoji
 
-COMMAND_OPT_TYPE = ("subcommand", "group", "string", "integer", "True/False", "user ID", "channel ID", "role ID", "mentionable ID", "number", "attachment")
+COMMAND_OPT_TYPE = (
+    "subcommand",
+    "group",
+    "string",
+    "integer",
+    "True/False",
+    "user ID",
+    "channel ID",
+    "role ID",
+    "mentionable ID",
+    "number",
+    "attachment",
+)
 
 
 def fuzzy_match_score_single(query, candidate):
@@ -22,9 +34,9 @@ def fuzzy_match_score_single(query, candidate):
     while qpos < qlen and cpos < clen:
         if query_lower[qpos] == candidate_lower[cpos]:
             if last_match_pos == cpos - 1:
-                score += 10   # consecutive match adds more score
+                score += 10  # consecutive match adds more score
             else:
-                score += 1   # match after some gap
+                score += 1  # match after some gap
             last_match_pos = cpos
             qpos += 1
         cpos += 1
@@ -52,7 +64,9 @@ def fuzzy_match_score(query, candidate):
 
 
 # use cython if available, ~6.7 times faster
-if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.search"):
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec(
+    "endcord_cython.search"
+):
     from endcord_cython.search import fuzzy_match_score
 
 
@@ -65,11 +79,11 @@ def search_channels_guild(channels, query, limit=50, score_cutoff=15):
         # skip categories (type 4)
         if channel["permitted"] and channel["type"] != 4:
             if channel["type"] == 2:
-                formatted = f"{channel["name"]} - voice"
+                formatted = f"{channel['name']} - voice"
             elif channel["type"] in (11, 12):
-                formatted = f"{channel["name"]} - thread"
+                formatted = f"{channel['name']} - thread"
             elif channel["type"] == 15:
-                formatted = f"{channel["name"]} - forum"
+                formatted = f"{channel['name']} - forum"
             else:
                 formatted = channel["name"]
 
@@ -90,8 +104,10 @@ def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=1
     worst_score = score_cutoff
 
     for dm in dms:
-        formatted = f"{dm["name"]} (DM)"
-        score = fuzzy_match_score(query, formatted) * 4   # dms get more score so they are on top
+        formatted = f"{dm['name']} (DM)"
+        score = (
+            fuzzy_match_score(query, formatted) * 4
+        )  # dms get more score so they are on top
         if score < worst_score:
             continue
         heapq.heappush(results, (formatted, dm["id"], score))
@@ -99,14 +115,20 @@ def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=1
             heapq.heappop(results)
             worst_score = results[0][2]
 
-    if full_input.startswith("toggle_mute") or full_input.startswith("mark_as_read") or full_input.startswith("goto"):
-        full = True   # include guilds and categories
+    if (
+        full_input.startswith("toggle_mute")
+        or full_input.startswith("mark_as_read")
+        or full_input.startswith("goto")
+    ):
+        full = True  # include guilds and categories
     else:
         full = False
     for guild in guilds:
         if full:
-            formatted = f"{guild["name"]} - server"
-            score = fuzzy_match_score(query, formatted) * 2   # guilds get more score so they are on top
+            formatted = f"{guild['name']} - server"
+            score = (
+                fuzzy_match_score(query, formatted) * 2
+            )  # guilds get more score so they are on top
             if score >= worst_score:
                 heapq.heappush(results, (formatted, guild["guild_id"], score))
                 if len(results) > limit:
@@ -116,15 +138,15 @@ def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=1
         for channel in guild["channels"]:
             if channel["permitted"]:
                 if channel["type"] == 2:
-                    formatted = f"{channel["name"]} - voice ({guild["name"]})"
+                    formatted = f"{channel['name']} - voice ({guild['name']})"
                 elif full and channel["type"] == 4:
-                    formatted = f"{channel["name"]} - category ({guild["name"]})"
+                    formatted = f"{channel['name']} - category ({guild['name']})"
                 elif channel["type"] in (11, 12):
-                    formatted = f"{channel["name"]} - thread ({guild["name"]})"
+                    formatted = f"{channel['name']} - thread ({guild['name']})"
                 elif channel["type"] == 15:
-                    formatted = f"{channel["name"]} - forum ({guild["name"]})"
+                    formatted = f"{channel['name']} - forum ({guild['name']})"
                 else:
-                    formatted = f"{channel["name"]} ({guild["name"]})"
+                    formatted = f"{channel['name']} ({guild['name']})"
                 score = fuzzy_match_score(query, formatted)
                 if score < worst_score:
                     continue
@@ -136,33 +158,37 @@ def search_channels_all(guilds, dms, query, full_input, limit=50, score_cutoff=1
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_usernames_roles(roles, query_results, guild_id, gateway, query, limit=50, score_cutoff=15):
+def search_usernames_roles(
+    roles, query_results, guild_id, gateway, query, limit=50, score_cutoff=15
+):
     """Search for usernames and roles"""
     results = []
     worst_score = score_cutoff
 
     # roles first
     for role in roles:
-        formatted = f"{role["name"]} - role"
+        formatted = f"{role['name']} - role"
         score = fuzzy_match_score(query, formatted)
         if score < worst_score:
             continue
-        heapq.heappush(results, (formatted, f"&{role["id"]}", score))
+        heapq.heappush(results, (formatted, f"&{role['id']}", score))
         if len(results) > limit:
             heapq.heappop(results)
             worst_score = results[0][2]
 
     if query_results:
         for member in query_results:
-            formatted = f"{member["username"]} {member["name"]}"
+            formatted = f"{member['username']} {member['name']}"
             score = fuzzy_match_score(query, formatted)
             if score < worst_score:
                 continue
             if member["name"]:
-                member_name = f" ({member["name"]})"
+                member_name = f" ({member['name']})"
             else:
                 member_name = ""
-            heapq.heappush(results, (f"{member["username"]}{member_name}", member["id"], score))
+            heapq.heappush(
+                results, (f"{member['username']}{member_name}", member["id"], score)
+            )
             if len(results) > limit:
                 heapq.heappop(results)
                 worst_score = results[0][2]
@@ -193,11 +219,14 @@ def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=1
     for guild in emojis:
         guild_name = guild["guild_name"]
         for guild_emoji in guild["emojis"]:
-            formatted = f"{guild_emoji["name"]} ({guild_name})"
+            formatted = f"{guild_emoji['name']} ({guild_name})"
             score = fuzzy_match_score(query, formatted)
             if score < worst_score:
                 continue
-            heapq.heappush(results, (formatted, f"<:{guild_emoji["name"]}:{guild_emoji["id"]}>", score))
+            heapq.heappush(
+                results,
+                (formatted, f"<:{guild_emoji['name']}:{guild_emoji['id']}>", score),
+            )
             if len(results) > limit:
                 heapq.heappop(results)
                 worst_score = results[0][2]
@@ -207,7 +236,7 @@ def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=1
         for key, item in emoji.EMOJI_DATA.items():
             # emoji.EMOJI_DATA = {emoji: {"en": ":emoji_name:", "status": 2, "E": 3}...}
             # using only qualified emojis (status: 2)
-            formatted = f"{item["en"]} - {key}"
+            formatted = f"{item['en']} - {key}"
             score = fuzzy_match_score(query, formatted)
             if score < worst_score:
                 continue
@@ -219,7 +248,9 @@ def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=1
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_stickers(all_stickers, default_stickers, premium, guild_id, query, limit=50, score_cutoff=15):
+def search_stickers(
+    all_stickers, default_stickers, premium, guild_id, query, limit=50, score_cutoff=15
+):
     """Search for stickers"""
     results = []
     worst_score = score_cutoff
@@ -235,7 +266,7 @@ def search_stickers(all_stickers, default_stickers, premium, guild_id, query, li
     for pack in stickers + default_stickers:
         pack_name = pack["pack_name"]
         for sticker in pack["stickers"]:
-            formatted = f"{sticker["name"]} ({pack_name})"
+            formatted = f"{sticker['name']} ({pack_name})"
             score = fuzzy_match_score(query, formatted)
             if score < worst_score:
                 continue
@@ -275,7 +306,7 @@ def search_string_selects(message, query_in, limit=50, score_cutoff=15):
     num = query.split(" ")[1]
 
     try:
-        num = max(int(num)-1, 0)
+        num = max(int(num) - 1, 0)
         query_words = query.split(" ")[2:]
     except (ValueError, IndexError):
         num = 0
@@ -285,17 +316,22 @@ def search_string_selects(message, query_in, limit=50, score_cutoff=15):
     except IndexError:
         string_select = None
     # allow executing command if space is at the end
-    if string_select and not (query.endswith(" ") and not all(not x for x in query_words)):
+    if string_select and not (
+        query.endswith(" ") and not all(not x for x in query_words)
+    ):
         for option in string_select["options"]:
             score = fuzzy_match_score(query, option["label"])
             if score < worst_score:
                 continue
             description = option.get("description", "")
             if description:
-                formatted = f"{option["label"]}{description}"
+                formatted = f"{option['label']}{description}"
             else:
                 formatted = option["label"]
-            heapq.heappush(results, (formatted, f"string_select {num+1} {option["value"]}", score))
+            heapq.heappush(
+                results,
+                (formatted, f"string_select {num + 1} {option['value']}", score),
+            )
             if len(results) > limit:
                 heapq.heappop(results)
                 worst_score = results[0][2]
@@ -309,7 +345,7 @@ def search_set_notifications(guilds, dms, guild_id, channel_id, ping_options, qu
     query = query_in.lower()
     query_words = query.split(" ")
 
-    if guild_id:   # channel/category
+    if guild_id:  # channel/category
         channel = None
         for guild in guilds:
             if guild["guild_id"] == guild_id:
@@ -321,14 +357,16 @@ def search_set_notifications(guilds, dms, guild_id, channel_id, ping_options, qu
             message_notifications = channel.get("message_notifications", 0)
             for num, option in enumerate(ping_options):
                 if num == message_notifications:
-                    results.append((f"* {option}", f"{" ".join(query_words[:2])}{option}"))
+                    results.append(
+                        (f"* {option}", f"{' '.join(query_words[:2])}{option}")
+                    )
                 else:
-                    results.append((option, f"{" ".join(query_words[:2])}{option}"))
+                    results.append((option, f"{' '.join(query_words[:2])}{option}"))
     else:
         for dm in dms:
             if dm["id"] == channel_id:
                 results.append(("No notification settings for DM", None))
-        else:   # guild
+        else:  # guild
             for guild in guilds:
                 if guild["guild_id"] == channel_id:
                     break
@@ -339,11 +377,23 @@ def search_set_notifications(guilds, dms, guild_id, channel_id, ping_options, qu
                 message_notifications = guild.get("message_notifications", 0)
                 for num, option in enumerate(ping_options):
                     if num == message_notifications:
-                        results.append((f"* {option}", f"{" ".join(query_words[:2])}{option}"))
+                        results.append(
+                            (f"* {option}", f"{' '.join(query_words[:2])}{option}")
+                        )
                     else:
-                        results.append((option, f"{" ".join(query_words[:2])}{option}"))
-                results.append((f"suppress_everyone = {guild.get("suppress_everyone", False)}", f"{" ".join(query_words[:2])}suppress_everyone"))
-                results.append((f"suppress_roles = {guild.get("suppress_roles", False)}", f"{" ".join(query_words[:2])}suppress_roles"))
+                        results.append((option, f"{' '.join(query_words[:2])}{option}"))
+                results.append(
+                    (
+                        f"suppress_everyone = {guild.get('suppress_everyone', False)}",
+                        f"{' '.join(query_words[:2])}suppress_everyone",
+                    )
+                )
+                results.append(
+                    (
+                        f"suppress_roles = {guild.get('suppress_roles', False)}",
+                        f"{' '.join(query_words[:2])}suppress_roles",
+                    )
+                )
 
     return results
 
@@ -365,24 +415,39 @@ def search_client_commands(commands, query, limit=50, score_cutoff=15):
     return sorted(results, key=lambda x: x[2], reverse=True)
 
 
-def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth, guild_commands_permitted, dm, assist_skip_app_command, match_command_arguments, query, limit=50, score_cutoff=15):
+def search_app_commands(
+    guild_apps,
+    guild_commands,
+    my_apps,
+    my_commands,
+    depth,
+    guild_commands_permitted,
+    dm,
+    assist_skip_app_command,
+    match_command_arguments,
+    query,
+    limit=50,
+    score_cutoff=15,
+):
     """Search for app commands"""
     results = []
     worst_score = score_cutoff
     query_words = query.split(" ")
     autocomplete = False
     if depth == 1 and assist_skip_app_command:
-        depth = 2   # skip app assist on depth 1
+        depth = 2  # skip app assist on depth 1
 
-    if depth == 1:   # app
+    if depth == 1:  # app
         assist_app = query_words[0].replace("_", " ")
         # list apps
         for app in guild_apps:
             score = fuzzy_match_score(assist_app, app["name"])
-            if score < worst_score and assist_app:   # show all if no text is typed
+            if score < worst_score and assist_app:  # show all if no text is typed
                 continue
             clean_name = app["name"].lower().replace(" ", "_")
-            heapq.heappush(results, (f"{clean_name} - guild app", f"/{clean_name}", score))
+            heapq.heappush(
+                results, (f"{clean_name} - guild app", f"/{clean_name}", score)
+            )
             if len(results) > limit:
                 heapq.heappop(results)
                 worst_score = results[0][2]
@@ -391,12 +456,14 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
             if score < worst_score and assist_app:
                 continue
             clean_name = app["name"].lower().replace(" ", "_")
-            heapq.heappush(results, (f"{clean_name} - user app", f"/{clean_name}", score))
+            heapq.heappush(
+                results, (f"{clean_name} - user app", f"/{clean_name}", score)
+            )
             if len(results) > limit:
                 heapq.heappop(results)
                 worst_score = results[0][2]
 
-    elif depth == 2:   # command
+    elif depth == 2:  # command
         if assist_skip_app_command:
             assist_app_name = None
             assist_command = query_words[0].replace("_", " ")
@@ -406,56 +473,72 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
         # list commands
         found = False
         for num, command in enumerate(guild_commands):
-            if (command["app_name"].lower().replace(" ", "_") == assist_app_name or assist_skip_app_command) and guild_commands_permitted[num]:
+            if (
+                command["app_name"].lower().replace(" ", "_") == assist_app_name
+                or assist_skip_app_command
+            ) and guild_commands_permitted[num]:
                 command_name = command["name"].lower()
                 score = fuzzy_match_score(assist_command, command_name)
                 if score < worst_score and assist_command:
                     continue
                 if assist_skip_app_command:
-                    name = f"{command_name.replace(" ", "_")} ({command["app_name"]})"
-                    value = f"{command["app_name"].lower().replace(" ", "_")} {command_name.replace(" ", "_")}"
+                    name = f"{command_name.replace(' ', '_')} ({command['app_name']})"
+                    value = f"{command['app_name'].lower().replace(' ', '_')} {command_name.replace(' ', '_')}"
                 else:
                     name = command_name.replace(" ", "_")
                     value = command_name.replace(" ", "_")
                 if command.get("description"):
-                    name += f" - {command["description"]}"
+                    name += f" - {command['description']}"
                 heapq.heappush(results, (name, value, score))
                 if len(results) > limit:
                     heapq.heappop(results)
                     worst_score = results[0][2]
                 found = True
-        if not found:    # skip my commands if found in guild commands
+        if not found:  # skip my commands if found in guild commands
             for command in my_commands:
-                if (command["app_name"].lower().replace(" ", "_") == assist_app_name or assist_skip_app_command) and ((not dm) or command.get("dm")):
+                if (
+                    command["app_name"].lower().replace(" ", "_") == assist_app_name
+                    or assist_skip_app_command
+                ) and ((not dm) or command.get("dm")):
                     command_name = command["name"].lower()
                     score = fuzzy_match_score(assist_command, command_name)
                     if score < worst_score and assist_command:
                         continue
                     if assist_skip_app_command:
-                        name = f"{command_name.replace(" ", "_")} ({command["app_name"]})"
-                        value = f"{command["app_name"].lower().replace(" ", "_")} {command_name.replace(" ", "_")}"
+                        name = (
+                            f"{command_name.replace(' ', '_')} ({command['app_name']})"
+                        )
+                        value = f"{command['app_name'].lower().replace(' ', '_')} {command_name.replace(' ', '_')}"
                     else:
                         name = command_name.replace(" ", "_")
                         value = command_name.replace(" ", "_")
                     if command.get("description"):
-                        name += f" - {command["description"]}"
+                        name += f" - {command['description']}"
                     heapq.heappush(results, (name, value, score))
                     if len(results) > limit:
                         heapq.heappop(results)
                         worst_score = results[0][2]
 
-    elif depth == 3:   # group/subcommand/option
+    elif depth == 3:  # group/subcommand/option
         results.append(("EXECUTE", None, 10000))
         assist_app_name = query_words[0].lower()
         assist_command = query_words[1].lower()
         assist_subcommand = query_words[2].replace("_", " ")
         # find command
         for num, command in enumerate(guild_commands):
-            if command["app_name"].lower().replace(" ", "_") == assist_app_name and guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
+            if (
+                command["app_name"].lower().replace(" ", "_") == assist_app_name
+                and guild_commands_permitted[num]
+                and assist_command == command["name"].lower().replace(" ", "_")
+            ):
                 break
         else:
             for command in my_commands:
-                if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
+                if (
+                    command["app_name"].lower().replace(" ", "_") == assist_app_name
+                    and assist_command == command["name"].lower().replace(" ", "_")
+                    and ((not dm) or command.get("dm"))
+                ):
                     break
             else:
                 command = None
@@ -467,18 +550,18 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                 if score < worst_score and assist_subcommand:
                     continue
                 if subcommand["type"] == 1:
-                    name = f"{subcommand_name.replace(" ", "_")} - subcommand"
+                    name = f"{subcommand_name.replace(' ', '_')} - subcommand"
                     value = subcommand_name.replace(" ", "_")
                 elif subcommand["type"] == 2:
-                    name = f"{subcommand_name.replace(" ", "_")} - group"
+                    name = f"{subcommand_name.replace(' ', '_')} - group"
                     value = subcommand_name.replace(" ", "_")
                 else:
-                    name = f"{subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(subcommand["type"])-1]}"
-                    value = f"--{subcommand_name.replace(" ", "_")}="
+                    name = f"{subcommand_name.replace(' ', '_')} - option: {COMMAND_OPT_TYPE[int(subcommand['type']) - 1]}"
+                    value = f"--{subcommand_name.replace(' ', '_')}="
                 if subcommand.get("required"):
                     name += " (required)"
                 if subcommand.get("description"):
-                    name += f" - {subcommand["description"]}"
+                    name += f" - {subcommand['description']}"
                 heapq.heappush(results, (name, value, score))
                 if len(results) > limit:
                     heapq.heappop(results)
@@ -493,19 +576,23 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                     else:
                         option = None
                     if option and "choices" in option:
-                        value = match.group(2).replace("_", " ") if match.group(2) else ""
+                        value = (
+                            match.group(2).replace("_", " ") if match.group(2) else ""
+                        )
                         for choice in option["choices"]:
                             score = fuzzy_match_score(value, choice["name"])
                             if score < worst_score and value:
                                 continue
-                            heapq.heappush(results, (choice["name"], choice["value"], score))
+                            heapq.heappush(
+                                results, (choice["name"], choice["value"], score)
+                            )
                             if len(results) > limit:
                                 heapq.heappop(results)
                                 worst_score = results[0][2]
                     elif option and option.get("autocomplete"):
                         autocomplete = True
 
-    elif depth == 4:   # groups subcommand and options
+    elif depth == 4:  # groups subcommand and options
         results.append(("EXECUTE", None, 10000))
         assist_app_name = query_words[0].lower()
         assist_command = query_words[1].lower()
@@ -514,11 +601,19 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
         options_only = False
         # find command
         for num, command in enumerate(guild_commands):
-            if command["app_name"].lower().replace(" ", "_") == assist_app_name and guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
+            if (
+                command["app_name"].lower().replace(" ", "_") == assist_app_name
+                and guild_commands_permitted[num]
+                and assist_command == command["name"].lower().replace(" ", "_")
+            ):
                 break
         else:
             for command in my_commands:
-                if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
+                if (
+                    command["app_name"].lower().replace(" ", "_") == assist_app_name
+                    and assist_command == command["name"].lower().replace(" ", "_")
+                    and ((not dm) or command.get("dm"))
+                ):
                     break
             else:
                 command = None
@@ -529,7 +624,7 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                     break
             else:
                 if re.search(match_command_arguments, assist_subcommand):
-                    subcommand = command   # when adding multiple options
+                    subcommand = command  # when adding multiple options
                     options_only = True
                 else:
                     subcommand = None
@@ -537,21 +632,23 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                 # list group_subcommands/options
                 for group_subcommand in subcommand.get("options", []):
                     group_subcommand_name = group_subcommand["name"].lower()
-                    score = fuzzy_match_score(assist_group_subcommand, group_subcommand_name)
+                    score = fuzzy_match_score(
+                        assist_group_subcommand, group_subcommand_name
+                    )
                     if score < worst_score and assist_group_subcommand:
                         continue
                     if options_only and group_subcommand["type"] in (1, 2):
-                        continue   # skip non-options
+                        continue  # skip non-options
                     if group_subcommand["type"] == 1:
-                        name = f"{group_subcommand_name.replace(" ", "_")} - subcommand"
+                        name = f"{group_subcommand_name.replace(' ', '_')} - subcommand"
                         value = group_subcommand_name.replace(" ", "_")
                     else:
-                        name = f"{group_subcommand_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(group_subcommand["type"])-1]}"
-                        value = f"--{group_subcommand_name.replace(" ", "_")}="
+                        name = f"{group_subcommand_name.replace(' ', '_')} - option: {COMMAND_OPT_TYPE[int(group_subcommand['type']) - 1]}"
+                        value = f"--{group_subcommand_name.replace(' ', '_')}="
                     if group_subcommand.get("required"):
                         name += " (required)"
                     if group_subcommand.get("description"):
-                        name += f" - {group_subcommand["description"]}"
+                        name += f" - {group_subcommand['description']}"
                     heapq.heappush(results, (name, value, score))
                     if len(results) > limit:
                         heapq.heappop(results)
@@ -566,19 +663,25 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                         else:
                             option = None
                         if option and "choices" in option:
-                            value = match.group(2).replace("_", " ") if match.group(2) else ""
+                            value = (
+                                match.group(2).replace("_", " ")
+                                if match.group(2)
+                                else ""
+                            )
                             for choice in option["choices"]:
                                 score = fuzzy_match_score(value, choice["name"])
                                 if score < worst_score and value:
                                     continue
-                                heapq.heappush(results, (choice["name"], choice["value"], score))
+                                heapq.heappush(
+                                    results, (choice["name"], choice["value"], score)
+                                )
                                 if len(results) > limit:
                                     heapq.heappop(results)
                                     worst_score = results[0][2]
                         elif option and option.get("autocomplete"):
                             autocomplete = True
 
-    elif depth >= 5:   # options
+    elif depth >= 5:  # options
         results.append(("EXECUTE", None, 10000))
         assist_app_name = query_words[0].lower()
         assist_command = query_words[1].lower()
@@ -588,11 +691,19 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
         options_only = False
         # find command
         for num, command in enumerate(guild_commands):
-            if command["app_name"].lower().replace(" ", "_") == assist_app_name and guild_commands_permitted[num] and assist_command == command["name"].lower().replace(" ", "_"):
+            if (
+                command["app_name"].lower().replace(" ", "_") == assist_app_name
+                and guild_commands_permitted[num]
+                and assist_command == command["name"].lower().replace(" ", "_")
+            ):
                 break
         else:
             for command in my_commands:
-                if command["app_name"].lower().replace(" ", "_") == assist_app_name and assist_command == command["name"].lower().replace(" ", "_") and ((not dm) or command.get("dm")):
+                if (
+                    command["app_name"].lower().replace(" ", "_") == assist_app_name
+                    and assist_command == command["name"].lower().replace(" ", "_")
+                    and ((not dm) or command.get("dm"))
+                ):
                     break
             else:
                 command = None
@@ -603,18 +714,21 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                     break
             else:
                 if re.search(match_command_arguments, assist_subcommand):
-                    subcommand = command   # when adding multiple options
+                    subcommand = command  # when adding multiple options
                     options_only = True
                 else:
                     subcommand = None
             if subcommand:
                 # find group subcommand
                 for group_subcommand in subcommand.get("options", []):
-                    if group_subcommand["name"].lower().replace(" ", "_") == assist_group_subcommand:
+                    if (
+                        group_subcommand["name"].lower().replace(" ", "_")
+                        == assist_group_subcommand
+                    ):
                         break
                 else:
                     if re.search(match_command_arguments, assist_group_subcommand):
-                        group_subcommand = subcommand   # when adding multiple options
+                        group_subcommand = subcommand  # when adding multiple options
                         options_only = True
                     else:
                         group_subcommand = None
@@ -626,20 +740,22 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                         if score < worst_score and assist_option:
                             continue
                         if options_only and option["type"] in (1, 2):
-                            continue   # skip non-options
-                        name = f"{option_name.replace(" ", "_")} - option: {COMMAND_OPT_TYPE[int(option["type"])-1]}"
-                        value = f"--{option_name.replace(" ", "_")}="
+                            continue  # skip non-options
+                        name = f"{option_name.replace(' ', '_')} - option: {COMMAND_OPT_TYPE[int(option['type']) - 1]}"
+                        value = f"--{option_name.replace(' ', '_')}="
                         if option.get("required"):
                             name += " (required)"
                         if option.get("description"):
-                            name += f" - {option["description"]}"
+                            name += f" - {option['description']}"
                         heapq.heappush(results, (name, value, score))
                         if len(results) > limit:
                             heapq.heappop(results)
                             worst_score = results[0][2]
                     # list option choices
                     else:
-                        match = re.search(match_command_arguments, query_words[4].lower())
+                        match = re.search(
+                            match_command_arguments, query_words[4].lower()
+                        )
                         if match:
                             for option in group_subcommand.get("options", []):
                                 if option["name"].lower() == match.group(1):
@@ -647,12 +763,19 @@ def search_app_commands(guild_apps, guild_commands, my_apps, my_commands, depth,
                             else:
                                 option = None
                             if option and "choices" in option:
-                                value = match.group(2).replace("_", " ") if match.group(2) else ""
+                                value = (
+                                    match.group(2).replace("_", " ")
+                                    if match.group(2)
+                                    else ""
+                                )
                                 for choice in option["choices"]:
                                     score = fuzzy_match_score(value, choice["name"])
                                     if score < worst_score and value:
                                         continue
-                                    heapq.heappush(results, (choice["name"], choice["value"], score))
+                                    heapq.heappush(
+                                        results,
+                                        (choice["name"], choice["value"], score),
+                                    )
                                     if len(results) > limit:
                                         heapq.heappop(results)
                                         worst_score = results[0][2]

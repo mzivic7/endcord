@@ -7,7 +7,7 @@ import sys
 import uuid
 
 # default client properties
-CLIENT_BUILD_NUMBER = 400453   # should only affect experimental features availability
+CLIENT_BUILD_NUMBER = 400453  # should only affect experimental features availability
 USER_AGENT_WEB = "Mozilla/5.0 (%OS; rv:138.0) Gecko/20100101 Firefox/138.0"
 USER_AGENT_DESKTOP = "Mozilla/5.0 (%OS) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.101 Chrome/134.0.6998.205 Electron/35.3.0 Safari/537.36"
 LINUX_UA_STRING = "X11; Linux x86_64"
@@ -55,7 +55,9 @@ def get_anonymous_properties():
         "client_event_source": None,
         "has_client_mods": False,
         "client_launch_id": str(uuid.uuid4()),
-        "client_heartbeat_session_id": str(uuid.uuid4()),   # used for persisted analytics heartbeat
+        "client_heartbeat_session_id": str(
+            uuid.uuid4()
+        ),  # used for persisted analytics heartbeat
     }
 
     user_agent = adjust_user_agent_os(USER_AGENT_WEB, sys.platform, None)
@@ -77,7 +79,7 @@ def get_default_properties():
     elif sys.platform == "darwin":
         output = subprocess.check_output(["sw_vers"], text=True)
         os_version = output.split("\n")[1].split(":\t")[1]
-        arch = "arm64"   # guessing
+        arch = "arm64"  # guessing
     else:
         os_version = ""
 
@@ -100,7 +102,11 @@ def get_default_properties():
         "client_heartbeat_session_id": str(uuid.uuid4()),
     }
     if sys.platform == "linux":
-        data["window_manager"] = os.environ.get("XDG_CURRENT_DESKTOP", "unknown") + "," + os.environ.get("GDMSESSION", "unknown")
+        data["window_manager"] = (
+            os.environ.get("XDG_CURRENT_DESKTOP", "unknown")
+            + ","
+            + os.environ.get("GDMSESSION", "unknown")
+        )
 
     user_agent = adjust_user_agent_os(USER_AGENT_DESKTOP, sys.platform, os_version)
 
@@ -110,10 +116,12 @@ def get_default_properties():
 def add_for_gateway(data):
     """Add extra data for gateway"""
     gateway_data = data.copy()
-    gateway_data.update({
-        "client_app_state": "unfocused",
-        "is_fast_connect": False,
-    })
+    gateway_data.update(
+        {
+            "client_app_state": "unfocused",
+            "is_fast_connect": False,
+        }
+    )
     return gateway_data
 
 
@@ -170,4 +178,6 @@ def adjust_user_agent_os(user_agent, platform, ver):
 
 def encode_properties(data):
     """Encode properties dict into base64 string"""
-    return base64.b64encode(json.dumps(data, separators=(",", ":")).encode("utf-8")).decode("utf-8")
+    return base64.b64encode(
+        json.dumps(data, separators=(",", ":")).encode("utf-8")
+    ).decode("utf-8")

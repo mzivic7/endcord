@@ -6,7 +6,9 @@ import signal
 import sys
 import traceback
 
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"   # fix for https://github.com/Nuitka/Nuitka/issues/3442
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = (
+    "python"  # fix for https://github.com/Nuitka/Nuitka/issues/3442
+)
 
 from endcord import arg, defaults, peripherals
 
@@ -64,7 +66,7 @@ def main(args):
     if not hasattr(curses, "PGCURSES"):
         keybindings = peripherals.convert_keybindings(keybindings)
 
-    os.environ["ESCDELAY"] = "25"   # 25ms
+    os.environ["ESCDELAY"] = "25"  # 25ms
     if os.environ.get("TERM", "") in ("xterm", "linux"):
         os.environ["TERM"] = "xterm-256color"
     if sys.platform == "linux":
@@ -75,20 +77,23 @@ def main(args):
     if args.colors:
         # import here for faster startup
         from endcord import color
+
         curses.wrapper(color.color_palette)
         sys.exit(0)
     elif args.keybinding:
         from endcord import keybinding
+
         keybinding.picker(keybindings)
         sys.exit(0)
     elif args.media:
         if not (
-            importlib.util.find_spec("PIL") is not None and
-            importlib.util.find_spec("av") is not None and
-            importlib.util.find_spec("numpy") is not None
+            importlib.util.find_spec("PIL") is not None
+            and importlib.util.find_spec("av") is not None
+            and importlib.util.find_spec("numpy") is not None
         ):
             sys.exit("Ascii media player is not supported")
         from endcord import media
+
         try:
             curses.wrapper(media.ascii_runner, args.media, config, keybindings)
         except curses.error as e:
@@ -101,6 +106,7 @@ def main(args):
         config["proxy"] = args.proxy
 
     from endcord import token_manager
+
     if args.remove_token:
         token_manager.remove_token()
         sys.exit("Token removed from keyring")
@@ -116,6 +122,7 @@ def main(args):
         logging.getLogger().setLevel(logging.DEBUG)
     try:
         from endcord import app
+
         curses.wrapper(app.Endcord, config, keybindings)
     except curses.error as e:
         if str(e) != "endwin() returned ERR":

@@ -7,7 +7,13 @@ logger = logging.getLogger(__name__)
 DISCORD_EPOCH_MS = 1420070400000
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
 TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%d-%H-%M", "%H:%M:%S", "%H:%M")
-NOTIFICATION_VALUES = ("all", "mention", "nothing", "suppress_everyone", "suppress_roles")
+NOTIFICATION_VALUES = (
+    "all",
+    "mention",
+    "nothing",
+    "suppress_everyone",
+    "suppress_roles",
+)
 
 match_from = re.compile(r"from:<@\d*>")
 match_mentions = re.compile(r"mentions:<@\d*>")
@@ -117,64 +123,76 @@ def check_start_command(text, my_commands, guild_commands, permitted_guild_comma
         if command["app_name"].lower().replace(" ", "_") == app_name:
             return True
     for num, command in enumerate(guild_commands):
-        if permitted_guild_commands[num] and command["app_name"].lower().replace(" ", "_") == app_name:
+        if (
+            permitted_guild_commands[num]
+            and command["app_name"].lower().replace(" ", "_") == app_name
+        ):
             return True
     return False
 
 
 def verify_option_type(option_value, option_type, roles, channels):
     """Check if option value is of corect type"""
-    if option_type in (1, 2):   # SUB_COMMAND and SUB_COMMAND_GROUP
+    if option_type in (1, 2):  # SUB_COMMAND and SUB_COMMAND_GROUP
         if not option_value:
-            return False   # skip subcommands
-    if option_type == 3:   # STRING
+            return False  # skip subcommands
+    if option_type == 3:  # STRING
         return not (
-            bool(re.search(match_profile, option_value)) or
-            bool(re.search(match_channel, option_value))
+            bool(re.search(match_profile, option_value))
+            or bool(re.search(match_channel, option_value))
         )
-    if option_type == 4:   # INTEGER
+    if option_type == 4:  # INTEGER
         try:
             int(option_value)
             return True
         except ValueError:
             pass
-    elif option_type == 5:   # BOOLEAN
+    elif option_type == 5:  # BOOLEAN
         try:
             bool(option_value)
             return True
         except ValueError:
             pass
-    elif option_type == 6:   # USER
+    elif option_type == 6:  # USER
         return bool(re.search(match_profile, option_value))
-    elif option_type == 7:   # CHANNEL
+    elif option_type == 7:  # CHANNEL
         match = re.search(match_channel, option_value)
         if match:
             channel_id = match.group(1)
             for channel in channels:
                 if channel["id"] == channel_id:
                     return True
-    elif option_type == 8:   # ROLE
+    elif option_type == 8:  # ROLE
         match = re.search(match_profile, option_value)
         if match:
             role_id = match.group(1)
             for role in roles:
                 if role["id"] == role_id:
                     return True
-    elif option_type == 9:   # MENTIONABLE
+    elif option_type == 9:  # MENTIONABLE
         return bool(re.search(match_profile, option_value))
-    elif option_type == 10:   # NUMBER
+    elif option_type == 10:  # NUMBER
         try:
             float(option_value)
             return True
         except ValueError:
             pass
-    elif option_type == 11:   # ATTACHMENT
+    elif option_type == 11:  # ATTACHMENT
         if option_value == 0:
             return True
     return False
 
 
-def app_command_string(text, my_commands, guild_commands, permitted_guild_commands, roles, channels, dm, autocomplete):
+def app_command_string(
+    text,
+    my_commands,
+    guild_commands,
+    permitted_guild_commands,
+    roles,
+    channels,
+    dm,
+    autocomplete,
+):
     """Parse app command string and prepare data payload"""
     app_name = text.split(" ")[0][1:].lower()
     if not app_name:
@@ -185,14 +203,21 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
     if command_name.startswith("--"):
         return None, None, None
     for num, command in enumerate(guild_commands):
-        if permitted_guild_commands[num] and command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
+        if (
+            permitted_guild_commands[num]
+            and command["name"] == command_name
+            and command["app_name"].lower().replace(" ", "_") == app_name
+        ):
             app_id = command["app_id"]
             break
     else:
         for command in my_commands:
-            if command["name"] == command_name and command["app_name"].lower().replace(" ", "_") == app_name:
+            if (
+                command["name"] == command_name
+                and command["app_name"].lower().replace(" ", "_") == app_name
+            ):
                 if dm and not command.get("dm"):
-                    return None, None, None   # command not allowed in dm
+                    return None, None, None  # command not allowed in dm
                 app_id = command["app_id"]
                 break
         else:
@@ -221,7 +246,7 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
             value = match.group(2)
         else:
             value = 0
-        command_options.append((match.group(1), value))   # (name, value)
+        command_options.append((match.group(1), value))  # (name, value)
     context_options = command.get("options", [])
 
     # verify subcommands and groups
@@ -229,14 +254,18 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
     subcommand_group = None
     if subcommand_group_name:
         for subcmd in context_options:
-            if subcmd["type"] == 1 and subcmd["name"] == subcommand_group_name:   # subcommand
+            if (
+                subcmd["type"] == 1 and subcmd["name"] == subcommand_group_name
+            ):  # subcommand
                 subcommand = subcmd
                 context_options = subcmd.get("options", [])
                 break
-            elif subcmd["type"] == 2 and subcmd["name"] == subcommand_group_name:   # group
+            elif (
+                subcmd["type"] == 2 and subcmd["name"] == subcommand_group_name
+            ):  # group
                 subcommand_group = subcmd
                 break
-    if subcommand_group and subcommand_name:   # subcommand after group
+    if subcommand_group and subcommand_name:  # subcommand after group
         for subcmd in subcommand_group.get("options", []):
             if subcmd["type"] == 1 and subcmd["name"] == subcommand_name:
                 subcommand = subcmd
@@ -255,15 +284,18 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
         if option["type"] == 11:
             need_attachment = True
             option_value_clean = 0
-        if not autocomplete and not (option_value_clean and verify_option_type(option_value_clean, option["type"], roles, channels)):
+        if not autocomplete and not (
+            option_value_clean
+            and verify_option_type(option_value_clean, option["type"], roles, channels)
+        ):
             return None, None, None
         option_dict = {
             "type": option["type"],
             "name": option["name"],
             "value": option_value_clean,
         }
-        if autocomplete and num == len(command_options) - 1:   # if its last option
-            option_dict["focused"] = True   # what "focused" means ?
+        if autocomplete and num == len(command_options) - 1:  # if its last option
+            option_dict["focused"] = True  # what "focused" means ?
         options.append(option_dict)
 
     # check for required
@@ -273,7 +305,7 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
                 if option["name"] == option_name:
                     break
             else:
-                return None, None, None   # missing required option
+                return None, None, None  # missing required option
 
     # dont allow command with options but none is set
     if not options and not subcommand_group_name and context_options and required:
@@ -281,30 +313,34 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
 
     # add subcommands and groups
     if subcommand:
-        options = [{
-            "type": subcommand["type"],
-            "name": subcommand["name"],
-            "options": options,
-        }]
+        options = [
+            {
+                "type": subcommand["type"],
+                "name": subcommand["name"],
+                "options": options,
+            }
+        ]
         if not options[0]["options"]:
             options[0].pop("options")
     if subcommand_group:
-        options = [{
-            "type": subcommand_group["type"],
-            "name": subcommand_group["name"],
-            "options": options,
-        }]
+        options = [
+            {
+                "type": subcommand_group["type"],
+                "name": subcommand_group["name"],
+                "options": options,
+            }
+        ]
         if not options[0]["options"]:
             options[0].pop("options")
-            return None, None, None   # cant have group without subcommand
+            return None, None, None  # cant have group without subcommand
 
     command_data = {
         "version": command["version"],
         "id": command["id"],
         "name": command["name"],
-        "type": 1,   # only slash commands
+        "type": 1,  # only slash commands
         "options": options,
-        "attachments":[],
+        "attachments": [],
     }
     return command_data, app_id, need_attachment
 

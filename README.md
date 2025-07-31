@@ -401,7 +401,7 @@ If compiler is not available, or muilt binary is failing, try building with `--n
 ### Nuitka
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  
 Nuitka built binaries are much more optimized and can play videos at higher framerate.  
-Optionally, add `--clang` flag to tell nuitka to compile using llvm, which might run even faster.  
+Optionally, choose a compiler by adding `--compiler=COMPILER` with COMPILER being the compiler.  
 Nuitka requirements:
 - on Linux: GCC or clang and `patchelf` package
 - on Windows: [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)

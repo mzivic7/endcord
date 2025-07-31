@@ -8,6 +8,7 @@ import sys
 if sys.platform == "win32":
     import pywintypes
     import win32cred
+
     BACKSPACE = 8
 else:
     BACKSPACE = curses.KEY_BACKSPACE
@@ -42,7 +43,9 @@ def setup_secret_service():
         # ensure dbus is running
         if "DBUS_SESSION_BUS_ADDRESS" not in os.environ:
             if not shutil.which("dbus-launch"):
-                sys.exit("Cant start token manager: 'dbus' package is not installed. Token can still be provided with argument -t or in config.")
+                sys.exit(
+                    "Cant start token manager: 'dbus' package is not installed. Token can still be provided with argument -t or in config."
+                )
             output = subprocess.check_output(["dbus-launch"]).decode()
             for line in output.strip().splitlines():
                 if "=" in line:
@@ -58,20 +61,30 @@ def setup_secret_service():
             check=False,
         )
         if "not activatable" in result.stderr.decode():
-            sys.exit("Cant start token manager: failed to start 'gnome-keyring' daemon, it is probably not installed. Token can still be provided with argument -t or in config.")
+            sys.exit(
+                "Cant start token manager: failed to start 'gnome-keyring' daemon, it is probably not installed. Token can still be provided with argument -t or in config."
+            )
 
     except subprocess.CalledProcessError:
-        sys.exit("Cant start token manager: failed to start gnome-keyring. Token can still be provided with argument -t or in config.")
+        sys.exit(
+            "Cant start token manager: failed to start gnome-keyring. Token can still be provided with argument -t or in config."
+        )
 
 
 def load_token():
     """Try to load token from system keyring"""
     if sys.platform == "linux":
         try:
-            result = subprocess.run([
-                "secret-tool", "lookup",
-                "service", APP_NAME,
-                ], capture_output=True, text=True, check=True,
+            result = subprocess.run(
+                [
+                    "secret-tool",
+                    "lookup",
+                    "service",
+                    APP_NAME,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError:
@@ -89,11 +102,17 @@ def load_token():
 
     if sys.platform == "darwin":
         try:
-            result = subprocess.run([
-                "security", "find-generic-password",
-                "-s", APP_NAME,
-                "-w",
-                ], capture_output=True, text=True, check=True,
+            result = subprocess.run(
+                [
+                    "security",
+                    "find-generic-password",
+                    "-s",
+                    APP_NAME,
+                    "-w",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError:
@@ -103,33 +122,46 @@ def load_token():
 def save_token(token):
     """Save token to sustem keyring"""
     if sys.platform == "linux":
-        subprocess.run([
-            "secret-tool", "store",
-            "--label=" + f"{APP_NAME} token",
-            "service", APP_NAME,
-            ], input=token.encode(), check=True,
+        subprocess.run(
+            [
+                "secret-tool",
+                "store",
+                "--label=" + f"{APP_NAME} token",
+                "service",
+                APP_NAME,
+            ],
+            input=token.encode(),
+            check=True,
         )
 
     elif sys.platform == "win32":
         try:
-            win32cred.CredWrite({
-                "Type": win32cred.CRED_TYPE_GENERIC,
-                "TargetName": f"{APP_NAME} token",
-                "CredentialBlob": token,
-                "Persist": win32cred.CRED_PERSIST_LOCAL_MACHINE,
-            }, 0)
+            win32cred.CredWrite(
+                {
+                    "Type": win32cred.CRED_TYPE_GENERIC,
+                    "TargetName": f"{APP_NAME} token",
+                    "CredentialBlob": token,
+                    "Persist": win32cred.CRED_PERSIST_LOCAL_MACHINE,
+                },
+                0,
+            )
         except pywintypes.error as e:
             sys.exit(e)
 
-
     elif sys.platform == "darwin":
-        subprocess.run([
-            "security", "add-generic-password",
-            "-s", APP_NAME,
-            "-a", "token",
-            "-w", token,
-            "-U",
-            ], check=True,
+        subprocess.run(
+            [
+                "security",
+                "add-generic-password",
+                "-s",
+                APP_NAME,
+                "-a",
+                "token",
+                "-w",
+                token,
+                "-U",
+            ],
+            check=True,
         )
 
 
@@ -137,10 +169,14 @@ def remove_token():
     """Remove token from system keyring"""
     if sys.platform == "linux":
         try:
-            subprocess.run([
-                "secret-tool", "clear",
-                "service", APP_NAME,
-                ], check=True,
+            subprocess.run(
+                [
+                    "secret-tool",
+                    "clear",
+                    "service",
+                    APP_NAME,
+                ],
+                check=True,
             )
         except subprocess.CalledProcessError:
             pass
@@ -156,10 +192,14 @@ def remove_token():
             pass
 
     elif sys.platform == "darwin":
-        subprocess.run([
-            "security", "delete-generic-password",
-            "-s", APP_NAME,
-            ], check=True,
+        subprocess.run(
+            [
+                "security",
+                "delete-generic-password",
+                "-s",
+                APP_NAME,
+            ],
+            check=True,
         )
 
 
@@ -181,7 +221,9 @@ def token_prompt(screen):
     screen.addstr(1, 0, TOKEN_MANAGER_TEXT, curses.color_pair(1))
     _, w = screen.getmaxyx()
     prompt_y = get_prompt_y(w)
-    screen.addstr(prompt_y, 1, "TOKEN: " + " " * (w - 9), curses.color_pair(1) | curses.A_STANDOUT)
+    screen.addstr(
+        prompt_y, 1, "TOKEN: " + " " * (w - 9), curses.color_pair(1) | curses.A_STANDOUT
+    )
     run = True
     enter = False
     text = ""
@@ -201,7 +243,7 @@ def token_prompt(screen):
                 sequence.append(key)
                 if key == 126:
                     break
-                if key == 27:   # holding escape key
+                if key == 27:  # holding escape key
                     sequence.append(-1)
                     break
             screen.nodelay(False)
@@ -219,7 +261,12 @@ def token_prompt(screen):
             text = text[:-1]
 
         _, w = screen.getmaxyx()
-        screen.addstr(prompt_y, 1, "TOKEN: " + text[:w-9] + " " * (w - len(text)-9), curses.color_pair(1) | curses.A_STANDOUT)
+        screen.addstr(
+            prompt_y,
+            1,
+            "TOKEN: " + text[: w - 9] + " " * (w - len(text) - 9),
+            curses.color_pair(1) | curses.A_STANDOUT,
+        )
         screen.refresh()
 
     screen.clear()
@@ -236,7 +283,9 @@ def get_token(force=False):
     If secret-tool command is not installed, return None.
     """
     if sys.platform == "linux" and not shutil.which("secret-tool"):
-        sys.exit("Cant start token manager: 'libsecret' package is not installed. Token can still be provided with argument -t or in config.")
+        sys.exit(
+            "Cant start token manager: 'libsecret' package is not installed. Token can still be provided with argument -t or in config."
+        )
 
     token = load_token()
     if token and not force:

@@ -1,7 +1,8 @@
 def decode_flag(flags, flag_num):
     """Return value for specified flag number (int)"""
-    flag = (1 << flag_num)
+    flag = 1 << flag_num
     return (flags & flag) == flag
+
 
 def decode_permission(permission, flag):
     """
@@ -32,10 +33,12 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
 
     # check if this user is admin
     admin = False
-    if not guild["owned"]:   # if im not owner check if im admin
+    if not guild["owned"]:  # if im not owner check if im admin
         base_permissions = int(guild["base_permissions"])
         for role in this_guild_roles:
-            if role["id"] in my_roles and decode_permission(int(role["permissions"]), 0x8):
+            if role["id"] in my_roles and decode_permission(
+                int(role["permissions"]), 0x8
+            ):
                 admin = True
                 break
 
@@ -56,7 +59,6 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
             base_permissions |= int(role["permissions"])
 
     for num, channel in enumerate(guild["channels"]):
-
         # check if channel is already parsed
         if "permitted" in channel:
             continue
@@ -89,14 +91,31 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
 
         # read and store selected permissions
         guild["channels"][num]["perms_computed"] = permissions
-        guild["channels"][num]["allow_manage"] = decode_permission(permissions, 0x10)   # MANAGE_MESSAGES
-        guild["channels"][num]["permitted"] = decode_permission(permissions, 0x400)    # VIEW_CHANNEL
-        guild["channels"][num]["allow_write"] = decode_permission(permissions, 0x800)    # SEND_MESSAGES
-        guild["channels"][num]["allow_attach"] = decode_permission(permissions, 0x8000)   # ATTACH_FILES
+        guild["channels"][num]["allow_manage"] = decode_permission(
+            permissions, 0x10
+        )  # MANAGE_MESSAGES
+        guild["channels"][num]["permitted"] = decode_permission(
+            permissions, 0x400
+        )  # VIEW_CHANNEL
+        guild["channels"][num]["allow_write"] = decode_permission(
+            permissions, 0x800
+        )  # SEND_MESSAGES
+        guild["channels"][num]["allow_attach"] = decode_permission(
+            permissions, 0x8000
+        )  # ATTACH_FILES
     return guilds
 
 
-def compute_command_permissions(commands, all_app_perms, this_channel_id, this_guild_id, my_roles, my_id, admin, my_this_channel_perms):
+def compute_command_permissions(
+    commands,
+    all_app_perms,
+    this_channel_id,
+    this_guild_id,
+    my_roles,
+    my_id,
+    admin,
+    my_this_channel_perms,
+):
     """Check app commands permissions and return bool mask of all commands that can be executed"""
     # admin can do it all
     if admin:
@@ -117,7 +136,9 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
 
         # channel perms - command
         for channel, value in all_perms.get("channels", {}).items():
-            if channel == this_channel_id or channel == this_guild_id:   # this_guild_id is base channel
+            if (
+                channel == this_channel_id or channel == this_guild_id
+            ):  # this_guild_id is base channel
                 if not value:
                     skip = True
                 break
@@ -125,7 +146,9 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
         # channel perms - app
         else:
             for channel, value in app_perms.get("channels", {}).items():
-                if channel == this_channel_id or channel == this_guild_id:   # this_guild_id is base channel
+                if (
+                    channel == this_channel_id or channel == this_guild_id
+                ):  # this_guild_id is base channel
                     if not value:
                         skip = True
                     break
@@ -147,7 +170,7 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
 
         # role perms - command
         for role, value in all_perms.get("roles", {}).items():
-            if role in my_roles or role == this_guild_id:   # this_guild_id is base role
+            if role in my_roles or role == this_guild_id:  # this_guild_id is base role
                 skip = True
                 if not value:
                     done_perms.append(False)
@@ -169,7 +192,7 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
 
         # role perms - app
         for role, value in app_perms.get("roles", {}).items():
-            if role in my_roles or role == this_guild_id:   # this_guild_id is base role
+            if role in my_roles or role == this_guild_id:  # this_guild_id is base role
                 if not value:
                     skip = True
                     done_perms.append(False)
@@ -179,19 +202,19 @@ def compute_command_permissions(commands, all_app_perms, this_channel_id, this_g
 
         # default_member_permissions check
         default_member_permissions = command.get("default_member_permissions")
-        if default_member_permissions is None:   # everyone
+        if default_member_permissions is None:  # everyone
             done_perms.append(True)
-        elif default_member_permissions == 0:   # only admins
+        elif default_member_permissions == 0:  # only admins
             done_perms.append(False)
-        else:   # if user has all these or more permissions in current channel
+        else:  # if user has all these or more permissions in current channel
             decoded_default_perms = []
             default_member_permissions = int(default_member_permissions)
-            for i in list(range(47)) + [49, 50]:   # all perms
+            for i in list(range(47)) + [49, 50]:  # all perms
                 decoded_default_perms.append(decode_flag(default_member_permissions, i))
             # get my perms in this channel
             decoded_my_perms = []
             my_this_channel_perms = int(my_this_channel_perms)
-            for i in list(range(47)) + [49, 50]:   # all perms
+            for i in list(range(47)) + [49, 50]:  # all perms
                 decoded_my_perms.append(decode_flag(my_this_channel_perms, i))
             if all(not a or b for a, b in zip(decoded_default_perms, decoded_my_perms)):
                 done_perms.append(True)

@@ -19,8 +19,28 @@ from endcord.message import prepare_messages
 DISCORD_HOST = "discord.com"
 DISCORD_CDN_HOST = "cdn.discordapp.com"
 DISCORD_EPOCH = 1420070400
-SEARCH_PARAMS = ("content", "channel_id", "author_id", "mentions", "has", "max_id", "min_id", "pinned", "offset")
-SEARCH_HAS_OPTS = ("link", "embed", "poll", "file", "video", "image", "sound", "sticker", "forward")
+SEARCH_PARAMS = (
+    "content",
+    "channel_id",
+    "author_id",
+    "mentions",
+    "has",
+    "max_id",
+    "min_id",
+    "pinned",
+    "offset",
+)
+SEARCH_HAS_OPTS = (
+    "link",
+    "embed",
+    "poll",
+    "file",
+    "video",
+    "image",
+    "sound",
+    "sticker",
+    "forward",
+)
 PING_OPTIONS = ("all", "mention", "nothing")
 SUPPRESS_OPTIONS = ("suppress_everyone", "suppress_roles")
 logger = logging.getLogger(__name__)
@@ -38,13 +58,13 @@ def ceil(x):
 def get_sticker_url(sticker):
     """Generate sticker download url from its type and id, lottie stickers will return None"""
     sticker_type = sticker["format_type"]
-    if sticker_type == 1:   # png - downloaded as webp
-        return f"https://media.discordapp.net/stickers/{sticker["id"]}.webp"
-    if sticker_type == 2:   # apng
-        return f"https://media.discordapp.net/stickers/{sticker["id"]}.png"
-    if sticker_type == 4:   # gif
-        return f"https://media.discordapp.net/stickers/{sticker["id"]}.gif"
-    return None   # lottie
+    if sticker_type == 1:  # png - downloaded as webp
+        return f"https://media.discordapp.net/stickers/{sticker['id']}.webp"
+    if sticker_type == 2:  # apng
+        return f"https://media.discordapp.net/stickers/{sticker['id']}.png"
+    if sticker_type == 4:  # gif
+        return f"https://media.discordapp.net/stickers/{sticker['id']}.gif"
+    return None  # lottie
 
 
 def generate_nonce():
@@ -74,7 +94,7 @@ def build_multipart_body(data):
     return body, content_type, content_len
 
 
-class Discord():
+class Discord:
     """Methods for fetching and sending data to Discord using REST API"""
 
     def __init__(self, token, host, client_prop, user_agent, proxy=None):
@@ -108,20 +128,23 @@ class Discord():
         self.threads = []
         self.uploading = []
 
-
     def get_connection(self, host, port):
         """Get connection object and handle proxying"""
         if self.proxy.scheme:
             if self.proxy.scheme.lower() == "http":
                 logger.info((self.proxy.hostname, self.proxy.port))
-                connection = http.client.HTTPSConnection(self.proxy.hostname, self.proxy.port)
+                connection = http.client.HTTPSConnection(
+                    self.proxy.hostname, self.proxy.port
+                )
                 connection.set_tunnel(host, port=port)
             elif "socks" in self.proxy.scheme.lower():
                 proxy_sock = socks.socksocket()
                 proxy_sock.set_proxy(socks.SOCKS5, self.proxy.hostname, self.proxy.port)
                 proxy_sock.settimeout(10)
                 proxy_sock.connect((host, port))
-                proxy_sock = ssl.create_default_context().wrap_socket(proxy_sock, server_hostname=host)
+                proxy_sock = ssl.create_default_context().wrap_socket(
+                    proxy_sock, server_hostname=host
+                )
                 # proxy_sock.do_handshake()   # seems like its not needed
                 connection = http.client.HTTPSConnection(host, port, timeout=10)
                 connection.sock = proxy_sock
@@ -130,7 +153,6 @@ class Discord():
         else:
             connection = http.client.HTTPSConnection(host, port, timeout=5)
         return connection
-
 
     def get_my_id(self, exit_on_error=False):
         """Get my discord user ID"""
@@ -149,13 +171,12 @@ class Discord():
             data = json.loads(response.read())
             connection.close()
             return data["id"]
-        if response.status == 401:   # unauthorized
+        if response.status == 401:  # unauthorized
             logger.error("unauthorized access. Probably invalid token. Exiting...")
             raise SystemExit("unauthorized access. Probably invalid token. Exiting...")
         logger.error(f"Failed to get my id. Response code: {response.status}")
         connection.close()
         return None
-
 
     def get_user(self, user_id, extra=False):
         """Get relevant information about specified user"""
@@ -175,7 +196,7 @@ class Discord():
                 nick = data["guild_member"]["nick"]
             else:
                 nick = None
-            if extra:   # extra data for rpc
+            if extra:  # extra data for rpc
                 extra_data = {
                     "avatar": data["user"]["avatar"],
                     "avatar_decoration_data": data["user"]["avatar_decoration_data"],
@@ -213,7 +234,6 @@ class Discord():
         connection.close()
         return None
 
-
     def get_user_guild(self, user_id, guild_id):
         """Get relevant information about specified user in a guild"""
         message_data = None
@@ -232,7 +252,7 @@ class Discord():
                 nick = data["guild_member"]["nick"]
                 roles = data["guild_member"]["roles"]
                 joined_at = data["guild_member"]["joined_at"][:10]
-            else:   # just in case
+            else:  # just in case
                 nick = None
                 roles = None
                 joined_at = None
@@ -269,7 +289,6 @@ class Discord():
         connection.close()
         return None
 
-
     def get_dms(self):
         """
         Get list of open DMs with their recipient.
@@ -295,27 +314,30 @@ class Discord():
             for dm in data:
                 recipients = []
                 for recipient in dm["recipients"]:
-                    recipients.append({
-                        "id": recipient["id"],
-                        "username": recipient["username"],
-                        "global_name": recipient["global_name"],
-                    })
+                    recipients.append(
+                        {
+                            "id": recipient["id"],
+                            "username": recipient["username"],
+                            "global_name": recipient["global_name"],
+                        }
+                    )
                 if "name" in dm:
                     name = dm["name"]
                 else:
                     name = recipients[0]["global_name"]
-                dms.append({
-                    "id": dm["id"],
-                    "type": dm["type"],
-                    "recipients": recipients,
-                    "name": name,
-                })
+                dms.append(
+                    {
+                        "id": dm["id"],
+                        "type": dm["type"],
+                        "recipients": recipients,
+                        "name": name,
+                    }
+                )
                 dms_id.append(dm["id"])
             return dms, dms_id
         logger.error(f"Failed to fetch dm list. Response code: {response.status}")
         connection.close()
         return None, None
-
 
     def get_channels(self, guild_id):
         """
@@ -342,19 +364,22 @@ class Discord():
             connection.close()
             channels = []
             for channel in data:
-                channels.append({
-                    "id": channel["id"],
-                    "type": channel["type"],
-                    "name": channel["name"],
-                    "topic": channel.get("topic"),
-                    "parent_id": channel.get("parent_id"),
-                    "position": channel["position"],
-                })
+                channels.append(
+                    {
+                        "id": channel["id"],
+                        "type": channel["type"],
+                        "name": channel["name"],
+                        "topic": channel.get("topic"),
+                        "parent_id": channel.get("parent_id"),
+                        "position": channel["position"],
+                    }
+                )
             return channels
-        logger.error(f"Failed to fetch guild channels. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch guild channels. Response code: {response.status}"
+        )
         connection.close()
         return None
-
 
     def get_messages(self, channel_id, num=50, before=None, after=None, around=None):
         """Get specified number of messages, optionally number before and after message ID"""
@@ -384,7 +409,6 @@ class Discord():
         connection.close()
         return None
 
-
     def get_reactions(self, channel_id, message_id, reaction):
         """Get reaction for specified message"""
         encoded_reaction = urllib.parse.quote(reaction)
@@ -402,15 +426,18 @@ class Discord():
             connection.close()
             reaction = []
             for user in data:
-                reaction.append({
-                    "id": user["id"],
-                    "username": user["username"],
-                })
+                reaction.append(
+                    {
+                        "id": user["id"],
+                        "username": user["username"],
+                    }
+                )
             return reaction
-        logger.error(f"Failed to fetch reaction details: {reaction}. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch reaction details: {reaction}. Response code: {response.status}"
+        )
         connection.close()
         return False
-
 
     def get_mentions(self, num=25, roles=True, everyone=True):
         """Get specified number of mentions, optionally including role and everyone mentions"""
@@ -432,20 +459,21 @@ class Discord():
             connection.close()
             mentions = []
             for mention in data:
-                mentions.append({
-                    "id": mention["id"],
-                    "channel_id": mention["channel_id"],
-                    "timestamp": mention["timestamp"],
-                    "content": mention["content"],
-                    "user_id": mention["author"]["id"],
-                    "username": mention["author"]["username"],
-                    "global_name": mention["author"]["global_name"],
-                })
+                mentions.append(
+                    {
+                        "id": mention["id"],
+                        "channel_id": mention["channel_id"],
+                        "timestamp": mention["timestamp"],
+                        "content": mention["content"],
+                        "user_id": mention["author"]["id"],
+                        "username": mention["author"]["username"],
+                        "global_name": mention["author"]["global_name"],
+                    }
+                )
             return mentions
         logger.error(f"Failed to fetch mentions. Response code: {response.status}")
         connection.close()
         return None
-
 
     def get_stickers(self):
         """Get default discord stickers and cache them"""
@@ -466,21 +494,24 @@ class Discord():
             for pack in data["sticker_packs"]:
                 pack_stickers = []
                 for sticker in pack["stickers"]:
-                    pack_stickers.append({
-                        "id": sticker["id"],
-                        "name": sticker["name"],
-                    })
-                self.stickers.append({
-                    "pack_id": pack["id"],
-                    "pack_name": pack["name"],
-                    "stickers": pack_stickers,
-                })
+                    pack_stickers.append(
+                        {
+                            "id": sticker["id"],
+                            "name": sticker["name"],
+                        }
+                    )
+                self.stickers.append(
+                    {
+                        "pack_id": pack["id"],
+                        "pack_name": pack["name"],
+                        "stickers": pack_stickers,
+                    }
+                )
             del (data, pack_stickers)
             return self.stickers
         logger.error(f"Failed to fetch stickers. Response code: {response.status}")
         connection.close()
         return None
-
 
     def get_settings_proto(self, num):
         """
@@ -488,8 +519,8 @@ class Discord():
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things
         """
-        if self.protos[num-1]:
-            return self.protos[num-1]
+        if self.protos[num - 1]:
+            return self.protos[num - 1]
         message_data = None
         url = f"/api/v9/users/@me/settings-proto/{num}"
         try:
@@ -508,25 +539,28 @@ class Discord():
                 decoded = FrecencyUserSettings.FromString(base64.b64decode(data))
             else:
                 return {}
-            self.protos[num-1] = MessageToDict(decoded)
-            return self.protos[num-1]
+            self.protos[num - 1] = MessageToDict(decoded)
+            return self.protos[num - 1]
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
         connection.close()
         return None
-
 
     def patch_settings_proto(self, num, data):
         """
         Patch account settings
         num=1 - General user settings
         num=2 - Frecency and favorites storage for various things"""
-        if not self.protos[num-1]:
+        if not self.protos[num - 1]:
             self.get_settings_proto(num)
-        self.protos[num-1].update(data)
+        self.protos[num - 1].update(data)
         if num == 1:
-            encoded = base64.b64encode(ParseDict(data, PreloadedUserSettings()).SerializeToString()).decode("utf-8")
+            encoded = base64.b64encode(
+                ParseDict(data, PreloadedUserSettings()).SerializeToString()
+            ).decode("utf-8")
         elif num == 2:
-            encoded = base64.b64encode(ParseDict(data, FrecencyUserSettings()).SerializeToString()).decode("utf-8")
+            encoded = base64.b64encode(
+                ParseDict(data, FrecencyUserSettings()).SerializeToString()
+            ).decode("utf-8")
         else:
             return False
 
@@ -542,10 +576,11 @@ class Discord():
         if response.status == 200:
             connection.close()
             return True
-        logger.error(f"Failed to patch protobuf {num}. Response code: {response.status}")
+        logger.error(
+            f"Failed to patch protobuf {num}. Response code: {response.status}"
+        )
         connection.close()
         return False
-
 
     def get_rpc_app(self, app_id):
         """Get data about Discord RPC application"""
@@ -566,10 +601,11 @@ class Discord():
                 "name": data["name"],
                 "description": data["description"],
             }
-        logger.error(f"Failed to fetch application rpc data. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch application rpc data. Response code: {response.status}"
+        )
         connection.close()
         return None
-
 
     def get_rpc_app_assets(self, app_id):
         """Get Discord application assets list"""
@@ -587,15 +623,18 @@ class Discord():
             connection.close()
             assets = []
             for asset in data:
-                assets.append({
-                    "id": asset["id"],
-                    "name": asset["name"],
-                })
+                assets.append(
+                    {
+                        "id": asset["id"],
+                        "name": asset["name"],
+                    }
+                )
             return assets
-        logger.error(f"Failed to fetch application assets. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch application assets. Response code: {response.status}"
+        )
         connection.close()
         return None
-
 
     def get_rpc_app_external(self, app_id, asset_url):
         """Get Discord application external assets"""
@@ -617,12 +656,15 @@ class Discord():
             data = json.loads(response.read())
             connection.close()
             retry_after = float(data["retry_after"])
-            logger.error(f"Failed to fetch application external assets. Response code: 429 - Retry after: {retry_after}")
+            logger.error(
+                f"Failed to fetch application external assets. Response code: 429 - Retry after: {retry_after}"
+            )
             return retry_after
-        logger.error(f"Failed to fetch application external assets. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch application external assets. Response code: {response.status}"
+        )
         connection.close()
         return None
-
 
     def get_file(self, url, save_path):
         """Download file from discord with proper header"""
@@ -630,17 +672,30 @@ class Discord():
         url_object = urllib.parse.urlparse(url)
         filename = os.path.basename(url_object.path)
         connection = self.get_connection(url_object.netloc, 443)
-        connection.request("GET", url_object.path + "?" + url_object.query, message_data, self.header)
+        connection.request(
+            "GET", url_object.path + "?" + url_object.query, message_data, self.header
+        )
         response = connection.getresponse()
-        extension = response.getheader("Content-Type").split("/")[-1].replace("jpeg", "jpg")
+        extension = (
+            response.getheader("Content-Type").split("/")[-1].replace("jpeg", "jpg")
+        )
         destination = os.path.join(save_path, filename)
         if os.path.splitext(destination)[-1] == "":
             destination = destination + "." + extension
         with open(destination, mode="wb") as file:
             file.write(response.read())
 
-
-    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None, stickers=None):
+    def send_message(
+        self,
+        channel_id,
+        message_text,
+        reply_id=None,
+        reply_channel_id=None,
+        reply_guild_id=None,
+        reply_ping=True,
+        attachments=None,
+        stickers=None,
+    ):
         """Send a message in the channel with reply with or without ping"""
         message_dict = {
             "content": message_text,
@@ -675,11 +730,13 @@ class Discord():
                         message_dict["channel_id"] = channel_id
                         message_dict.pop("tts")
                         message_dict.pop("flags")
-                    message_dict["attachments"].append({
-                        "id": len(message_dict["attachments"]),
-                        "filename": attachment["name"],
-                        "uploaded_filename": attachment["upload_filename"],
-                    })
+                    message_dict["attachments"].append(
+                        {
+                            "id": len(message_dict["attachments"]),
+                            "filename": attachment["name"],
+                            "uploaded_filename": attachment["upload_filename"],
+                        }
+                    )
         if stickers:
             message_dict["sticker_ids"] = stickers
         message_data = json.dumps(message_dict)
@@ -726,7 +783,6 @@ class Discord():
         connection.close()
         return None
 
-
     def send_update_message(self, channel_id, message_id, message_content):
         """Update the message in the channel"""
         message_data = json.dumps({"content": message_content})
@@ -744,10 +800,12 @@ class Discord():
             mentions = []
             if data["mentions"]:
                 for mention in data["mentions"]:
-                    mentions.append({
-                        "username": mention["username"],
-                        "id": mention["id"],
-                    })
+                    mentions.append(
+                        {
+                            "username": mention["username"],
+                            "id": mention["id"],
+                        }
+                    )
             return {
                 "id": data["id"],
                 "channel_id": data["channel_id"],
@@ -764,7 +822,6 @@ class Discord():
         connection.close()
         return None
 
-
     def send_delete_message(self, channel_id, message_id):
         """Delete the message from the channel"""
         message_data = None
@@ -777,20 +834,25 @@ class Discord():
             connection.close()
             return None
         if response.status != 204:
-            logger.error(f"Failed to delete the message. Response code: {response.status}")
+            logger.error(
+                f"Failed to delete the message. Response code: {response.status}"
+            )
             connection.close()
             return False
         connection.close()
         return True
 
-
     def send_ack(self, channel_id, message_id):
         """Send information that this channel has been seen up to this message"""
-        last_viewed = ceil((time.time() - DISCORD_EPOCH) / 86400)   # days since first second of 2015 (discord epoch)
-        message_data = json.dumps({
-            "last_viewed": last_viewed,
-            "token": None,
-        })
+        last_viewed = ceil(
+            (time.time() - DISCORD_EPOCH) / 86400
+        )  # days since first second of 2015 (discord epoch)
+        message_data = json.dumps(
+            {
+                "last_viewed": last_viewed,
+                "token": None,
+            }
+        )
         url = f"/api/v9/channels/{channel_id}/messages/{message_id}/ack"
         logger.debug("Sending message ack")
         try:
@@ -801,12 +863,13 @@ class Discord():
             connection.close()
             return None
         if response.status != 200:
-            logger.error(f"Failed to set the message as seen. Response code: {response.status}")
+            logger.error(
+                f"Failed to set the message as seen. Response code: {response.status}"
+            )
             connection.close()
             return False
         connection.close()
         return True
-
 
     def send_ack_bulk(self, channels):
         """
@@ -827,12 +890,13 @@ class Discord():
             return None
         if response.status != 204:
             logger.info(response.read())
-            logger.error(f"Failed to send bulk message ack. Response code: {response.status}")
+            logger.error(
+                f"Failed to send bulk message ack. Response code: {response.status}"
+            )
             connection.close()
             return False
         connection.close()
         return True
-
 
     def send_typing(self, channel_id):
         """Set '[username] is typing...' status on specified channel"""
@@ -852,7 +916,6 @@ class Discord():
         connection.close()
         return True
 
-
     def send_reaction(self, channel_id, message_id, reaction):
         """Send reaction to specified message"""
         encoded_reaction = urllib.parse.quote(reaction)
@@ -866,12 +929,13 @@ class Discord():
             connection.close()
             return None
         if response.status != 204:
-            logger.error(f"Failed to send reaction: {reaction}. Response code: {response.status}")
+            logger.error(
+                f"Failed to send reaction: {reaction}. Response code: {response.status}"
+            )
             connection.close()
             return False
         connection.close()
         return True
-
 
     def remove_reaction(self, channel_id, message_id, reaction):
         """Remove reaction from specified message"""
@@ -886,12 +950,13 @@ class Discord():
             connection.close()
             return None
         if response.status != 204:
-            logger.error(f"Failed to delete reaction: {reaction}. Response code: {response.status}")
+            logger.error(
+                f"Failed to delete reaction: {reaction}. Response code: {response.status}"
+            )
             connection.close()
             return False
         connection.close()
         return True
-
 
     def send_mute_guild(self, mute, guild_id):
         """Mute/unmute guild"""
@@ -922,10 +987,11 @@ class Discord():
         if response.status == 200:
             connection.close()
             return True
-        logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+        logger.error(
+            f"Failed to set guild mute config. Response code: {response.status}"
+        )
         connection.close()
         return False
-
 
     def send_mute_channel(self, mute, channel_id, guild_id):
         """Mute/unmute channel or category"""
@@ -962,10 +1028,11 @@ class Discord():
         if response.status == 200:
             connection.close()
             return True
-        logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+        logger.error(
+            f"Failed to set guild mute config. Response code: {response.status}"
+        )
         connection.close()
         return False
-
 
     def send_mute_dm(self, mute, dm_id):
         """Mute/unmute DM"""
@@ -1001,7 +1068,6 @@ class Discord():
         connection.close()
         return False
 
-
     def send_notification_setting_guild(self, setting, guild_id, value=None):
         """Send notification settings for guild"""
         guild_id = str(guild_id)
@@ -1035,10 +1101,11 @@ class Discord():
             if response.status == 200:
                 connection.close()
                 return True
-            logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+            logger.error(
+                f"Failed to set guild mute config. Response code: {response.status}"
+            )
             connection.close()
         return False
-
 
     def send_notification_setting_channel(self, setting, channel_id, guild_id):
         """Send notification settings for channel or category"""
@@ -1076,16 +1143,17 @@ class Discord():
             if response.status == 200:
                 connection.close()
                 return True
-            logger.error(f"Failed to set guild mute config. Response code: {response.status}")
+            logger.error(
+                f"Failed to set guild mute config. Response code: {response.status}"
+            )
             connection.close()
         return False
-
 
     def get_threads(self, channel_id, number=25, offset=0, archived=True):
         """Get specified number of threads with offset for one forum"""
         message_data = None
         url = f"/api/v9/channels/{channel_id}/threads/search?archived={archived}&sort_by=last_message_time&sort_order=desc&limit={number}&tag_setting=match_some&offset={offset}"
-        if offset == 0:   # check in cache
+        if offset == 0:  # check in cache
             for channel in self.threads:
                 if channel["channel_id"] == channel_id:
                     return len(channel["threads"]), channel["threads"]
@@ -1102,36 +1170,41 @@ class Discord():
             threads = []
             total = data["total_results"]
             for thread in data["threads"]:
-                threads.append({
-                    "id": thread["id"],
-                    "type": thread["type"],
-                    "owner_id": thread["owner_id"],
-                    "name": thread["name"],
-                    "locked": thread["thread_metadata"]["locked"],
-                    "message_count": thread["message_count"],
-                    "timestamp": thread["thread_metadata"]["create_timestamp"],
-                    "parent_id": thread["parent_id"],
-                    "suppress_everyone": False,   # no config for threads
-                    "suppress_roles": False,
-                    "message_notifications": None,
-                    "muted": False,   # muted and joined are in READY event
-                    "joined": False,
-                })
-            if offset == 0:   # save to cache
+                threads.append(
+                    {
+                        "id": thread["id"],
+                        "type": thread["type"],
+                        "owner_id": thread["owner_id"],
+                        "name": thread["name"],
+                        "locked": thread["thread_metadata"]["locked"],
+                        "message_count": thread["message_count"],
+                        "timestamp": thread["thread_metadata"]["create_timestamp"],
+                        "parent_id": thread["parent_id"],
+                        "suppress_everyone": False,  # no config for threads
+                        "suppress_roles": False,
+                        "message_notifications": None,
+                        "muted": False,  # muted and joined are in READY event
+                        "joined": False,
+                    }
+                )
+            if offset == 0:  # save to cache
                 for channel in self.threads:
                     if channel["channel_id"] == channel_id:
                         channel["threads"] = threads
                         break
                 else:
-                    self.threads.append({
-                        "channel_id": channel_id,
-                        "threads": threads,
-                    })
+                    self.threads.append(
+                        {
+                            "channel_id": channel_id,
+                            "threads": threads,
+                        }
+                    )
             return total, threads
-        logger.error(f"Failed to perform a thread search. Response code: {response.status}")
+        logger.error(
+            f"Failed to perform a thread search. Response code: {response.status}"
+        )
         connection.close()
         return 0, []
-
 
     def join_thread(self, thread_id):
         """Join a thread"""
@@ -1152,7 +1225,6 @@ class Discord():
         connection.close()
         return True
 
-
     def leave_thread(self, thread_id):
         """Leave a thread"""
         message_data = None
@@ -1172,8 +1244,19 @@ class Discord():
         connection.close()
         return True
 
-
-    def search(self, guild_id, content=None, channel_id=None, author_id=None, mentions=None, has=None, max_id=None, min_id=None, pinned=None, offset=None):
+    def search(
+        self,
+        guild_id,
+        content=None,
+        channel_id=None,
+        author_id=None,
+        mentions=None,
+        has=None,
+        max_id=None,
+        min_id=None,
+        pinned=None,
+        offset=None,
+    ):
         """
         Search in specified guild
         author_id   - (from) user_id
@@ -1199,7 +1282,19 @@ class Discord():
         if offset:
             offset = str(offset)
         offset = [offset]
-        for num, items in enumerate([content, channel_id, author_id, mentions, has, max_id, min_id, pinned, offset]):
+        for num, items in enumerate(
+            [
+                content,
+                channel_id,
+                author_id,
+                mentions,
+                has,
+                max_id,
+                min_id,
+                pinned,
+                offset,
+            ]
+        ):
             for item in items:
                 if item:
                     url += f"{SEARCH_PARAMS[num]}={urllib.parse.quote(item)}&"
@@ -1219,10 +1314,11 @@ class Discord():
             for message in data["messages"]:
                 messages.append(message[0])
             return total, prepare_messages(messages, have_channel_id=True)
-        logger.error(f"Failed to perform a message search. Response code: {response.status}")
+        logger.error(
+            f"Failed to perform a message search. Response code: {response.status}"
+        )
         connection.close()
         return 0, []
-
 
     def get_my_commands(self):
         """Get my app commands"""
@@ -1246,13 +1342,15 @@ class Discord():
             commands = []
             apps = []
             for app in applications:
-                apps.append({
-                    "app_id": app["id"],
-                    "name": app["name"],
-                })
+                apps.append(
+                    {
+                        "app_id": app["id"],
+                        "name": app["name"],
+                    }
+                )
 
             for command in data["application_commands"]:
-                if command["type"] == 1:   # only slash commands
+                if command["type"] == 1:  # only slash commands
                     for app in applications:
                         if app["id"] == command["application_id"]:
                             app_name = app["name"]
@@ -1275,10 +1373,11 @@ class Discord():
             self.my_commands = commands
             self.my_apps = apps
             return commands, apps
-        logger.error(f"Failed to fetch my application commands. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch my application commands. Response code: {response.status}"
+        )
         connection.close()
         return [], []
-
 
     def get_guild_commands(self, guild_id):
         """Get guild app commands"""
@@ -1303,14 +1402,16 @@ class Discord():
             commands = []
             apps = []
             for app in applications:
-                apps.append({
-                    "app_id": app["id"],
-                    "name": app["name"],
-                    "perms": app.get("permissions", {}),
-                })
+                apps.append(
+                    {
+                        "app_id": app["id"],
+                        "name": app["name"],
+                        "perms": app.get("permissions", {}),
+                    }
+                )
 
             for command in data["application_commands"]:
-                if command["type"] == 1:   # only slash commands
+                if command["type"] == 1:  # only slash commands
                     for app in applications:
                         if app["id"] == command["application_id"]:
                             app_name = app["name"]
@@ -1327,21 +1428,36 @@ class Discord():
                     if command.get("permissions"):
                         ready_command["permissions"] = command.get("permissions")
                     if command.get("default_member_permissions"):
-                        ready_command["default_member_permissions"] = command.get("default_member_permissions")
+                        ready_command["default_member_permissions"] = command.get(
+                            "default_member_permissions"
+                        )
                     commands.append(ready_command)
 
-            self.guild_commands.append({
-                "guild_id": guild_id,
-                "commands": commands,
-                "apps": apps,
-            })
+            self.guild_commands.append(
+                {
+                    "guild_id": guild_id,
+                    "commands": commands,
+                    "apps": apps,
+                }
+            )
             return commands, apps
-        logger.error(f"Failed to fetch guild application commands. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch guild application commands. Response code: {response.status}"
+        )
         connection.close()
         return [], []
 
-
-    def send_interaction(self, guild_id, channel_id, session_id, app_id, interaction_type, interaction_data, attachments, message_id=None):
+    def send_interaction(
+        self,
+        guild_id,
+        channel_id,
+        session_id,
+        app_id,
+        interaction_type,
+        interaction_data,
+        attachments,
+        message_id=None,
+    ):
         """
         Send app interaction
         Known types:
@@ -1352,11 +1468,13 @@ class Discord():
         if attachments:
             for attachment in attachments:
                 if attachment["upload_url"]:
-                    interaction_data["attachments"].append({
-                        "id": len(interaction_data["attachments"]),
-                        "filename": attachment["name"],
-                        "uploaded_filename": attachment["upload_filename"],
-                    })
+                    interaction_data["attachments"].append(
+                        {
+                            "id": len(interaction_data["attachments"]),
+                            "filename": attachment["name"],
+                            "uploaded_filename": attachment["upload_filename"],
+                        }
+                    )
         message_dict = {
             "type": interaction_type,
             "application_id": app_id,
@@ -1382,10 +1500,11 @@ class Discord():
         if response.status == 204:
             connection.close()
             return True
-        logger.error(f"Failed to send app interaction. Response code: {response.status}")
+        logger.error(
+            f"Failed to send app interaction. Response code: {response.status}"
+        )
         connection.close()
         return None
-
 
     def send_vote(self, channel_id, message_id, vote_ids, clear=False):
         """Send poll vote or clear my existing votes"""
@@ -1408,7 +1527,6 @@ class Discord():
         connection.close()
         return True
 
-
     def get_pinned(self, channel_id):
         """Get pinned messages for specified channel"""
         message_data = None
@@ -1427,7 +1545,6 @@ class Discord():
         logger.error(f"Failed to get pinned messages. Response code: {response.status}")
         connection.close()
         return None
-
 
     def send_pin(self, channel_id, message_id):
         """Send what message should be pinned in specified channel"""
@@ -1448,7 +1565,6 @@ class Discord():
         connection.close()
         return True
 
-
     def search_gifs(self, query):
         """Search gifs from query and return their links with preview"""
         message_data = None
@@ -1466,16 +1582,19 @@ class Discord():
             connection.close()
             gifs = []
             for gif in data:
-                gifs.append({
-                    "url": gif["url"],
-                    "webm": gif["src"],
-                    "gif": gif["gif_src"],
-                })
+                gifs.append(
+                    {
+                        "url": gif["url"],
+                        "webm": gif["src"],
+                        "gif": gif["gif_src"],
+                    }
+                )
             return gifs
-        logger.error(f"Failed to perform a gif search. Response code: {response.status}")
+        logger.error(
+            f"Failed to perform a gif search. Response code: {response.status}"
+        )
         connection.close()
         return []
-
 
     def request_attachment_link(self, channel_id, path, custom_name=None):
         """
@@ -1490,14 +1609,18 @@ class Discord():
             filename = custom_name
         else:
             filename = os.path.basename(path)
-        message_data = json.dumps({
-            "files": [{
-                "file_size": peripherals.get_file_size(path),
-                "filename": filename,
-                "id": None,   # should not be None, but works
-                "is_clip": peripherals.get_is_clip(path),
-            }],
-        })
+        message_data = json.dumps(
+            {
+                "files": [
+                    {
+                        "file_size": peripherals.get_file_size(path),
+                        "filename": filename,
+                        "id": None,  # should not be None, but works
+                        "is_clip": peripherals.get_is_clip(path),
+                    }
+                ],
+            }
+        )
         url = f"/api/v9/channels/{channel_id}/attachments"
         try:
             connection = self.get_connection(self.host, 443)
@@ -1513,11 +1636,12 @@ class Discord():
         if response.status == 413:
             logger.warn("Failed to get attachment upload link: 413 - File too large.")
             connection.close()
-            return None, 2   # file too large
-        logger.error(f"Failed to get attachment upload link. Response code: {response.status}")
+            return None, 2  # file too large
+        logger.error(
+            f"Failed to get attachment upload link. Response code: {response.status}"
+        )
         connection.close()
         return None, 1
-
 
     def upload_attachment(self, upload_url, path):
         """
@@ -1548,10 +1672,11 @@ class Discord():
                 connection.close()
                 return True
             # discord client is also performing OPTIONS request, idk why, not needed here
-            logger.error(f"Failed to upload attachment. Response code: {response.status}")
+            logger.error(
+                f"Failed to upload attachment. Response code: {response.status}"
+            )
             connection.close()
             return False
-
 
     def cancel_uploading(self, url=None):
         """Stop specified upload, or all running uploads"""
@@ -1569,7 +1694,6 @@ class Discord():
                 except Exception:
                     logger.debug("Cancel upload: upload socket already closed.")
                 self.uploading.remove(upload)
-
 
     def cancel_attachment(self, attachment_name):
         """Cancel uploaded attachments"""
@@ -1589,20 +1713,31 @@ class Discord():
         if response.status == 429:
             # discord usually returns 429 for this request, but original client does not retry after some time
             # so this wont retry either, file wont be sent in the message anyway
-            logger.debug("Failed to delete attachment. Response code: 429 - Too Many Requests")
+            logger.debug(
+                "Failed to delete attachment. Response code: 429 - Too Many Requests"
+            )
             connection.close()
             return True
         logger.error(f"Failed to delete attachment. Response code: {response.status}")
         connection.close()
         return None
 
-
-    def send_voice_message(self, channel_id, path, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=None):
+    def send_voice_message(
+        self,
+        channel_id,
+        path,
+        reply_id=None,
+        reply_channel_id=None,
+        reply_guild_id=None,
+        reply_ping=None,
+    ):
         """Send voice message from file path, file must be ogg"""
         waveform, duration = peripherals.get_audio_waveform(path)
         if not duration:
             logger.warn(f"Couldn't read voice message file: {path}")
-        upload_data, status = self.request_attachment_link(channel_id, path, custom_name="voice-message.ogg")
+        upload_data, status = self.request_attachment_link(
+            channel_id, path, custom_name="voice-message.ogg"
+        )
         if status != 0:
             logger.warn("Cant send voice message, attachment error")
         uploaded = self.upload_attachment(upload_data["upload_url"], path)
@@ -1611,13 +1746,15 @@ class Discord():
         message_dict = {
             "channel_id": channel_id,
             "content": "",
-            "attachments": [{
-                "id": "0",
-                "filename": "voice-message.ogg",
-                "uploaded_filename": upload_data["upload_filename"],
-                "duration_secs": duration,
-                "waveform": waveform,
-            }],
+            "attachments": [
+                {
+                    "id": "0",
+                    "filename": "voice-message.ogg",
+                    "uploaded_filename": upload_data["upload_filename"],
+                    "duration_secs": duration,
+                    "waveform": waveform,
+                }
+            ],
             "message_reference": None,
             "flags": 8192,
             "type": 0,
@@ -1657,7 +1794,6 @@ class Discord():
         connection.close()
         return False
 
-
     def get_pfp(self, user_id, pfp_id, size=80):
         """Download pfp for specified user"""
         message_data = None
@@ -1676,7 +1812,9 @@ class Discord():
             connection.close()
             return None
         if response.status == 200:
-            destination = os.path.join(os.path.expanduser(peripherals.temp_path), f"{pfp_id}.webp")
+            destination = os.path.join(
+                os.path.expanduser(peripherals.temp_path), f"{pfp_id}.webp"
+            )
             with open(destination, "wb") as f:
                 f.write(response.read())
             connection.close()
@@ -1685,13 +1823,14 @@ class Discord():
         connection.close()
         return None
 
-
     def get_my_standing(self):
         """Get my account standing"""
         message_data = None
         try:
             connection = self.get_connection(self.host, 443)
-            connection.request("GET", "/api/v9/safety-hub/@me", message_data, self.header)
+            connection.request(
+                "GET", "/api/v9/safety-hub/@me", message_data, self.header
+            )
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
@@ -1700,6 +1839,8 @@ class Discord():
             data = json.loads(response.read())
             connection.close()
             return data["account_standing"]["state"]
-        logger.error(f"Failed to fetch account standing. Response code: {response.status}")
+        logger.error(
+            f"Failed to fetch account standing. Response code: {response.status}"
+        )
         connection.close()
         return None

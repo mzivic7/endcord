@@ -7,7 +7,7 @@ from urllib3.contrib.socks import SOCKSProxyManager
 
 from endcord import peripherals
 
-CHUNK_SIZE = 1024 * 1024   # load max 1MB data in RAM when downloading
+CHUNK_SIZE = 1024 * 1024  # load max 1MB data in RAM when downloading
 logger = logging.getLogger(__name__)
 
 
@@ -33,11 +33,15 @@ class Downloader:
         self.active = 0
         self.proxy = proxy
 
-
     def download(self, url):
         """Thread that downloads file and stores it in temp folder"""
         if not os.path.exists(os.path.expanduser(peripherals.temp_path)):
-            os.makedirs(os.path.expanduser(os.path.dirname(os.path.expanduser(peripherals.temp_path))), exist_ok=True)
+            os.makedirs(
+                os.path.expanduser(
+                    os.path.dirname(os.path.expanduser(peripherals.temp_path))
+                ),
+                exist_ok=True,
+            )
         url_object = urllib.parse.urlparse(url)
         filename = os.path.basename(url_object.path)
         proxy = urllib.parse.urlparse(self.proxy)
@@ -51,7 +55,11 @@ class Downloader:
             if proxy.scheme:
                 logger.warn("Invalid proxy, continuing without proxy")
         response = http.request("GET", url, preload_content=False)
-        extension = response.headers.get("Content-Type", None).split("/")[-1].replace("jpeg", "jpg")
+        extension = (
+            response.headers.get("Content-Type", None)
+            .split("/")[-1]
+            .replace("jpeg", "jpg")
+        )
         destination = os.path.join(os.path.expanduser(peripherals.temp_path), filename)
         if os.path.splitext(destination)[-1] == "" and extension:
             destination = destination + "." + extension

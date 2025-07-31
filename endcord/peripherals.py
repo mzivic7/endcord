@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 match_split = re.compile(r"[^\w']")
 APP_NAME = "endcord"
-ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
-NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification sound
+ASPELL_TIMEOUT = 0.1  # aspell limit for looking-up one word
+NO_NOTIFY_SOUND_DE = ("kde", "plasma")  # linux desktops without notification sound
 
 # get speaker
 try:
@@ -39,6 +39,7 @@ except Exception:
 if sys.platform == "win32":
     import win32clipboard
     from windows_toasts import Toast, WindowsToaster
+
     toaster = WindowsToaster(APP_NAME)
 if sys.platform == "linux":
     have_gdbus = shutil.which("gdbus")
@@ -46,7 +47,9 @@ if sys.platform == "linux":
     # if this DE has no notification sound, try to get fallback sound
     no_notify_sound = False
     fallback_notification_sound = None
-    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "") or os.environ.get("DESKTOP_SESSION", "")
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "") or os.environ.get(
+        "DESKTOP_SESSION", ""
+    )
     if desktop.lower() in NO_NOTIFY_SOUND_DE:
         no_notify_sound = True
         path = "/usr/share/sounds/freedesktop/stereo"
@@ -86,10 +89,19 @@ if sys.platform == "linux":
     else:
         downloads_path = "~/Downloads/"
 elif sys.platform == "win32":
-    config_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
-    log_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME}/"), "")
-    temp_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/Temp/{APP_NAME}/"), "")
-    downloads_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/Downloads/"), "")
+    config_path = os.path.join(
+        os.path.normpath(f"{os.environ['USERPROFILE']}/AppData/Local/{APP_NAME}/"), ""
+    )
+    log_path = os.path.join(
+        os.path.normpath(f"{os.environ['USERPROFILE']}/AppData/Local/{APP_NAME}/"), ""
+    )
+    temp_path = os.path.join(
+        os.path.normpath(f"{os.environ['USERPROFILE']}/AppData/Local/Temp/{APP_NAME}/"),
+        "",
+    )
+    downloads_path = os.path.join(
+        os.path.normpath(f"{os.environ['USERPROFILE']}/Downloads/"), ""
+    )
 elif sys.platform == "darwin":
     config_path = f"~/Library/Application Support/{APP_NAME}/"
     log_path = f"~/Library/Application Support/{APP_NAME}/"
@@ -125,7 +137,9 @@ def save_config(path, data, section):
     if not config.has_section(section):
         config.add_section(section)
     for key in data:
-        if data[key] in (True, False, None) or isinstance(data[key], (list, tuple, int, float)):
+        if data[key] in (True, False, None) or isinstance(
+            data[key], (list, tuple, int, float)
+        ):
             config.set(section, key, str(data[key]))
         else:
             config.set(section, key, f'"{str(data[key]).replace("\\", "\\\\")}"')
@@ -158,7 +172,9 @@ def load_config(path, default, section="main", gen_config=False):
         for key in default:
             if key in list(config[section].keys()):
                 try:
-                    eval_value = literal_eval(config_data_raw[key].replace("\\", "\\\\"))
+                    eval_value = literal_eval(
+                        config_data_raw[key].replace("\\", "\\\\")
+                    )
                     config_data[key] = eval_value
                 except ValueError:
                     config_data[key] = config_data_raw[key]
@@ -195,7 +211,9 @@ def merge_configs(custom_config_path, theme_path):
     if not theme_path and config["theme"]:
         theme_path = os.path.expanduser(config["theme"])
     saved_themes = get_themes()
-    theme = load_config(custom_config_path, defaults.theme, section="theme", gen_config=gen_config)
+    theme = load_config(
+        custom_config_path, defaults.theme, section="theme", gen_config=gen_config
+    )
     theme["theme_path"] = None
     if theme_path:
         # if path is only file name without extension
@@ -216,11 +234,13 @@ def merge_configs(custom_config_path, theme_path):
 
 def convert_keybindings(keybindings):
     """Convert keybinding codes to os-specific codes"""
-    if sys.platform == "win32":   # windows has different codes for Alt+Key
+    if sys.platform == "win32":  # windows has different codes for Alt+Key
         for key, value in keybindings.items():
             if isinstance(value, str):
-                keybindings[key] = re.sub(r"ALT\+(\d+)", lambda m: str(int(m.group(1)) + 320), value)
-    elif os.environ.get("TERM", "") == "xterm":   # xterm has different codes for Alt+Key
+                keybindings[key] = re.sub(
+                    r"ALT\+(\d+)", lambda m: str(int(m.group(1)) + 320), value
+                )
+    elif os.environ.get("TERM", "") == "xterm":  # xterm has different codes for Alt+Key
         # for ALT+Key it actually sends 195 then Key+64
         # but this is simpler since key should already be uniquely shifted
         for key, value in keybindings.items():
@@ -268,7 +288,7 @@ def collapseuser(path):
     abs_path = os.path.abspath(path)
     home = os.path.abspath(home)
     if abs_path.startswith(home):
-        return "~" + abs_path[len(home):]
+        return "~" + abs_path[len(home) :]
     return path
 
 
@@ -287,33 +307,55 @@ def notify_send(title, message, sound="message", custom_sound=None):
     """Send simple notification containing title and message. Cross platform."""
     if sys.platform == "linux":
         if custom_sound:
-            threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
+            threading.Thread(
+                target=play_audio, daemon=True, args=(custom_sound,)
+            ).start()
             include_sound = []
         elif no_notify_sound and fallback_notification_sound and have_notify_send:
-            threading.Thread(target=play_audio, daemon=True, args=(fallback_notification_sound, )).start()
+            threading.Thread(
+                target=play_audio, daemon=True, args=(fallback_notification_sound,)
+            ).start()
             include_sound = []
         else:
             include_sound = ["-h", f"string:sound-name:{sound}"]
         if have_notify_send:
-            command = ["notify-send", "-p", "--app-name", APP_NAME, *include_sound, title, message]
+            command = [
+                "notify-send",
+                "-p",
+                "--app-name",
+                APP_NAME,
+                *include_sound,
+                title,
+                message,
+            ]
             proc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
-            return int(proc.communicate()[0].decode().strip("\n"))   # return notification id
+            return int(
+                proc.communicate()[0].decode().strip("\n")
+            )  # return notification id
         return None
     if sys.platform == "win32":
         if custom_sound:
-            threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
+            threading.Thread(
+                target=play_audio, daemon=True, args=(custom_sound,)
+            ).start()
         notification = Toast()
         notification.text_fields = [message]
         toaster.show_toast(notification)
     elif sys.platform == "darwin":
         if custom_sound:
-            threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
-        command = ["osascript", "-e", f"'display notification \"{message}\" with title \"{title}\"'"]
+            threading.Thread(
+                target=play_audio, daemon=True, args=(custom_sound,)
+            ).start()
+        command = [
+            "osascript",
+            "-e",
+            f'\'display notification "{message}" with title "{title}"\'',
+        ]
         _ = subprocess.Popen(
             command,
             stdout=subprocess.DEVNULL,
@@ -325,7 +367,18 @@ def notify_send(title, message, sound="message", custom_sound=None):
 def notify_remove(notification_id):
     """Removes notification by its id. Linux only."""
     if sys.platform == "linux" and have_gdbus:
-        command = ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications", "--object-path", "/org/freedesktop/Notifications", "--method", "org.freedesktop.Notifications.CloseNotification", str(notification_id)]
+        command = [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.freedesktop.Notifications",
+            "--object-path",
+            "/org/freedesktop/Notifications",
+            "--method",
+            "org.freedesktop.Notifications.CloseNotification",
+            str(notification_id),
+        ]
         _ = subprocess.Popen(
             command,
             stdout=subprocess.DEVNULL,
@@ -438,11 +491,11 @@ def get_audio_waveform(path):
     with soundfile.SoundFile(path) as audio_file:
         data = audio_file.read()
         if data.ndim > 1:
-            data = data[:, 0]   # select only one stream
+            data = data[:, 0]  # select only one stream
         duration = len(data) / audio_file.samplerate
         chunk_num = min(max(int(duration * 10), 32), 256)
         chunk_size = int(len(data) / chunk_num)
-        reshaped = data[:len(data) - len(data) % chunk_size].reshape(-1, chunk_size)
+        reshaped = data[: len(data) - len(data) % chunk_size].reshape(-1, chunk_size)
         rms_samples = np.sqrt(np.mean(reshaped**2, axis=1))
         normalized = (rms_samples / rms_samples.max()) * 255
         waveform = base64.b64encode(normalized.astype(np.uint8)).decode("utf-8")
@@ -477,7 +530,9 @@ def find_aspell():
         aspell_path = None
         for name in os.listdir("C:\\Program Files (x86)\\"):
             if "Aspell" in name:
-                aspell_path = os.path.join("C:\\Program Files (x86)\\", name, "bin\\aspell.exe")
+                aspell_path = os.path.join(
+                    "C:\\Program Files (x86)\\", name, "bin\\aspell.exe"
+                )
                 if not os.path.exists(aspell_path):
                     aspell_path = None
                 break
@@ -485,14 +540,19 @@ def find_aspell():
     logger.info("Spellchecking not supported on this platform")
 
 
-class SpellCheck():
+class SpellCheck:
     """Sentence and word spellchecker"""
 
     def __init__(self, aspell_mode, aspell_language):
         self.aspell_mode = aspell_mode
         self.aspell_language = aspell_language
         self.enable = False
-        self.command = ["aspell", "-a", f"--sug-mode={aspell_mode}", f"--lang={aspell_language}"]
+        self.command = [
+            "aspell",
+            "-a",
+            f"--sug-mode={aspell_mode}",
+            f"--lang={aspell_language}",
+        ]
         if aspell_mode:
             aspell_path = find_aspell()
             if aspell_path:
@@ -504,11 +564,13 @@ class SpellCheck():
         else:
             logger.info("Spellchecking disabled in config")
 
-
     def start_aspell(self):
         """Start aspell with selected mode and language"""
         # cross platform replacement for pexpect.spawn() because aspell works with it
-        self.proc = pexpect.popen_spawn.PopenSpawn(f"{self.aspell_path} -a --sug-mode={self.aspell_mode} --lang={self.aspell_language}", encoding="utf-8")
+        self.proc = pexpect.popen_spawn.PopenSpawn(
+            f"{self.aspell_path} -a --sug-mode={self.aspell_mode} --lang={self.aspell_language}",
+            encoding="utf-8",
+        )
         self.proc.delaybeforesend = None
         try:
             self.proc.expect("Ispell", timeout=0.5)
@@ -516,7 +578,6 @@ class SpellCheck():
         except pexpect.exceptions.EOF:
             logger.info("Aspell initialization error")
             self.enable = False
-
 
     def check_word_pexpect(self, word):
         """Spellcheck single word with aspell"""
@@ -528,13 +589,12 @@ class SpellCheck():
                 return True
             return False
         except pexpect.exceptions.TIMEOUT:
-            return True   # if timed-out return it as correct
+            return True  # if timed-out return it as correct
         except pexpect.exceptions.EOF as e:
             logger.info(e)
             if self.enable:
                 self.start_aspell()
                 return False
-
 
     def check_word_subprocess(self, word):
         """Spellcheck single word with aspell"""
@@ -550,9 +610,8 @@ class SpellCheck():
             if check == "*":
                 return False
             return True
-        except FileNotFoundError:   # aspell not installed
+        except FileNotFoundError:  # aspell not installed
             return False
-
 
     def check_sentence(self, sentence):
         """
@@ -569,7 +628,6 @@ class SpellCheck():
                     misspelled.append(self.check_word_pexpect(word))
         return misspelled
 
-
     def check_list(self, words):
         """
         Spellcheck a a list of words with aspell.
@@ -582,19 +640,22 @@ class SpellCheck():
                     misspelled.append(False)
                 else:
                     # regex here might cause troubles with non-latin characters
-                    misspelled.append(self.check_word_pexpect(re.sub(match_first_non_alfanumeric, "", word)))
+                    misspelled.append(
+                        self.check_word_pexpect(
+                            re.sub(match_first_non_alfanumeric, "", word)
+                        )
+                    )
         else:
             return [False] * len(words)
         return misspelled
 
 
-class Recorder():
+class Recorder:
     """Sound recorder"""
 
     def __init__(self):
         self.recording = False
         self.audio_data = []
-
 
     def record(self):
         """Continuously record audio"""
@@ -607,14 +668,13 @@ class Recorder():
             return
         with mic.recorder(samplerate=48000, channels=1) as rec:
             while self.recording:
-                if timer >= 600:   # 10min limit
+                if timer >= 600:  # 10min limit
                     del self.audio_data
                     self.recording = False
                     break
                 data = rec.record(numframes=48000)
                 self.audio_data.append(data)
                 timer += 1
-
 
     def start(self):
         """Start continuously recording audio"""
@@ -624,7 +684,6 @@ class Recorder():
             self.record_thread = threading.Thread(target=self.record, daemon=True)
             self.record_thread.start()
 
-
     def stop(self):
         """Stop recording audio and return file path"""
         if self.recording:
@@ -632,6 +691,8 @@ class Recorder():
             self.record_thread.join()
             self.audio_data = np.concatenate(self.audio_data, axis=0)
             save_path = os.path.join(temp_path, "rec-audio-message.ogg")
-            soundfile.write(save_path, self.audio_data, 48000, format="OGG", subtype="OPUS")
+            soundfile.write(
+                save_path, self.audio_data, 48000, format="OGG", subtype="OPUS"
+            )
             del self.audio_data
             return save_path

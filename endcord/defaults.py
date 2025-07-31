@@ -120,9 +120,20 @@ theme = {
     "color_tree_unseen": [255, -1, "b"],
     "color_tree_mentioned": [197, -1],
     "color_tree_active_mentioned": [197, 234],
-    "color_format_message": [[-1, -1], [242, -2, 0, 0, 7], [25, -2, 0, 8, 9], [25, -2, 0, 19, 20]],
+    "color_format_message": [
+        [-1, -1],
+        [242, -2, 0, 0, 7],
+        [25, -2, 0, 8, 9],
+        [25, -2, 0, 19, 20],
+    ],
     "color_format_newline": None,
-    "color_format_reply": [[245, -1], [67, -2, 0, 0, 7], [25, -2, 0, 8, 9], [25, -2, 0, 19, 20], [-1, -2, 0, 21, 27]],
+    "color_format_reply": [
+        [245, -1],
+        [67, -2, 0, 0, 7],
+        [25, -2, 0, 8, 9],
+        [25, -2, 0, 19, 20],
+        [-1, -2, 0, 21, 27],
+    ],
     "color_format_reactions": [[245, -1], [131, -2, 0, 0, 7], [-1, -2, 0, 23, 27]],
     "color_format_forum": [[-1, -1], [242, -2, 0, 0, 12], [25, -2, 0, 15, 20]],
     "color_chat_edited": [241, -1],
@@ -139,87 +150,87 @@ theme = {
 
 keybindings = {
     # tree
-    "tree_up": 575,   # Ctrl+Up
-    "tree_down": 534,   # Ctrl+Donw
-    "tree_select": 0,   # Ctrl+Space
-    "tree_collapse_threads": "ALT+101",   # Alt+E
-    "tree_join_thread": "ALT+106",   # Alt+J
-    "channel_info": "ALT+105",   # Alt+I
-    "copy_channel_link": "ALT+85",   # Alt+Shift+U
+    "tree_up": 575,  # Ctrl+Up
+    "tree_down": 534,  # Ctrl+Donw
+    "tree_select": 0,  # Ctrl+Space
+    "tree_collapse_threads": "ALT+101",  # Alt+E
+    "tree_join_thread": "ALT+106",  # Alt+J
+    "channel_info": "ALT+105",  # Alt+I
+    "copy_channel_link": "ALT+85",  # Alt+Shift+U
     # input line
-    "word_left": 554,   # Ctrl+Left
-    "word_right": 569,   # Ctrl+Right
-    "insert_newline": 14,   # Ctrl+N
-    "undo": "ALT+122",   # Alt+Z
-    "redo": "ALT+90",   # Alt+Shift+Z
-    "select_left": 393,   # Shift+Left
-    "select_right": 402,   # Shift+Right
-    "select_word_left": 555,   # Ctrl+Shift+Left
-    "select_word_right": 570,   # Ctrl+Shift+Right
-    "select_all": "ALT+97",   # Alt+A
-    "copy_sel": "ALT+99",   # Alt+C
-    "cut_sel": "ALT+120",   # Alt+X
+    "word_left": 554,  # Ctrl+Left
+    "word_right": 569,  # Ctrl+Right
+    "insert_newline": 14,  # Ctrl+N
+    "undo": "ALT+122",  # Alt+Z
+    "redo": "ALT+90",  # Alt+Shift+Z
+    "select_left": 393,  # Shift+Left
+    "select_right": 402,  # Shift+Right
+    "select_word_left": 555,  # Ctrl+Shift+Left
+    "select_word_right": 570,  # Ctrl+Shift+Right
+    "select_all": "ALT+97",  # Alt+A
+    "copy_sel": "ALT+99",  # Alt+C
+    "cut_sel": "ALT+120",  # Alt+X
     # chat
-    "reply": 18,   # Ctrl+R
-    "edit": 5,   # Ctrl+E
-    "delete": 4,   # Ctrl+D
-    "toggle_ping": 16,   # Ctrl+P
-    "scroll_bottom": 2,   # Ctrl+B
-    "go_replied": 7,   # Ctrl+G
-    "download": 23,   # Ctrl+W
-    "upload": 21,   # Ctrl+U
-    "browser": 15,   # Ctrl+O
-    "copy_msg": 8,   # Ctrl+H
-    "view_media": 22,   # Ctrl+V
-    "spoil": "ALT+116",   # Alt+T
-    "search": 6,   # Ctrl+F
-    "profile_info": "ALT+112",   # Alt+P
-    "show_summaries": "ALT+115",   # Alt+S
-    "copy_message_link": "ALT+117",   # Alt+U
-    "go_channel": "ALT+103",   # Alt+G
-    "add_reaction": "12",   # Ctrl+L
-    "search_gif": "ALT+102",   # Alt+F
-    "record_audio": "ALT+114",   # Alt+R
-    "show_reactions": "ALT+119",   # Alt+W
-    "show_pinned": "ALT+110",   # Alt+N
+    "reply": 18,  # Ctrl+R
+    "edit": 5,  # Ctrl+E
+    "delete": 4,  # Ctrl+D
+    "toggle_ping": 16,  # Ctrl+P
+    "scroll_bottom": 2,  # Ctrl+B
+    "go_replied": 7,  # Ctrl+G
+    "download": 23,  # Ctrl+W
+    "upload": 21,  # Ctrl+U
+    "browser": 15,  # Ctrl+O
+    "copy_msg": 8,  # Ctrl+H
+    "view_media": 22,  # Ctrl+V
+    "spoil": "ALT+116",  # Alt+T
+    "search": 6,  # Ctrl+F
+    "profile_info": "ALT+112",  # Alt+P
+    "show_summaries": "ALT+115",  # Alt+S
+    "copy_message_link": "ALT+117",  # Alt+U
+    "go_channel": "ALT+103",  # Alt+G
+    "add_reaction": "12",  # Ctrl+L
+    "search_gif": "ALT+102",  # Alt+F
+    "record_audio": "ALT+114",  # Alt+R
+    "show_reactions": "ALT+119",  # Alt+W
+    "show_pinned": "ALT+110",  # Alt+N
     # extra line
-    "attach_prev": "ALT+552",   # Alt+Left
-    "attach_next": "ALT+567",   # Alt+Right
-    "attach_cancel": 11,   # Ctrl+K
+    "attach_prev": "ALT+552",  # Alt+Left
+    "attach_next": "ALT+567",  # Alt+Right
+    "attach_cancel": 11,  # Ctrl+K
     # extra window
-    "extra_up": 573,   # Alt+Up
-    "extra_down": 532,   # Alt+Down
-    "extra_select": "ALT+10",   # Alt+Enter
-    "preview_upload": "ALT+118",   # Alt+V
+    "extra_up": 573,  # Alt+Up
+    "extra_down": 532,  # Alt+Down
+    "extra_select": "ALT+10",  # Alt+Enter
+    "preview_upload": "ALT+118",  # Alt+V
     # media
-    "media_pause": 32,   # C
-    "media_replay": 122,   # Z
-    "media_seek_forward": 261,   # Right
-    "media_seek_backward": 260,   # Left
+    "media_pause": 32,  # C
+    "media_replay": 122,  # Z
+    "media_seek_forward": 261,  # Right
+    "media_seek_backward": 260,  # Left
     # other
-    "cancel": 24,   # Ctrl+X
-    "forum_join_thread": "ALT+107",   # Alt+K
-    "cycle_status": "ALT+100",   # Alt+D
-    "toggle_member_list": "ALT+109",   # Alt+M
-    "toggle_tab": 20,   # Ctrl+T
-    "switch_tab_modifier": "ALT+NUM",   # Alt+Num
-    "command_palette": 31,   # Ctrl+/
+    "cancel": 24,  # Ctrl+X
+    "forum_join_thread": "ALT+107",  # Alt+K
+    "cycle_status": "ALT+100",  # Alt+D
+    "toggle_member_list": "ALT+109",  # Alt+M
+    "toggle_tab": 20,  # Ctrl+T
+    "switch_tab_modifier": "ALT+NUM",  # Alt+Num
+    "command_palette": 31,  # Ctrl+/
 }
 
 
 windows_override_keybindings = {
-    "tree_up": 480,   # Ctrl+Up
-    "tree_down": 481,   # Ctrl+Donw
-    "tree_select": 1,   # Ctrl+A
-    "word_left": 443,   # Ctrl+Left
-    "word_right": 444,   # Ctrl+Right
-    "copy_msg": "ALT+108",   # Alt+L
-    "view_media": "ALT+121",   # Alt+Y
+    "tree_up": 480,  # Ctrl+Up
+    "tree_down": 481,  # Ctrl+Donw
+    "tree_select": 1,  # Ctrl+A
+    "word_left": 443,  # Ctrl+Left
+    "word_right": 444,  # Ctrl+Right
+    "copy_msg": "ALT+108",  # Alt+L
+    "view_media": "ALT+121",  # Alt+Y
 }
 
 
 macos_override_keybindings = {
-    "tree_up": 337,   # Shift+Up
-    "tree_down": 336,   # Shift+Donw
-    "browser": "ALT+111",   # Alt+O
+    "tree_up": 337,  # Shift+Up
+    "tree_down": 336,  # Shift+Donw
+    "browser": "ALT+111",  # Alt+O
 }

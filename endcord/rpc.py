@@ -13,19 +13,21 @@ if sys.platform == "win32":
     import win32pipe
 
 
-GATEWAY_RATE_LIMIT = 5   # delay between each event that rpc server will send to discord
-GATEWAY_RATE_LIMIT_SAME = 60   # dely between each same activity that rpc server will send to discord
-REQUEST_DELAY = 1.5   # delay to decrease error 429 - too many requests
+GATEWAY_RATE_LIMIT = 5  # delay between each event that rpc server will send to discord
+GATEWAY_RATE_LIMIT_SAME = (
+    60  # dely between each same activity that rpc server will send to discord
+)
+REQUEST_DELAY = 1.5  # delay to decrease error 429 - too many requests
 logger = logging.getLogger(__name__)
 if sys.platform == "linux":
     DISCORD_SOCKET = f"/run/user/{os.getuid()}/discord-ipc-0"
 else:
     DISCORD_SOCKET = ""
 DISCORD_WIN_PIPE = r"\\?\pipe\discord-ipc-0"
-DISCORD_ASSETS_WHITELIST = (   # assets passed from RPC app to discord as text
+DISCORD_ASSETS_WHITELIST = (  # assets passed from RPC app to discord as text
     "large_text",
     "small_text",
-    "large_image",   # external images are text
+    "large_image",  # external images are text
     "small_image",
 )
 
@@ -127,15 +129,20 @@ class RPC:
 
         # start server thread
         if sys.platform == "win32":
-            self.rpc_thread = threading.Thread(target=self.server_thread_win, daemon=True, args=())
+            self.rpc_thread = threading.Thread(
+                target=self.server_thread_win, daemon=True, args=()
+            )
             self.rpc_thread.start()
         elif sys.platform == "linux":
-            self.rpc_thread = threading.Thread(target=self.server_thread_linux, daemon=True, args=())
+            self.rpc_thread = threading.Thread(
+                target=self.server_thread_linux, daemon=True, args=()
+            )
             self.rpc_thread.start()
         else:
-            logger.warn(f"RPC server cannot be started on this platform: {sys.platform}")
+            logger.warn(
+                f"RPC server cannot be started on this platform: {sys.platform}"
+            )
             return
-
 
     def build_response(self, data):
         """Build response to RPC client, which is usually just echo"""
@@ -157,12 +164,11 @@ class RPC:
             }
         return response
 
-
     def client_thread(self, connection):
         """Thread that handles receiving and sending data from one client"""
         app_id = None
 
-        try:   # lets keep server running even if there is error in one thread
+        try:  # lets keep server running even if there is error in one thread
             logger.info("RPC client connected")
             op, init_data = receive_data(connection)
             if op is None or init_data is None:
@@ -183,7 +189,10 @@ class RPC:
 
                     if data["cmd"] == "SET_ACTIVITY":
                         # prevent sending same activity too often
-                        if data["args"]["activity"] == prev_activity and time.time() - sent_time < GATEWAY_RATE_LIMIT_SAME:
+                        if (
+                            data["args"]["activity"] == prev_activity
+                            and time.time() - sent_time < GATEWAY_RATE_LIMIT_SAME
+                        ):
                             response = self.build_response(data)
                             send_data(connection, op, response)
                             return
@@ -206,18 +215,25 @@ class RPC:
                         activity["name"] = rpc_data["name"]
                         assets = {}
                         for asset_client in activity["assets"]:
-
                             # check if asset is external link
                             if activity["assets"][asset_client][:8] == "https://":
                                 if self.external:
                                     for _ in range(5):
-                                        external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
-                                        if isinstance(external_asset, float):   # rate limited
+                                        external_asset = (
+                                            self.discord.get_rpc_app_external(
+                                                app_id, activity["assets"][asset_client]
+                                            )
+                                        )
+                                        if isinstance(
+                                            external_asset, float
+                                        ):  # rate limited
                                             time.sleep(external_asset + 0.2)
                                         elif external_asset is None:
                                             break
                                         else:
-                                            assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
+                                            assets[asset_client] = (
+                                                f"mp:{external_asset[0]['external_asset_path']}"
+                                            )
                                             break
                                 if len(activity["assets"]) > 1:
                                     time.sleep(REQUEST_DELAY)
@@ -228,7 +244,10 @@ class RPC:
                             # check if asset is an image
                             elif "image" in asset_client:
                                 for asset_app in rpc_assets:
-                                    if activity["assets"][asset_client] == asset_app["name"]:
+                                    if (
+                                        activity["assets"][asset_client]
+                                        == asset_app["name"]
+                                    ):
                                         assets[asset_client] = asset_app["id"]
                                         break
                             elif asset_client in DISCORD_ASSETS_WHITELIST:
@@ -247,7 +266,9 @@ class RPC:
                             activity["metadata"] = {"button_urls": []}
                             for button in buttons:
                                 activity["buttons"].append(button["label"])
-                                activity["metadata"]["button_urls"].append(button["url"])
+                                activity["metadata"]["button_urls"].append(
+                                    button["url"]
+                                )
 
                         activity["assets"] = assets
                         if activity_type == 2:
@@ -305,27 +326,27 @@ class RPC:
             connection.close()
         logger.info("RPC client disconnected")
 
-
     def server_thread_win(self):
         """Thread that listens for new connections on the named pipe and starts new client_thread for each connection"""
         logger.info("RPC server started")
         while self.run:
             try:
                 pipe = win32pipe.CreateNamedPipe(
-                    DISCORD_WIN_PIPE,   # pipeName
-                    win32pipe.PIPE_ACCESS_DUPLEX,   # openMode
-                    win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,   # pipeMode
-                    win32pipe.PIPE_UNLIMITED_INSTANCES,   # nMaxInstances
-                    65536,   # nOutBufferSize in bytes   # = 64KiB
-                    65536,   # nInBufferSize
-                    0,   # nDefaultTimeOut
-                    None,   # lpSecurityAttributes
+                    DISCORD_WIN_PIPE,  # pipeName
+                    win32pipe.PIPE_ACCESS_DUPLEX,  # openMode
+                    win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,  # pipeMode
+                    win32pipe.PIPE_UNLIMITED_INSTANCES,  # nMaxInstances
+                    65536,  # nOutBufferSize in bytes   # = 64KiB
+                    65536,  # nInBufferSize
+                    0,  # nDefaultTimeOut
+                    None,  # lpSecurityAttributes
                 )
                 win32pipe.ConnectNamedPipe(pipe, None)
-                threading.Thread(target=self.client_thread, daemon=True, args=(pipe,)).start()
+                threading.Thread(
+                    target=self.client_thread, daemon=True, args=(pipe,)
+                ).start()
             except pywintypes.error as e:
                 logger.error(f"Named pipe error: {e}")
-
 
     def server_thread_linux(self):
         """Thread that listens for new connections on socket and starts new client_thread for each connection"""
@@ -338,8 +359,9 @@ class RPC:
         while self.run:
             self.server.listen(1)
             client, address = self.server.accept()
-            threading.Thread(target=self.client_thread, daemon=True, args=(client, )).start()
-
+            threading.Thread(
+                target=self.client_thread, daemon=True, args=(client,)
+            ).start()
 
     def get_rpc(self):
         """Get RPC events for all connected apps, only when presence has changed."""

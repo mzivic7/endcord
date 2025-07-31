@@ -49,29 +49,35 @@ def anonymize_guilds(guilds):
                 parent_id = hash_none(channel["parent_id"])
             else:
                 parent_id = "NO DATA"
-            anonymized_channels.append({
-                "id": hash_none(channel["id"]),
-                "type": channel["type"],
-                "name": name,
-                "topic": "",
-                "parent_id": parent_id,
-                "position": channel["position"],
-                "message_notifications": channel.get("message_notifications", "NO DATA"),
-                "muted": channel.get("muted", "NO DATA"),
-                "hidden": channel.get("hidden", "NO DATA"),
-                "collapsed": channel.get("collapsed", "NO DATA"),
-            })
-        anonymized.append({
-            "guild_id": hash_none(guild["guild_id"]),
-            "owned": guild["owned"],
-            "name": f"guild_{num}",
-            "description": "",
-            "suppress_everyone": guild.get("suppress_everyone", "NO DATA"),
-            "suppress_roles": guild.get("suppress_roles", "NO DATA"),
-            "message_notifications": guild.get("message_notifications", "NO DATA"),
-            "muted": guild.get("muted", "NO DATA"),
-            "channels": anonymized_channels,
-        })
+            anonymized_channels.append(
+                {
+                    "id": hash_none(channel["id"]),
+                    "type": channel["type"],
+                    "name": name,
+                    "topic": "",
+                    "parent_id": parent_id,
+                    "position": channel["position"],
+                    "message_notifications": channel.get(
+                        "message_notifications", "NO DATA"
+                    ),
+                    "muted": channel.get("muted", "NO DATA"),
+                    "hidden": channel.get("hidden", "NO DATA"),
+                    "collapsed": channel.get("collapsed", "NO DATA"),
+                }
+            )
+        anonymized.append(
+            {
+                "guild_id": hash_none(guild["guild_id"]),
+                "owned": guild["owned"],
+                "name": f"guild_{num}",
+                "description": "",
+                "suppress_everyone": guild.get("suppress_everyone", "NO DATA"),
+                "suppress_roles": guild.get("suppress_roles", "NO DATA"),
+                "message_notifications": guild.get("message_notifications", "NO DATA"),
+                "muted": guild.get("muted", "NO DATA"),
+                "channels": anonymized_channels,
+            }
+        )
     return anonymized
 
 
@@ -140,13 +146,14 @@ permission_names = [
     "USE_EXTERNAL_APPS",
 ]
 
+
 def get_perms_allowed_names(permissions):
     """Return list of allowed permission names"""
     permissions = int(permissions)
     perms_allowed = []
     for i in list(range(47)) + [49, 50]:
-        flag = (1 << i)
-        perm = ((permissions & flag) == flag)
+        flag = 1 << i
+        perm = (permissions & flag) == flag
         if perm:
             perms_allowed.append(permission_names[i])
     return perms_allowed
@@ -156,8 +163,8 @@ def decode_flags(flags):
     """Decode flags without known names"""
     decoded_allowed = []
     for i in range(50):
-        flag = (1 << i)
-        decoded = ((flags & flag) == flag)
+        flag = 1 << i
+        decoded = (flags & flag) == flag
         if decoded:
             decoded_allowed.append(str(i))
     return decoded_allowed

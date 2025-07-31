@@ -12,9 +12,9 @@ import tomllib
 def check_media_support():
     """Check if media is supported"""
     return (
-        importlib.util.find_spec("PIL") is not None and
-        importlib.util.find_spec("av") is not None and
-        importlib.util.find_spec("numpy") is not None
+        importlib.util.find_spec("PIL") is not None
+        and importlib.util.find_spec("av") is not None
+        and importlib.util.find_spec("numpy") is not None
     )
 
 
@@ -27,12 +27,15 @@ def add_media():
 def remove_media():
     """Remove media support"""
     if check_media_support():
-        subprocess.run(["uv", "pip", "uninstall", "pillow" , "av"], check=True)
+        subprocess.run(["uv", "pip", "uninstall", "pillow", "av"], check=True)
 
 
 def check_dev():
     """Check if its dev environment and set it up"""
-    if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
+    if (
+        importlib.util.find_spec("PyInstaller") is None
+        or importlib.util.find_spec("nuitka") is None
+    ):
         subprocess.run(["uv", "sync", "--group", "build"], check=True)
 
 
@@ -109,7 +112,9 @@ def toggle_experimental(check_only=False):
         subdirs[:] = [d for d in subdirs if not d.startswith(".")]
         for name in files:
             file_path = os.path.join(path, name)
-            if not name.startswith(".") and (file_path.endswith(".py") or file_path.endswith(".pyx")):
+            if not name.startswith(".") and (
+                file_path.endswith(".py") or file_path.endswith(".pyx")
+            ):
                 file_list.append(file_path)
     enable = False
     for path in file_list:
@@ -136,18 +141,35 @@ def toggle_experimental(check_only=False):
         subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
         print("Experimental windowed mode enabled!")
     else:
-        subprocess.run(["uv", "pip", "uninstall", " pygame-ce", "pyperclip"], check=True)
+        subprocess.run(
+            ["uv", "pip", "uninstall", " pygame-ce", "pyperclip"], check=True
+        )
         print("Experimental windowed mode disabled!")
     return not enable
 
 
-def build_cython(clang):
+def build_cython(compiler):
     """Build cython extensions"""
-    if clang:
+    if compiler == "clang":
         os.environ["CC"] = "clang"
         os.environ["CXX"] = "clang++"
 
-    subprocess.run(["uv", "run", "python", "setup.py", "build_ext", "--inplace"], check=True)
+    if sys.platform == "win32":
+        if compiler.startswith("mingw") or compiler == "gcc":
+            compiler = "mingw32"
+
+    subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "setup.py",
+            "build_ext",
+            "--inplace",
+            f"--compiler={compiler}",
+        ],
+        check=True,
+    )
 
     files = [f for f in os.listdir("endcord_cython") if f.endswith(".c")]
     for f in files:
@@ -178,7 +200,11 @@ def build_with_pyinstaller(onedir):
 
     # prepare command and run it
     cmd = [
-        "uv", "run", "python", "-m", "PyInstaller",
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "PyInstaller",
         mode,
         *hidden_imports,
         *package_data,
@@ -203,7 +229,7 @@ def build_with_pyinstaller(onedir):
         pass
 
 
-def build_with_nuitka(onedir, clang):
+def build_with_nuitka(onedir, compiler):
     """Build with nuitka"""
     if check_media_support():
         pkgname = get_app_name()
@@ -213,7 +239,7 @@ def build_with_nuitka(onedir, clang):
         print("ASCII media support is disabled")
 
     mode = "--standalone" if onedir else "--onefile"
-    clang = "--clang" if clang else ""
+    compiler = f"--{compiler}" if compiler else ""
     python_flags = ["--python-flag=-OO"]
     hidden_imports = ["--include-module=uuid"]
     package_data = [
@@ -243,9 +269,13 @@ def build_with_nuitka(onedir, clang):
 
     # prepare command and run it
     cmd = [
-        "uv", "run", "python", "-m", "nuitka",
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "nuitka",
         mode,
-        clang,
+        compiler,
         *python_flags,
         *hidden_imports,
         *package_data,
@@ -270,7 +300,14 @@ def build_with_nuitka(onedir, clang):
         pass
 
 
-def parser():
+def get_default_compiler():
+    compilers = ["clang", "gcc", "msvc"]
+    for compiler in compilers:
+        if shutil.which(compiler):
+            return compiler
+
+
+def parser(default_compiler):
     """Setup argument parser for CLI"""
     parser = argparse.ArgumentParser(
         prog="build.py",
@@ -283,9 +320,9 @@ def parser():
         help="build with nuitka, takes a long time, but more optimized executable",
     )
     parser.add_argument(
-        "--clang",
-        action="store_true",
-        help="use clang when building with nuitka",
+        "--compiler",
+        default=default_compiler,
+        help="choose compiler when building with nuitka",
     )
     parser.add_argument(
         "--lite",
@@ -311,28 +348,39 @@ def parser():
 
 
 if __name__ == "__main__":
-    args = parser()
-    check_dev()
-    if args.toggle_experimental:
-        toggle_experimental()
-        sys.exit()
-    if args.lite:
-        remove_media()
-    else:
-        add_media()
-    if toggle_experimental(check_only=True):
-        subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
-        print("Experimental windowed mode enabled!")
-    if sys.platform not in ("linux", "win32", "darwin"):
-        sys.exit(f"This platform is not supported: {sys.platform}")
-    if not args.nocython:
-        try:
-            build_cython(args.clang)
-        except Exception as e:
-            print(f"Failed building cython extensions, error: {e}")
-    if args.nuitka:
-        build_with_nuitka(args.onedir, args.clang)
-        sys.exit()
-    else:
-        build_with_pyinstaller(args.onedir)
+    try:
+        default_compiler = get_default_compiler()
+        if default_compiler:
+            print(f"compiler chosen: {default_compiler}")
+        else:
+            print("no compiler found.")
+        args = parser(default_compiler)
+        check_dev()
+        if args.toggle_experimental:
+            toggle_experimental()
+            sys.exit()
+        if args.lite:
+            remove_media()
+        else:
+            add_media()
+        if toggle_experimental(check_only=True):
+            subprocess.run(
+                ["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True
+            )
+            print("Experimental windowed mode enabled!")
+        if sys.platform not in ("linux", "win32", "darwin"):
+            sys.exit(f"This platform is not supported: {sys.platform}")
+        if not args.nocython and args.compiler:
+            try:
+                build_cython(args.compiler)
+            except Exception as e:
+                print(f"Failed building cython extensions, error: {e}")
+        if args.nuitka:
+            build_with_nuitka(args.onedir, args.compiler)
+            sys.exit()
+        else:
+            build_with_pyinstaller(args.onedir)
+            sys.exit()
+    except KeyboardInterrupt:
+        print("operation cancelled by user")
         sys.exit()

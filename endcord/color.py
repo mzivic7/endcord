@@ -19,7 +19,7 @@ def closest_color(rgb):
     distances = []
     for color in colors:
         r_i, g_i, b_i = color
-        distance = (r - r_i)**2 + (g - g_i)**2 + (b - b_i)**2
+        distance = (r - r_i) ** 2 + (g - g_i) ** 2 + (b - b_i) ** 2
         distances.append((distance, color))
     index = argmin(distances)
     return index, distances[index][1]
@@ -27,7 +27,7 @@ def closest_color(rgb):
 
 def int_to_rgb(int_color):
     """Convert integer color string to rgb tuple"""
-    b = int_color  & 255
+    b = int_color & 255
     g = (int_color >> 8) & 255
     r = (int_color >> 16) & 255
     return (r, g, b)
@@ -63,7 +63,9 @@ def check_color_formatted(color_format):
     Check if color format is valid and repair it.
     Replace -2 values for non-default colors with default for this format.
     """
-    color_format_new = [row[:] for row in color_format] if color_format is not None else None
+    color_format_new = (
+        [row[:] for row in color_format] if color_format is not None else None
+    )
     if color_format_new is None:
         return [[-1, -1]]
     for color in color_format_new[1:]:
