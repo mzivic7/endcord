@@ -141,13 +141,16 @@ def toggle_experimental(check_only=False):
     return not enable
 
 
-def build_cython(clang):
+def build_cython(clang, mingw):
     """Build cython extensions"""
+    cmd = ["uv", "run", "python", "setup.py", "build_ext", "--inplace"]
     if clang:
         os.environ["CC"] = "clang"
         os.environ["CXX"] = "clang++"
+    elif mingw and sys.platform == "win32":
+        cmd.append("--compiler=mingw32")   # covers mingw 32 and 64
 
-    subprocess.run(["uv", "run", "python", "setup.py", "build_ext", "--inplace"], check=True)
+    subprocess.run(cmd, check=True)
 
     files = [f for f in os.listdir("endcord_cython") if f.endswith(".c")]
     for f in files:
@@ -203,7 +206,7 @@ def build_with_pyinstaller(onedir):
         pass
 
 
-def build_with_nuitka(onedir, clang):
+def build_with_nuitka(onedir, clang, mingw):
     """Build with nuitka"""
     if check_media_support():
         pkgname = get_app_name()
@@ -213,7 +216,11 @@ def build_with_nuitka(onedir, clang):
         print("ASCII media support is disabled")
 
     mode = "--standalone" if onedir else "--onefile"
-    clang = "--clang" if clang else ""
+    compiler = ""
+    if clang:
+        compiler = "--clang"
+    elif mingw:
+        compiler = "--mingw64"
     python_flags = ["--python-flag=-OO"]
     hidden_imports = ["--include-module=uuid"]
     package_data = [
@@ -245,7 +252,7 @@ def build_with_nuitka(onedir, clang):
     cmd = [
         "uv", "run", "python", "-m", "nuitka",
         mode,
-        clang,
+        compiler,
         *python_flags,
         *hidden_imports,
         *package_data,
@@ -303,6 +310,11 @@ def parser():
         help="build without compiling cython code",
     )
     parser.add_argument(
+        "--mingw",
+        action="store_true",
+        help="use mingw instead msvc on windows, has no effect on Linux and macOS, or with --clang flag",
+    )
+    parser.add_argument(
         "--toggle-experimental",
         action="store_true",
         help="toggle experimental mode and exit",
@@ -327,11 +339,11 @@ if __name__ == "__main__":
         sys.exit(f"This platform is not supported: {sys.platform}")
     if not args.nocython:
         try:
-            build_cython(args.clang)
+            build_cython(args.clang, args.mingw)
         except Exception as e:
             print(f"Failed building cython extensions, error: {e}")
     if args.nuitka:
-        build_with_nuitka(args.onedir, args.clang)
+        build_with_nuitka(args.onedir, args.clang, args.mingw)
         sys.exit()
     else:
         build_with_pyinstaller(args.onedir)
