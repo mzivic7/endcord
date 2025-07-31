@@ -350,12 +350,12 @@ def parser(default_compiler):
 if __name__ == "__main__":
     try:
         default_compiler = get_default_compiler()
+        args = parser(default_compiler)
+        check_dev()
         if default_compiler:
             print(f"compiler chosen: {default_compiler}")
         else:
             print("no compiler found.")
-        args = parser(default_compiler)
-        check_dev()
         if args.toggle_experimental:
             toggle_experimental()
             sys.exit()
