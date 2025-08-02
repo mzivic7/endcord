@@ -1,6 +1,3 @@
-Fix uploading attachments with spacebar
-Test binaries on windows
-
 Update soundcard and numpy
 Voice and video calls
 Add multi-account support

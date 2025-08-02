@@ -330,6 +330,9 @@ class RPC:
     def server_thread_linux(self):
         """Thread that listens for new connections on socket and starts new client_thread for each connection"""
         if sys.platform in ("linux", "darwin"):
+            if not os.path.isdir(os.path.dirname(DISCORD_SOCKET)):
+                logger.warn("Error starting RPC sertver: could not create socket")
+                return
             if os.path.exists(DISCORD_SOCKET):
                 os.unlink(DISCORD_SOCKET)
             self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
