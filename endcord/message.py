@@ -46,8 +46,6 @@ def prepare_embeds(embeds, message_content):
             content += embed["video"]["url"] + "\n"
             if not skip_main_url:
                 main_url = embed["video"]["url"]
-        if "title" in embed:
-            content += embed["title"] + "\n"
         if "footer" in embed:
             content += get_newlined_value(embed["footer"], "text")
         content = content.strip("\n")
