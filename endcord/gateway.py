@@ -52,7 +52,7 @@ def reset_inflator():
 class Gateway():
     """Methods for fetching and sending data to Discord using Discord's gateway through websocket"""
 
-    def __init__(self, token, host, client_prop, proxy=None):
+    def __init__(self, token, host, client_prop, user_agent, proxy=None):
         if host:
             host_obj = urllib.parse.urlparse(host)
             if host_obj.netloc:
@@ -61,6 +61,11 @@ class Gateway():
                 self.host = host_obj.path
         else:
             self.host = DISCORD_HOST
+        self.header = [
+            "Connection: keep-alive, Upgrade",
+            "Sec-WebSocket-Extensions: permessage-deflate",
+            f"User-Agent: {user_agent}",
+        ]
         self.client_prop = client_prop
         self.token = token
         self.proxy = urllib.parse.urlparse(proxy)
@@ -85,6 +90,7 @@ class Gateway():
         self.roles_changed = False
         self.user_settings_proto = None
         self.proto_changed = False
+        self.legacy = False
         self.activities = []
         self.activities_changed = []
         self.subscribed_activities = []
@@ -134,6 +140,25 @@ class Gateway():
             time.sleep(0.5)
 
 
+    def connect_ws(self, resume=False):
+        """Connect to websocket"""
+        if resume and self.resume_gateway_url:
+            gateway_url = self.resume_gateway_url
+        else:
+            gateway_url = self.gateway_url
+        self.ws = websocket.WebSocket()
+        if self.proxy.scheme:
+            self.ws.connect(
+                gateway_url + "/?v=9&encoding=json&compress=zlib-stream",
+                header=self.header,
+                proxy_type=self.proxy.scheme,
+                http_proxy_host=self.proxy.hostname,
+                http_proxy_port=self.proxy.port,
+            )
+        else:
+            self.ws.connect(gateway_url + "/?v=9&encoding=json&compress=zlib-stream", header=self.header)
+
+
     def connect(self):
         """Create initial connection to Discord gateway"""
         # get proxy
@@ -173,17 +198,7 @@ class Gateway():
             logger.error(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
             raise SystemExit(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
 
-        # setup websocket
-        self.ws = websocket.WebSocket()
-        if self.proxy.scheme:
-            self.ws.connect(
-                self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream",
-                proxy_type=self.proxy.scheme,
-                http_proxy_host=self.proxy.hostname,
-                http_proxy_port=self.proxy.port,
-            )
-        else:
-            self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
+        self.connect_ws()
         self.state = 1
         self.heartbeat_interval = int(json.loads(zlib_decompress(self.ws.recv()))["d"]["heartbeat_interval"])
         self.receiver_thread = threading.Thread(target=self.safe_function_wrapper, daemon=True, args=(self.receiver, ))
@@ -450,7 +465,7 @@ class Gateway():
                                     recipients.append({
                                         "id": recipient_id,
                                         "username": user["username"],
-                                        "global_name": user["global_name"],
+                                        "global_name": user.get("global_name"),   # spacebar_fix - get
                                     })
                         name = None
                         if "name" in dm and dm["name"]:   # for group dm
@@ -459,7 +474,7 @@ class Gateway():
                             owner_name = "Unknown"
                             for user in data["users"]:
                                 if user["id"] == dm["owner_id"]:
-                                    if user["global_name"]:
+                                    if user.get("global_name"):   # spacebar_fix - get
                                         owner_name = user["global_name"]
                                     else:
                                         owner_name = user["username"]
@@ -509,7 +524,7 @@ class Gateway():
                     for channel in data["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
                         if "last_message_id" in channel and "mention_count" in channel:
-                            if channel["mention_count"] != 0:
+                            if channel["mention_count"]:
                                 msg_unseen.append(channel["id"])
                                 msg_ping.append(channel["id"])
                             else:
@@ -575,7 +590,7 @@ class Gateway():
                                         "message_notifications": channel["message_notifications"],
                                         "muted": channel["muted"],
                                         "hidden": hidden,
-                                        "collapsed": channel["collapsed"],
+                                        "collapsed": channel.get("collapsed", False),   # spacebar_fix - get
                                     })
                         else:
                             for dm in guild["channel_overrides"]:
@@ -617,9 +632,24 @@ class Gateway():
                             self.blocked.append(user["user_id"])
                     time_log_string += f"    blocked users - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
-                    # get proto
-                    decoded = PreloadedUserSettings.FromString(base64.b64decode(data["user_settings_proto"]))
-                    self.user_settings_proto = MessageToDict(decoded)
+                    # get user settings
+                    if "user_settings_proto" in data:
+                        decoded = PreloadedUserSettings.FromString(base64.b64decode(data["user_settings_proto"]))
+                        self.user_settings_proto = MessageToDict(decoded)
+                    else:   # spacebar_fix - using old user_settings
+                        self.legacy = True
+                        old_user_settings = data["user_settings"]
+                        old_user_settings.update({
+                            "status": {
+                                "status": old_user_settings["status"],
+                                "guildFolders": {
+                                    "guildPositions": old_user_settings["guild_positions"],
+                                },
+                            },
+                        })
+                        self.user_settings_proto = old_user_settings
+                        if old_user_settings["custom_status"]:
+                            self.user_settings_proto["status"]["customStatus"] = old_user_settings["custom_status"]
                     self.proto_changed = True
                     time_log_string += f"    protobuf - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
@@ -628,7 +658,7 @@ class Gateway():
                         guild_id = self.guilds[num]["guild_id"]
                         roles = []
                         for member in guild:
-                            if member["user_id"] == self.my_id:
+                            if member.get("user_id") == self.my_id or member.get("id") == self.my_id:   # spacebar_fix - user_id -> id
                                 roles = member["roles"]
                         self.my_roles.append({
                             "guild_id": guild_id,
@@ -672,6 +702,8 @@ class Gateway():
                                 "custom_status": custom_status,
                                 "activities": activities,
                             })
+                    else:
+                        guild = {}
                     for user in data["merged_presences"]["friends"]:
                         custom_status = None
                         activities = []
@@ -783,7 +815,7 @@ class Gateway():
                     # received when user in currently subscribed guild channel starts typing
                     if "member" in data:
                         username = data["member"]["user"]["username"]
-                        global_name = data["member"]["user"]["global_name"]
+                        global_name = data["member"]["user"].get("global_name")   # spacebar_fix - get
                         nick = data["member"]["user"].get("nick")
                     else:
                         username = None
@@ -833,7 +865,7 @@ class Gateway():
                             "mention_roles": message["mention_roles"],
                             "mention_everyone": message["mention_everyone"],
                             "user_id": message["author"]["id"],
-                            "global_name": message["author"]["global_name"],
+                            "global_name": message["author"].get("global_name"),   # spacebar_fix - get
                         }
                         self.messages_buffer.append({
                             "op": "MESSAGE_CREATE",
@@ -868,7 +900,7 @@ class Gateway():
                     if "member" in data:
                         user_id = data["member"]["user"]["id"]
                         username = data["member"]["user"]["username"]
-                        global_name = data["member"]["user"]["global_name"]
+                        global_name = data["member"]["user"].get("global_name")   # spacebar_fix - get
                         nick = data["member"]["user"].get("nick")
                     else:
                         user_id = data["user_id"]
@@ -960,7 +992,7 @@ class Gateway():
                         for member in data["members"]:
                             name = member.get("nick")
                             if not name:
-                                name = member["user"]["global_name"]
+                                name = member["user"].get("global_name")   # spacebar_fix - get
                             self.member_query_results.append({
                                 "id": member["user"]["id"],
                                 "username": member["user"]["username"],
@@ -1062,7 +1094,7 @@ class Gateway():
                                     members_sync.append({
                                         "id": member_data["user"]["id"],
                                         "username": member_data["user"]["username"],
-                                        "global_name": member_data["user"]["global_name"],
+                                        "global_name": member_data["user"].get("global_name"),   # spacebar_fix - get
                                         "nick": member_data["nick"],
                                         "roles": member_data["roles"],
                                         "status": member_data["presence"]["status"],
@@ -1108,7 +1140,7 @@ class Gateway():
                             ready_data = {
                                 "id": member_id,
                                 "username": member_data["user"]["username"],
-                                "global_name": member_data["user"]["global_name"],
+                                "global_name": member_data["user"].get("global_name"),   # spacebar_fix - get
                                 "nick": member_data["nick"],
                                 "roles": member_data["roles"],
                                 "status": member_data["presence"]["status"],
@@ -1317,7 +1349,7 @@ class Gateway():
         time.sleep(1)   # so receiver ends before opening new socket
         reset_inflator()   # otherwise decompression wont work
         self.ws = websocket.WebSocket()
-        self.ws.connect(self.resume_gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
+        self.connect_ws(resume=True)
         _ = zlib_decompress(self.ws.recv())
         logger.info("Trying to resume connection")
         payload = {"op": 6, "d": {"token": self.token, "session_id": self.session_id, "seq": self.sequence}}
@@ -1344,7 +1376,7 @@ class Gateway():
                 reset_inflator()   # otherwise decompression wont work
                 self.ready = False   # will receive new ready event
                 self.ws = websocket.WebSocket()
-                self.ws.connect(self.gateway_url + "/?v=9&encoding=json&compress=zlib-stream")
+                self.connect_ws()
                 self.authenticate()
                 logger.info("Restarting connection")
             self.wait = False

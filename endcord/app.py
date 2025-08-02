@@ -161,6 +161,9 @@ class Endcord:
         client_prop = client_properties.encode_properties(client_prop)
         logger.debug(f"User-Agent: {user_agent}")
 
+        self.chat = []
+        self.chat.insert(0, f"Connecting to {self.config["custom_host"] if self.config["custom_host"] else "Discord"}")
+
         # initialize stuff
         self.discord = discord.Discord(
             config["token"],
@@ -173,6 +176,7 @@ class Endcord:
             config["token"],
             config["custom_host"],
             client_prop_gateway,
+            user_agent,
             proxy=config["proxy"],
         )
         self.gateway.connect()
@@ -180,7 +184,7 @@ class Endcord:
         self.tui = tui.TUI(self.screen, self.config, keybindings)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
-        self.tui.update_chat(["Connecting to Discord"], [[[self.colors[0]]]] * 1)
+        self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 1)
         self.tui.update_status_line("CONNECTING")
         self.my_id = self.discord.get_my_id()
         self.premium = None
@@ -3106,17 +3110,24 @@ class Endcord:
                 custom_status_emoji=self.my_status["custom_status_emoji"],
                 rpc=self.my_rpc,
             )
+            if self.my_status["custom_status_emoji"]:
+                custom_status_emoji_name = self.my_status["custom_status_emoji"]["name"]
+            else:
+                custom_status_emoji_name = None
             settings = {
                 "status":{
                     "status": status,
                     "custom_status": {
                         "text": self.my_status["custom_status"],
-                        "emoji_name": self.my_status["custom_status_emoji"]["name"],
+                        "emoji_name": custom_status_emoji_name,
                     },
                     "show_current_game": True,
                 },
             }
-            self.discord.patch_settings_proto(1, settings)
+            if not self.gateway.legacy:
+                self.discord.patch_settings_proto(1, settings)
+            else:   # spacebar_fix - using old user_settings
+                self.discord.patch_settings_old("status", status)
             self.update_status_line()
 
 
@@ -4618,7 +4629,7 @@ class Endcord:
                     new_message_channel_id == pinged_channel["channel_id"] and
                     new_message["d"]["id"] in pinged_channel["mentions"]   # if channel is from ready event - message is unknown
                 ):
-                    self.unreads[num]["mentions"].remove(new_message["d"]["id"])
+                    self.unseen[num]["mentions"].remove(new_message["d"]["id"])
                     self.update_tree()
                     if self.enable_notifications:
                         for num_1, notification in enumerate(self.notifications):
@@ -4755,6 +4766,8 @@ class Endcord:
         self.update_status_line()
 
         self.premium = self.gateway.get_premium()
+        logger.debug(f"Premium tier: {self.premium}")
+
         self.discord_settings = self.gateway.get_settings_proto()
 
         # just in case, download proto if its not in gateway
@@ -4778,7 +4791,8 @@ class Endcord:
 
         self.gateway_state = 1
         logger.info("Gateway is ready")
-        self.tui.update_chat(["Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 2)
+        self.chat.insert(0, f"Connecting to {self.config["custom_host"] if self.config["custom_host"] else "Discord"}")
+        self.chat.insert(0, "Loading channels")
 
         # get data from gateway
         guilds = self.gateway.get_guilds()
@@ -4858,7 +4872,8 @@ class Endcord:
 
         # load messages
         if self.state["last_channel_id"]:
-            self.tui.update_chat(["Loading messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
+            self.chat.insert(0, "Loading messages")
+            self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 3)
             guild_id = self.state["last_guild_id"]
             channel_id = self.state["last_channel_id"]
             channel_name = None
@@ -4881,7 +4896,8 @@ class Endcord:
                 self.switch_channel(channel_id, channel_name, guild_id, guild_name, open_member_list=self.member_list_auto_open)
                 self.tui.tree_select_active()
         else:
-            self.tui.update_chat(["Select channel to load messages", "Loading channels", "Connecting to Discord"], [[[self.colors[0]]]] * 3)
+            self.chat.insert(0, "Select channel to load messages")
+            self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 3)
 
         # open uncollapsed guilds, generate and draw tree
         self.open_guild(self.active_channel["guild_id"], restore=True)

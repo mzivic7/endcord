@@ -80,7 +80,7 @@ https://discord.com/developers/docs/change-log#upcoming-application-command-perm
 - 0 - playing
 - 2 - listening
 
-### Layout:
+### Layout
 ```
 -------------------------------------------
 |W TITLE W|WWWWWWWWWWWW TITLE WWWWWWWWWWWW|
@@ -97,7 +97,7 @@ https://discord.com/developers/docs/change-log#upcoming-application-command-perm
 -------------------------------------------
 ```
 
-### Tree layout and formatting:
+### Tree layout and formatting
 ```
 > GUILD
 |--> CATEGORY
@@ -122,3 +122,51 @@ https://discord.com/developers/docs/change-log#upcoming-application-command-perm
 |  end_category 1200
 end_guild 1100
 ```
+
+### Spacebar differences
+In the code, all spacebar fixes can be found as `# spacebar_fix - [note]`.  
+`[note]` contains some information on what is changed.  
+
+- `/api/v9/users/@me/mentions`:
+/global_name - missing
+
+- `/api/v9/users/{my_id}/channels`:
+/recipients/global_name - missing
+
+- `/api/v9/users/{user_id}/profile`:  
+/user/avatar_decoration_data - missing  
+user/flags - missing  
+/user/global_name - missing  
+/user/primary_guild - missing  
+
+- `MESSAGE_CREATE`, `MESSAGE_UPDATE`, `/api/v9/channels/{channel_id}/messages`, `/api/v9/guilds/{guild_id}/messages/search` and `/api/v9/channels/{channel_id}/pins`:
+/author/global_name - missing  
+/referenced_message/author/global_name - missing  
+/reactions/emoji/id - missing  
+/poll - should be removed if its `null`  
+/interaction - should be removed if its `null`  
+/mentions/username - missing  
+/embeds/type - missing  
+
+- `READY`:  
+/merged_members/id - should be /merged_members/user_id  
+/read_state/entries/mention_count - should be `0`, not `null`  
+/users/global_name - missing  
+/user_guild_settings/entries/channel_overrides/collapsed - missing  
+
+- `TYPING_START`:
+/member/user/global_name - missing  
+
+- `GUILD_MEMBER_LIST_UPDATE`:
+/items/member/user/global_name - missing  
+/item/member/user/global_name - missing  
+
+- `MESSAGE_REACTION_ADD`:
+/member/user/global_name - missing  
+
+- `GUILD_MEMBERS_CHUNK`:
+/members/user/global_name - missing  
+
+- Misc:
+Spacebar is still using old `user_settings` instead new protobuf settings.  
+Attachments are uploaded with old API.  

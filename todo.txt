@@ -1,4 +1,4 @@
-Fix crashes with spacebar
+Fix uploading attachments with spacebar
 Test binaries on windows
 
 Update soundcard and numpy

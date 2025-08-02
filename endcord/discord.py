@@ -178,9 +178,9 @@ class Discord():
             if extra:   # extra data for rpc
                 extra_data = {
                     "avatar": data["user"]["avatar"],
-                    "avatar_decoration_data": data["user"]["avatar_decoration_data"],
+                    "avatar_decoration_data": data["user"].get("avatar_decoration_data"),   # spacebar_fix - get
                     "discriminator": data["user"]["discriminator"],
-                    "flags": data["user"]["flags"],
+                    "flags": data["user"].get("flags"),   # spacebar_fix - get
                     "premium_type": data["premium_type"],
                 }
             else:
@@ -193,13 +193,13 @@ class Discord():
                 if data["user_profile"].get("pronouns"):
                     pronouns = data["user_profile"].get("pronouns")
             tag = None
-            if data["user"]["primary_guild"] and "tag" in data["user"]["primary_guild"]:
+            if data["user"].get("primary_guild") and "tag" in data["user"]["primary_guild"]:   # spacebar_fix - get
                 tag = data["user"]["primary_guild"]["tag"]
             return {
                 "id": data["user"]["id"],
                 "guild_id": None,
                 "username": data["user"]["username"],
-                "global_name": data["user"]["global_name"],
+                "global_name": data["user"].get("global_name"),   # spacebar_fix - get
                 "nick": nick,
                 "bio": bio,
                 "pronouns": pronouns,
@@ -250,13 +250,13 @@ class Discord():
                 if "bio" in guild_profile and guild_profile["bio"]:
                     bio = data["guild_member_profile"]["bio"]
             tag = None
-            if data["user"]["primary_guild"] and "tag" in data["user"]["primary_guild"]:
+            if data["user"].get("primary_guild") and "tag" in data["user"]["primary_guild"]:   # spacebar_fix - get
                 tag = data["user"]["primary_guild"]["tag"]
             return {
                 "id": data["user"]["id"],
                 "guild_id": guild_id,
                 "username": data["user"]["username"],
-                "global_name": data["user"]["global_name"],
+                "global_name": data["user"].get("global_name"),   # spacebar_fix - get
                 "nick": nick,
                 "bio": bio,
                 "pronouns": pronouns,
@@ -298,12 +298,12 @@ class Discord():
                     recipients.append({
                         "id": recipient["id"],
                         "username": recipient["username"],
-                        "global_name": recipient["global_name"],
+                        "global_name": recipient.get("global_name"),   # spacebar_fix - get
                     })
                 if "name" in dm:
                     name = dm["name"]
                 else:
-                    name = recipients[0]["global_name"]
+                    name = recipients[0].get("global_name")   # spacebar_fix - get
                 dms.append({
                     "id": dm["id"],
                     "type": dm["type"],
@@ -439,7 +439,7 @@ class Discord():
                     "content": mention["content"],
                     "user_id": mention["author"]["id"],
                     "username": mention["author"]["username"],
-                    "global_name": mention["author"]["global_name"],
+                    "global_name": mention["author"].get("global_name"),   # spacebar_fix - get
                 })
             return mentions
         logger.error(f"Failed to fetch mentions. Response code: {response.status}")
@@ -545,6 +545,24 @@ class Discord():
         logger.error(f"Failed to patch protobuf {num}. Response code: {response.status}")
         connection.close()
         return False
+
+
+    def patch_settings_old(self, setting, value):   # spacebar_fix - using old user_settings
+        """Patch account settings, used only for for spacebar compatibility"""
+        url = "/api/v9/users/@me/settings"
+        message_data = json.dumps({str(setting): value})
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PATCH", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return False
+        if response.status == 200:
+            connection.close()
+            return True
+        logger.error(f"Failed to patch user setting {setting}. Response code: {response.status}")
+        connection.close()
 
 
     def get_rpc_app(self, app_id):
@@ -701,7 +719,7 @@ class Discord():
                     "content": data["referenced_message"]["content"],
                     "user_id": data["referenced_message"]["author"]["id"],
                     "username": data["referenced_message"]["author"]["username"],
-                    "global_name": data["referenced_message"]["author"]["global_name"],
+                    "global_name": data["referenced_message"]["author"].get("global_name"),   # spacebar_fix - get
                 }
             else:
                 reference = None
@@ -717,7 +735,7 @@ class Discord():
                 "mention_everyone": data["mention_everyone"],
                 "user_id": data["author"]["id"],
                 "username": data["author"]["username"],
-                "global_name": data["author"]["global_name"],
+                "global_name": data["author"].get("global_name"),   # spacebar_fix - get
                 "referenced_message": reference,
                 "reactions": [],
                 "stickers": data.get("sticker_items", []),

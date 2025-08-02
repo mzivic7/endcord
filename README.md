@@ -480,8 +480,8 @@ Then run endcord from source: `uv run main.py`.
 
 ### Spacebar and other custom hosts
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
-Then endcord will connect only to that domain instead discord.  Token is different on different hosts!  
-Note that using custom host is completely untested, and support depends on how different the API is from original discord API, and may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+Then endcord will try to connect to that host instead discord. Token is different on different hosts!  
+Only connecting to spacebar instances is known to work, but endcord may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
 
 ### Virus scanners are flagging endcord binaries as malware
 These are false positives. Binaries are built using nuitka, the problem is that its regularly used by other people to distribute malware. So some AVs flag all Nuitka-built binaries as malware. [Ref](https://nuitka.net/user-documentation/common-issue-solutions.html#windows-virus-scanners).  

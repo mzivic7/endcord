@@ -53,7 +53,7 @@ def prepare_embeds(embeds, message_content):
         content = content.strip("\n")
         if content and content not in message_content:
             ready_embeds.append({
-                "type": embed["type"],
+                "type": embed.get("type", "unknown"),   # spacebar_fix - get
                 "name": None,
                 "url": content,
                 "main_url": main_url,
@@ -98,7 +98,7 @@ def prepare_message(message):
                 "mentions": ref_mentions,
                 "user_id": message["referenced_message"]["author"]["id"],
                 "username": message["referenced_message"]["author"]["username"],
-                "global_name": message["referenced_message"]["author"]["global_name"],
+                "global_name": message["referenced_message"]["author"].get("global_name"),   # spacebar_fix - get
                 "nick": reference_nick,
                 "embeds": reference_embeds,
                 "stickers": message["referenced_message"].get("sticker_items", []),
@@ -117,9 +117,9 @@ def prepare_message(message):
         for reaction in message["reactions"]:
             reactions.append({
                 "emoji": reaction["emoji"]["name"],
-                "emoji_id": reaction["emoji"]["id"],
+                "emoji_id": reaction["emoji"].get("id"),   # spacebar_fix - get
                 "count": reaction["count"],
-                "me": reaction["me"],
+                "me": reaction.get("me"),
             })
     else:
         reactions = []
@@ -137,7 +137,7 @@ def prepare_message(message):
 
     # special message types
     message = prepare_special_message_types(message)
-    if "poll" in message:
+    if message.get("poll"):   # spacebar_fix - get
         poll = prepare_poll(message["poll"])
     else:
         poll = None
@@ -156,12 +156,12 @@ def prepare_message(message):
     if message["mentions"]:
         for mention in message["mentions"]:
             mentions.append({
-                "username": mention["username"],
+                "username": mention.get("username"),   # spacebar_fix - get
                 "id": mention["id"],
             })
 
     # interactions
-    if "interaction" in message:
+    if message.get("interaction"):   # spacebar_fix - get
         interaction = {
             "username": message["interaction"]["user"]["username"],
             "command": message["interaction"]["name"],
@@ -192,7 +192,7 @@ def prepare_message(message):
         "mention_everyone": message["mention_everyone"],
         "user_id": message["author"]["id"],
         "username": message["author"]["username"],
-        "global_name": message["author"]["global_name"],
+        "global_name": message["author"].get("global_name"),   # spacebar_fix - get
         "nick": nick,
         "referenced_message": reference,
         "reactions": reactions,
