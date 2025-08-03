@@ -521,6 +521,8 @@ class SpellCheck():
     def check_word_pexpect(self, word):
         """Spellcheck single word with aspell"""
         try:
+            if word.isdigit():
+                return False   # dont spellcheck numbers
             self.proc.sendline(word)
             self.proc.expect(r"\*|\&|\#", timeout=ASPELL_TIMEOUT)
             after = self.proc.after
@@ -528,7 +530,7 @@ class SpellCheck():
                 return True
             return False
         except pexpect.exceptions.TIMEOUT:
-            return True   # if timed-out return it as correct
+            return False   # if timed-out return it as correct
         except pexpect.exceptions.EOF as e:
             logger.info(e)
             if self.enable:
