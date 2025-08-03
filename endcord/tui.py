@@ -231,6 +231,13 @@ class TUI():
         self.wrap_around = config["wrap_around"]
         self.mouse = config["mouse"]
         self.screen_update_delay = min(config["screen_update_delay"], 0.01)
+        self.mouse_scroll_sensitivity = min(max(1, config["mouse_scroll_sensitivity"]), 10)
+        mouse_scroll_selection = config["mouse_scroll_selection"]
+
+
+        # select mouse scroll method
+        if not mouse_scroll_selection:
+            self.mouse_scroll = self.mouse_scroll_content
 
         # find all first chain parts
         self.chainable = []
@@ -2255,7 +2262,7 @@ class TUI():
 
 
     def mouse_scroll(self, x, y, up):
-        """Handle mouse scroll events"""
+        """Handle mouse scroll events, by scrolling selection"""
         if self.mouse_in_window(x, y, self.win_tree):
             if up:
                 self.common_keybindings(self.keybindings["tree_up"][0])
@@ -2279,3 +2286,42 @@ class TUI():
                 self.common_keybindings(self.keybindings["extra_up"][0], mouse=True)
             else:
                 self.common_keybindings(self.keybindings["extra_down"][0], mouse=True)
+
+
+    def mouse_scroll_content(self, x, y, up):
+        """Handle mouse scroll events, by scrolling content"""
+        if self.mouse_in_window(x, y, self.win_tree):
+            if up:
+                if self.tree_index:
+                    self.tree_index -= min(self.mouse_scroll_sensitivity, self.tree_index)
+                    self.draw_tree()
+            elif self.tree_index + self.tree_hw[0] < self.tree_clean_len:
+                self.tree_index += self.mouse_scroll_sensitivity
+                self.draw_tree()
+
+        elif self.mouse_in_window(x, y, self.win_chat):
+            if up:
+                if self.chat_index + self.chat_hw[0] - 3 + 3 < len(self.chat_buffer):
+                    self.chat_index += self.mouse_scroll_sensitivity
+                    self.draw_chat()
+            elif self.chat_index:
+                self.chat_index -= min(self.mouse_scroll_sensitivity, self.chat_index)
+                self.draw_chat()
+
+        elif self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
+            if up:
+                if self.extra_index:
+                    self.extra_index -= min(self.mouse_scroll_sensitivity, self.extra_index)
+                    self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+            elif self.extra_index + self.win_extra_window.getmaxyx()[0] - 1 < len(self.extra_window_body):
+                self.extra_index += self.mouse_scroll_sensitivity
+                self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+
+        elif self.win_member_list and self.mouse_in_window(x, y, self.win_member_list):
+            if up:
+                if self.mlist_index:
+                    self.mlist_index -= min(self.mouse_scroll_sensitivity, self.mlist_index)
+                    self.draw_member_list(self.member_list, self.member_list_format)
+            elif self.mlist_index + self.win_member_list.getmaxyx()[0] - 1 < len(self.member_list):
+                self.mlist_index += self.mouse_scroll_sensitivity
+                self.draw_member_list(self.member_list, self.member_list_format)

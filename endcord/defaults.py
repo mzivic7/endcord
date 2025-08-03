@@ -29,6 +29,8 @@ settings = {
     "tree_show_invisible": False,
     "wrap_around": True,
     "mouse": True,
+    "mouse_scroll_sensitivity": 3,
+    "mouse_scroll_selection": False,
     "screen_update_delay": 0.01,
     "extra_line_delay": 5,
     "tenor_gif_type": 1,

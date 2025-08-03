@@ -67,9 +67,13 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Show "invisible" status in tree when DM user is online but invisible.  
     Probably a discord bug, might get removed in the future.  
 - `wrap_around = True`  
-    Whether to wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
+    Wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
 - `mouse = True`  
     Disable if there are issues with mouse controls.  
+- `mouse_scroll_sensitivity = 3`  
+    How many lines are scrolled at onece when scrolling with mouse.
+- `mouse_scroll_selection = False`  
+    Scroll selection instead content, disables mouse_scroll_sensitivity.  
 - `screen_update_delay = 0.01`  
     Delay in seconds before screen is updated. Limited to min 0.01.  
     Too low value will cause visual "glitches". Increasing value will add latency between performed action and visual feedback.
