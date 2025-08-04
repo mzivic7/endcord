@@ -300,9 +300,9 @@ class CursesMedia():
             frame = video_queue.get()
             if frame is None:
                 break
-            start_time = time.time()
-            img = frame.to_image()
             if audio_queue.qsize() >= 1:
+                start_time = time.time()
+                img = frame.to_image()
                 with self.lock:
                     self.pil_img_to_curses(img, remove_alpha=False)
             if audio_queue.qsize() >= 3:
@@ -468,6 +468,15 @@ class CursesMedia():
             self.show_ui()
             self.pause = False
             self.seek = 0
+            if self.ended:
+                self.show_ui()
+                self.playing = True
+                if self.media_type == "video":
+                    self.player_thread = threading.Thread(target=self.play_video, daemon=True, args=(self.path, ))
+                    self.player_thread.start()
+                elif self.media_type == "audio":
+                    self.player_thread = threading.Thread(target=self.play_audio, daemon=True, args=(self.path, ))
+                    self.player_thread.start()
         elif code == 103 and self.media_type in ("audio", "video") and not self.ended:   # seek forward
             self.show_ui()
             if self.pause:
