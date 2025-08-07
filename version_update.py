@@ -26,8 +26,8 @@ def get_file_list():
         subdirs[:] = [d for d in subdirs if not d.startswith(".")]   # skip hidden dirs
         for name in files:
             file_path = os.path.join(path, name)
-            if any(x in file_path for x in extensions_white) and not name.startswith("."):
-                if not any(x in file_path for x in extensions_black):
+            if any(name.endswith(x) for x in extensions_white) and not name.startswith("."):
+                if not any(name.endswith(x) for x in extensions_black):
                     file_list.append(file_path)
     return file_list
 

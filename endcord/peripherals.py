@@ -475,9 +475,9 @@ def find_aspell():
         return None
     if sys.platform == "win32":
         aspell_path = None
-        for name in os.listdir("C:\\Program Files (x86)\\"):
+        for name in os.listdir(os.environ.get("ProgramFiles(x86)")):
             if "Aspell" in name:
-                aspell_path = os.path.join("C:\\Program Files (x86)\\", name, "bin\\aspell.exe")
+                aspell_path = os.path.join(os.environ.get("ProgramFiles(x86)"), name, "bin\\aspell.exe")
                 if not os.path.exists(aspell_path):
                     aspell_path = None
                 break
