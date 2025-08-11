@@ -3821,6 +3821,7 @@ class Endcord:
                 mpv_path = self.config["mpv_path"]
             else:
                 mpv_path = ""
+            self.update_extra_line("Media will be played in native player")
             peripherals.native_open(path, mpv_path)
 
 
