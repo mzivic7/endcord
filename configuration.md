@@ -115,6 +115,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Maximum number of results when showing assist.
 - `assist_score_cutoff = 15`  
     Cutoff for assist match score. Lower value will result in more results.
+- `external_editor = None`  
+    Command or path to executable for launching external editor. Set to `None` to use system defaut.
 - `yt_dlp_path = "yt-dlp"`  
     Path to [yt-dlp](https://github.com/yt-dlp/yt-dlp) executable or command. Used for playing youtube videos.
 - `yt_dlp_format = 18`  

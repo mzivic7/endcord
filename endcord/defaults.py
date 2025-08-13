@@ -48,6 +48,7 @@ settings = {
     "assist_skip_app_command": False,
     "assist_limit": 50,
     "assist_score_cutoff": 15,
+    "external_editor": None,
     "yt_dlp_path": "yt-dlp",
     "yt_dlp_format": 18,
     "mpv_path": "mpv",
@@ -144,7 +145,7 @@ keybindings = {
     "tree_up": 575,   # Ctrl+Up
     "tree_down": 534,   # Ctrl+Donw
     "tree_select": 0,   # Ctrl+Space
-    "tree_collapse_threads": "ALT+101",   # Alt+E
+    "tree_collapse_threads": "ALT+104",   # Alt+H
     "tree_join_thread": "ALT+106",   # Alt+J
     "channel_info": "ALT+105",   # Alt+I
     "copy_channel_link": "ALT+85",   # Alt+Shift+U
@@ -206,6 +207,7 @@ keybindings = {
     "toggle_tab": 20,   # Ctrl+T
     "switch_tab_modifier": "ALT+NUM",   # Alt+Num
     "command_palette": 31,   # Ctrl+/
+    "open_external_editor": "ALT+101",   # Alt+E
 }
 
 

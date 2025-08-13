@@ -35,6 +35,8 @@
     Go to channel/message mentioned in selected message.
 - `cancel`  
     Prompt to cancel all downloads and uploads.
+- `external_edit`  
+    Open external editor to type message in it.
 - `member_list`  
     Toggle member list.
 - `toggle_thread`  

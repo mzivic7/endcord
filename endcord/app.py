@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -101,6 +102,11 @@ class Endcord:
         self.extra_line_delay = config["extra_line_delay"]
         self.assist_limit = config["assist_limit"]
         self.assist_score_cutoff = config["assist_score_cutoff"]
+        self.external_editor = config["external_editor"]
+        if not self.external_editor or not shutil.which(self.external_editor):
+            self.external_editor = os.environ.get("EDITOR", "nano")
+            if not shutil.which(self.external_editor):
+                self.external_editor = None
         downloads_path = config["downloads_path"]
         if not downloads_path:
             downloads_path = peripherals.downloads_path
@@ -1446,6 +1452,25 @@ class Endcord:
                     self.update_status_line()
                     self.stop_assist()
 
+            # open external editor
+            elif action == 45 and self.external_editor is not None:
+                self.tui.pause_curses()
+                channel = self.active_channel["channel_id"]
+                timestamp = int(time.time() * 1000)
+                temp_message_path = os.path.join(peripherals.temp_path, f"message-{timestamp}")
+                with open(temp_message_path, "w", encoding="utf-8") as file:
+                    file.write(input_text)
+                subprocess.run([self.external_editor, temp_message_path], check=True)
+                if os.path.exists(temp_message_path):
+                    with open(temp_message_path, "r", encoding="utf-8") as f:
+                        new_text = f.read().strip("\n")
+                    os.remove(temp_message_path)
+                    self.tui.set_input_index(len(new_text))
+                    self.restore_input_text = (new_text, "standard")
+                else:
+                    self.restore_input_text = (input_text, "standard")
+                self.tui.resume_curses()
+
             # mouse double-click on message
             elif action == 40:
                 self.restore_input_text = (input_text, "standard")
@@ -1578,7 +1603,8 @@ class Endcord:
                     if not self.reacting:
                         self.reset_actions()
                         self.update_status_line()
-                    if new_input_text is not None:
+                    # 1000000 means its command execution an should restore text from store
+                    if new_input_text is not None and new_index != 1000000:
                         if (self.search or self.search_gif) and self.extra_bkp:
                             self.restore_input_text = (new_input_text, "search")
                             self.ignore_typing = True
@@ -1595,6 +1621,8 @@ class Endcord:
                             self.restore_input_text = (new_input_text, "standard")
                         self.tui.set_input_index(new_index)
                     else:
+                        self.assist_word = None
+                        self.assist_found = []
                         self.restore_input_text = (None, None)
                     continue
 
@@ -1766,6 +1794,7 @@ class Endcord:
                     text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                     if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
                         self.update_extra_line("Nothing happens.")
+                    logger.info(text_to_send)
                     self.discord.send_message(
                         self.active_channel["channel_id"],
                         text_to_send,
@@ -2526,8 +2555,30 @@ class Endcord:
                 self.tui.remove_extra_window()
                 self.extra_window_open = True
 
-        elif cmd_type == 42:   # GIF
+        elif cmd_type == 42:   # REDRAW
             self.tui.force_redraw()
+
+        elif cmd_type == 43 and self.external_editor is not None:   # EXTERNAL_EDIT
+            self.tui.pause_curses()
+            channel = self.active_channel["channel_id"]
+            timestamp = int(time.time() * 1000)
+            temp_message_path = os.path.join(peripherals.temp_path, f"message-{timestamp}")
+            for num, channel in enumerate(self.input_store):
+                if channel["id"] == self.active_channel["channel_id"]:
+                    input_text = self.input_store[num]["content"]
+                    break
+            else:
+                input_text = ""
+            with open(temp_message_path, "w", encoding="utf-8") as file:
+                file.write(input_text)
+            subprocess.run([self.external_editor, temp_message_path], check=True)
+            if os.path.exists(temp_message_path):
+                with open(temp_message_path, "r", encoding="utf-8") as f:
+                    new_text = f.read().strip("\n")
+                os.remove(temp_message_path)
+                self.tui.set_input_index(len(new_text))
+                self.add_to_store(self.active_channel["channel_id"], new_text)
+            self.tui.resume_curses()
 
         if reset:
             self.reset_actions()
@@ -3695,7 +3746,7 @@ class Endcord:
                         self.tui.get_tree_selected(),
                     )
                     self.command = False
-                    return "", 0
+                    return "", 1000000   # means its command execution an should restore text from store
                 new_text = self.assist_found[index][1] + " "
                 new_pos = len(new_text)
                 return new_text, new_pos

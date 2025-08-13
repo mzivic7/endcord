@@ -463,11 +463,6 @@ def initscr():
     return Window(screen, 0, 0)
 
 
-def endwin():
-    """curses.endwin clone using pygame"""
-    pygame.quit()
-
-
 def wrapper(func, *args, **kwargs):
     """curses.wrapper clone using pygame"""
     screen = initscr()
@@ -538,6 +533,18 @@ def nocbreak():
 
 def echo():
     """curses.echo clone using pygame, does nothing"""
+    pass
+
+def endwin():
+    """curses.endwin clone using pygame"""
+    pass
+
+def def_prog_mode():
+    """curses.def_prog_mode clone using pygame"""
+    pass
+
+def reset_prog_mode():
+    """curses.reset_prog_mode clone using pygame"""
     pass
 
 

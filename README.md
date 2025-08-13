@@ -47,6 +47,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
 - Spellchecking
+- Type message in external editor
 - Tabs
 - Assist when typing channel/username/role/emoji/sticker
 - Search, preview and send gifs
@@ -142,6 +143,7 @@ Reply to selected message - `Ctrl+R`
 Edit selected message - `Ctrl+E`  
 Delete selected message - `Ctrl+D`  
 Toggle reply ping when replying - `Ctrl+P`  
+Open external editor to type message in it - `Alt+E`  
 Add reaction with assist to selected message - `Ctrl+L`  
 Show reactions details for selected message - `Alt+W`  
 Go to replied message - `Ctrl+G`  
@@ -163,7 +165,7 @@ Paste text - terminal paste, usually `Ctrl+Shift+V`
 Undo input line - `Alt+Z`  
 Redo input line - `Alt+Shift+Z`  
 Show pinned messages in current channel - `Alt+N`  
-Un/collapse channel with threads in tree - `Alt+E`  
+Un/collapse channel with threads in tree - `Alt+H`  
 Join/leave selected thread in tree - `Alt+J`  
 Cycle status (online/away/DnD/invisible) - `Alt+D`  
 Open selected post in forum - `Enter`  
@@ -473,6 +475,7 @@ Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.
 ### Experimental windowed mode
 This mode entirely replaces curses with pygame-ce GUI library. UI remains terminal-like, the only difference is that its no longer in terminal but in its own window.  
 Keybinding remain the same, but all codes are like on Linux so old keybinding codes may not work.  
+If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer terminal.  
 Building with nuitka will create executable that will segfault.  
 Do not report issues related to experimental features!  
 You can toggle experimental mode bu running: `uv run build.py --experimental`.  

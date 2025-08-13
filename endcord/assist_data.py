@@ -30,6 +30,7 @@ COMMAND_ASSISTS = (
     ("link_message - store selected message link in clipboard", "link_message"),
     ("goto_mention *[num] - go to channel/message mention in selected message", "goto_mention"),
     ("cancel - cancel all downloads and uploads", "cancel"),
+    ("external_edit - open external editor to type message in it", "external_edit"),
     ("member_list - toggle member list", "member_list"),
     ("toggle_thread - join/leave selected thread in tree", "toggle_thread"),
     ("bottom - go to chat bottom", "bottom"),

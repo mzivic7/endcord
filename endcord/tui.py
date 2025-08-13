@@ -234,7 +234,6 @@ class TUI():
         self.mouse_scroll_sensitivity = min(max(1, config["mouse_scroll_sensitivity"]), 10)
         mouse_scroll_selection = config["mouse_scroll_selection"]
 
-
         # select mouse scroll method
         if not mouse_scroll_selection:
             self.mouse_scroll = self.mouse_scroll_content
@@ -393,6 +392,33 @@ class TUI():
         self.win_extra_window = None
         self.win_member_list = None
         self.redraw_ui()
+
+
+    def pause_curses(self):
+        """Pause curses and disable drawing, releasing terminal"""
+        time.sleep(0.1)   # be sure everything is stopped before pausing
+        with self.lock:
+            self.lock_ui(True)
+            curses.def_prog_mode()
+            curses.endwin()
+
+
+    def resume_curses(self):
+        """Resume curses and enable drawing, capturing terminal"""
+        with self.lock:
+            curses.reset_prog_mode()
+            self.screen.refresh()
+            self.lock_ui(False)
+
+
+    def lock_ui(self, lock):
+        """Turn ON/OFF main TUI drawing"""
+        self.disable_drawing = lock
+        if lock:
+            self.hibernate_cursor = 10
+        else:
+            self.screen.clear()
+            self.redraw_ui()
 
 
     def get_dimensions(self):
@@ -663,7 +689,7 @@ class TUI():
             self.draw_title_tree()
         self.draw_extra_line(self.extra_line_text)
         self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-        self.draw_member_list(self.member_list, self.member_list_format)
+        self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
     def force_redraw(self):
@@ -1210,16 +1236,6 @@ class TUI():
             self.set_cursor_color(15)
             self.cursor_on = True
             self.hibernate_cursor = 0
-
-
-    def lock_ui(self, lock):
-        """Turn ON/OFF main TUI drawing"""
-        self.disable_drawing = lock
-        if lock:
-            self.hibernate_cursor = 10
-        else:
-            self.screen.clear()
-            self.redraw_ui()
 
 
     def update_status_line(self, text_l, text_r=None, text_l_format=[], text_r_format=[]):
@@ -2156,6 +2172,9 @@ class TUI():
 
             elif key in self.keybindings["search_gif"] and not forum:
                 return self.return_input_code(44)
+
+            elif key in self.keybindings["open_external_editor"] and not forum:
+                return self.return_input_code(45)
 
             elif key == curses.KEY_RESIZE:
                 self.resize()

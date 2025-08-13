@@ -609,4 +609,8 @@ def command_string(text):
     elif text.lower().startswith("redraw"):
         cmd_type = 42
 
+    # 43 - EXTERNAL_EDIT
+    elif text.lower().startswith("external_edit"):
+        cmd_type = 43
+
     return cmd_type, cmd_args
