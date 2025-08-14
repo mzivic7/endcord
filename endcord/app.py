@@ -1256,6 +1256,7 @@ class Endcord:
                 elif self.member_list_visible:   # controls for memeber list when no extra window
                     member = self.current_members[self.tui.get_mlist_selected()]
                     if "id" in member:
+                        self.restore_input_text = (input_text, "standard extra")
                         user_id = member["id"]
                         guild_id = self.active_channel["guild_id"]
                         if self.viewing_user_data["id"] != user_id or self.viewing_user_data["guild_id"] != guild_id:
@@ -1263,6 +1264,7 @@ class Endcord:
                                 self.viewing_user_data = self.discord.get_user_guild(user_id, guild_id)
                             else:
                                 self.viewing_user_data = self.discord.get_user(user_id)
+                        self.stop_assist(close=False)
                         self.view_profile(self.viewing_user_data)
 
             # view summaries
