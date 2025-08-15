@@ -1349,14 +1349,20 @@ class Gateway():
         time.sleep(1)   # so receiver ends before opening new socket
         reset_inflator()   # otherwise decompression wont work
         self.ws = websocket.WebSocket()
-        self.connect_ws(resume=True)
+        try:
+            self.connect_ws(resume=True)
+        except websocket._exceptions.WebSocketBadStatusException:
+            logger.info("Failed to resume connection")
+            return 9
         _ = zlib_decompress(self.ws.recv())
-        logger.info("Trying to resume connection")
         payload = {"op": 6, "d": {"token": self.token, "session_id": self.session_id, "seq": self.sequence}}
         self.send(payload)
         try:
-            return json.loads(zlib_decompress(self.ws.recv()))["op"]
+            op = json.loads(zlib_decompress(self.ws.recv()))["op"]
+            logger.info("Connection resumed")
+            return op
         except json.decoder.JSONDecodeError:
+            logger.info("Failed to resume connection")
             return 9
 
 
