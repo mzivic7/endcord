@@ -1254,7 +1254,10 @@ class Endcord:
                                 self.restore_input_text = (new_input_text, "standard")
                             self.tui.set_input_index(new_index)
                 elif self.member_list_visible:   # controls for memeber list when no extra window
-                    member = self.current_members[self.tui.get_mlist_selected()]
+                    mlist_selected = self.tui.get_mlist_selected()
+                    if mlist_selected >= len(self.current_members):
+                        continue
+                    member = self.current_members[mlist_selected]
                     if "id" in member:
                         self.restore_input_text = (input_text, "standard extra")
                         user_id = member["id"]
