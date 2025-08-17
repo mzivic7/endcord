@@ -315,9 +315,10 @@ def command_string(text):
     # 0 - UNKNOWN
     cmd_type = 0
     cmd_args = {}
+    text_lower = text.lower()
 
     # 1 - SET
-    if text.lower().startswith("set "):
+    if text_lower.startswith("set "):
         # "set [key] = [value]" / "set [key]=[value]"
         cmd_type = 1
         match = re.search(match_setting, text)
@@ -334,15 +335,15 @@ def command_string(text):
         }
 
     # 2 - BOTTOM
-    elif text.lower().startswith("bottom"):
+    elif text_lower.startswith("bottom"):
         cmd_type = 2
 
     # 3 - GO_REPLY
-    elif text.lower().startswith("go_reply"):
+    elif text_lower.startswith("go_reply"):
         cmd_type = 3
 
     # 4 - DOWNLOAD
-    elif text.lower().startswith("download"):
+    elif text_lower.startswith("download"):
         cmd_type = 4
         try:
             num = int(text.split(" ")[1])
@@ -351,7 +352,7 @@ def command_string(text):
             pass
 
     # 5 - OPEN_LINK
-    elif text.lower().startswith("open_link"):
+    elif text_lower.startswith("open_link"):
         cmd_type = 5
         try:
             num = int(text.split(" ")[1])
@@ -360,7 +361,7 @@ def command_string(text):
             pass
 
     # 6 - PLAY
-    elif text.lower().startswith("play"):
+    elif text_lower.startswith("play"):
         cmd_type = 6
         try:
             num = int(text.split(" ")[1])
@@ -369,73 +370,73 @@ def command_string(text):
             pass
 
     # 7 - CANCEL
-    elif text.lower().startswith("cancel"):
+    elif text_lower.startswith("cancel"):
         cmd_type = 7
 
     # 8 - COPY_MESSAGE
-    elif text.lower().startswith("copy_message"):
+    elif text_lower.startswith("copy_message"):
         cmd_type = 8
 
     # 9 - UPLOAD
-    elif text.lower().startswith("upload"):
+    elif text_lower.startswith("upload"):
         cmd_type = 9
         cmd_args = {"path": text[7:]}
 
     # 10 - SPOIL
-    elif text.lower().startswith("spoil"):
+    elif text_lower.startswith("spoil"):
         cmd_type = 10
 
     # 11 - TOGGLE_THREAD
-    elif text.lower().startswith("toggle_thread"):
+    elif text_lower.startswith("toggle_thread"):
         cmd_type = 11
 
     # 12 - PROFILE
-    elif text.lower().startswith("profile"):
+    elif text_lower.startswith("profile"):
         cmd_type = 12
         match = re.search(match_profile, text)
         if match:
             cmd_args = {"user_id": match.group(1)}
 
     # 13 - CHANNEL
-    elif text.lower().startswith("channel"):
+    elif text_lower.startswith("channel"):
         cmd_type = 13
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 14 - SUMMARIES
-    elif text.lower().startswith("summaries"):
+    elif text_lower.startswith("summaries"):
         cmd_type = 14
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 15 - HIDE
-    elif text.lower().startswith("hide"):
+    elif text_lower.startswith("hide"):
         cmd_type = 15
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 16 - SEARCH
-    elif text.lower().startswith("search"):
+    elif text_lower.startswith("search"):
         cmd_type = 16
         search_text = text[7:].strip(" ")
         cmd_args = {"search_text": search_text}
 
     # 17 - LINK_CHANNEL
-    elif text.lower().startswith("link_channel"):
+    elif text_lower.startswith("link_channel"):
         cmd_type = 17
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 18 - LINK_MESSAGE
-    elif text.lower().startswith("link_message"):
+    elif text_lower.startswith("link_message"):
         cmd_type = 18
 
     # 19 - GOTO_MENTION
-    elif text.lower().startswith("goto_mention"):
+    elif text_lower.startswith("goto_mention"):
         cmd_type = 19
         try:
             num = int(text.split(" ")[1])
@@ -444,7 +445,7 @@ def command_string(text):
             pass
 
     # 20 - STATUS
-    elif text.lower().startswith("status"):
+    elif text_lower.startswith("status"):
         cmd_type = 20
         text += " "
         if text.split(" ")[1].lower() in STATUS_STRINGS:
@@ -458,27 +459,27 @@ def command_string(text):
                 pass
 
     # 21 - RECORD
-    elif text.lower().startswith("record"):
+    elif text_lower.startswith("record"):
         cmd_type = 21
         text += " "
         cmd_args = {"cancel": text.split(" ")[1].lower() == "cancel"}
 
     # 22 - MEMBER_LIST
-    elif text.lower().startswith("member_list"):
+    elif text_lower.startswith("member_list"):
         cmd_type = 22
 
     # 23 - REACT
-    elif text.lower().startswith("react"):
+    elif text_lower.startswith("react"):
         cmd_type = 23
         react_text = text[6:].strip(" ")
         cmd_args = {"react_text": react_text}
 
     # 24 - SHOW_REACTIONS
-    elif text.lower().startswith("show_reactions"):
+    elif text_lower.startswith("show_reactions"):
         cmd_type = 24
 
     # 25 - GOTO
-    elif text.lower().startswith("goto"):
+    elif text_lower.startswith("goto"):
         cmd_type = 25
         match = re.search(match_channel, text)
         if match:
@@ -487,33 +488,33 @@ def command_string(text):
             cmd_type = 0
 
     # 26 - VIEW_PFP
-    elif text.lower().startswith("view_pfp"):
+    elif text_lower.startswith("view_pfp"):
         cmd_type = 26
         match = re.search(match_profile, text)
         if match:
             cmd_args = {"user_id": match.group(1)}
 
     # 27 - CHECK_STANDING
-    elif text.lower().startswith("check_standing"):
+    elif text_lower.startswith("check_standing"):
         cmd_type = 27
 
     # 28 - PASTE_CLIPBOARD_IMAGE
-    elif text.lower().startswith("paste_clipboard_image"):
+    elif text_lower.startswith("paste_clipboard_image"):
         cmd_type = 28
 
     # 29 - TOGGLE_MUTE
-    elif text.lower().startswith("toggle_mute"):
+    elif text_lower.startswith("toggle_mute"):
         cmd_type = 29
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 30 - TOGGLE_TAB
-    elif text.lower().startswith("toggle_tab"):
+    elif text_lower.startswith("toggle_tab"):
         cmd_type = 30
 
     # 31 - SWITCH_TAB
-    elif text.lower().startswith("switch_tab"):
+    elif text_lower.startswith("switch_tab"):
         cmd_type = 31
         try:
             num = int(text.split(" ")[1])
@@ -522,14 +523,14 @@ def command_string(text):
             cmd_type = 0
 
     # 32 - MARK_AS_READ
-    elif text.lower().startswith("mark_as_read"):
+    elif text_lower.startswith("mark_as_read"):
         cmd_type = 32
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
 
     # 33 - INSERT_TIMESTAMP
-    elif text.lower().startswith("insert_timestamp"):
+    elif text_lower.startswith("insert_timestamp"):
         cmd_type = 33
         try:
             date_string = text.split(" ")[1]
@@ -539,7 +540,7 @@ def command_string(text):
             cmd_type = 0
 
     # 34 - VOTE
-    elif text.lower().startswith("vote"):
+    elif text_lower.startswith("vote"):
         cmd_type = 34
         try:
             num = int(text.split(" ")[1])
@@ -548,15 +549,15 @@ def command_string(text):
             cmd_type = 0
 
     # 35 - SHOW_PINNED
-    elif text.lower().startswith("show_pinned"):
+    elif text_lower.startswith("show_pinned"):
         cmd_type = 35
 
     # 36 - PIN_MESSAGE
-    elif text.lower().startswith("pin_message"):
+    elif text_lower.startswith("pin_message"):
         cmd_type = 36
 
     # 37 - PUSH_BUTTON
-    elif text.lower().startswith("push_button"):
+    elif text_lower.startswith("push_button"):
         cmd_type = 37
         try:
             num = int(text.split(" ")[1])
@@ -568,9 +569,9 @@ def command_string(text):
             cmd_type = 0
 
     # 38 - STRING_SELECT
-    elif text.lower().startswith("string_select"):
+    elif text_lower.startswith("string_select"):
         cmd_type = 38
-        match = re.search(match_string_select, text.lower())
+        match = re.search(match_string_select, text_lower)
         if match:
             num = match.group(1)
             string = match.group(2)
@@ -579,11 +580,11 @@ def command_string(text):
             cmd_type = 0
 
     # 39 - DUMP_CHAT
-    elif text.lower().startswith("dump_chat"):
+    elif text_lower.startswith("dump_chat"):
         cmd_type = 39
 
     # 40 - SET_NOTIFICATIONS
-    elif text.lower().startswith("set_notifications"):
+    elif text_lower.startswith("set_notifications"):
         cmd_type = 40
         cmd_split = text.split(" ")
         have_id = False
@@ -600,17 +601,30 @@ def command_string(text):
                 cmd_type = 0
 
     # 41 - GIF
-    elif text.lower().startswith("gif"):
+    elif text_lower.startswith("gif"):
         cmd_type = 41
         search_text = text[4:].strip(" ")
         cmd_args = {"search_text": search_text}
 
     # 42 - REDRAW
-    elif text.lower().startswith("redraw"):
+    elif text_lower.startswith("redraw"):
         cmd_type = 42
 
     # 43 - EXTERNAL_EDIT
-    elif text.lower().startswith("external_edit"):
+    elif text_lower.startswith("external_edit"):
         cmd_type = 43
 
+    # 44 - CUSTOM_STATUS/EMOJI/REMOVE
+    elif text_lower.startswith("custom_status"):
+        cmd_type = 44
+        if text_lower.startswith("custom_status_emoji"):
+            cmd_args = {"emoji": text[20:]}
+            if len(text) <= 20:
+                cmd_type = 0
+        elif text_lower.startswith("custom_status_remove"):
+            pass
+        else:
+            cmd_args = {"text": text[14:]}
+            if len(text) <= 14:
+                cmd_type = 0
     return cmd_type, cmd_args

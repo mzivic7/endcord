@@ -1625,7 +1625,8 @@ class Endcord:
                     else:
                         self.assist_word = None
                         self.assist_found = []
-                        self.restore_input_text = (None, None)
+                        if new_index != 1000000:
+                            self.restore_input_text = (None, None)
                     continue
 
                 # message will be received from gateway and then added to self.messages
@@ -1796,7 +1797,6 @@ class Endcord:
                     text_to_send = emoji.emojize(input_text, language="alias", variant="emoji_type")
                     if self.fun and ("xyzzy" in text_to_send or "XYZZY" in text_to_send):
                         self.update_extra_line("Nothing happens.")
-                    logger.info(text_to_send)
                     self.discord.send_message(
                         self.active_channel["channel_id"],
                         text_to_send,
@@ -2581,6 +2581,53 @@ class Endcord:
                 self.tui.set_input_index(len(new_text))
                 self.add_to_store(self.active_channel["channel_id"], new_text)
             self.tui.resume_curses()
+
+        elif cmd_type == 44:   # CUSTOM_STATUS/EMOJI/REMOVE
+            if "text" in cmd_args:
+                self.my_status["custom_status"] = cmd_args["text"][:128]
+                if len(cmd_args["text"]) > 128:
+                    self.update_extra_line("Text has been trimmed to 128 characters.")
+            elif "emoji" in cmd_args:
+                match = re.search(formatter.match_d_emoji, cmd_args["emoji"])
+                if match:
+                    if self.premium:
+                        self.my_status["custom_status_emoji"] = {
+                            "id": match.group(3),
+                            "name": match.group(2),
+                            "animated": match.group(1) == "a",
+                        }
+                    else:
+                        self.update_extra_line("Must have nitro to set custom emoji.")
+                else:
+                    self.my_status["custom_status_emoji"] = {
+                        "id": None,
+                        "name": emoji.emojize(cmd_args["emoji"]),
+                        "animated": False,
+                    }
+            else:
+                self.my_status["custom_status"] = None
+                self.my_status["custom_status_emoji"] = None
+
+            settings = {
+                "status": {
+                    "status": self.my_status["status"],
+                    "showCurrentGame": True,
+                },
+            }
+            if self.my_status["custom_status"] or self.my_status["custom_status_emoji"]:
+                settings["status"]["customStatus"] = {}
+            if self.my_status["custom_status"]:
+                settings["status"]["customStatus"]["text"] = self.my_status["custom_status"]
+            if self.my_status["custom_status_emoji"]:
+                settings["status"]["customStatus"]["emojiName"] = self.my_status["custom_status_emoji"]["name"]
+            if not self.gateway.legacy:
+                self.discord.patch_settings_proto(1, settings)
+            self.gateway.update_presence(
+                self.my_status["status"],
+                custom_status=self.my_status["custom_status"],
+                custom_status_emoji=self.my_status["custom_status_emoji"],
+                rpc=self.my_rpc,
+            )
 
         if reset:
             self.reset_actions()
@@ -3748,7 +3795,7 @@ class Endcord:
                         self.tui.get_tree_selected(),
                     )
                     self.command = False
-                    return "", 1000000   # means its command execution an should restore text from store
+                    return "", 1000000   # means its command execution and should restore text from store
                 new_text = self.assist_found[index][1] + " "
                 new_pos = len(new_text)
                 return new_text, new_pos

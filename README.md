@@ -59,7 +59,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Highlight messages with mentions
 - Show who is typing
 - Send 'typing' (ON by default)
-- Insertable newline in input line
+- Change status and custom status
 - Copy message text/url to clipboard
 - Hide or mask blocked/ignored users
 - No ghost pings (when client is running)

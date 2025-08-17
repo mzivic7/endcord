@@ -48,6 +48,9 @@ COMMAND_ASSISTS = (
     ("set_notifications *<#[channel_id]> ... - show and modify server/channel notification settings", "set_notifications"),
     ("check_standing - check account standing, anything non-100 is concerning", "check_standing"),
     ("dump_chat - dump current chat to unique json file", "dump_chat"),
+    ("custom_status [string] - set custom status text", "custom_status"),
+    ("custom_status_emoji [emoji] - set custom status emoji", "custom_status_emoji"),
+    ("custom_status_remove - remove custom status", "custom_status_remove"),
     ("redraw - redraw UI if it ever gets messed up", "redraw"),
     ("set [key] = [value] - change settings and save them.", "set"),
 )

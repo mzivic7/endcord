@@ -16,7 +16,7 @@ TIME_DIVS = [1, 60, 3600, 86400, 2678400, 31190400]
 TIME_UNITS = ["second", "minute", "hour", "day", "month", "year"]
 
 match_emoji = re.compile(r"(?<!\\):.+:")
-match_d_emoji = re.compile(r"<.?:(.*?):\d*?>")
+match_d_emoji = re.compile(r"<(.?):(.*?):(\d*?)>")
 match_mention = re.compile(r"<@(\d*?)>")
 match_role = re.compile(r"<@&(\d*?)>")
 match_channel = re.compile(r"<#(\d*?)>")
@@ -197,7 +197,7 @@ def replace_discord_emoji(text):
     last_pos = 0
     for match in re.finditer(match_d_emoji, text):
         result.append(text[last_pos:match.start()])
-        result.append(f":{match.group(1)}:")
+        result.append(f":{match.group(2)}:")
         last_pos = match.end()
     result.append(text[last_pos:])
     return "".join(result)
@@ -1506,10 +1506,15 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
     # activity
     if presence:
         status = presence["status"].capitalize().replace("Dnd", "DnD")
+        custom = ""
+        if presence.get("custom_status_emoji"):
+            status_emoji = presence["custom_status_emoji"]["name"]
+            if not emoji.is_emoji(status_emoji):
+                status_emoji = f":{status_emoji}:"
+            custom += f"{status_emoji} "
         if presence["custom_status"]:
-            custom = f" - {presence["custom_status"]}"
-        else:
-            custom = ""
+            custom += presence["custom_status"]
+        custom = f" - {custom}"
         body_line += f"Status: {status}{custom}\n"
     else:
         body_line += "Could not fetch status\n"
