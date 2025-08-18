@@ -65,6 +65,7 @@ class Endcord:
     def __init__(self, screen, config, keybindings):
         self.screen = screen
         self.config = config
+        self.init_time = time.time()
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
@@ -178,6 +179,10 @@ class Endcord:
             user_agent,
             proxy=config["proxy"],
         )
+        # preload chat for faster startup
+        self.preloaded = False
+        self.need_preload = True
+        threading.Thread(target=self.preload_chat, daemon=True).start()
         self.gateway = gateway.Gateway(
             config["token"],
             config["custom_host"],
@@ -185,7 +190,8 @@ class Endcord:
             user_agent,
             proxy=config["proxy"],
         )
-        self.gateway.connect()
+        # this takes some time, so let other things init in parallel
+        threading.Thread(target=self.gateway.connect, daemon=True).start()
         self.downloader = downloader.Downloader(config["proxy"])
         self.tui = tui.TUI(self.screen, self.config, keybindings)
         self.colors = self.tui.init_colors(self.colors)
@@ -248,7 +254,8 @@ class Endcord:
 
     def reset(self, online=False):
         """Reset stored data from discord, should be run on startup and reconnect"""
-        self.messages = []
+        if not self.preloaded:
+            self.messages = []
         self.session_id = None
         self.chat = []
         self.chat_format = []
@@ -394,7 +401,7 @@ class Endcord:
         logger.info("Reconnect complete")
 
 
-    def switch_channel(self, channel_id, channel_name, guild_id, guild_name, parent_hint=None, open_member_list=False):
+    def switch_channel(self, channel_id, channel_name, guild_id, guild_name, parent_hint=None, open_member_list=False, preload=False):
         """
         All that should be done when switching channel.
         If it is DM, guild_id and guild_name should be None.
@@ -484,6 +491,13 @@ class Endcord:
             if from_cache:
                 self.load_from_channel_cache(num)
                 self.update_chat()
+
+            # use preloaded
+            elif preload and self.preloaded:
+                self.get_missing_members(self.active_channel["guild_id"], self.messages)
+                self.last_message_id = self.messages[0]["id"]
+                self.preloaded = False
+                self.need_preload = False
 
             # download messages
             else:
@@ -3071,6 +3085,17 @@ class Endcord:
             # skipping dms
             return messages
 
+        self.get_missing_members(current_guild, messages)
+
+        return messages
+
+
+    def get_missing_members(self, current_guild, messages):
+        """Loop through all messages and download missing members"""
+        if not current_guild:
+            # skipping dms
+            return
+
         # find missing members
         missing_members = []
         for message in messages:
@@ -3092,11 +3117,8 @@ class Endcord:
                     # update member list
                     self.member_roles = new_member_roles
                     self.select_current_member_roles()
-                else:
-                    # wait to receive
-                    time.sleep(0.1)
-
-        return messages
+                    break
+                time.sleep(0.1)
 
 
     def get_chat_chunk(self, past=True):
@@ -3188,6 +3210,16 @@ class Endcord:
             else:
                 self.chat_end = True
         self.remove_running_task("Downloading forum", 4)
+
+
+    def preload_chat(self):
+        """Download chat before switching channel to allow faster switching, used for initial chat when starting up"""
+        self.state = peripherals.load_json("state.json")
+        if self.state and self.state["last_channel_id"]:
+            messages = self.discord.get_messages(self.state["last_channel_id"], self.msg_num)
+            if self.need_preload and messages:
+                self.messages = messages
+                self.preloaded = True
 
 
     def toggle_member_list(self):
@@ -4997,11 +5029,13 @@ class Endcord:
                         channel_name = channel["name"]
                         break
             if channel_name:
-                self.switch_channel(channel_id, channel_name, guild_id, guild_name, open_member_list=self.member_list_auto_open)
+                self.switch_channel(channel_id, channel_name, guild_id, guild_name, open_member_list=self.member_list_auto_open, preload=True)
                 self.tui.tree_select_active()
         else:
             self.chat.insert(0, "Select channel to load messages")
             self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 3)
+        self.preloaded = False
+        self.need_preload = False
 
         # open uncollapsed guilds, generate and draw tree
         self.open_guild(self.active_channel["guild_id"], restore=True)
@@ -5034,7 +5068,8 @@ class Endcord:
         # start extra line remover thread
         threading.Thread(target=self.extra_line_remover, daemon=True).start()
 
-        logger.info("Main loop started")
+        logger.info(f"Main loop started after {round(time.time() - self.init_time, 2)}s")
+        del self.init_time
 
         while self.run:
             selected_line, text_index = self.tui.get_chat_selected()
