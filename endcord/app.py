@@ -3827,7 +3827,7 @@ class Endcord:
             insert_string = f"<;{self.assist_found[index][1]};>"   # format: "<;ID;>"
         elif self.assist_type == 5:   # command
             if self.assist_found[index][1]:
-                if input_text.endswith(" "):
+                if input_text.endswith(" ") and input_text not in ("set ", "string_select ", "set_notifications  "):
                     self.tui.instant_assist = False
                     command_type, command_args = parser.command_string(input_text)
                     self.close_extra_window()

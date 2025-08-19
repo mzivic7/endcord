@@ -253,8 +253,6 @@ def search_settings(config, query, limit=50, score_cutoff=15):
     worst_score = score_cutoff
 
     for key, value in config.items():
-        if key == "token":
-            continue
         formatted = f"{key} = {value}"
         score = fuzzy_match_score(query, formatted)
         if score < worst_score:

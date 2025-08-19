@@ -1,6 +1,4 @@
-Have different states per profile
-Add command to switch account
-
+Command history
 Voice and video calls and channels
 Update soundcard and numpy
 Localization
