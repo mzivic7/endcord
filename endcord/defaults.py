@@ -46,6 +46,7 @@ settings = {
     "assist_skip_app_command": False,
     "assist_limit": 50,
     "assist_score_cutoff": 15,
+    "limit_command_history": 50,
     "external_editor": None,
     "yt_dlp_path": "yt-dlp",
     "yt_dlp_format": 18,

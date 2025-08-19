@@ -30,7 +30,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Member list
 - Toggle reply ping
 - Search messages
-- Client commands
+- Client commands with history
 - App commands and some interactions
 - View user profile
 - Channel tree (Server/DM/Group)

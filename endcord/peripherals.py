@@ -333,16 +333,16 @@ def notify_remove(notification_id):
         )
 
 
-def load_json(file):
+def load_json(file, default=None):
     """Load saved json from same location where default config is saved"""
     path = os.path.expanduser(config_path + file)
     if not os.path.exists(path):
-        return None
+        return default
     try:
         with open(path, "r") as f:
             return json.load(f)
     except Exception:
-        return None
+        return default
 
 
 def save_json(data, file):

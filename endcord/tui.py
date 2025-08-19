@@ -1524,9 +1524,11 @@ class TUI():
             self.add_to_delta_store("BACKSPACE", letter)
 
 
-    def common_keybindings(self, key, mouse=False, switch=False):
+    def common_keybindings(self, key, mouse=False, switch=False, command=False):
         """Handle keybinding events that are common for all buffers"""
         if key == curses.KEY_UP:   # UP
+            if command:
+                return 46
             if self.chat_selected + 1 < len(self.chat_buffer):
                 top_line = self.chat_index + self.chat_hw[0] - 3
                 if top_line + 3 < len(self.chat_buffer) and self.chat_selected >= top_line:
@@ -1535,6 +1537,8 @@ class TUI():
                 self.draw_chat()
 
         elif key == curses.KEY_DOWN:   # DOWN
+            if command:
+                return 47
             if self.chat_selected >= self.dont_hide_chat_selection:   # if it is -1, selection is hidden
                 if self.chat_index and self.chat_selected <= self.chat_index + 2:   # +2 from status and input lines
                     self.chat_index -= 1   # move history up
@@ -1652,7 +1656,7 @@ class TUI():
         return tmp, self.chat_selected, self.tree_selected_abs, code
 
 
-    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, autocomplete=False, clear_delta=False, forum=False):
+    def wait_input(self, prompt="", init_text=None, reset=True, keep_cursor=False, autocomplete=False, clear_delta=False, forum=False, command=False):
         """
         Take input from user, and show it on screen
         Return typed text, absolute_tree_position and whether channel is changed
@@ -1779,7 +1783,7 @@ class TUI():
                     self.input_select_start = None
                     return self.return_input_code(0)
 
-            code = self.common_keybindings(key)
+            code = self.common_keybindings(key, command=command)
             if code:
                 return self.return_input_code(code)
 

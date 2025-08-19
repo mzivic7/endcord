@@ -111,6 +111,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Maximum number of results when showing assist.
 - `assist_score_cutoff = 15`  
     Cutoff for assist match score. Lower value will result in more results.
+- `limit_command_history = 50`  
+    Maximum number of commands stored in history. File is `command_history.json` in config dir.
 - `external_editor = None`  
     Command or path to executable for launching external editor. Set to `None` to use system defaut.
 - `yt_dlp_path = "yt-dlp"`  

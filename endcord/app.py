@@ -113,6 +113,7 @@ class Endcord:
         self.assist_limit = config["assist_limit"]
         self.assist_score_cutoff = config["assist_score_cutoff"]
         self.external_editor = config["external_editor"]
+        self.limit_command_history = config["limit_command_history"]
         if not self.external_editor or not shutil.which(self.external_editor):
             self.external_editor = os.environ.get("EDITOR", "nano")
             if not shutil.which(self.external_editor):
@@ -238,6 +239,9 @@ class Endcord:
         self.assist_found = []
         self.restore_input_text = (None, None)
         self.extra_bkp = None
+        self.command_history = peripherals.load_json("command_history.json", [])
+        self.command_history_index = 0
+        self.command_history_stored_current = None
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
@@ -723,6 +727,17 @@ class Endcord:
                 })
 
 
+    def add_to_command_history(self, command):
+        """Add command to command history and limit its size"""
+        if not self.command_history or self.command_history[-1] != command:
+            self.command_history.append(command)
+            if len(self.command_history) > self.limit_command_history:
+                self.command_history.pop(0)
+                if self.command_history_index:
+                    self.command_history_index -= 1
+            peripherals.save_json(self.command_history, "command_history.json")
+
+
     def add_to_channel_cache(self, channel_id, messages, set_pinned):
         """Add messages to channel cache"""
         # format: channel_cache = [[channel_id, messages, pinned, *invalid], ...]
@@ -925,8 +940,9 @@ class Endcord:
                 if self.search_gif and prompt_text == "search":
                     prompt_text = "gif search"
                 prompt_text = prompt_text.upper()
+                command = self.restore_input_text[1] == "command"
                 self.restore_input_text = (None, None)
-                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt(prompt_text), init_text=init_text, forum=self.forum)
+                input_text, chat_sel, tree_sel, action = self.tui.wait_input(self.custom_prompt(prompt_text), init_text=init_text, forum=self.forum, command=command)
             else:
                 restore_text = None
                 input_index = 0
@@ -1427,6 +1443,7 @@ class Endcord:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.restore_input_text = (None, "command")
                     self.command = True
+                    self.command_history_index = max(len(self.command_history), 0)
                     self.ignore_typing = True
                     max_w = self.tui.get_dimensions()[2][1]
                     extra_title, extra_body = formatter.generate_extra_window_assist(COMMAND_ASSISTS, 5, max_w)
@@ -1498,6 +1515,30 @@ class Endcord:
                 else:
                     self.restore_input_text = (input_text, "standard")
                 self.tui.resume_curses()
+
+            # up/down in command mode
+            elif action == 46 and self.command:   # UP
+                if self.command_history_index == len(self.command_history):
+                    self.command_history_stored_current = input_text
+                if self.command_history:
+                    if self.command_history_index > 0:
+                        self.command_history_index -= 1
+                    self.restore_input_text = (self.command_history[self.command_history_index], "command")
+                else:
+                    self.restore_input_text = (input_text, "command")
+            elif action == 47 and self.command:   # DOWN
+                history_len = len(self.command_history) - 1
+                if self.command_history and self.command_history_index <= history_len:
+                    if self.command_history_index < history_len:
+                        self.command_history_index += 1
+                    else:
+                        self.restore_input_text = (self.command_history_stored_current, "command")
+                        self.command_history_stored_current = None
+                        self.command_history_index += 1
+                        continue
+                    self.restore_input_text = (self.command_history[self.command_history_index], "command")
+                else:
+                    self.restore_input_text = (input_text, "command")
 
             # mouse double-click on message
             elif action == 40:
@@ -1735,6 +1776,7 @@ class Endcord:
                     command_type, command_args = parser.command_string(input_text)
                     self.close_extra_window()
                     self.execute_command(command_type, command_args, chat_sel, tree_sel)
+                    self.add_to_command_history(input_text)
                     self.command = False
                     continue
 
@@ -1991,44 +2033,46 @@ class Endcord:
                     embeds.append(embed["url"])
             selected_urls = []
             urls = self.get_msg_urls_chat(msg_index)
-            for num in self.get_url_from_selected_line(chat_sel):
-                if urls[num] in embeds:
-                    selected_urls.append(urls[num])
-            if len(selected_urls) == 1 or select_num:
-                select_num = max(min(select_num-1, len(selected_urls)-1), 0)
-                selected_url = selected_urls[select_num]
-                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, )))
-                self.download_threads[-1].start()
-            else:
-                self.ignore_typing = True
-                self.downloading_file = {
-                    "urls": selected_urls,
-                    "web": False,
-                    "open": False,
-                }
-                self.restore_input_text = (None, "prompt")
-                reset = False
+            if urls:
+                for num in self.get_url_from_selected_line(chat_sel):
+                    if urls[num] in embeds:
+                        selected_urls.append(urls[num])
+                if len(selected_urls) == 1 or select_num:
+                    select_num = max(min(select_num-1, len(selected_urls)-1), 0)
+                    selected_url = selected_urls[select_num]
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, )))
+                    self.download_threads[-1].start()
+                else:
+                    self.ignore_typing = True
+                    self.downloading_file = {
+                        "urls": selected_urls,
+                        "web": False,
+                        "open": False,
+                    }
+                    self.restore_input_text = (None, "prompt")
+                    reset = False
 
         elif cmd_type == 5:   # OPEN_LINK
             msg_index = self.lines_to_msg(chat_sel)
             select_num = cmd_args.get("num", 0)
             selected_urls = []
             urls = self.get_msg_urls_chat(msg_index)
-            for num in self.get_url_from_selected_line(chat_sel):
-                selected_urls.append(urls[num])
-            if len(selected_urls) == 1 or select_num:
-                select_num = max(min(select_num-1, len(selected_urls)-1), 0)
-                selected_url = selected_urls[select_num]
-                webbrowser.open(selected_url, new=0, autoraise=True)
-            else:
-                self.ignore_typing = True
-                self.downloading_file = {
-                    "urls": selected_urls,
-                    "web": True,
-                    "open": False,
-                }
-                self.restore_input_text = (None, "prompt")
-                reset = False
+            if urls:
+                for num in self.get_url_from_selected_line(chat_sel):
+                    selected_urls.append(urls[num])
+                if len(selected_urls) == 1 or select_num:
+                    select_num = max(min(select_num-1, len(selected_urls)-1), 0)
+                    selected_url = selected_urls[select_num]
+                    webbrowser.open(selected_url, new=0, autoraise=True)
+                else:
+                    self.ignore_typing = True
+                    self.downloading_file = {
+                        "urls": selected_urls,
+                        "web": True,
+                        "open": False,
+                    }
+                    self.restore_input_text = (None, "prompt")
+                    reset = False
 
         elif cmd_type == 6:   # PLAY
             msg_index = self.lines_to_msg(chat_sel)
@@ -2036,23 +2080,24 @@ class Endcord:
             embeds = self.get_msg_embeds(msg_index)
             selected_urls = []
             urls = self.get_msg_urls_chat(msg_index)
-            for num in self.get_url_from_selected_line(chat_sel):
-                if urls[num] in embeds:
-                    selected_urls.append(urls[num])
-            if len(selected_urls) == 1 or select_num:
-                select_num = max(min(select_num-1, len(selected_urls)-1), 0)
-                selected_url = selected_urls[select_num]
-                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, False, True)))
-                self.download_threads[-1].start()
-            else:
-                self.ignore_typing = True
-                self.downloading_file = {
-                    "urls": selected_urls,
-                    "web": False,
-                    "open": True,
-                }
-                self.restore_input_text = (None, "prompt")
-                reset = False
+            if urls:
+                for num in self.get_url_from_selected_line(chat_sel):
+                    if urls[num] in embeds:
+                        selected_urls.append(urls[num])
+                if len(selected_urls) == 1 or select_num:
+                    select_num = max(min(select_num-1, len(selected_urls)-1), 0)
+                    selected_url = selected_urls[select_num]
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, False, True)))
+                    self.download_threads[-1].start()
+                else:
+                    self.ignore_typing = True
+                    self.downloading_file = {
+                        "urls": selected_urls,
+                        "web": False,
+                        "open": True,
+                    }
+                    self.restore_input_text = (None, "prompt")
+                    reset = False
 
         elif cmd_type == 7:   # CANCEL
             reset = False
@@ -2191,7 +2236,7 @@ class Endcord:
                     channel_id = match.group(3)
                     message_id = match.group(4)
                 channels.append((guild_id, channel_id, message_id))
-            if len(channels) == 1 or select_num is not None:
+            if len(channels) == 1 or (channels and select_num is not None):
                 if select_num is None:
                     select_num = 0
                 select_num = max(min(select_num-1, len(channels)-1), 0)
@@ -3837,6 +3882,7 @@ class Endcord:
                         self.tui.get_chat_selected()[0],
                         self.tui.get_tree_selected(),
                     )
+                    self.add_to_command_history(input_text)
                     self.command = False
                     return "", 1000000   # means its command execution and should restore text from store
                 new_text = self.assist_found[index][1] + " "
@@ -4998,21 +5044,18 @@ class Endcord:
 
         # restore last state
         if self.config["remember_state"]:
-            self.state = peripherals.load_json("state.json")
-            if self.state is None:
-                self.state = {
-                    "last_guild_id": None,
-                    "last_channel_id": None,
-                    "collapsed": [],
-                }
+            self.state = {
+                "last_guild_id": None,
+                "last_channel_id": None,
+                "collapsed": [],
+            }
+            self.state = peripherals.load_json("state.json", self.state)
         if self.state["last_guild_id"] in self.state["collapsed"]:
             self.state["collapsed"].remove(self.state["last_guild_id"])
 
         # load summaries
         if self.save_summaries:
-            self.summaries = peripherals.load_json("summaries.json")
-            if not self.summaries:
-                self.summaries = []
+            self.summaries = peripherals.load_json("summaries.json", [])
 
         # load messages
         if self.state["last_channel_id"]:

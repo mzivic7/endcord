@@ -1,4 +1,3 @@
-Command history
 Voice and video calls and channels
 Update soundcard and numpy
 Localization

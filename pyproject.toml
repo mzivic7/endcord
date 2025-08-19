@@ -25,9 +25,9 @@ dependencies = [
 
 [dependency-groups]
 build = [
-    "cython>=3.1.2",
+    "cython>=3.1.3",
     "nuitka>=2.7.12",
-    "pyinstaller>=6.14.2",
+    "pyinstaller>=6.15.0",
     "setuptools>=80.9.0",
 ]
 media = [
