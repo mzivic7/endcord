@@ -100,23 +100,28 @@ def main(args):
     if args.proxy:
         config["proxy"] = args.proxy
 
-    from endcord import token_manager
-    if args.remove_token:
-        token_manager.remove_token()
-        sys.exit("Token removed from keyring")
-    token = args.token
+    from endcord import profile_manager
     logger.info(f"Started endcord {VERSION}")
-    if not token and not config["token"]:
-        token = token_manager.get_token(force=args.update_token)
-        if not token:
-            sys.exit("Token not provided in config, as argument, nor in token manager")
-    if token:
-        config["token"] = token
+    if args.token:
+        profiles = {"selected": "default", "profiles": [{"name": "default", "token": args.token}]}
+        proceed = True
+    else:
+        profiles_path = os.path.join(peripherals.config_path, "profiles.json")
+        if args.profile:
+            selected = args.profile
+        else:
+            selected = None
+        profiles, selected, proceed = profile_manager.manage(profiles_path, selected, force_open=args.manager)
+        if not profiles:
+            sys.exit("Token not provided in token manager nor as argument")
+    if not proceed:
+        sys.exit(0)
+
     if args.debug or config["debug"]:
         logging.getLogger().setLevel(logging.DEBUG)
     try:
         from endcord import app
-        curses.wrapper(app.Endcord, config, keybindings)
+        curses.wrapper(app.Endcord, config, keybindings, profiles)
     except curses.error as e:
         if str(e) != "endwin() returned ERR":
             logger.error(traceback.format_exc())

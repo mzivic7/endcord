@@ -77,6 +77,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Resizable
 - Automatic recovery on network failure
 - Proxy support
+- Profile manager for multiple accounts
 - Store token in system keyring
 - Quit on `Ctrl+C`
 
@@ -97,17 +98,27 @@ There can be missing entries in config, they will be filled with defaults.
 ### Config options
 Go to [configuration](configuration.md).
 
+### Profile manager
+Profile manager is used for easier switching between multiple accounts.  
+It allows creating, editing, deleting and loading token for different accounts.  
+Each token is saved as "profile", it has custom "name" as identifier, and last date of usage is also stored.  
+Profiles can be saved either in keyring or as plaintext json.  
+Keyring is OS managed secure storage for secrets (like passwords and tokens) - recommended.  
+Plaintext means that tokens will be saved non-encrypted in `profiles.json` file in endcord settings directory.  
+Use plaintext mode only if keyring is not working.  
+If keyring is not available or not working, plaintext mode is used by default.  
+Profile manager will always automatically load last used profile.  
+Unless other profile is selected in manager TUI, or profile name is provided with `--profile` flag.  
+Manager can be re-opened using `--manager` flag.  
+
 ### Token
 Token is used to access Discord through your account without logging-in.  
 It is required to to use endcord.  
 See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 After obtaining token, you can either:  
-- Provide token in token manager (recommended) - token will be stored in secure system keyring  
-  Token manager will be shown only if token is not provided in config nor as command argument  
-  To remove token from keyring: `endcord --remove-token`; to update it: `endcord --update-token`
-- Pass token to endcord as command argument: `endcord -t [YOUR_TOKEN]`  
-- Save token in config  
-Note that if you save it as argument, it might get saved in your terminal history file.  
+- Provide token in profile manager - recommended,
+- Pass token to endcord as command argument: `endcord -t [YOUR_TOKEN]`.  
+Note that if you use it as argument, it might get saved in your terminal history file.  
 **Do not share your token!** Remove it form config before sharing it.  
 
 ### Keybinding

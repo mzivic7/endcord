@@ -29,7 +29,7 @@ def parser(app_name, version, default_config_path, log_path):
         Default config is in {default_config_path}",
     )
     parser.add_argument(
-        "-p",
+        "-x",
         "--proxy",
         type=str,
         action="store",
@@ -55,19 +55,20 @@ def parser(app_name, version, default_config_path, log_path):
         "--token",
         type=str,
         action="store",
-        help="\
-        Discord user authentication token, see readme for more info; \
-        It is recommended to provide it in token manager that will show only when token is not found in config nor as argument",
+        help="Discord user authentication token, see readme for more info, it is recommended to provide it in token manager",
     )
     parser.add_argument(
-        "--remove-token",
-        action="store_true",
-        help="Remove token from keyring, if it is saved there",
+        "-p",
+        "--profile",
+        type=str,
+        action="store",
+        help="Name of selected profile to load, profiles are managed in token mamager",
     )
     parser.add_argument(
-        "--update-token",
+        "-a",
+        "--manager",
         action="store_true",
-        help="Update token in keyring, works only if token is not provided in config nor as argument",
+        help="show token manager",
     )
     parser.add_argument(
         "-m",

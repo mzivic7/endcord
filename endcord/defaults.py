@@ -1,6 +1,4 @@
 settings = {
-    "token": None,
-    "debug": False,
     "theme": None,
     "rpc": True,
     "downloads_path": None,
@@ -57,6 +55,7 @@ settings = {
     "proxy": None,
     "custom_host": None,
     "disable_easter_eggs": False,
+    "debug": False,
 }
 theme = {
     "tree_width": 32,

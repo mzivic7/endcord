@@ -62,10 +62,19 @@ recorder = peripherals.Recorder()
 class Endcord:
     """Main app class"""
 
-    def __init__(self, screen, config, keybindings):
+    def __init__(self, screen, config, keybindings, profiles):
         self.screen = screen
         self.config = config
         self.init_time = time.time()
+        self.profiles = profiles
+
+        # select profile
+        for profile in profiles["keyring"] + profiles["plaintext"]:
+            if profile["name"] == profiles["selected"]:
+                self.token = profile["token"]
+                break
+        else:
+            self.token = profiles[0]["token"]
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
@@ -173,7 +182,7 @@ class Endcord:
 
         # initialize stuff
         self.discord = discord.Discord(
-            config["token"],
+            self.token,
             config["custom_host"],
             client_prop,
             user_agent,
@@ -184,7 +193,7 @@ class Endcord:
         self.need_preload = True
         threading.Thread(target=self.preload_chat, daemon=True).start()
         self.gateway = gateway.Gateway(
-            config["token"],
+            self.token,
             config["custom_host"],
             client_prop_gateway,
             user_agent,
@@ -1960,7 +1969,7 @@ class Endcord:
         elif cmd_type == 1:   # SET
             key = cmd_args["key"]
             value = cmd_args["value"]
-            if key in self.config and key != "token":
+            if key in self.config:
                 self.update_extra_line("Restart needed for changes to take effect.")
                 self.config = peripherals.update_config(self.config, key, value)
             else:
@@ -3665,8 +3674,7 @@ class Endcord:
                     )
                 else:
                     for key, value in self.config.items():
-                        if key != "token":
-                            self.assist_found.append((f"{key} = {value}", f"set {key} = {value}"))
+                        self.assist_found.append((f"{key} = {value}", f"set {key} = {value}"))
 
             elif assist_word.lower().startswith("string_select "):
                 chat_sel, _ = self.tui.get_chat_selected()

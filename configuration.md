@@ -2,10 +2,6 @@
 Note: always put string in `""`. To use `"` inside the string escape it like this: `\"`. To use `\` escape it like this: `\\`. These are counted as single character.
 
 ### Main
-- `token = None`  
-    Your discord token. Provide it here or as a command argument.
-- `debug = False`  
-    Enable debug mode.
 - `theme = None`  
     Custom theme path, or name of file in `Themes` directory.  Set to None to use theme from `config.ini` `[theme]` section or defaults.
 - `rpc = True`  
@@ -140,6 +136,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Custom host to connect to, like `spacebar.chat`. Set to None to use default host (`discord.com`)
 - `"disable_easter_eggs = False`  
     In case some easter egg is annoying.
+- `debug = False`  
+    Enable debug mode.
 
 ### Theme
 - `tree_width = 32`  
