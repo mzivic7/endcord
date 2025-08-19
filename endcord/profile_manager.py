@@ -412,7 +412,7 @@ def manage_profile(screen, have_keyring, editing_profile=None):
             else:
                 return profile, False
         elif step == 1:   # token
-            token, proceed = text_prompt(screen, TOKEN_PROMPT_TEXT, "TOKEN: ")
+            token, proceed = text_prompt(screen, TOKEN_PROMPT_TEXT, "TOKEN: ", mask=True)
             if proceed:
                 if token:
                     profile["token"] = token
@@ -459,7 +459,7 @@ def delete_profile(screen, profiles_enc, profiles_plain, selected_profile):
             return profiles_enc, profiles_plain, True
 
 
-def text_prompt(screen, descrption_text, prompt, init=None):
+def text_prompt(screen, descrption_text, prompt, init=None, mask=False):
     """Prompt to type/paste text"""
     screen.clear()
     screen.bkgd(" ", curses.color_pair(1))
@@ -471,7 +471,12 @@ def text_prompt(screen, descrption_text, prompt, init=None):
     else:
         text = ""
     prompt_len = len(prompt) + 2
-    screen.addstr(prompt_y, 1, prompt + text[:w-prompt_len] + " " * (w - len(text)-prompt_len), curses.color_pair(1) | curses.A_STANDOUT)
+    if mask:
+        dots = "•" * len(text[:w-prompt_len])
+        screen_text = prompt + dots + " " * (w - len(text)-prompt_len)
+    else:
+        screen_text = prompt + text[:w-prompt_len] + " " * (w - len(text)-prompt_len)
+    screen.addstr(prompt_y, 1, screen_text, curses.color_pair(1) | curses.A_STANDOUT)
     run = True
     proceed = False
     while run:
@@ -508,13 +513,18 @@ def text_prompt(screen, descrption_text, prompt, init=None):
             text = text[:-1]
 
         _, w = screen.getmaxyx()
-        screen.addstr(prompt_y, 1, prompt + text[:w-prompt_len] + " " * (w - len(text)-prompt_len), curses.color_pair(1) | curses.A_STANDOUT)
+        if mask:
+            dots = "•" * len(text[:w-prompt_len])
+            screen_text = prompt + dots + " " * (w - len(text)-prompt_len)
+        else:
+            screen_text = prompt + text[:w-prompt_len] + " " * (w - len(text)-prompt_len)
+        screen.addstr(prompt_y, 1, screen_text, curses.color_pair(1) | curses.A_STANDOUT)
         screen.refresh()
 
     screen.clear()
     screen.refresh()
 
-    return text, proceed
+    return text.strip(), proceed
 
 
 def source_prompt(screen):
