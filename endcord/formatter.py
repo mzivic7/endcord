@@ -1514,7 +1514,8 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
             custom += f"{status_emoji} "
         if presence["custom_status"]:
             custom += presence["custom_status"]
-        custom = f" - {custom}"
+        if custom:
+            custom = f" - {custom}"
         body_line += f"Status: {status}{custom}\n"
     else:
         body_line += "Could not fetch status\n"
