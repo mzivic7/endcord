@@ -9,7 +9,7 @@ COMMAND_OPT_TYPE = ("subcommand", "group", "string", "integer", "True/False", "u
 
 def fuzzy_match_score_single(query, candidate):
     """
-    Calcualtes score for fuzzy matching of single query word.
+    Calculates score for fuzzy matching of single query word.
     Consecutive matches will have larger score.
     Matches closer to the start of the candidate string will have larger score.
     Score is not limited.
@@ -37,7 +37,7 @@ def fuzzy_match_score_single(query, candidate):
 
 def fuzzy_match_score(query, candidate):
     """
-    Calcualte score for fuzzy matching of query containing one or multiple words.
+    Calculate score for fuzzy matching of query containing one or multiple words.
     Consecutive matches will have larger score.
     Matches closer to the start of the candidate string will have larger score.
     Score is not limited.

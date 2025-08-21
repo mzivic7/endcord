@@ -1,7 +1,8 @@
 # cython: boundscheck=False, wraparound=False
+
 cpdef inline int fuzzy_match_score_single(str query, str candidate):
     """
-    Calcualte score for fuzzy matching of single query word.
+    Calculate score for fuzzy matching of single query word.
     Consecutive matches will have larger score.
     Matches closer to the start of the candidate string will have larger score.
     Score is not limited.
@@ -33,7 +34,7 @@ cpdef inline int fuzzy_match_score_single(str query, str candidate):
 
 cpdef int fuzzy_match_score(str query, str candidate):
     """
-    Calcualte score for fuzzy matching of query containing one or multiple words.
+    Calculate score for fuzzy matching of query containing one or multiple words.
     Consecutive matches will have larger score.
     Matches closer to the start of the candidate string will have larger score.
     Score is not limited.

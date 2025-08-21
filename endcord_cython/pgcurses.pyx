@@ -36,7 +36,7 @@ cpdef insstr(
     int nlines,
     int ncols,
     set dirty_lines,
-    object dirty_lines_lock,  # assumed to be threading.Lock or similar
+    object dirty_lines_lock,
     int y,
     int x,
     unicode text,

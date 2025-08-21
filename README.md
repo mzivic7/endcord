@@ -288,7 +288,7 @@ Space is used only to separate command segments, except in option_value with quo
 `[subcommand/group]` is either single subcommand or subcommand group, and is optional.  
 Subcommand group must be followed by `[subcommand_after_group]`, which is subcommand selected from this group.  
 `[option_value]` can be put in `""`, useful when it has spaces in the value. Options are sometimes not required.  
-If option is of type "attachment", it can be left without value, but attachemnt must be provided (with `Ctrl+U`) before sending the command.  
+If option is of type "attachment", it can be left without value, but attachment must be provided (with `Ctrl+U`) before sending the command.  
 If `skip_app_command_assist = True` in config, then all app commands are shown in initial assist after `/`. Then, inserting command will also insert bot_name.  
 
 ### Emoji
@@ -302,7 +302,7 @@ Currently active channel can be un/tabbed with `Alt+B`.
 To switch to any tabbed channel use `Alt+NUM`, where `NUM` is tab number (use keys in number row).
 
 ### Forums
-Forums in tree can be opened just like a channel (`Ctrl+Space`). It will load only the most recent posts (unarchived) and show them in chat buffer.  
+Forums in tree can be opened just like a channel (`Ctrl+Space`).  
 Select post and `Enter` to open it, or `Alt+K` to open and join.  
 Posts are treated same as threads in channel tree, but only participated posts will be shown.  
 If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
@@ -346,7 +346,7 @@ Open link in browser - `Alt+O`
 ## Installing
 ### Linux
 - Pre-built binaries (built with nuitka using clang) are available in releases  
-    Binaries are built on ubuntu-like distro. Locally built binaries can be smaller, thus starts faster.
+    Binaries are built on Ubuntu-like distro. Locally built binaries can be smaller, thus starts faster.
 - From AUR:
     - `yay -S endcord` - full version with media support, larger executable
     - `yay -S endcord-lite` - lite version without media support
