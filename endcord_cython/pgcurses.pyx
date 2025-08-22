@@ -1,11 +1,7 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True
 
-from cpython.set cimport PySet_Clear
-from cpython.list cimport PyList_GET_ITEM, PyList_SET_ITEM
-from cpython.tuple cimport PyTuple_GET_ITEM, PyTuple_SET_ITEM, PyTuple_New
-from libc.string cimport memcpy
+from cpython.tuple cimport PyTuple_GET_ITEM
 import pygame
-import threading
 
 cdef unsigned int A_STANDOUT   = 0x00010000
 cdef unsigned int A_UNDERLINE  = 0x00020000
@@ -75,7 +71,6 @@ cpdef insstr(
 
 # def insstr(self, y, x, text, attr=0):
 #     """curses.insstr clone using pygame"""
-#
 #     insstr(
 #         buffer=self.buffer,
 #         nlines=self.nlines,
