@@ -97,7 +97,7 @@ def load_secret():
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError:
-            return None
+            return "[]"
 
     if sys.platform == "win32":
         try:
@@ -107,7 +107,7 @@ def load_secret():
             )
             return str(cred["CredentialBlob"].decode("utf-16le"))
         except pywintypes.error:
-            return None
+            return "[]"
 
     if sys.platform == "darwin":
         try:
@@ -119,7 +119,7 @@ def load_secret():
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError:
-            return None
+            return "[]"
 
 
 def save_secret(profiles):

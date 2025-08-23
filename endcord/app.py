@@ -74,7 +74,7 @@ class Endcord:
                 self.token = profile["token"]
                 break
         else:
-            self.token = profiles[0]["token"]
+            self.token = (profiles["keyring"] + profiles["plaintext"])[0]["token"]
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
