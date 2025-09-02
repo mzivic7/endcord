@@ -145,7 +145,7 @@ Log is overwritten on each run.
 ### Keybindings
 Navigating messages - `Arrow-Up/Down`  
 Navigating channel tree - `Ctrl+Up/Down` *  
-Open command palette - `Ctrl+/`
+Open command palette - `Ctrl+/`  
 Insert newline - `Ctrl+N`  
 Scroll back to bottom - `Ctrl+H`  
 Expand selected categories and servers - `Ctrl+Space` *  

@@ -26,11 +26,11 @@ dependencies = [
 [dependency-groups]
 build = [
     "cython>=3.1.3",
-    "nuitka>=2.7.12",
+    "nuitka>=2.7.13",
     "pyinstaller>=6.15.0",
     "setuptools>=80.9.0",
 ]
 media = [
-    "av>=15.0.0",
+    "av>=15.1.0",
     "pillow>=11.3.0",
 ]
