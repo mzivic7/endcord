@@ -35,7 +35,7 @@ support_media = (
 )
 if support_media:
     from endcord import clipboard, media
-cythonized = importlib.util.find_spec("endcord_cython.search") is not None
+cythonized = importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.search")
 
 logger = logging.getLogger(__name__)
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
