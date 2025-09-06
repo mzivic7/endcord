@@ -63,6 +63,8 @@ def main(args):
     )
     if not hasattr(curses, "PGCURSES"):
         keybindings = peripherals.convert_keybindings(keybindings)
+    else:
+        os.environ["PGCURSES_CONFIG"] = os.path.join(peripherals.config_path, "pgcurses.json")
 
     os.environ["ESCDELAY"] = "25"   # 25ms
     if os.environ.get("TERM", "") in ("xterm", "linux"):

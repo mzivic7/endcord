@@ -1,3 +1,5 @@
+import importlib.util
+import json
 import os
 import queue
 import sys
@@ -6,17 +8,22 @@ import threading
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
 import pygame.freetype
-import pyperclip
 from pygame._sdl2 import Window as pg_Window
 
-WINDOW_SIZE = (800, 500)
+support_clipboard = False
+if importlib.util.find_spec("pyperclip"):
+    import pyperclip
+    support_clipboard = True
+
+# default config
+WINDOW_SIZE = (900, 600)
 MAXIMIZED = False
 FONT_SIZE = 12
 FONT_NAME = "Source Code Pro"
 APP_NAME = "Endcord"
-
 REPEAT_DELAY = 400
 REPEAT_INTERVAL = 25
+CTRL_V_PASTE = False   # use Ctrl+V instead Ctrl+Shift+V to paste
 DEFAULT_PAIR = ((255, 255, 255), (0, 0, 0))
 SYSTEM_COLORS = (
     (0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0),
@@ -25,6 +32,51 @@ SYSTEM_COLORS = (
     (0, 0, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255),
 )
 
+# load config
+config_path = os.environ.get("PGCURSES_CONFIG")
+if config_path:
+    config_path = os.path.expanduser(config_path)
+    config = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"[pgcurses] Failed to load config {config_path}: {e}")
+
+        if config:
+            WINDOW_SIZE = tuple(config.get("window_size", WINDOW_SIZE))
+            MAXIMIZED = config.get("maximized", MAXIMIZED)
+            FONT_SIZE = config.get("font_size", FONT_SIZE)
+            FONT_NAME = config.get("font_name", FONT_NAME)
+            APP_NAME = config.get("app_name", APP_NAME)
+            REPEAT_DELAY = config.get("repeat_delay", REPEAT_DELAY)
+            REPEAT_INTERVAL = config.get("repeat_interval", REPEAT_INTERVAL)
+            CTRL_V_PASTE = config.get("ctrl_v_paste", CTRL_V_PASTE)
+            DEFAULT_PAIR = tuple(tuple(color) for color in config.get("default_color_pair", DEFAULT_PAIR))
+            SYSTEM_COLORS = tuple(tuple(color) for color in config.get("color_palette", SYSTEM_COLORS))
+
+    else:
+        config = {
+            "window_size": WINDOW_SIZE,
+            "maximized": MAXIMIZED,
+            "font_size": FONT_SIZE,
+            "font_name": FONT_NAME,
+            "app_name": APP_NAME,
+            "repeat_delay": REPEAT_DELAY,
+            "repeat_interval": REPEAT_INTERVAL,
+            "ctrl_v_paste": CTRL_V_PASTE,
+            "default_color_pair": DEFAULT_PAIR,
+            "color_palette": SYSTEM_COLORS,
+        }
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            print(f"[pgcurses] Failed to save config {config_path}: {e}")
+
+
+# constants
 PGCURSES = True
 KEY_MOUSE = 409
 KEY_BACKSPACE = 263
@@ -133,6 +185,13 @@ def map_key(event):
     return None
 
 
+def is_paste_event(event):
+    """Test if pressed keys are paste event"""
+    if CTRL_V_PASTE:
+        return event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL)
+    return event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL) and (event.mod & pygame.KMOD_SHIFT)
+
+
 class Window:
     """Pygame-Curses window class"""
 
@@ -173,6 +232,14 @@ class Window:
         pixel_y = begy * self.char_height
         subsurface = self.surface.subsurface((pixel_x, pixel_y, pixel_width, pixel_height))
         return Window(subsurface, begy, begx)
+
+
+    def screen_resize(self):
+        """Internal function used to update screen dimensions on VIDEORESIZE event"""
+        self.ncols = self.surface.get_width()  // self.char_width
+        self.nlines = self.surface.get_height() // self.char_height
+        self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
+        self.dirty_lines = set()
 
 
     def getmaxyx(self):
@@ -372,6 +439,9 @@ class Window:
             return self.input_buffer.pop(0)
 
         while True:
+            if self.input_buffer:
+                return self.input_buffer.pop(0)
+
             event = event_queue.get()
             if event is None:
                 return -1
@@ -380,22 +450,22 @@ class Window:
                 key = map_key(event)
                 if key is not None:
                     return key
-                if (
-                    event.key == pygame.K_v and
-                    (event.mod & pygame.KMOD_CTRL) and
-                    (event.mod & pygame.KMOD_SHIFT)
-                ):
-                    pasted = pyperclip.paste()
-                    if pasted:   # bracket pasting
-                        bracketed = "\x1b[200~" + pasted + "\x1b[201~"
-                        self.input_buffer.extend(bracketed.encode("utf-8"))
-                    return -1
+                if is_paste_event(event):
+                    if support_clipboard:
+                        pasted = pyperclip.paste()
+                        if pasted:   # bracket pasting
+                            bracketed = "\x1b[200~" + pasted + "\x1b[201~"
+                            self.input_buffer.extend(bracketed.encode("utf-8"))
+                        return -1
+                    print("[pgcurses] Pyperclip must be installed in order to have clipboard support")
                 code = self.do_key_press(event)
                 if code is not None:
                     return code
 
-            # elif event.type == pygame.VIDEORESIZE:
-            #     return KEY_RESIZE
+            elif event.type == pygame.VIDEORESIZE:
+                pass
+                # self.screen_resize()
+                # return KEY_RESIZE
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 btnstate = 0
@@ -412,9 +482,6 @@ class Window:
                 x_pixel, y_pixel = event.pos
                 mouse_event = (0, x_pixel // self.char_width, y_pixel // self.char_height, 0, btnstate)
                 return KEY_MOUSE
-
-            if self.input_buffer:
-                return self.input_buffer.pop(0)
 
             if self.nodelay_state:
                 return -1

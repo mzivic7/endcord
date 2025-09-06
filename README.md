@@ -489,7 +489,8 @@ Keybinding remain the same, but all codes are like on Linux, so old keybinding c
 If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer in terminal.  
 Building with nuitka will create executable that will segfault.  
 You can toggle experimental mode bu running: `uv run build.py --experimental`.  
-Then run endcord from source: `uv run main.py`.
+Then run endcord from source: `uv run main.py`.  
+After first run in experimental mode, extra config will be generated in endcord config path in file called `pgcurses.json`. More info in [configuration](configuration.md).
 
 ### Spacebar and other custom hosts
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  

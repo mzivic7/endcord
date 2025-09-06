@@ -305,7 +305,7 @@ Every next list has additional `start` and `end`- indexes on a line where color 
     A single character used to draw progress bar in media player when playing video or audio.
 
 
-## format_message
+### format_message
 - `%content` - message text
 - `%username` - of message author
 - `%global_name` - of message author
@@ -313,25 +313,25 @@ Every next list has additional `start` and `end`- indexes on a line where color 
 - `%edited` - replaced with `edited_string`  
 Note: everything after `%content` may be pushed to newline.
 
-## format_newline
+### format_newline
 - `%content` - this is remainder of previous line
 - `%timestamp` - formatted with `format_timestamp`
 
-## format_reply
+### format_reply
 - `%content` - of replied message
 - `%username` - of replied message author
 - `%global_name` - of replied message author
 - `%timestamp` - of replied message, formatted with `format_timestamp`
 
-## format_reactions
+### format_reactions
 - `%timestamp` - of base message, formatted with `format_timestamp`
 - `%reactions` - all reactions formatted with `format_one_reaction` then joined with `reactions_separator`
 
-## format_one_reaction
+### format_one_reaction
 - `%reaction` - reaction emoji or emoji name
 - `%count` - count of this same reaction
 
-## format_status
+### format_status
 - `%global_name` - my global name
 - `%username` - my username
 - `%status` - Discord status if online, otherwise 'connecting' or 'offline'
@@ -347,7 +347,7 @@ Note: everything after `%content` may be pushed to newline.
 - `%task` - currently running slow task (reconnecting, downloading chat...)
 - `%tabs` - all tabs formatted with `format_tabs` then joined with `tabs_separator`
 
-## format_rich
+### format_rich
 - `%type` - type of rich presence: "Playing" or "Listening to"
 - `%name` - name of the rich presence app
 - `%state` - rich presence state
@@ -355,25 +355,48 @@ Note: everything after `%content` may be pushed to newline.
 - `%small_text` - rich presence small text
 - `%large_text` - rich presence large text
 
-## format_tabs
+### format_tabs
 - `%num` - number of the tab
 - `%name` - name of the tabbed channel, limited with `limit_global_name`
 - `%server` - name of the server
 
-## format_prompt
+### format_prompt
 - `%global_name` - my global name
 - `%username` - my username
 - `%server` - currently viewed server
 - `%channel` - currently viewed channel
 
-## format_forum
+### format_forum
 - `%thread_name` - name of a thread
 - `%timestamp` - date a thread is created, formatted with `format_forum_timestamp`
 - `%msg_count` - number of messages send in a thread
 
-## format_search_message
+### format_search_message
 - `%content` - message text
 - `%username` - of message author
 - `%global_name` - of message author
 - `%date` - formatted same as `format_forum_timestamp`
 - `%channel` - to which channel in this server the message belongs, limited with `limit_global_name`
+
+
+## pgcurses.json - config for experimental windowed mode
+- `window_size = [900, 600]`  
+    Initial window width and height in pixels.
+- `maximized = false`  
+    Initial window maximized state.
+- `font_size = 12`  
+    Size of the font.
+- `font_name = "Source Code Pro"`  
+    Name of the font installed on the system.
+- `app_name`  
+    Only changes title of the window.
+- `repeat_delay = 400`  
+    Delay befor held key will start repeating, in ms.
+- `repeat_interval = 25`  
+    Delay between each key repeat when holding key, in ms.
+- `ctrl_v_paste = false`  
+    If `true` will use `Ctrl+V` instead `Ctrl+Shift+V` for pasting.
+- `default_color_pair = [...]`  
+    Default color pair used for drawing, first color is foreground, and second is background, colors are in `[R, G, B]` format.
+- `color_palette = [...]`  
+    First 16 colors of xterm256 color palette are user configurable. Colors are in `[R, G, B]` format.
