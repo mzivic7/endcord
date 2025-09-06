@@ -484,11 +484,10 @@ Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Insta
 Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.  
 
 ### Experimental windowed mode
-This mode entirely replaces curses with pygame-ce GUI library. UI remains terminal-like, the only difference is that its no longer in terminal but in its own window.  
-Keybinding remain the same, but all codes are like on Linux so old keybinding codes may not work.  
-If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer terminal.  
+This mode entirely replaces curses with pygame-ce GUI library. UI remains terminal-like, the only difference is that its no longer in terminal, but in its own window.  
+Keybinding remain the same, but all codes are like on Linux, so old keybinding codes may not work on Windows.  
+If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer in terminal.  
 Building with nuitka will create executable that will segfault.  
-Do not report issues related to experimental features!  
 You can toggle experimental mode bu running: `uv run build.py --experimental`.  
 Then run endcord from source: `uv run main.py`.
 

@@ -1,7 +1,7 @@
 import os
+import queue
 import sys
 import threading
-from queue import Queue
 
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
@@ -10,7 +10,7 @@ import pyperclip
 from pygame._sdl2 import Window as pg_Window
 
 WINDOW_SIZE = (800, 500)
-MAXIMIZED = True
+MAXIMIZED = False
 FONT_SIZE = 12
 FONT_NAME = "Source Code Pro"
 APP_NAME = "Endcord"
@@ -50,7 +50,8 @@ COLORS = 255
 COLOR_PAIRS = 1000000
 
 mouse_event = (0, 0, 0, 0, 0)
-main_thread_queue = Queue()
+main_thread_queue = queue.Queue()
+event_queue = queue.Queue()
 color_map = [DEFAULT_PAIR] * (COLORS + 1)
 
 
@@ -95,6 +96,8 @@ def map_key(event):
             return 569
         if key == pygame.K_SPACE:
             return 0
+        if key == pygame.K_SLASH:
+            return 31
     elif event.mod & pygame.KMOD_SHIFT:   # Shift+Key
         if key == pygame.K_DOWN:
             return 336
@@ -157,10 +160,6 @@ class Window:
         self.char_width, self.char_height = rect.width, rect.height
         self.ncols = surface.get_width()  // self.char_width
         self.nlines = surface.get_height() // self.char_height
-
-        self.held_key_event = None
-        self.held_key_time = 0
-        self.next_key_repeat_time = 0
 
         self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
         self.dirty_lines = set()
@@ -333,15 +332,16 @@ class Window:
         self.nodelay_state = flag
 
 
-    def do_key_press(self, event, mods):
+    def do_key_press(self, event):
         """Map pygame keys to curses codes"""
         key = event.key
         char = event.unicode or ""
+        mods = event.mod
 
-        if event.mod & pygame.KMOD_SHIFT and key == pygame.K_RETURN:
+        if mods & pygame.KMOD_SHIFT and key == pygame.K_RETURN:
             self.input_buffer.extend(b"\n")
             return 27
-        if key == pygame.K_c and (event.mod & pygame.KMOD_CTRL):
+        if key == pygame.K_c and (mods & pygame.KMOD_CTRL):
             main_thread_queue.put(None)
             return -1
         if key == pygame.K_ESCAPE and not char:
@@ -372,77 +372,52 @@ class Window:
             return self.input_buffer.pop(0)
 
         while True:
-            events = pygame.event.get()
-            current_time = pygame.time.get_ticks()
-            for event in events:
-                if event.type == pygame.QUIT:
-                    main_thread_queue.put(None)
+            event = event_queue.get()
+            if event is None:
+                return -1
+
+            if event.type == pygame.KEYDOWN:
+                key = map_key(event)
+                if key is not None:
+                    return key
+                if (
+                    event.key == pygame.K_v and
+                    (event.mod & pygame.KMOD_CTRL) and
+                    (event.mod & pygame.KMOD_SHIFT)
+                ):
+                    pasted = pyperclip.paste()
+                    if pasted:   # bracket pasting
+                        bracketed = "\x1b[200~" + pasted + "\x1b[201~"
+                        self.input_buffer.extend(bracketed.encode("utf-8"))
                     return -1
-
-                if event.type == pygame.KEYDOWN:
-                    mods = pygame.key.get_mods()
-                    if (
-                        event.key == pygame.K_v and
-                        (mods & pygame.KMOD_CTRL) and
-                        (mods & pygame.KMOD_SHIFT)
-                    ):
-                        pasted = pyperclip.paste()
-                        if pasted:   # bracket pasting
-                            bracketed = "\x1b[200~" + pasted + "\x1b[201~"
-                            self.input_buffer.extend(bracketed.encode("utf-8"))
-                        return -1
-
-                    self.held_key_event = event
-                    self.held_key_time = current_time
-                    self.next_key_repeat_time = current_time + REPEAT_DELAY
-                    code = self.do_key_press(event, mods)
-                    if code is not None:
-                        return code
-
-                elif event.type == pygame.KEYUP:
-                    self.held_key_event = None
-
-                elif event.type == pygame.VIDEORESIZE:
-                    return KEY_RESIZE
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    btnstate = 0
-                    if event.button == 1:
-                        btnstate = BUTTON1_PRESSED
-                    elif event.button == 2:
-                        btnstate = BUTTON2_PRESSED
-                    elif event.button == 3:
-                        btnstate = BUTTON3_PRESSED
-                    elif event.button == 4:
-                        btnstate = BUTTON4_PRESSED
-                    elif event.button == 5:
-                        btnstate = BUTTON5_PRESSED
-                    x_pixel, y_pixel = event.pos
-                    mouse_event = (0, x_pixel // self.char_width, y_pixel // self.char_height, 0, btnstate)
-                    return KEY_MOUSE
-
-            if self.held_key_event is not None and current_time >= self.next_key_repeat_time:
-                self.next_key_repeat_time += REPEAT_INTERVAL
-                mods = pygame.key.get_mods()
-                code = self.do_key_press(self.held_key_event, mods)
+                code = self.do_key_press(event)
                 if code is not None:
                     return code
+
+            # elif event.type == pygame.VIDEORESIZE:
+            #     return KEY_RESIZE
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                btnstate = 0
+                if event.button == 1:
+                    btnstate = BUTTON1_PRESSED
+                elif event.button == 2:
+                    btnstate = BUTTON2_PRESSED
+                elif event.button == 3:
+                    btnstate = BUTTON3_PRESSED
+                elif event.button == 4:
+                    btnstate = BUTTON4_PRESSED
+                elif event.button == 5:
+                    btnstate = BUTTON5_PRESSED
+                x_pixel, y_pixel = event.pos
+                mouse_event = (0, x_pixel // self.char_width, y_pixel // self.char_height, 0, btnstate)
+                return KEY_MOUSE
 
             if self.input_buffer:
                 return self.input_buffer.pop(0)
 
-            if self.held_key_event is not None and current_time >= self.next_key_repeat_time:
-                self.next_key_repeat_time += REPEAT_INTERVAL
-                mods = pygame.key.get_mods()
-                code = self.do_key_press(self.held_key_event, mods)
-                if code is not None:
-                    return code
-
             if self.nodelay_state:
                 return -1
-
-            self.clock.tick(60)
-
 
 
 def getmouse():
@@ -455,6 +430,7 @@ def initscr():
     pygame.display.init()
     pygame.font.init()
     pygame.freetype.init()
+    pygame.key.set_repeat(REPEAT_DELAY, REPEAT_INTERVAL)
     pygame.display.set_caption(APP_NAME)
     screen = pygame.display.set_mode(WINDOW_SIZE, pygame.RESIZABLE)
     if MAXIMIZED:
@@ -474,10 +450,19 @@ def wrapper(func, *args, **kwargs):
 
     run = True
     while run:
-        task = main_thread_queue.get()
-        if not task:
-            break
-        task()
+        for event in pygame.event.get():
+            if event.type in (pygame.KEYDOWN, pygame.VIDEORESIZE, pygame.MOUSEBUTTONDOWN):
+                event_queue.put(event)
+            elif event.type == pygame.QUIT:
+                event_queue.put(None)
+                return
+        try:
+            task = main_thread_queue.get(timeout=0.02)
+            if not task:
+                break
+            task()
+        except queue.Empty:
+            pass
 
     pygame.quit()
 

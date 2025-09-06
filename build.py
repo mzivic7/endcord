@@ -62,6 +62,16 @@ def get_version_number():
     sys.exit()
 
 
+def get_cython_bins(directory="endcord_cython", startswith=None):
+    """Get list of all cython built binaries"""
+    files = os.listdir(directory)
+    bins = []
+    for file in files:
+        if (not startswith or file.startswith(startswith)) and (file.endswith(".pyd") or file.endswith(".so")):
+            bins.append(file)
+    return bins
+
+
 def patch_soundcard():
     """
     Search for soundcard/mediafoundation.py in .venv
@@ -113,6 +123,7 @@ def toggle_experimental(check_only=False):
                 file_list.append(file_path)
     enable = False
     for path in file_list:
+        # replace imports
         with open(path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         changed = False
@@ -132,6 +143,42 @@ def toggle_experimental(check_only=False):
                 f.writelines(lines)
     if check_only:
         return not enable
+
+    # backup cython binaries
+    if enable:
+        bins = get_cython_bins(directory="endcord_cython")
+        if bins:
+            for binary in bins:
+                try:
+                    importlib.import_module("endcord_cython." + binary.split(".")[0])
+                except ImportError:
+                    pass
+            if "curses" in sys.modules:
+                for file in bins:
+                    old_name = os.path.join("endcord_cython", file)
+                    new_name = os.path.join("endcord_cython", "bkp_" + file)
+                    if os.path.exists(new_name):
+                        os.remove(new_name)
+                    os.rename(old_name, new_name)
+    else:
+        bins = get_cython_bins(directory="endcord_cython", startswith="bkp_")
+        if bins:
+            error = False
+            for binary in bins:
+                try:
+                    importlib.import_module("endcord_cython." + binary.split(".")[0])
+                except ImportError:
+                    error = True
+                    break
+            if "curses" in sys.modules or error:
+                for file in bins:
+                    old_name = os.path.join("endcord_cython", file)
+                    new_name = os.path.join("endcord_cython", file[4:])
+                    if os.path.exists(new_name):
+                        os.remove(new_name)
+                    os.rename(old_name, new_name)
+
+    # toggle dependencies
     if enable:
         subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
         print("Experimental windowed mode enabled!")
