@@ -1,3 +1,24 @@
-Voice and video calls and channels
+Voice calls
+    ring when someone is calling in dm
+    permanent popup when ringing
+    commands: voice_start_call, voice_end_call, voice_accept_call, voice_reject_call
+    get voice gateway url
+    start voice gateway
+    stop voice gateway
+    handle voice gateway events
+    play sound
+    record sound
+    permanent popup when in voice call
+    buttons in popup
+    handle reconnect
+
+Voice channels
+    add voice channels to tree
+    show busy voice channels
+    join voice channel
+    leave voice channel
+    integrate with voice calls
+
+Video calls
 Update soundcard and numpy
 Localization

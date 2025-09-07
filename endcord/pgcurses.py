@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import logging
 import os
 import queue
 import sys
@@ -14,6 +15,8 @@ support_clipboard = False
 if importlib.util.find_spec("pyperclip"):
     import pyperclip
     support_clipboard = True
+
+logger = logging.getLogger(__name__)
 
 # default config
 WINDOW_SIZE = (900, 600)
@@ -42,7 +45,7 @@ if config_path:
             with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
         except Exception as e:
-            print(f"[pgcurses] Failed to load config {config_path}: {e}")
+            logger.info(f"Failed to load config {config_path}: {e}")
 
         if config:
             WINDOW_SIZE = tuple(config.get("window_size", WINDOW_SIZE))
@@ -73,7 +76,7 @@ if config_path:
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
-            print(f"[pgcurses] Failed to save config {config_path}: {e}")
+            logger.info(f"Failed to save config {config_path}: {e}")
 
 
 # constants
@@ -105,6 +108,13 @@ mouse_event = (0, 0, 0, 0, 0)
 main_thread_queue = queue.Queue()
 event_queue = queue.Queue()
 color_map = [DEFAULT_PAIR] * (COLORS + 1)
+
+if sys.platform == "win32":
+    emoji_font_name = "Segoe UI Emoji"
+elif sys.platform == "darwin":
+    emoji_font_name = "Apple Color Emoji"
+else:
+    emoji_font_name = "Noto Color Emoji"
 
 
 def xterm_to_rgb(x):
@@ -195,30 +205,27 @@ def is_paste_event(event):
 class Window:
     """Pygame-Curses window class"""
 
-    def __init__(self, surface, begy, begx):
-        self.surface = surface
-        self.begy, self.begx = begy, begx
+    def __init__(self, screen, nlines, ncols, begy, begx, parent_begx, parent_begy, font, emoji_font):
+        self.screen = screen
+        self.begy, self.begx = begy + parent_begy, begx + parent_begx
         self.bgcolor = pygame.Color((0, 0, 0))
         self.input_buffer = []
         self.clock = pygame.time.Clock()
         self.nodelay_state = False
 
-        if sys.platform == "win32":
-            emoji_font_name = "Segoe UI Emoji"
-        elif sys.platform == "darwin":
-            emoji_font_name = "Apple Color Emoji"
-        else:
-            emoji_font_name = "Noto Color Emoji"
-
-        self.base_font_path = pygame.font.match_font(FONT_NAME)
-        self.font = pygame.freetype.Font(self.base_font_path, FONT_SIZE)
-        self.emoji_font = pygame.font.SysFont(emoji_font_name, FONT_SIZE)
+        self.font = font
+        self.emoji_font = emoji_font
         self.font.pad = True
 
         rect = self.font.get_rect(" ")
         self.char_width, self.char_height = rect.width, rect.height
-        self.ncols = surface.get_width()  // self.char_width
-        self.nlines = surface.get_height() // self.char_height
+        if ncols and nlines:
+            self.ncols = ncols
+            self.nlines = nlines
+        else:
+            self.ncols = screen.get_width()  // self.char_width
+            self.nlines = screen.get_height() // self.char_height
+        self.pxy, self.pxx = self.begy * self.char_height, self.begx * self.char_width
 
         self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
         self.dirty_lines = set()
@@ -226,18 +233,13 @@ class Window:
 
     def derwin(self, nlines, ncols, begy, begx):
         """curses.derwin clone using pygame"""
-        pixel_width = ncols * self.char_width
-        pixel_height = nlines * self.char_height
-        pixel_x = begx * self.char_width
-        pixel_y = begy * self.char_height
-        subsurface = self.surface.subsurface((pixel_x, pixel_y, pixel_width, pixel_height))
-        return Window(subsurface, begy, begx)
+        return Window(self.screen, nlines, ncols, begy, begx, self.begx, self.begy, self.font, self.emoji_font)
 
 
     def screen_resize(self):
         """Internal function used to update screen dimensions on VIDEORESIZE event"""
-        self.ncols = self.surface.get_width()  // self.char_width
-        self.nlines = self.surface.get_height() // self.char_height
+        self.ncols = self.screen.get_width()  // self.char_width
+        self.nlines = self.screen.get_height() // self.char_height
         self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
         self.dirty_lines = set()
 
@@ -255,8 +257,8 @@ class Window:
     def render_emoji_scaled(self, ch):
         """Render emoji character to a scaled surface to fit character cell."""
         try:
-            surf = self.emoji_font.render(ch, True, (255, 255, 255))
-            return pygame.transform.smoothscale(surf, (self.char_height, self.char_height))
+            surface = self.emoji_font.render(ch, True, (255, 255, 255))
+            return pygame.transform.smoothscale(surface, (self.char_height, self.char_height))
         except pygame.error:
             return None
 
@@ -289,7 +291,6 @@ class Window:
     def addstr(self, y, x, text, color_id=0):
         """curses.addstr clone using pygame, takes color id"""
         self.insstr(y, x, text, color_id)
-        main_thread_queue.put(self.render)
         self.refresh()
 
 
@@ -325,13 +326,13 @@ class Window:
                     fg, bg = color_map[attr & 0xFFFF]
                     if flags & A_STANDOUT:
                         fg, bg = bg, fg
-                    self.surface.fill(bg, (px_x, px_y, 2 * self.char_width, self.char_height))
+                    self.screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, 2 * self.char_width, self.char_height))
                     emoji = self.render_emoji_scaled(ch)
                     if emoji:
                         offset = px_x + (2 * self.char_width - self.char_height) // 2
-                        self.surface.blit(emoji, (offset, px_y))
+                        self.screen.blit(emoji, (offset + self.pxx, px_y + self.pxy))
                     draw_x += 2   # emoji takes two cells visually
-                    i += 1   # but only one buffer cell
+                    i += 2   # so push buffer line one char right
                     continue
 
                 span_draw_x = draw_x
@@ -354,22 +355,23 @@ class Window:
                     fg, bg = bg, fg
                 px_x = span_draw_x * self.char_width
                 px_y = y * self.char_height
-                self.surface.fill(bg, (px_x, px_y, len(text) * self.char_width, self.char_height))
+                self.screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, len(text) * self.char_width, self.char_height))
                 self.font.strong = bool(flags & A_BOLD)
                 self.font.oblique = bool(flags & A_ITALIC)
                 self.font.underline = bool(flags & A_UNDERLINE)
-                self.font.render_to(self.surface, (px_x, px_y), text, fg)
+                self.font.render_to(self.screen, (px_x + self.pxx, px_y + self.pxy), text, fg)
 
         self.dirty_lines.clear()
 
 
     def clear(self):
         """curses.clear clone using pygame"""
-        self.surface.fill(self.bgcolor)
+        self.screen.fill(self.bgcolor)
 
 
     def refresh(self):
         """curses.refresh clone using pygame"""
+        main_thread_queue.put(self.render)
         main_thread_queue.put(pygame.display.update)
 
 
@@ -391,7 +393,7 @@ class Window:
             for x in range(self.ncols):
                 px_x = x * self.char_width
                 px_y = y * self.char_height
-                self.font.render_to(self.surface, (px_x, px_y), ch, fg_color, bg_color)
+                self.font.render_to(self.screen, (px_x + self.pxx, px_y + self.pxy), ch, fg_color, bg_color)
 
 
     def nodelay(self, flag: bool):
@@ -457,15 +459,15 @@ class Window:
                             bracketed = "\x1b[200~" + pasted + "\x1b[201~"
                             self.input_buffer.extend(bracketed.encode("utf-8"))
                         return -1
-                    print("[pgcurses] Pyperclip must be installed in order to have clipboard support")
+                    logger.info("Pyperclip must be installed in order to have clipboard support")
                 code = self.do_key_press(event)
                 if code is not None:
                     return code
 
             elif event.type == pygame.VIDEORESIZE:
-                pass
-                # self.screen_resize()
-                # return KEY_RESIZE
+                self.screen.fill((0, 0, 0))
+                self.screen_resize()
+                return KEY_RESIZE
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 btnstate = 0
@@ -503,7 +505,11 @@ def initscr():
     if MAXIMIZED:
         win = pg_Window.from_display_module()
         win.maximize()
-    return Window(screen, 0, 0)
+    base_font_path = pygame.font.match_font(FONT_NAME)
+    emoji_font = pygame.font.SysFont(emoji_font_name, FONT_SIZE)
+    font = pygame.freetype.Font(base_font_path, FONT_SIZE)
+    font.pad = True
+    return Window(screen, 0, 0, 0, 0, 0, 0, font, emoji_font)
 
 
 def wrapper(func, *args, **kwargs):
@@ -520,6 +526,10 @@ def wrapper(func, *args, **kwargs):
         for event in pygame.event.get():
             if event.type in (pygame.KEYDOWN, pygame.VIDEORESIZE, pygame.MOUSEBUTTONDOWN):
                 event_queue.put(event)
+                with main_thread_queue.mutex:
+                    main_thread_queue.queue.clear()
+                    main_thread_queue.all_tasks_done.notify_all()
+                    main_thread_queue.unfinished_tasks = 0
             elif event.type == pygame.QUIT:
                 event_queue.put(None)
                 return
