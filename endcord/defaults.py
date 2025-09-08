@@ -143,7 +143,7 @@ theme = {
 keybindings = {
     # tree
     "tree_up": 575,   # Ctrl+Up
-    "tree_down": 534,   # Ctrl+Donw
+    "tree_down": 534,   # Ctrl+Down
     "tree_select": 0,   # Ctrl+Space
     "tree_collapse_threads": "ALT+104",   # Alt+H
     "tree_join_thread": "ALT+106",   # Alt+J
@@ -213,7 +213,7 @@ keybindings = {
 
 windows_override_keybindings = {
     "tree_up": 480,   # Ctrl+Up
-    "tree_down": 481,   # Ctrl+Donw
+    "tree_down": 481,   # Ctrl+Down
     "tree_select": 1,   # Ctrl+A
     "word_left": 443,   # Ctrl+Left
     "word_right": 444,   # Ctrl+Right
@@ -224,6 +224,6 @@ windows_override_keybindings = {
 
 macos_override_keybindings = {
     "tree_up": 337,   # Shift+Up
-    "tree_down": 336,   # Shift+Donw
+    "tree_down": 336,   # Shift+Down
     "browser": "ALT+111",   # Alt+O
 }

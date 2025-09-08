@@ -74,7 +74,7 @@ except Exception:
     have_sound = False
 
 class CursesMedia():
-    """Methods for showing and playing media in termial with curses"""
+    """Methods for showing and playing media in terminal with curses"""
 
     def __init__(self, screen, config, start_color_id):
         logging.getLogger("libav").setLevel(logging.ERROR)
@@ -109,11 +109,11 @@ class CursesMedia():
         self.show_ui()
 
         self.media_screen_size = self.media_screen.getmaxyx()
-        # self.init_colrs()   # 255_curses_bug - enable this
+        # self.init_colors()   # 255_curses_bug - enable this
         self.start_color_id = 0   # 255_curses_bug
 
 
-    def init_colrs(self):
+    def init_colors(self):
         """Initialize 255 colors for drawing picture, from starting color ID"""
         for i in range(1, 255):
             curses.init_pair(self.start_color_id + i, i, self.color_media_bg)
@@ -188,7 +188,7 @@ class CursesMedia():
             self.media_type = "gif"
             self.play_anim(img_path)
             return
-        self.init_colrs()   # 255_curses_bug
+        self.init_colors()   # 255_curses_bug
         self.hide_ui()
         self.pil_img_to_curses(img)
         while self.playing:
@@ -203,7 +203,7 @@ class CursesMedia():
 
     def play_anim(self, gif_path):
         """Convert animated image to colored ascii art and draw it with curses"""
-        self.init_colrs()   # 255_curses_bug
+        self.init_colors()   # 255_curses_bug
         self.hide_ui()
         gif = Image.open(gif_path)
         frame = 0
@@ -226,7 +226,7 @@ class CursesMedia():
 
     def play_audio(self, path):
         """Play only audio"""
-        self.init_colrs()   # 255_curses_bug
+        self.init_colors()   # 255_curses_bug
         self.show_ui()
 
         self.seek = None
@@ -313,7 +313,7 @@ class CursesMedia():
 
     def play_video(self, path):
         """Decode video and audio frames and manage queues"""
-        self.init_colrs()   # 255_curses_bug
+        self.init_colors()   # 255_curses_bug
         self.show_ui()
         self.seek = None
 
@@ -343,7 +343,7 @@ class CursesMedia():
                 audio_stream = all_audio_streams[0]
                 audio_thread = threading.Thread(target=self.audio_player, args=(audio_queue, audio_stream.rate, audio_stream.channels, audio_ready), daemon=True)
                 audio_thread.start()
-                audio_ready.wait()   # wait for adudio to decrease desyncing
+                audio_ready.wait()   # wait for audio to decrease desyncing
                 audio_ready.clear()
 
         # prepare video

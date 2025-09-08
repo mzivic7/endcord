@@ -1,5 +1,5 @@
 ## Before trying to contribute
-Better dont contribute. You'll save your mental health, and I will save time trying to understand your code.  
+Better don't contribute. You'll save your mental health, and I will save time trying to understand your code.  
 But if you insist:  
 First have a look at the code, if you can navigate through that mess and keep your sanity: try to maintain same writing style, and explain in detail what is done in a PR.  
 If the code makes you scream, just open an issue, and I will get to it.  
@@ -12,13 +12,13 @@ So, before even thinking about putting it through LLM, open an issue and save yo
 
 ## Contributing rules
 - Don't use inheritance. It makes code even more unreadable.
-- Don't use dataclasses, its too late now, use nested lists and dicts.
+- Don't use dataclasses, it's too late now, use nested lists and dicts.
 - NO typing!
 - Don't refactor, format (other than existing ruff config), clean, unnecessary optimize. I like the code the way it is.
 - Don't use `requests`, it uses 3MB more RAM than `http.client`.
 - Use `os.path` instead `pathlib`, its making things weird.
 - NO `asyncio`, this is pure `threading` project.
-- If you know how to do it and its not really hard, do it yourself, don't import large library for that.
+- If you know how to do it, and it's not really hard, do it yourself, don't import large library for that.
 
 
 ## Running from source

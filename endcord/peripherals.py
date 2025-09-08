@@ -284,7 +284,7 @@ def detect_runtime():
 
 
 def notify_send(title, message, sound="message", custom_sound=None):
-    """Send simple notification containing title and message. Cross platform."""
+    """Send simple notification containing title and message. Cross-platform."""
     if sys.platform == "linux":
         if custom_sound:
             threading.Thread(target=play_audio, daemon=True, args=(custom_sound, )).start()
@@ -507,7 +507,7 @@ class SpellCheck():
 
     def start_aspell(self):
         """Start aspell with selected mode and language"""
-        # cross platform replacement for pexpect.spawn() because aspell works with it
+        # cross-platform replacement for pexpect.spawn() because aspell works with it
         self.proc = pexpect.popen_spawn.PopenSpawn(f"{self.aspell_path} -a --sug-mode={self.aspell_mode} --lang={self.aspell_language}", encoding="utf-8")
         self.proc.delaybeforesend = None
         try:
@@ -574,7 +574,7 @@ class SpellCheck():
 
     def check_list(self, words):
         """
-        Spellcheck a a list of words with aspell.
+        Spellcheck a list of words with aspell.
         Return list of bools representing whether each word is misspelled or not.
         """
         misspelled = []

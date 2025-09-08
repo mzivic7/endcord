@@ -548,7 +548,7 @@ class Discord():
 
 
     def patch_settings_old(self, setting, value):   # spacebar_fix - using old user_settings
-        """Patch account settings, used only for for spacebar compatibility"""
+        """Patch account settings, used only for spacebar compatibility"""
         url = "/api/v9/users/@me/settings"
         message_data = json.dumps({str(setting): value})
         try:
@@ -1154,7 +1154,7 @@ class Discord():
     def join_thread(self, thread_id):
         """Join a thread"""
         message_data = None
-        # location is not necesarily "Sidebar Overflow"
+        # location is not necessarily "Sidebar Overflow"
         url = f"/api/v9/channels/{thread_id}/thread-members/@me?location=Sidebar%20Overflow"
         try:
             connection = self.get_connection(self.host, 443)

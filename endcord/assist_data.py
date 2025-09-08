@@ -17,7 +17,7 @@ COMMAND_ASSISTS = (
     ("search *[query] - prompt for message search or search provided string", "search"),
     ("gif *[query] - prompt for gif search or search provided string", "gif"),
     ("record / record cancel - start/stop/cancel recording voice message", "record"),
-    ("upload *[path] - propmt to upload attachment or use provided path", "upload"),
+    ("upload *[path] - prompt to upload attachment or use provided path", "upload"),
     ("profile *<@[user_id]> - view profile of selected or specified user", "profile"),
     ("channel *<#[channel_id]> - view info of selected or specified channel", "channel"),
     ("summaries *<#[channel_id]> - view summaries of selected or specified channel", "summaries"),

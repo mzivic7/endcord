@@ -62,7 +62,7 @@ def parser(app_name, version, default_config_path, log_path):
         "--profile",
         type=str,
         action="store",
-        help="Name of selected profile to load, profiles are managed in token mamager",
+        help="Name of selected profile to load, profiles are managed in token manager",
     )
     parser.add_argument(
         "-a",

@@ -551,11 +551,11 @@ class Gateway():
                         self.msg_unseen.append({
                             "channel_id": channel_id,
                             "last_message_id": last_message_id,
-                            "mentions": ["True"] if channel_id in msg_ping else [],   # mesage_id is unknown
+                            "mentions": ["True"] if channel_id in msg_ping else [],   # message_id is unknown
                         })
                     time_log_string += f"    unread and mentions - {round(time.time() - ready_time_mid, 3)}s\n"
                     ready_time_mid = time.time()
-                    # guild and dm setings
+                    # guild and dm settings
                     for guild in data["user_guild_settings"]["entries"]:
                         if guild["guild_id"]:
                             # find this guild in self.guilds
@@ -1288,7 +1288,7 @@ class Gateway():
 
 
     def send_heartbeat(self):
-        """Send heatbeat to gateway, if response is not received, triggers reconnect, should be run in a thread"""
+        """Send heartbeat to gateway, if response is not received, triggers reconnect, should be run in a thread"""
         logger.info(f"Heartbeater started, interval={self.heartbeat_interval/1000}s")
         self.heartbeat_running = True
         self.heartbeat_received = True
@@ -1450,7 +1450,7 @@ class Gateway():
     def subscribe(self, channel_id, guild_id):
         """
         Subscribe to the channel to receive "typing" events from gateway for specified channel,
-        and threads updates, and member presence updates tor this guild.
+        and threads updates, and member presence updates for this guild.
         """
         if guild_id:
             # when subscribing, add channel to list of subscribed channels
@@ -1562,17 +1562,17 @@ class Gateway():
 
 
     def set_subscribed_channels(self, subscribed_channels):
-        """Set currently subscribed channels and so MESSAGE_ events can be faster prcessed for other channels"""
+        """Set currently subscribed channels and so MESSAGE_ events can be faster processed for other channels"""
         self.subscribed_channels = subscribed_channels
 
 
     def set_want_member_list(self, want):
-        """Set if client wants to recive member list updates"""
+        """Set if client wants to receive member list updates"""
         self.want_member_list = want
 
 
     def set_want_summaries(self, want):
-        """Set if client wants to recive summaries"""
+        """Set if client wants to receive summaries"""
         self.want_summaries = want
 
     def get_ready(self):
@@ -1581,7 +1581,7 @@ class Gateway():
 
 
     def get_unseen(self):
-        """Get list of channels with unseen messages ater connecting"""
+        """Get list of channels with unseen messages after connecting"""
         return self.msg_unseen
 
 
@@ -1635,7 +1635,7 @@ class Gateway():
 
 
     def get_premium(self):
-        """Get premoum state of my account"""
+        """Get premium state of my account"""
         return self.premium
 
 
@@ -1707,7 +1707,7 @@ class Gateway():
 
 
     def get_app_command_autocomplete_resp(self):
-        """Get app command autocomplete response, received after discord.send_interactionn with type 4"""
+        """Get app command autocomplete response, received after discord.send_interaction with type 4"""
         if self.app_command_autocomplete_resp:
             cache = self.app_command_autocomplete_resp
             self.app_command_autocomplete_resp = []
@@ -1725,7 +1725,7 @@ class Gateway():
         return self.stickers
 
 
-    def get_member_query_resuts(self):
+    def get_member_query_results(self):
         """Get member query results, updated after request_members() with query is called"""
         if self.member_query_results:
             cache = self.member_query_results

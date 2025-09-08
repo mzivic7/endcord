@@ -25,7 +25,7 @@ elif sys.platform == "darwin":
 else:
     operating_system = "Linux"
 
-# probably wont work on windows, but im not addidng whole locale library for that
+# probably wont work on windows, but im not adding whole locale library for that
 locale = os.environ.get("LC_ALL") or os.environ.get("LANG")
 if locale:
     system_locale = locale.split(".")[0]
@@ -36,7 +36,7 @@ else:
 def get_anonymous_properties():
     """
     Get anonymous client properties which might look more suspicious to discord.
-    This is approximaately what web client sends.
+    This is approximately what web client sends.
     """
     data = {
         "os": operating_system,

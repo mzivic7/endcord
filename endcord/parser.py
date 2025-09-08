@@ -123,7 +123,7 @@ def check_start_command(text, my_commands, guild_commands, permitted_guild_comma
 
 
 def verify_option_type(option_value, option_type, roles, channels):
-    """Check if option value is of corect type"""
+    """Check if option value is of correct type"""
     if option_type in (1, 2):   # SUB_COMMAND and SUB_COMMAND_GROUP
         if not option_value:
             return False   # skip subcommands

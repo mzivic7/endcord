@@ -14,7 +14,7 @@ if sys.platform == "win32":
 
 
 GATEWAY_RATE_LIMIT = 5   # delay between each event that rpc server will send to discord
-GATEWAY_RATE_LIMIT_SAME = 60   # dely between each same activity that rpc server will send to discord
+GATEWAY_RATE_LIMIT_SAME = 60   # delay between each same activity that rpc server will send to discord
 REQUEST_DELAY = 1.5   # delay to decrease error 429 - too many requests
 logger = logging.getLogger(__name__)
 if sys.platform == "linux":
@@ -331,7 +331,7 @@ class RPC:
         """Thread that listens for new connections on socket and starts new client_thread for each connection"""
         if sys.platform in ("linux", "darwin"):
             if not os.path.isdir(os.path.dirname(DISCORD_SOCKET)):
-                logger.warn("Error starting RPC sertver: could not create socket")
+                logger.warn("Error starting RPC server: could not create socket")
                 return
             if os.path.exists(DISCORD_SOCKET):
                 os.unlink(DISCORD_SOCKET)

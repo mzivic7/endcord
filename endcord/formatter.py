@@ -162,7 +162,7 @@ def move_by_indexes(data, indexes, start=0):
 
 
 def emoji_name(emoji_char):
-    """Return emoji name from its unicode"""
+    """Return emoji name from its Unicode"""
     return emoji.demojize(emoji_char).replace(":", "")
 
 
@@ -254,7 +254,7 @@ def replace_discord_url(text):
     return "".join(result)
 
 
-def replace_channels(text, chanels_ids):
+def replace_channels(text, channels_ids):
     """
     Transforms channels string into nicer looking one:
     `some text <#channel_id> more text` --> `some text #channel_name more text`
@@ -263,7 +263,7 @@ def replace_channels(text, chanels_ids):
     last_pos = 0
     for match in re.finditer(match_channel, text):
         result.append(text[last_pos:match.start()])
-        for channel in chanels_ids:
+        for channel in channels_ids:
             if match.group(1) == channel["id"]:
                 result.append(f"#{channel["name"]}")
                 break
@@ -577,7 +577,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         %count
     Possible options for format_timestamp:
         same as format codes for datetime package
-    Possoble options for blocked_mode:
+    Possible options for blocked_mode:
         0 - no blocking
         1 - mask blocked messages
         2 - hide blocked messages
@@ -1203,8 +1203,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
             typing_string = typing[0]["username"]
         # -15 is for "(... is typing)"
         typing_string = typing_string[:limit_typing - 15]
-        sufix = "... is typing"
-        typing_string = f"({typing_string.replace("\n ", ", ")}{sufix})"
+        suffix = "... is typing"
+        typing_string = f"({typing_string.replace("\n ", ", ")}{suffix})"
     else:
         usernames = []
         for user in typing:
@@ -1221,8 +1221,8 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
             if len(typing[0]["username"]) > limit_typing - 16:
                 remaining -= 1   # correction when first user is cut
             typing_string = typing_string[:break_index] + f" +{remaining}"
-        sufix = " are typing"
-        typing_string = f"({typing_string.replace("\n ", ", ")}{sufix})"
+        suffix = " are typing"
+        typing_string = f"({typing_string.replace("\n ", ", ")}{suffix})"
 
     # my rich presence
     if my_status["activities"]:
@@ -1492,7 +1492,7 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
     if not title_line:
         title_line = items.pop(0)[:max_len]
 
-    # add overflow from title line to to body
+    # add overflow from title line to body
     body_line = ""
     if items:
         add_newline = False
@@ -2044,7 +2044,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                 if channel.get("hidden"):
                     hidden = 2   # forced hidden
                 else:
-                    hidden = 1   # hidden unless there are channelss
+                    hidden = 1   # hidden unless there are channels
                 # using local storage instead for collapsed
                 # collapsed = category_set["collapsed"]
                 categories.append({
@@ -2303,7 +2303,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
                 tree[num - 1] = f"{pass_by}{pass_by}{end_thread}{tree[num - 1][9:]}"
             elif tree[num - 1][:4] != f"{intersection}{dd_pointer}":
                 if (tree_format[num - 1] < 500 or tree_format[num - 1] > 599) and tree[num][:3] == pass_by:
-                    # skipping colapsed forums
+                    # skipping collapsed forums
                     tree[num - 1] = pass_by_end + tree[num - 1][6:]
                 elif tree[num - 1][:3] == intersection:
                     tree[num - 1] = intersection_end + tree[num - 1][3:]

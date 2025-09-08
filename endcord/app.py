@@ -46,7 +46,7 @@ MSG_MIN = 3   # minimum number of messages that must be sent in official client
 SUMMARY_SAVE_INTERVAL = 300   # 5min
 LIMIT_SUMMARIES = 5   # max number of summaries per channel
 INTERACTION_THROTTLING = 3   # delay between sending app interactions
-APP_COMMAND_AUTOCOMPLETE_DELAY = 0.3   # delay for requesting app command autocompleions after stop typing
+APP_COMMAND_AUTOCOMPLETE_DELAY = 0.3   # delay for requesting app command autocompletions after stop typing
 MB = 1024 * 1024
 USER_UPLOAD_LIMITS = (10*MB, 50*MB, 500*MB, 50*MB)   # premium tier 0, 1, 2, 3 (none, classic, full, basic)
 GUILD_UPLOAD_LIMITS = (10*MB, 10*MB, 50*MB, 100*MB)   # premium tier 0, 1, 2, 3
@@ -812,7 +812,7 @@ class Endcord:
 
 
     def remove_channel_cache(self, num=None, active=False):
-        """Remove chached channel"""
+        """Remove cached channel"""
         if active:
             for num_cache, channel in enumerate(self.channel_cache):
                 if channel[0] == self.active_channel["channel_id"]:
@@ -1178,7 +1178,7 @@ class Endcord:
                     thread_id = self.tree_metadata[tree_sel]["id"]
                     guild_id, channel_id, _ = self.find_parents(tree_sel)
                     # toggle joined
-                    self.thread_togle_join(guild_id, channel_id, thread_id)
+                    self.thread_toggle_join(guild_id, channel_id, thread_id)
                     self.update_tree()
 
             # preview file to upload / selected gif from picker
@@ -1213,7 +1213,7 @@ class Endcord:
                 )
                 self.reset_actions()
                 self.update_status_line()
-                self.thread_togle_join(
+                self.thread_toggle_join(
                     self.active_channel["guild_id"],
                     parent_hint,
                     self.active_channel["channel_id"],
@@ -1239,7 +1239,7 @@ class Endcord:
                 self.restore_input_text = (input_text, "standard extra")
                 self.view_selected_channel(tree_sel=tree_sel)
 
-            # select in extra window / memeber list
+            # select in extra window / member list
             elif action in (27, 39):
                 self.restore_input_text = (input_text, "standard")
                 if self.extra_window_open and action == 27:
@@ -1292,7 +1292,7 @@ class Endcord:
                             else:
                                 self.restore_input_text = (new_input_text, "standard")
                             self.tui.set_input_index(new_index)
-                elif self.member_list_visible:   # controls for memeber list when no extra window
+                elif self.member_list_visible:   # controls for member list when no extra window
                     mlist_selected = self.tui.get_mlist_selected()
                     if mlist_selected >= len(self.current_members):
                         continue
@@ -1359,7 +1359,7 @@ class Endcord:
                 msg_index = self.lines_to_msg(chat_sel)
                 channels = []
                 for match in re.finditer(formatter.match_discord_channel_combined, self.messages[msg_index]["content"]):
-                    # gropus: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
+                    # groups: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
                     if match.group(1):
                         guild_id = self.active_channel["guild_id"]
                         channel_id = match.group(3)
@@ -1672,7 +1672,7 @@ class Endcord:
                     if not self.reacting:
                         self.reset_actions()
                         self.update_status_line()
-                    # 1000000 means its command execution an should restore text from store
+                    # 1000000 means its command execution and should restore text from store
                     if new_input_text is not None and new_index != 1000000:
                         if (self.search or self.search_gif) and self.extra_bkp:
                             self.restore_input_text = (new_input_text, "search")
@@ -1728,7 +1728,7 @@ class Endcord:
                             pass
                     elif self.downloading_file["open"]:
                         try:
-                            logger.debug("Trying to play attachment from seletion")
+                            logger.debug("Trying to play attachment from selection")
                             num = max(int(input_text) - 1, 0)
                             if num <= len(self.downloading_file["urls"]):
                                 self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[num], False, True)))
@@ -1836,7 +1836,7 @@ class Endcord:
 
                 elif input_text[0] == "/" and parser.check_start_command(input_text, self.my_commands, self.guild_commands, self.guild_commands_permitted) and not self.disable_sending:
                     if self.forum:
-                        self.update_extra_line("Cant run app command in furum.")
+                        self.update_extra_line("Cant run app command in forum.")
                     else:
                         self.execute_app_command(input_text)
 
@@ -1851,7 +1851,7 @@ class Endcord:
                     # if this thread is not joined, join it (locally only)
                     if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
                         channel_id, _, guild_id, _, parent_id = self.find_parents(self.active_channel["channel_id"])
-                        self.thread_togle_join(
+                        self.thread_toggle_join(
                             guild_id,
                             parent_id,
                             channel_id,
@@ -2134,7 +2134,7 @@ class Endcord:
         elif cmd_type == 11 and self.tree_metadata[tree_sel] and self.tree_metadata[tree_sel]["type"] in (11, 12):   # TOGGLE_THREAD
             thread_id = self.tree_metadata[tree_sel]["id"]
             guild_id, channel_id, _ = self.find_parents(tree_sel)
-            self.thread_togle_join(guild_id, channel_id, thread_id)
+            self.thread_toggle_join(guild_id, channel_id, thread_id)
             self.update_tree()
 
         elif cmd_type == 12:  # PROFILE
@@ -2226,7 +2226,7 @@ class Endcord:
             select_num = max(cmd_args.get("num", 0), 0)
             channels = []
             for match in re.finditer(formatter.match_discord_channel_combined, self.messages[msg_index]["content"]):
-                # gropus: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
+                # groups: 1 - channel_id for <#id>, 2 - guild_id for url, 3 - channel_id for url, 4 - msg_id for url
                 if match.group(1):
                     guild_id = self.active_channel["guild_id"]
                     channel_id = match.group(3)
@@ -2725,7 +2725,7 @@ class Endcord:
             debug.save_json(self.guild_commands, "commands_guild.json")
             debug.save_json(self.guild_commands_permitted, "commands_guild_permitted.json")
 
-        # select attachemnt
+        # select attachment
         this_attachments = None
         if need_attachment and not autocomplete:
             for num, attachments in enumerate(self.ready_attachments):
@@ -2801,7 +2801,7 @@ class Endcord:
                 self.load_from_channel_cache(num)
                 self.update_chat()
 
-            # downlaod messages
+            # download messages
             else:
                 self.add_running_task("Downloading chat", 4)
                 self.messages = self.get_messages_with_members()
@@ -2933,7 +2933,7 @@ class Endcord:
 
 
     def spoil(self, msg_index):
-        """Reveal one-by-one spoiler in selected messgae in chat"""
+        """Reveal one-by-one spoiler in selected message in chat"""
         if "spoiled" in self.messages[msg_index]:
             self.messages[msg_index]["spoiled"] += 1
         else:
@@ -3323,7 +3323,7 @@ class Endcord:
     def view_profile(self, user_data):
         """Format and show extra window with profile information"""
         if not user_data:
-            self.update_extra_line("No profile informations found.")
+            self.update_extra_line("No profile information found.")
         max_w = self.tui.get_dimensions()[2][1]
         roles = []
         if user_data["roles"]:
@@ -3892,7 +3892,7 @@ class Endcord:
         elif self.assist_type == 6:   # app command
             if self.assist_found[index][1] is None:   # execute app command
                 if self.forum:
-                    self.update_extra_line("Cant run app command in furum")
+                    self.update_extra_line("Cant run app command in forum")
                 else:
                     self.execute_app_command(input_text)
                 return "", 0
@@ -4545,7 +4545,7 @@ class Endcord:
             self.tui.update_chat(self.chat, self.chat_format)
 
 
-    def thread_togle_join(self, guild_id, channel_id, thread_id, join=None):
+    def thread_toggle_join(self, guild_id, channel_id, thread_id, join=None):
         """Toggle, or set a custom value for 'joined' state of a thread and return new state"""
         for guild in self.threads:
             if guild["guild_id"] == guild_id:
@@ -4568,7 +4568,7 @@ class Endcord:
 
 
     def toggle_mute(self, channel_id, guild_id=None, is_dm=False):
-        """Toggle mute settitng of channel, category, guild or DM"""
+        """Toggle mute setting of channel, category, guild or DM"""
         if is_dm:   # dm
             for dm in self.dms:
                 if dm["id"] == channel_id:
@@ -5388,7 +5388,7 @@ class Endcord:
 
             # check member assist query results
             if self.assist_type == 2:
-                query_results = self.gateway.get_member_query_resuts()
+                query_results = self.gateway.get_member_query_results()
                 if query_results:
                     self.assist(self.assist_word, self.assist_type, query_results=query_results)
 

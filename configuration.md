@@ -63,11 +63,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Show "invisible" status in tree when DM user is online but invisible.  
     Probably a discord bug, might get removed in the future.  
 - `wrap_around = True`  
-    Wrap around selection in tree and extra window, ie. go to first when moving selection past last item and opposite.
+    Wrap around selection in tree and extra window, i.e. go to first when moving selection past last item and opposite.
 - `mouse = True`  
     Disable if there are issues with mouse controls.  
 - `mouse_scroll_sensitivity = 3`  
-    How many lines are scrolled at onece when scrolling with mouse.
+    How many lines are scrolled at once when scrolling with mouse.
 - `mouse_scroll_selection = False`  
     Scroll selection instead content, disables mouse_scroll_sensitivity.  
 - `screen_update_delay = 0.01`  
@@ -106,7 +106,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `only_one_open_server = False`  
     Force only one open server at a time in tree. When one is opened other is closed, excluding DMs.
 - `assist_skip_app_command = False`  
-    Skip assist for app_name when typing app command. Instead show all app commands and insert app_name with selected command.
+    Skip assist for app_name when typing app command. Instead, show all app commands and insert app_name with
+  selected command.
 - `assist_limit = 50`  
     Maximum number of results when showing assist.
 - `assist_score_cutoff = 15`  
@@ -114,7 +115,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_command_history = 50`  
     Maximum number of commands stored in history. File is `command_history.json` in config dir.
 - `external_editor = None`  
-    Command or path to executable for launching external editor. Set to `None` to use system defaut.
+    Command or path to executable for launching external editor. Set to `None` to use system default.
 - `yt_dlp_path = "yt-dlp"`  
     Path to [yt-dlp](https://github.com/yt-dlp/yt-dlp) executable or command. Used for playing youtube videos.
 - `yt_dlp_format = 18`  
@@ -147,7 +148,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `extra_window_height = 6`  
     Height of extra window drawn above status line. Window title line not included.
 - `member_list_width = 20`  
-    Width of member list. It wont be drawn if remaining screen width for chat is less than 32 characters.
+    Width of member list. It won't be drawn if remaining screen width for chat is less than 32 characters.
 - `format_message = "[%timestamp] <%username> | %content %edited"`  
     Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
@@ -185,9 +186,9 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `format_search_message = "%channel: [%date] <%username> | %content"`  
     Formatting for message line in extra window when searching. See [format_search_message](#format_search_message) for more info.
 - `edited_string = "(edited)"`  
-    A string added to the end of the message when it is edsited.
+    A string added to the end of the message when it is edited.
 - `quote_character = "║"`  
-    A character that is prepended to each line of songle or multiline quote.
+    A character that is prepended to each line of single or multiline quote.
 - `reactions_separator = "; "`  
     A string placed between two reactions.
 - `tabs_separator = " | "`  
@@ -252,7 +253,7 @@ Every next list has additional `start` and `end`- indexes on a line where color 
 - `color_chat_blocked = [242, -1]`  
     Color for blocked messages if `block_mode = 1`.
 - `color_chat_deleted = [95, -1]`  
-    Color for deleted mesages when `keep_deleted = True`.
+    Color for deleted messages when `keep_deleted = True`.
 - `color_chat_selected = [233, 255]`  
     Color for selected line in chat.
 - `color_chat_separator = [242, -1, "i"]`  
@@ -391,7 +392,7 @@ Note: everything after `%content` may be pushed to newline.
 - `app_name`  
     Only changes title of the window.
 - `repeat_delay = 400`  
-    Delay befor held key will start repeating, in ms.
+    Delay before held key will start repeating, in ms.
 - `repeat_interval = 25`  
     Delay between each key repeat when holding key, in ms.
 - `ctrl_v_paste = false`  

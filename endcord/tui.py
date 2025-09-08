@@ -60,7 +60,7 @@ def set_list_item(input_list, item, index):
 def safe_insch(screen, y, x, character, color):
     """
     Safely insert character into line.
-    This is because curses.insch will throw exception for weird chracters.
+    This is because curses.insch will throw exception for weird charcters.
     curses.insstr will not, but is slower.
     """
     try:
@@ -272,7 +272,7 @@ class TUI():
         self.tree = []
         self.tree_format = []
         self.tree_clean_len = 0
-        self.chat_selected = -1   # hidden selection by defaut
+        self.chat_selected = -1   # hidden selection by default
         self.tree_selected = -1
         self.dont_hide_chat_selection = False
         self.tree_selected_abs = -1
@@ -479,7 +479,7 @@ class TUI():
         4 - sticker
         5 - client command
         6 - app command
-        7 - upload file selct
+        7 - upload file select
         100 - stop assist
         """
         if self.assist_start >= 0:
@@ -755,7 +755,7 @@ class TUI():
 
 
     def draw_formatted_line(self, window, text, text_format, default_color):
-        """Draw single formatted linee on a (line) window, line is expected to have spaces to be filled to screen edge"""
+        """Draw single formatted line on a (line) window, line is expected to have spaces to be filled to screen edge"""
         with self.lock:
             pos = 0
             try:
@@ -972,7 +972,7 @@ class TUI():
     def draw_extra_line(self, text=None, toggle=False):
         """
         Draw extra line above status line and resize chat.
-        If toggle and same text is repeated then remve extra line.
+        If toggle and same text is repeated then remove extra line.
         """
         with self.lock:
             if toggle and text == self.extra_line_text:
@@ -1678,7 +1678,7 @@ class TUI():
                 self.cursor_pos = min(w - 1, self.cursor_pos)
         if not self.disable_drawing:
             self.spellcheck()
-            self.update_prompt(prompt)   # draw_input_line() is called in heren
+            self.update_prompt(prompt)   # draw_input_line() is called in here
         if clear_delta:
             self.delta_store = []
             self.last_key = None
@@ -1797,7 +1797,7 @@ class TUI():
                             return 42
                     except ValueError:
                         pass
-                else:   # unicode letterss
+                else:   # unicode letters
                     if self.input_select_start is not None:
                         self.delete_selection()
                         self.input_select_start = None

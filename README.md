@@ -19,7 +19,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 
 ## Features
-- Extremely low CPU and and RAM usage (values greatly depend on number of servers and channels)
+- Extremely low CPU and RAM usage (values greatly depend on number of servers and channels)
 - View images, gifs, videos, audio and stickers in terminal with ASCII art or in external app
 - YouTube video and stream support
 - Integrated RPC (only Rich Presence)
@@ -113,7 +113,7 @@ Manager can be re-opened using `--manager` flag.
 
 ### Token
 Token is used to access Discord through your account without logging-in.  
-It is required to to use endcord.  
+It is required to use endcord.  
 See [FAQ](#FAQ) for more info on obtaining your Discord token.  
 After obtaining token, you can either:  
 - Provide token in profile manager - recommended,
@@ -283,7 +283,7 @@ Pressing Enter will insert current assist selection.
 If selection is `EXECUTE` then pressing enter will try to send that command.  
 App commands format is like this:  
 `/[bot_name] [command] [subcommand/group] [subcommand_after_group] --[option_name]=[option_value]`  
-`[bot_name]` is case insensitive, and `_` must be used instead space.  
+`[bot_name]` is case-insensitive, and `_` must be used instead space.  
 Space is used only to separate command segments, except in option_value with quotes.  
 `[subcommand/group]` is either single subcommand or subcommand group, and is optional.  
 Subcommand group must be followed by `[subcommand_after_group]`, which is subcommand selected from this group.  
@@ -316,7 +316,7 @@ Recommended terminal size for proper viewing is minimum 118 columns and 32 rows,
 ### RPC
 For now RPC only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
-If this happens, more info about whats going on can be found in log, when endcord is in debug mode.  
+If this happens, more info about what is going on can be found in log, when endcord is in debug mode.  
 
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
@@ -330,10 +330,10 @@ Default themes are assumed to be drawn on dark terminal background (preferably b
 Very large number of image and video formats are supported thanks to pillow and PyAV.  
 All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
 But there is also setting in config to open media in external app (cross-system, will use default system app for that file format).  
-"endcord-lite" (without ASCII media support), can be built by specifying `--lite` flag to build script. Lite version is significantly smaller in size, but still can open media in external app.  
+"endcord-lite" (without ASCII media support), can be built by specifying `--lite` flag to build script. Lite version is significantly smaller, but still can open media in external app.  
 
 ### OS specific keybindings
-Some keybindings are used by terminals or OS itself, so they are by default rebount to something else.  
+Some keybindings are used by terminals or OS itself, so they are by default rebound to something else.  
 #### Windows:  
 Expand selected categories and servers - `Ctrl+A`  
 Copy message to clipboard - `Alt+L`  
@@ -351,7 +351,7 @@ Open link in browser - `Alt+O`
     - `yay -S endcord` - full version with media support, larger executable
     - `yay -S endcord-lite` - lite version without media support
     - `-git` versions will build from source, with latest changes
-- Build, then copy built executable to system:  
+- [Build](#building) endcord, then copy built executable to system:  
     `sudo cp dist/endcord /usr/local/bin/`
 
 Optional dependencies:
@@ -365,15 +365,16 @@ Optional dependencies:
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
 - Pre-built binaries (built with nuitka using clang) are available in releases
-- Build, standalone executable can be found in `./dist/endcord.exe`.  
+- [Build](#building) endcord, standalone executable can be found in `./dist/endcord.exe`
 Run exe from wt or cmder. In cmder settings, under "Font" check "Treat font height as device units", so font is always monospace.  
+If built with experimental windowed mode, terminal is not required to use endcord.  
 Optional dependency, for spellchecking: [aspell](https://github.com/adamyg/aspell-win32). It is expected to be installed in `C:\Program Files (x86)\`. If it is not, please open an issue and provide the actual install path. Alongside with base aspell, dictionary must be installed, even en_US.  
 Emoji and Ctrl+key support depends on terminal.  
 To enable youtube support, download [yt-dlp](https://github.com/yt-dlp/yt-dlp) and provide its executable path in config.  
 
 ### macOS
 - Pre-built binaries (built with nuitka using clang) are available in releases
-- Build, standalone executable can be found in `./dist/`.  
+- [Build](#building) endcord, standalone executable can be found in `./dist/`.  
 Optional dependency, for spellchecking: [aspell](https://github.com/adamyg/aspell-win32). Can be installed with: `brew aspell`.  
 Never tested on macOS. Feedback is welcome.
 
@@ -389,7 +390,8 @@ To see all build script options, run: `uv run build.py -h`.
 To build endcord-lite, add `--lite` flag. No ascii media, slightly less RAM usage, smaller executable, faster startup.  
 To build into directory, not as a single executable, add `--onedir` flag. Will speed up startup.  
 To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, long compile time. See [Nuitka](#nuitka) for more info.  
-If compiler is not available, or muilt binary is failing, try building with `--nocython`, which will produce slightly less optimized binaries.  
+If compiler is not available, or built binary is failing, try building with `--nocython`, which will produce slightly less optimized binaries.  
+To toggle [experimental windowed mode](#experimental-windowed-mode) run: `uv run build.py --toggle-experimental`
 
 ### Linux
 1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
@@ -432,7 +434,7 @@ Nuitka requirements:
 7. This is your discord token. **Do not share it!**
 
 ### To further decrease probability of getting banned
-- MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (ie. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
+- MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (i.e. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
 - Discord REST API is called (most notably) each time client is started, when channel is changed, app command is sent and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background.
 - Do not repeatedly view user profiles.
@@ -474,7 +476,7 @@ The client will refuse to send message in newly-created DM channels. This measur
 Custom notification sound can be set in config: `custom_notification_sound = /path/to/file.mp3`.
 
 ### Some keybindings don't work with non-Latin keyboard layouts (non-ascii)
-This happens with `Alt+Key` keybindings, but may happen with other modifiers too. That happens because terminal emulators translate pressed keys with non-Latin keyboard layuts to unicode. So when `ALT+B` is pressed, but Greek layout is used, endcord will receive `ALT+β`.  
+This happens with `Alt+Key` keybindings, but may happen with other modifiers too. That happens because terminal emulators translate pressed keys with non-Latin keyboard layouts to Unicode. So when `ALT+B` is pressed, but Greek layout is used, endcord will receive `ALT+β`.  
 But this also means that it can be added to keybinding config, instead byte, provide character itself eg.: `β` or `ALT+β`.  
 See [keybinding](#keybinding) for instructions on how to add multiple keybindings for same action.
 
@@ -514,4 +516,4 @@ Go to [TODO](todo.txt).
 Following features have significant risk of triggering discords spam filter, and may cause account to be limited or even banned:  
 Sending friend request, opening new DM, creating new thread, scriptable command macros, anything payment related.  
 
-Therefore they will NOT be implemented in endcord.  
+Therefore, they will NOT be implemented in endcord.  

@@ -16,9 +16,9 @@
 - `record` / `record cancel`  
     Toggle recording, will send when stopped.
 - `upload` / `upload [path]`  
-    Prompot for upload path, or provide it in command and start uploading.
+    Prompt for upload path, or provide it in command and start uploading.
 - `profile` / `profile <@[user_id]>`  
-    View prfile info of user from currently selected message or specified user.
+    View profile info of user from currently selected message or specified user.
 - `channel` / `channel <#[channel_id]>`  
     View info of currently selected channel in tree or specified channel.
 - `summaries` / `summaries <#[channel_id]>`  
@@ -65,11 +65,11 @@
     Check account standing. 0-100 value, anything non-100 is concerning.  
 - `set [key] = [value]` / `set [key]=[value]`  
     Change settings and save them. Usually restart is required.  
-    External theme wont be changed and it can override changed settings.  
+    External theme won't be changed, and it can override changed settings.  
 - `hide` / `hide <#[channel_id]>`  
     Prompt to hide selected channel in tree or specified channel.
 - `toggle_mute` / `toggle_mute <#[channel_id]>`  
-    Mute/unmute selected item in tree or specified channel channel/category/guild.
+    Mute/unmute selected item in tree or specified channel/category/guild.
 - `mark_as_read` / `mark_as_read <#[channel_id]>`  
     Mark as read selected item in tree or specified channel/category/guild.
 - `insert_timestamp [time]`  
@@ -83,7 +83,7 @@
 - `dump_chat`  
     Dump current chat to unique json, saved in Debug folder found inside config location.
 - `string_select [string]` / `string_select [num] [string]`  
-    Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if have multiple string selects.
+    Select a string on interactive app message. Strings are provided in assist window. Specify `[num]` if there are multiple string selects.
 - `set_notifications ...` / `set_notifications <#[channel_id]> ...`  
     Show and modify server/channel notification settings.
 - `custom_status [text]`  

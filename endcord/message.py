@@ -24,7 +24,7 @@ def generate_timestamp(timestamp, timestamp_format, unix=False):
 
 
 def prepare_embeds(embeds, message_content):
-    """Perepare message embeds"""
+    """Prepare message embeds"""
     ready_embeds = []
     for embed in embeds:
         content = ""
@@ -125,7 +125,7 @@ def prepare_message(message):
     if "member" in message:
         nick = message["member"]["nick"]
 
-    # forwarded messgaes
+    # forwarded messages
     if "message_snapshots" in message:
         forwarded = message["message_snapshots"][0]["message"]
         # additional text with forwarded message is sent separately
@@ -218,7 +218,7 @@ def prepare_messages(data, have_channel_id=False):
 
 
 def prepare_components(components):
-    """Convert mesage components into message, urls and embeds, recursive"""
+    """Convert message components into message, urls and embeds, recursive"""
     text = []
     embeds = []
     component_info = {"buttons": [], "string_selects": [], "text_inputs": []}
@@ -415,9 +415,9 @@ def prepare_special_message_types(message):
     elif msg_type == 12:   # CHANNEL_FOLLOW_ADD
         content = f"> *Added {message["content"]} to this channel. Its most important updates will show up here.*"
     # 13 - removed
-    elif msg_type == 14:   # GUILD_DISCOVERY_DISQUALelifIED
+    elif msg_type == 14:   # GUILD_DISCOVERY_DISQUALIFIED
         content = "> *This server has been removed from Server Discovery because it no longer passes all the requirements.*"
-    elif msg_type == 15:   # GUILD_DISCOVERY_REQUALelifIED
+    elif msg_type == 15:   # GUILD_DISCOVERY_REQUALIFIED
         content = "> *This server is eligible for Server Discovery again and has been automatically relisted!*"
     elif msg_type == 16:   # GUILD_DISCOVERY_GRACE_PERIOD_INITIAL_WARNING
         content = "> *This server has failed Discovery activity requirements for 1 week.*"

@@ -123,7 +123,7 @@ def load_secret():
 
 
 def save_secret(profiles):
-    """Save profiles to sustem keyring"""
+    """Save profiles to system keyring"""
     if sys.platform == "linux":
         subprocess.run([
             "secret-tool", "store",
@@ -459,13 +459,13 @@ def delete_profile(screen, profiles_enc, profiles_plain, selected_profile):
             return profiles_enc, profiles_plain, True
 
 
-def text_prompt(screen, descrption_text, prompt, init=None, mask=False):
+def text_prompt(screen, description_text, prompt, init=None, mask=False):
     """Prompt to type/paste text"""
     screen.clear()
     screen.bkgd(" ", curses.color_pair(1))
-    screen.addstr(1, 0, descrption_text, curses.color_pair(1))
+    screen.addstr(1, 0, description_text, curses.color_pair(1))
     _, w = screen.getmaxyx()
-    prompt_y = get_prompt_y(w, descrption_text)
+    prompt_y = get_prompt_y(w, description_text)
     if init:
         text = init
     else:
@@ -586,7 +586,7 @@ def update_time(profiles_enc, profiles_plain, selected):
 
 
 def manage(profiles_path, external_selected, force_open=False):
-    """Manage and return profiles and selected profle"""
+    """Manage and return profiles and selected profile"""
     have_keyring = True
     if sys.platform == "linux" and not shutil.which("secret-tool"):
         have_keyring = False
