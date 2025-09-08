@@ -121,7 +121,9 @@ class Discord():
                 proxy_sock.set_proxy(socks.SOCKS5, self.proxy.hostname, self.proxy.port)
                 proxy_sock.settimeout(10)
                 proxy_sock.connect((host, port))
-                proxy_sock = ssl.create_default_context().wrap_socket(proxy_sock, server_hostname=host)
+                ssl_context = ssl.create_default_context()
+                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+                proxy_sock = ssl_context.wrap_socket(proxy_sock, server_hostname=host)
                 # proxy_sock.do_handshake()   # seems like its not needed
                 connection = http.client.HTTPSConnection(host, port, timeout=10)
                 connection.sock = proxy_sock

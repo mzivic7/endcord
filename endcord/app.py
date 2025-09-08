@@ -2943,7 +2943,7 @@ class Endcord:
 
     def download_file(self, url, move=True, open_media=False, open_move=False):
         """Thread that downloads and moves file to downloads dir"""
-        if "https://media.tenor.com/" in url:
+        if url.startswith("https://media.tenor.com/"):
             url = downloader.convert_tenor_gif_type(url, self.tenor_gif_type)
         destination = None
         from_cache = False

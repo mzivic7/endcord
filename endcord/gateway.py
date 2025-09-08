@@ -170,7 +170,9 @@ class Gateway():
                 proxy_sock = socks.socksocket()
                 proxy_sock.set_proxy(socks.SOCKS5, self.proxy.hostname, self.proxy.port)
                 proxy_sock.connect((self.host, 443))
-                proxy_sock = ssl.create_default_context().wrap_socket(proxy_sock, server_hostname=self.host)
+                ssl_context = ssl.create_default_context()
+                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+                proxy_sock = ssl_context.wrap_socket(proxy_sock, server_hostname=self.host)
                 proxy_sock.do_handshake()   # seems like its not needed
                 connection = http.client.HTTPSConnection(self.host, 443)
                 connection.sock = proxy_sock

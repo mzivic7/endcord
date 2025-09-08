@@ -29,6 +29,9 @@ jobs:
             nuitka: true
             clang: true
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: write
 
     steps:
       - uses: actions/checkout@v5
