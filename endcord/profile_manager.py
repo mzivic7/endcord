@@ -367,6 +367,8 @@ def main_tui(screen, profiles_enc, profiles_plain, selected, have_keyring):
         elif key == curses.KEY_RIGHT:
             if selected_button < 4:
                 selected_button += 1
+        elif key == curses.KEY_RESIZE:
+            regenerate = True
 
         if regenerate:
             screen.bkgd(" ", curses.color_pair(1))
@@ -633,7 +635,11 @@ def manage(profiles_path, external_selected, force_open=False):
         setup_secret_service()
 
     try:
-        profiles_enc, profiles_plain, selected, proceed = curses.wrapper(main_tui, profiles_enc, profiles_plain, selected, have_keyring)
+        data = curses.wrapper(main_tui, profiles_enc, profiles_plain, selected, have_keyring)
+        if not data:
+            sys.exit()
+        else:
+            profiles_enc, profiles_plain, selected, proceed = data
     except curses.error as e:
         if str(e) != "endwin() returned ERR":
             logger.error(e)

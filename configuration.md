@@ -381,23 +381,31 @@ Note: everything after `%content` may be pushed to newline.
 
 
 ## pgcurses.json - config for experimental windowed mode
-- `window_size = [900, 600]`  
+- `window_size: [900, 600]`  
     Initial window width and height in pixels.
-- `maximized = false`  
+- `maximized: false`  
     Initial window maximized state.
-- `font_size = 12`  
+- `font_size: 12`  
     Size of the font.
-- `font_name = "Source Code Pro"`  
+- `font_name: "Source Code Pro"`  
     Name of the font installed on the system.
-- `app_name`  
+- `app_name: "Endcord"`  
     Only changes title of the window.
-- `repeat_delay = 400`  
+- `repeat_delay: 400`  
     Delay before held key will start repeating, in ms.
-- `repeat_interval = 25`  
+- `repeat_interval: 25`  
     Delay between each key repeat when holding key, in ms.
-- `ctrl_v_paste = false`  
+- `ctrl_v_paste: false`  
     If `true` will use `Ctrl+V` instead `Ctrl+Shift+V` for pasting.
-- `default_color_pair = [...]`  
+- `enable_tray: true`  
+    Enable tray icon. closing window will minimize to tray.
+- `tray_icon_normal: null`  
+    Path to tray icon file. Its supposed to be png with size og 32x32 or 64x64, but other formats and sizes should work too. Set to `null` to use default icons.
+- `tray_icon_unread: null`  
+    Path to tray icon file shown when there are unread messages. Set to `null` to disable.
+- `tray_icon_unread: null`  
+    Path to tray icon file shown when there are unread messages that are mentioning this user. Set to `null` to disable.
+- `default_color_pair: [...]`  
     Default color pair used for drawing, first color is foreground, and second is background, colors are in `[R, G, B]` format.
-- `color_palette = [...]`  
+- `color_palette: [...]`  
     First 16 colors of xterm256 color palette are user configurable. Colors are in `[R, G, B]` format.

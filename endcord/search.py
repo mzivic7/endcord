@@ -190,6 +190,8 @@ def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=1
                 break
         else:
             emojis = []
+    else:
+        emojis = all_emojis
     for guild in emojis:
         guild_name = guild["guild_name"]
         for guild_emoji in guild["emojis"]:
@@ -231,7 +233,8 @@ def search_stickers(all_stickers, default_stickers, premium, guild_id, query, li
                 break
         else:
             stickers = []
-
+    else:
+        stickers = all_stickers
     for pack in stickers + default_stickers:
         pack_name = pack["pack_name"]
         for sticker in pack["stickers"]:

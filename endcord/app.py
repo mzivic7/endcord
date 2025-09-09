@@ -36,6 +36,7 @@ support_media = (
 if support_media:
     from endcord import clipboard, media
 cythonized = importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.search")
+uses_pgcurses = tui.uses_pgcurses
 
 logger = logging.getLogger(__name__)
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
@@ -141,6 +142,8 @@ class Endcord:
             properties.append("have mpv")
         if cythonized:
             properties.append("cythonized")
+        if uses_pgcurses:
+            properties.append("windowed")
         logger.info("Properties: " + ", ".join(properties))
         del (properties)
 
@@ -4360,6 +4363,25 @@ class Endcord:
         # debug.save_json(self.tree_metadata, "tree_metadata.json", False)
         self.tui.update_tree(self.tree, self.tree_format)
 
+        # check for unreads/mentions for tray icon
+        if uses_pgcurses:
+            if not self.tui.is_window_open and not self.unseen_scrolled:
+                # tree update for current channel is triggered from process_msg_events_other_channels
+                self.tui.set_chat_index(1)
+                self.update_chat()
+            tray_state = 0   # standard
+            if self.unseen_scrolled:
+                tray_state = 1
+            for num, code in enumerate(self.tree_format):
+                if 100 <= code < 200:
+                    second_digit = int((code % 100) // 10)
+                    if second_digit in (2, 5):
+                        tray_state = 2   # mention
+                        break
+                    elif second_digit == 3:
+                        tray_state = 1   # unread
+            self.tui.set_tray_icon(tray_state)
+
 
     def lines_to_msg(self, lines):
         """Convert line index from formatted chat to message index"""
@@ -5143,7 +5165,7 @@ class Endcord:
                         if in_cache:
                             self.process_msg_events_cached_channel(new_message, ch_num)
                     # handle unseen and mentions
-                    if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel)):
+                    if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel or self.tui.disable_drawing or self.tui.is_window_open())):
                         self.process_msg_events_other_channels(new_message, this_channel)
                     # remove ghost pings
                     self.process_msg_events_ghost_ping(new_message)

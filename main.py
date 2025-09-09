@@ -14,7 +14,7 @@ APP_NAME = "endcord"
 VERSION = "0.9.0"
 default_config_path = peripherals.config_path
 log_path = peripherals.log_path
-
+uses_pgcurses = hasattr(curses, "PGCURSES")
 
 if not os.path.exists(log_path):
     os.makedirs(os.path.expanduser(os.path.dirname(log_path)), exist_ok=True)
@@ -61,10 +61,8 @@ def main(args):
         section="keybindings",
         gen_config=gen_config,
     )
-    if not hasattr(curses, "PGCURSES"):
+    if not uses_pgcurses:
         keybindings = peripherals.convert_keybindings(keybindings)
-    else:
-        os.environ["PGCURSES_CONFIG"] = os.path.join(peripherals.config_path, "pgcurses.json")
 
     os.environ["ESCDELAY"] = "25"   # 25ms
     if os.environ.get("TERM", "") in ("xterm", "linux"):
@@ -77,10 +75,14 @@ def main(args):
     if args.colors:
         # import here for faster startup
         from endcord import color
+        if uses_pgcurses:
+            curses.enable_tray = False
         curses.wrapper(color.color_palette)
         sys.exit(0)
     elif args.keybinding:
         from endcord import keybinding
+        if uses_pgcurses:
+            curses.enable_tray = False
         keybinding.picker(keybindings)
         sys.exit(0)
     elif args.media:
@@ -91,6 +93,8 @@ def main(args):
         ):
             sys.exit("Ascii media player is not supported")
         from endcord import media
+        if uses_pgcurses:
+            curses.enable_tray = False
         try:
             curses.wrapper(media.ascii_runner, args.media, config, keybindings)
         except curses.error as e:

@@ -11,6 +11,24 @@ import pygame
 import pygame.freetype
 from pygame._sdl2 import Window as pg_Window
 
+have_tray = False
+tray_error = None
+if importlib.util.find_spec("pystray"):
+    have_tray = True
+    if sys.platform == "linux":
+        if importlib.util.find_spec("gi"):
+            import gi
+            gi.require_version("GioUnix", "2.0")
+        else:
+            have_tray = False
+if have_tray:
+    from PIL import Image, ImageDraw
+    try:
+        from pystray import Icon, Menu, MenuItem
+    except Exception as e:
+        have_tray = False
+        tray_error = e
+
 support_clipboard = False
 if importlib.util.find_spec("pyperclip"):
     import pyperclip
@@ -27,6 +45,10 @@ APP_NAME = "Endcord"
 REPEAT_DELAY = 400
 REPEAT_INTERVAL = 25
 CTRL_V_PASTE = False   # use Ctrl+V instead Ctrl+Shift+V to paste
+enable_tray = True
+TRAY_ICON_NORMAL = None
+TRAY_ICON_UNREAD = None
+TRAY_ICON_MENTION = None
 DEFAULT_PAIR = ((255, 255, 255), (0, 0, 0))
 SYSTEM_COLORS = (
     (0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0),
@@ -35,8 +57,20 @@ SYSTEM_COLORS = (
     (0, 0, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255),
 )
 
+# custom path
+if sys.platform == "linux":
+    path = os.environ.get("XDG_DATA_HOME", "")
+    if path.strip():
+        config_path = os.path.join(path, f"{APP_NAME.lower()}/pgcurses.json")
+    else:
+        config_path = f"~/.config/{APP_NAME.lower()}/pgcurses.json"
+elif sys.platform == "win32":
+    config_path = os.path.join(os.path.normpath(f"{os.environ["USERPROFILE"]}/AppData/Local/{APP_NAME.lower()}/"), "pgcurses.json")
+elif sys.platform == "darwin":
+    config_path = f"~/Library/Application Support/{APP_NAME.lower()}/pgcurses.json"
+#config_path = os.environ.get("PGCURSES_CONFIG")
+
 # load config
-config_path = os.environ.get("PGCURSES_CONFIG")
 if config_path:
     config_path = os.path.expanduser(config_path)
     config = {}
@@ -45,8 +79,7 @@ if config_path:
             with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
         except Exception as e:
-            logger.info(f"Failed to load config {config_path}: {e}")
-
+            logger.error(f"Failed to load config {config_path}: {e}")
         if config:
             WINDOW_SIZE = tuple(config.get("window_size", WINDOW_SIZE))
             MAXIMIZED = config.get("maximized", MAXIMIZED)
@@ -56,6 +89,10 @@ if config_path:
             REPEAT_DELAY = config.get("repeat_delay", REPEAT_DELAY)
             REPEAT_INTERVAL = config.get("repeat_interval", REPEAT_INTERVAL)
             CTRL_V_PASTE = config.get("ctrl_v_paste", CTRL_V_PASTE)
+            enable_tray = config.get("enable_tray", enable_tray)
+            TRAY_ICON_NORMAL = config.get("tray_icon_normal", TRAY_ICON_NORMAL)
+            TRAY_ICON_UNREAD = config.get("tray_icon_unread", TRAY_ICON_UNREAD)
+            TRAY_ICON_MENTION = config.get("tray_icon_mention", TRAY_ICON_MENTION)
             DEFAULT_PAIR = tuple(tuple(color) for color in config.get("default_color_pair", DEFAULT_PAIR))
             SYSTEM_COLORS = tuple(tuple(color) for color in config.get("color_palette", SYSTEM_COLORS))
 
@@ -69,6 +106,10 @@ if config_path:
             "repeat_delay": REPEAT_DELAY,
             "repeat_interval": REPEAT_INTERVAL,
             "ctrl_v_paste": CTRL_V_PASTE,
+            "enable_tray": enable_tray,
+            "tray_icon_normal": TRAY_ICON_NORMAL,
+            "tray_icon_unread": TRAY_ICON_UNREAD,
+            "TRAY_ICON_MENTION": TRAY_ICON_MENTION,
             "default_color_pair": DEFAULT_PAIR,
             "color_palette": SYSTEM_COLORS,
         }
@@ -76,7 +117,7 @@ if config_path:
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
-            logger.info(f"Failed to save config {config_path}: {e}")
+            logger.error(f"Failed to save config {config_path}: {e}")
 
 
 # constants
@@ -104,10 +145,17 @@ ALL_MOUSE_EVENTS = 268435455
 COLORS = 255
 COLOR_PAIRS = 1000000
 
+run = True
+screen = None
+toggle_window = False
+open_window = True
 mouse_event = (0, 0, 0, 0, 0)
 main_thread_queue = queue.Queue()
 event_queue = queue.Queue()
 color_map = [DEFAULT_PAIR] * (COLORS + 1)
+fake_videoresize = pygame.event.Event(pygame.VIDEORESIZE, w=1, h=1)   # used to trigger redraw
+icon = None
+current_icon_index = None
 
 if sys.platform == "win32":
     emoji_font_name = "Segoe UI Emoji"
@@ -115,6 +163,82 @@ elif sys.platform == "darwin":
     emoji_font_name = "Apple Color Emoji"
 else:
     emoji_font_name = "Noto Color Emoji"
+
+
+# tray stuff
+def load_tray_image(path=None, color=None):
+    """Load image from path, fallback to circle drawn with pillow"""
+    if path and os.path.exists(os.path.expanduser(path)):
+        return Image.open(os.path.expanduser(path)).convert("RGBA")
+    image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    dc = ImageDraw.Draw(image)
+    dc.ellipse((16, 16, 48, 48), fill=color)
+    return image
+
+
+if have_tray:
+    tray_icons = [load_tray_image(path, color) for path, color in (
+        (TRAY_ICON_NORMAL, (200, 200, 200, 255)),
+        (TRAY_ICON_UNREAD, (255, 120, 0, 255)),
+        (TRAY_ICON_MENTION, (200, 30, 40, 255)),
+    )]
+
+
+def tray_toggle(icon=None, item=None):   # noqa
+    """Toggle window state button"""
+    global toggle_window
+    toggle_window = True
+
+
+def quit_app(icon, item):   # noqa
+    """Quit app button"""
+    global run
+    run = False
+    event_queue.put(None)
+    icon.stop()
+
+
+def set_tray_icon(icon_index):
+    """
+    Set tray icon, available icons:
+    0 - default
+    1 - unreads
+    2 - mention
+    """
+    global icon, current_icon_index
+    if not have_tray or current_icon_index == icon_index:
+        return
+    current_icon_index = icon_index
+    if icon_index == 0:
+        icon.icon = tray_icons[icon_index]
+    if icon_index == 1 and (TRAY_ICON_UNREAD or not TRAY_ICON_NORMAL):
+        icon.icon = tray_icons[icon_index]
+    if icon_index == 2 and (TRAY_ICON_MENTION or not TRAY_ICON_NORMAL):
+        icon.icon = tray_icons[icon_index]
+    else:
+        return
+    icon.update_icon()
+
+
+def tray_thread():
+    """Thread that runs tray icon handler"""
+    global icon
+    menu = Menu(
+        MenuItem("Toggle Window", tray_toggle),
+        MenuItem(f"Quit {APP_NAME}", quit_app),
+    )
+    icon = Icon(f"{APP_NAME.lower()}-tray", tray_icons[0], APP_NAME, menu)
+    icon.run()
+    icon._listener.on_clicked = tray_toggle
+
+
+# curses stuff
+def clear_queue(target_queue):
+    """Safely clears queue"""
+    with target_queue.mutex:
+        target_queue.queue.clear()
+        target_queue.all_tasks_done.notify_all()
+        target_queue.unfinished_tasks = 0
 
 
 def xterm_to_rgb(x):
@@ -205,8 +329,7 @@ def is_paste_event(event):
 class Window:
     """Pygame-Curses window class"""
 
-    def __init__(self, screen, nlines, ncols, begy, begx, parent_begx, parent_begy, font, emoji_font):
-        self.screen = screen
+    def __init__(self, nlines, ncols, begy, begx, parent_begx, parent_begy, font, emoji_font):
         self.begy, self.begx = begy + parent_begy, begx + parent_begx
         self.bgcolor = pygame.Color((0, 0, 0))
         self.input_buffer = []
@@ -228,20 +351,23 @@ class Window:
         self.pxy, self.pxx = self.begy * self.char_height, self.begx * self.char_width
 
         self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
+        self.dirty_lock = threading.RLock()
         self.dirty_lines = set()
 
 
     def derwin(self, nlines, ncols, begy, begx):
         """curses.derwin clone using pygame"""
-        return Window(self.screen, nlines, ncols, begy, begx, self.begx, self.begy, self.font, self.emoji_font)
+        return Window(nlines, ncols, begy, begx, self.begx, self.begy, self.font, self.emoji_font)
 
 
     def screen_resize(self):
         """Internal function used to update screen dimensions on VIDEORESIZE event"""
-        self.ncols = self.screen.get_width()  // self.char_width
-        self.nlines = self.screen.get_height() // self.char_height
-        self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
-        self.dirty_lines = set()
+        global screen
+        self.ncols = screen.get_width()  // self.char_width
+        self.nlines = screen.get_height() // self.char_height
+        with self.dirty_lock:
+            self.buffer = [[(" ", 0) for _ in range(self.ncols)]for _ in range(self.nlines)]
+            self.dirty_lines = set()
 
 
     def getmaxyx(self):
@@ -267,20 +393,21 @@ class Window:
         """curses.insstr clone using pygame"""
         lines = text.split("\n")
         len_lines = len(lines)
-        for i, line in enumerate(lines):
-            if i < len_lines - 1:
-                line_len = self.ncols - x
-                ready_line = (line[:line_len]).ljust(line_len)
-            else:
-                ready_line = line
-            row = y + i
-            if row >= self.nlines:
-                break
-            row_buffer = self.buffer[row]
-            for j, ch in enumerate(ready_line[:self.ncols - x]):
-                col = x + j
-                row_buffer[col] = (ch, attr)
-            self.dirty_lines.add(row)
+        with self.dirty_lock:
+            for i, line in enumerate(lines):
+                if i < len_lines - 1:
+                    line_len = self.ncols - x
+                    ready_line = (line[:line_len]).ljust(line_len)
+                else:
+                    ready_line = line
+                row = y + i
+                if row >= self.nlines:
+                    break
+                row_buffer = self.buffer[row]
+                for j, ch in enumerate(ready_line[:self.ncols - x]):
+                    col = x + j
+                    row_buffer[col] = (ch, attr)
+                self.dirty_lines.add(row)
 
 
     def insch(self, y, x, ch, color_id=0):
@@ -312,61 +439,64 @@ class Window:
 
     def render(self):
         """Render buffer onto screen"""
-        for y in self.dirty_lines:
-            row = self.buffer[y]
-            i = 0
-            draw_x = 0
-            while i < self.ncols:
-                ch, attr = row[i]
-                flags = attr & 0xFFFF0000
+        global screen
+        with self.dirty_lock:
+            for y in self.dirty_lines:
+                row = self.buffer[y]
+                i = 0
+                draw_x = 0
+                while i < self.ncols:
+                    ch, attr = row[i]
+                    flags = attr & 0xFFFF0000
 
-                if is_emoji(ch):
-                    px_x = draw_x * self.char_width
-                    px_y = y * self.char_height
+                    if is_emoji(ch):
+                        px_x = draw_x * self.char_width
+                        px_y = y * self.char_height
+                        fg, bg = color_map[attr & 0xFFFF]
+                        if flags & A_STANDOUT:
+                            fg, bg = bg, fg
+                        screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, 2 * self.char_width, self.char_height))
+                        emoji = self.render_emoji_scaled(ch)
+                        if emoji:
+                            offset = px_x + (2 * self.char_width - self.char_height) // 2
+                            screen.blit(emoji, (offset + self.pxx, px_y + self.pxy))
+                        draw_x += 2   # emoji takes two cells visually
+                        i += 2   # so push buffer line one char right
+                        continue
+
+                    span_draw_x = draw_x
+                    text_buffer = []
+                    while i < self.ncols:
+                        ch, attr2 = row[i]
+                        if attr2 != attr:
+                            break
+                        if is_emoji(ch):
+                            break
+                        text_buffer.append(ch)
+                        i += 1
+                        draw_x += 1
+                    if not text_buffer:
+                        continue
+                    text = "".join(text_buffer)
+
                     fg, bg = color_map[attr & 0xFFFF]
                     if flags & A_STANDOUT:
                         fg, bg = bg, fg
-                    self.screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, 2 * self.char_width, self.char_height))
-                    emoji = self.render_emoji_scaled(ch)
-                    if emoji:
-                        offset = px_x + (2 * self.char_width - self.char_height) // 2
-                        self.screen.blit(emoji, (offset + self.pxx, px_y + self.pxy))
-                    draw_x += 2   # emoji takes two cells visually
-                    i += 2   # so push buffer line one char right
-                    continue
+                    px_x = span_draw_x * self.char_width
+                    px_y = y * self.char_height
+                    screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, len(text) * self.char_width, self.char_height))
+                    self.font.strong = bool(flags & A_BOLD)
+                    self.font.oblique = bool(flags & A_ITALIC)
+                    self.font.underline = bool(flags & A_UNDERLINE)
+                    self.font.render_to(screen, (px_x + self.pxx, px_y + self.pxy), text, fg)
 
-                span_draw_x = draw_x
-                text_buffer = []
-                while i < self.ncols:
-                    ch, attr2 = row[i]
-                    if attr2 != attr:
-                        break
-                    if is_emoji(ch):
-                        break
-                    text_buffer.append(ch)
-                    i += 1
-                    draw_x += 1
-                if not text_buffer:
-                    continue
-                text = "".join(text_buffer)
-
-                fg, bg = color_map[attr & 0xFFFF]
-                if flags & A_STANDOUT:
-                    fg, bg = bg, fg
-                px_x = span_draw_x * self.char_width
-                px_y = y * self.char_height
-                self.screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, len(text) * self.char_width, self.char_height))
-                self.font.strong = bool(flags & A_BOLD)
-                self.font.oblique = bool(flags & A_ITALIC)
-                self.font.underline = bool(flags & A_UNDERLINE)
-                self.font.render_to(self.screen, (px_x + self.pxx, px_y + self.pxy), text, fg)
-
-        self.dirty_lines.clear()
+            self.dirty_lines.clear()
 
 
     def clear(self):
         """curses.clear clone using pygame"""
-        self.screen.fill(self.bgcolor)
+        global screen
+        screen.fill(self.bgcolor)
 
 
     def refresh(self):
@@ -387,13 +517,14 @@ class Window:
 
     def bkgd(self, ch, color_id):
         """curses.bkgd clone using pygame"""
+        global screen
         ch = str(ch)[0]
         fg_color, bg_color = color_map[color_id]
         for y in range(self.nlines):
             for x in range(self.ncols):
                 px_x = x * self.char_width
                 px_y = y * self.char_height
-                self.font.render_to(self.screen, (px_x + self.pxx, px_y + self.pxy), ch, fg_color, bg_color)
+                self.font.render_to(screen, (px_x + self.pxx, px_y + self.pxy), ch, fg_color, bg_color)
 
 
     def nodelay(self, flag: bool):
@@ -459,13 +590,13 @@ class Window:
                             bracketed = "\x1b[200~" + pasted + "\x1b[201~"
                             self.input_buffer.extend(bracketed.encode("utf-8"))
                         return -1
-                    logger.info("Pyperclip must be installed in order to have clipboard support")
+                    logger.warn("Pyperclip must be installed in order to have clipboard support")
                 code = self.do_key_press(event)
                 if code is not None:
                     return code
 
             elif event.type == pygame.VIDEORESIZE:
-                self.screen.fill((0, 0, 0))
+                main_thread_queue.put(self.clear)
                 self.screen_resize()
                 return KEY_RESIZE
 
@@ -496,6 +627,7 @@ def getmouse():
 
 def initscr():
     """curses.initscr clone using pygame"""
+    global screen
     pygame.display.init()
     pygame.font.init()
     pygame.freetype.init()
@@ -509,37 +641,60 @@ def initscr():
     emoji_font = pygame.font.SysFont(emoji_font_name, FONT_SIZE)
     font = pygame.freetype.Font(base_font_path, FONT_SIZE)
     font.pad = True
-    return Window(screen, 0, 0, 0, 0, 0, 0, font, emoji_font)
+    return Window(0, 0, 0, 0, 0, 0, font, emoji_font)
 
 
 def wrapper(func, *args, **kwargs):
     """curses.wrapper clone using pygame"""
-    screen = initscr()
+    global screen, run, toggle_window, open_window
+    window = initscr()
+
+    if have_tray:
+        if enable_tray:
+            threading.Thread(target=tray_thread, daemon=True).start()
+    elif tray_error:
+        logger.error(f"Failed to start tray: {tray_error}")
+    else:
+        logger.warn("Pystray must be installed to have tray icon, on Linux additionaly pygobject")
 
     def user_thread():
-        func(screen, *args, **kwargs)
+        func(window, *args, **kwargs)
         main_thread_queue.put(None)
     threading.Thread(target=user_thread, daemon=True).start()
+    last_window_size = WINDOW_SIZE
 
-    run = True
     while run:
-        for event in pygame.event.get():
-            if event.type in (pygame.KEYDOWN, pygame.VIDEORESIZE, pygame.MOUSEBUTTONDOWN):
-                event_queue.put(event)
-                with main_thread_queue.mutex:
-                    main_thread_queue.queue.clear()
-                    main_thread_queue.all_tasks_done.notify_all()
-                    main_thread_queue.unfinished_tasks = 0
-            elif event.type == pygame.QUIT:
-                event_queue.put(None)
-                return
-        try:
-            task = main_thread_queue.get(timeout=0.02)
-            if not task:
-                break
-            task()
-        except queue.Empty:
-            pass
+        if toggle_window:
+            toggle_window = False
+            if screen:
+                last_window_size = screen.get_size()
+                pygame.display.quit()
+                screen = None
+                open_window = False
+            else:
+                screen = pygame.display.set_mode(last_window_size, pygame.RESIZABLE)
+                open_window = True
+                event_queue.put(fake_videoresize)   # used to trigger redraw
+
+        if screen:
+            for event in pygame.event.get():
+                if event.type in (pygame.KEYDOWN, pygame.VIDEORESIZE, pygame.MOUSEBUTTONDOWN):
+                    event_queue.put(event)
+                    clear_queue(main_thread_queue)
+                elif event.type == pygame.QUIT:
+                    if have_tray and enable_tray:
+                        clear_queue(main_thread_queue)
+                        toggle_window = True
+                    else:
+                        event_queue.put(None)
+                        return
+            try:
+                task = main_thread_queue.get(timeout=0.02)
+                if not task:
+                    break
+                task()
+            except queue.Empty:
+                pass
 
     pygame.quit()
 

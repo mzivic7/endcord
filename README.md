@@ -74,12 +74,11 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show mentions as `@username`, `@role`, `#channel_name`
 - Channel chat caching
 - Remember last open channel and tree state
-- Resizable
 - Automatic recovery on network failure
 - Proxy support
 - Profile manager for multiple accounts
 - Store token in system keyring
-- Quit on `Ctrl+C`
+- Experimental windowed mode with tray icon
 
 
 ## Configuration
@@ -361,6 +360,7 @@ Optional dependencies:
 - `yt-dlp` - youtube support
 - `mpv` - Play youtube videos in native player (non-ascii)
 - `libsecret` - Store token in system keyring (`gnome-keyring` is also required, with `dbus` as dependency)
+- `libappindicator-gtk3` - Tray support under wayland, for [experimental windowed mode](#experimental-windowed-mode) only.
 
 ### Windows
 Install [windows terminal](https://github.com/microsoft/terminal) or [cmder](https://github.com/cmderdev/cmder), or any other modern terminal.  
@@ -486,10 +486,11 @@ Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Insta
 Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.  
 
 ### Experimental windowed mode
-This mode entirely replaces curses with pygame-ce GUI library. UI remains terminal-like, the only difference is that its no longer in terminal, but in its own window.  
+This mode entirely replaces curses with pygame-ce GUI library. This means Endcord runs in its own window, not in terminal, but UI remains terminal-like.  
+Tray icon will also be enabled, so closing window will only minimize it to tray.  
 Keybinding remain the same, but all codes are like on Linux, so old keybinding codes may not work on Windows.  
 If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer in terminal.  
-Building with nuitka will create executable that will segfault.  
+Building with nuitka on python >=3.13 will create executable that segfaults! Building with pyinstaller is not recommended because it generates huge binary.  
 You can toggle experimental mode bu running: `uv run build.py --experimental`.  
 Then run endcord from source: `uv run main.py`.  
 After first run in experimental mode, extra config will be generated in endcord config path in file called `pgcurses.json`. More info in [configuration](configuration.md).

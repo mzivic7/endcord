@@ -9,6 +9,7 @@ import time
 from endcord import acs, peripherals
 
 logger = logging.getLogger(__name__)
+uses_pgcurses = hasattr(curses, "PGCURSES")
 INPUT_LINE_JUMP = 20   # jump size when moving input line
 MAX_DELTA_STORE = 50   # limit undo size
 MIN_ASSIST_LETTERS = 2
@@ -20,6 +21,7 @@ else:
     BACKSPACE = curses.KEY_BACKSPACE
 match_word = re.compile(r"\w")
 match_split = re.compile(r"[^\w']")
+
 
 def ctrl(x):
     """Convert character code to ctrl-modified"""
@@ -421,6 +423,13 @@ class TUI():
             self.redraw_ui()
 
 
+    def is_window_open(self):
+        """Return True if window is openm, used only for non-terminal UI mode"""
+        if uses_pgcurses:
+            return curses.open_window
+        return True
+
+
     def get_dimensions(self):
         """Return current dimensions for screen objects"""
         return (
@@ -533,6 +542,12 @@ class TUI():
         self.draw_chat()
 
 
+    def set_chat_index(self, index):
+        """Set chat index, used to trigger unseen scrolled"""
+        self.chat_index = index
+        self.draw_chat()
+
+
     def set_input_index(self, index):
         """Set cursor position on input line"""
         self.input_index = index
@@ -542,6 +557,18 @@ class TUI():
         self.cursor_pos = min(w - 1, self.cursor_pos)
         self.input_select_start = None
         self.show_cursor()
+
+
+    def set_tray_icon(self, icon=0):
+        """
+        Set tray icon, used only for non-terminal UI mode
+        available icons:
+        0 - default
+        1 - unreads
+        2 - mention
+        """
+        if uses_pgcurses:
+            curses.set_tray_icon(icon)
 
 
     def disable_wrap_around(self, disable):

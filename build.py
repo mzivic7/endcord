@@ -179,11 +179,14 @@ def toggle_experimental(check_only=False):
                     os.rename(old_name, new_name)
 
     # toggle dependencies
+    experimental_dependencies = ["pygame-ce", "pyperclip", "pystray"]
+    if sys.platform == "linux":
+        experimental_dependencies += ["pygobject"]
     if enable:
-        subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
+        subprocess.run(["uv", "pip", "install"] + experimental_dependencies, check=True)
         print("Experimental windowed mode enabled!")
     else:
-        subprocess.run(["uv", "pip", "uninstall", " pygame-ce", "pyperclip"], check=True)
+        subprocess.run(["uv", "pip", "uninstall"] + experimental_dependencies, check=True)
         print("Experimental windowed mode disabled!")
     return not enable
 
@@ -253,7 +256,7 @@ def build_with_pyinstaller(onedir):
         pass
 
 
-def build_with_nuitka(onedir, clang, mingw):
+def build_with_nuitka(onedir, clang, mingw, experimental=False):
     """Build with nuitka"""
     if check_media_support():
         pkgname = get_app_name()
@@ -268,7 +271,7 @@ def build_with_nuitka(onedir, clang, mingw):
         compiler = "--clang"
     elif mingw:
         compiler = "--mingw64"
-    python_flags = ["--python-flag=-OO"]
+    python_flags = []#["--python-flag=-OO"]
     hidden_imports = ["--include-module=uuid"]
     package_data = [
         "--include-package-data=emoji:unicode_codes/emoji.json",
@@ -278,6 +281,8 @@ def build_with_nuitka(onedir, clang, mingw):
     # platform-specific
     if sys.platform == "linux":
         options = []
+        if experimental:
+            options.append("--include-package=gi._enum")
     elif sys.platform == "win32":
         patch_soundcard()
         options = ["--assume-yes-for-downloads"]
@@ -306,6 +311,7 @@ def build_with_nuitka(onedir, clang, mingw):
         *options,
         "--remove-output",
         "--output-dir=dist",
+        "--debug", "--no-debug-c-warnings",
         f"--output-filename={pkgname}",
         "main.py",
     ]
@@ -379,8 +385,12 @@ if __name__ == "__main__":
         remove_media()
     else:
         add_media()
-    if toggle_experimental(check_only=True):
-        subprocess.run(["uv", "pip", "install", " pygame-ce", "pyperclip"], check=True)
+    experimental = toggle_experimental(check_only=True)
+    if experimental:
+        experimental_dependencies = ["pygame-ce", "pyperclip", "pystray"]
+        if sys.platform == "linux":
+            experimental_dependencies += ["pygobject"]
+        subprocess.run(["uv", "pip", "install"] + experimental_dependencies, check=True)
         print("Experimental windowed mode enabled!")
     if sys.platform not in ("linux", "win32", "darwin"):
         sys.exit(f"This platform is not supported: {sys.platform}")
@@ -390,7 +400,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Failed building cython extensions, error: {e}")
     if args.nuitka:
-        build_with_nuitka(args.onedir, args.clang, args.mingw)
+        build_with_nuitka(args.onedir, args.clang, args.mingw, experimental)
         sys.exit()
     else:
         build_with_pyinstaller(args.onedir)

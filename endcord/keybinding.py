@@ -59,6 +59,8 @@ def picker_internal(screen, keybindings):
             screen.nodelay(False)
             if key_code_2 != -1:
                 key_code = "ALT+" + str(key_code_2)
+        elif key_code == curses.KEY_RESIZE:
+            screen.addstr(1, 0, message)
 
         text = f"Keybinding code: {str(key_code)}"
         warning = ""
