@@ -276,7 +276,7 @@ def build_with_nuitka(onedir, clang, mingw, experimental=False):
         compiler = "--clang"
     elif mingw:
         compiler = "--mingw64"
-    python_flags = []#["--python-flag=-OO"]
+    python_flags = ["--python-flag=-OO"]
     hidden_imports = ["--include-module=uuid"]
     package_data = [
         "--include-package-data=emoji:unicode_codes/emoji.json",
