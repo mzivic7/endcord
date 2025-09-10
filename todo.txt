@@ -1,4 +1,3 @@
-Experimental: Cythonize and optimize
 Experimental: Fix building with nuitka on python >=3.13
 Experimental: fix different text width when bold
 Handle launching multiple endcord instances

@@ -218,14 +218,19 @@ def build_with_pyinstaller(onedir):
         print("ASCII media support is disabled")
 
     mode = "--onedir" if onedir else "--onefile"
-    hidden_imports = ["--hidden-import=uuid", "--hidden-import=win32timezone"]
-    package_data = ["--collect-data=emoji"]
+    hidden_imports = ["--hidden-import=uuid"]
+    package_data = [
+        "--collect-data=emoji",
+        "--collect-data=soundcard",
+    ]
 
     # platform-specific
     if sys.platform == "linux":
         options = []
+        hidden_imports += ["--hidden-import=soundcard.pulseaudio"]
     elif sys.platform == "win32":
         options = ["--console"]
+        hidden_imports += ["--hidden-import=win32timezone"]
     elif sys.platform == "darwin":
         options = []
 

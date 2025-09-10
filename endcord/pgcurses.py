@@ -326,6 +326,100 @@ def is_paste_event(event):
     return event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL) and (event.mod & pygame.KMOD_SHIFT)
 
 
+def insstr(buffer, nlines, ncols, dirty_lines, dirty_lock, y, x, text, attr):
+    """Internal function for curses.insstr"""
+    lines = text.split("\n")
+    len_lines = len(lines)
+    with dirty_lock:
+        for i in range(len_lines):
+            line = lines[i]
+            row = y + i
+            if row >= nlines:
+                break
+            line_len = ncols - x
+            if line_len <= 0:
+                continue
+            if line_len < len(line):
+                min_len = line_len
+            else:
+                min_len = len(line)
+
+            row_buffer = buffer[row]
+            for j in range(min_len):
+                row_buffer[x + j] = (line[j], attr)
+
+            if i < len_lines - 1 and min_len < line_len:
+                for j in range(min_len, line_len):
+                    row_buffer[x + j] = (" ", attr)
+
+            dirty_lines.add(row)
+
+
+def render(screen, buffer, dirty_lines, dirty_lock, ncols, char_width, char_height, pxx, pxy, font, emoji_font, color_map):
+    """Render buffer onto screen"""
+    with dirty_lock:
+        for y in dirty_lines:
+            row = buffer[y]
+            i = 0
+            draw_x = 0
+            while i < ncols:
+                ch, attr = row[i]
+                flags = attr & 0xFFFF0000
+
+                if is_emoji(ch):
+                    px_x = draw_x * char_width
+                    px_y = y * char_height
+                    fg, bg = color_map[attr & 0xFFFF]
+                    if flags & A_STANDOUT:
+                        fg, bg = bg, fg
+                    screen.fill(bg, (px_x + pxx, px_y + pxy, 2 * char_width, char_height))
+                    try:
+                        surface = emoji_font.render(ch, True, (255, 255, 255))
+                        emoji = pygame.transform.smoothscale(surface, (char_height, char_height))
+                    except pygame.error:
+                        emoji = None
+                    if emoji:
+                        offset = px_x + (2 * char_width - char_height) // 2
+                        screen.blit(emoji, (offset + pxx, px_y + pxy))
+                    draw_x += 2   # emoji takes two cells visually
+                    i += 2   # so push buffer line one extra char right
+                    continue
+
+                # collect characters with same attributes
+                span_draw_x = draw_x
+                text_buffer = []
+                while i < ncols:
+                    ch, attr2 = row[i]
+                    if attr2 != attr or is_emoji(ch):
+                        break
+                    text_buffer.append(ch)
+                    i += 1
+                    draw_x += 1
+                if not text_buffer:
+                    i += 1
+                    draw_x += 1
+                    continue
+
+                # render collected text
+                text = "".join(text_buffer)
+                fg, bg = color_map[attr & 0xFFFF]
+                if flags & A_STANDOUT:
+                    fg, bg = bg, fg
+                px_x = span_draw_x * char_width
+                px_y = y * char_height
+                screen.fill(bg, (px_x + pxx, px_y + pxy, len(text) * char_width, char_height))
+                font.strong = bool(flags & A_BOLD)
+                font.oblique = bool(flags & A_ITALIC)
+                font.underline = bool(flags & A_UNDERLINE)
+                font.render_to(screen, (px_x + pxx, px_y + pxy), text, fg)
+
+        dirty_lines.clear()
+
+# use cython if available, ~1.5 times faster insstr and ~1.3 times faster render
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.pgcurses"):
+    from endcord_cython.pgcurses import insstr, render
+
+
 class Window:
     """Pygame-Curses window class"""
 
@@ -380,34 +474,19 @@ class Window:
         return (self.begy, self.begx)
 
 
-    def render_emoji_scaled(self, ch):
-        """Render emoji character to a scaled surface to fit character cell."""
-        try:
-            surface = self.emoji_font.render(ch, True, (255, 255, 255))
-            return pygame.transform.smoothscale(surface, (self.char_height, self.char_height))
-        except pygame.error:
-            return None
-
-
     def insstr(self, y, x, text, attr=0):
         """curses.insstr clone using pygame"""
-        lines = text.split("\n")
-        len_lines = len(lines)
-        with self.dirty_lock:
-            for i, line in enumerate(lines):
-                if i < len_lines - 1:
-                    line_len = self.ncols - x
-                    ready_line = (line[:line_len]).ljust(line_len)
-                else:
-                    ready_line = line
-                row = y + i
-                if row >= self.nlines:
-                    break
-                row_buffer = self.buffer[row]
-                for j, ch in enumerate(ready_line[:self.ncols - x]):
-                    col = x + j
-                    row_buffer[col] = (ch, attr)
-                self.dirty_lines.add(row)
+        insstr(
+            buffer=self.buffer,
+            nlines=self.nlines,
+            ncols=self.ncols,
+            dirty_lines=self.dirty_lines,
+            dirty_lock=self.dirty_lock,
+            y=y,
+            x=x,
+            text=text,
+            attr=attr,
+        )
 
 
     def insch(self, y, x, ch, color_id=0):
@@ -440,57 +519,20 @@ class Window:
     def render(self):
         """Render buffer onto screen"""
         global screen
-        with self.dirty_lock:
-            for y in self.dirty_lines:
-                row = self.buffer[y]
-                i = 0
-                draw_x = 0
-                while i < self.ncols:
-                    ch, attr = row[i]
-                    flags = attr & 0xFFFF0000
-
-                    if is_emoji(ch):
-                        px_x = draw_x * self.char_width
-                        px_y = y * self.char_height
-                        fg, bg = color_map[attr & 0xFFFF]
-                        if flags & A_STANDOUT:
-                            fg, bg = bg, fg
-                        screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, 2 * self.char_width, self.char_height))
-                        emoji = self.render_emoji_scaled(ch)
-                        if emoji:
-                            offset = px_x + (2 * self.char_width - self.char_height) // 2
-                            screen.blit(emoji, (offset + self.pxx, px_y + self.pxy))
-                        draw_x += 2   # emoji takes two cells visually
-                        i += 2   # so push buffer line one char right
-                        continue
-
-                    span_draw_x = draw_x
-                    text_buffer = []
-                    while i < self.ncols:
-                        ch, attr2 = row[i]
-                        if attr2 != attr:
-                            break
-                        if is_emoji(ch):
-                            break
-                        text_buffer.append(ch)
-                        i += 1
-                        draw_x += 1
-                    if not text_buffer:
-                        continue
-                    text = "".join(text_buffer)
-
-                    fg, bg = color_map[attr & 0xFFFF]
-                    if flags & A_STANDOUT:
-                        fg, bg = bg, fg
-                    px_x = span_draw_x * self.char_width
-                    px_y = y * self.char_height
-                    screen.fill(bg, (px_x + self.pxx, px_y + self.pxy, len(text) * self.char_width, self.char_height))
-                    self.font.strong = bool(flags & A_BOLD)
-                    self.font.oblique = bool(flags & A_ITALIC)
-                    self.font.underline = bool(flags & A_UNDERLINE)
-                    self.font.render_to(screen, (px_x + self.pxx, px_y + self.pxy), text, fg)
-
-            self.dirty_lines.clear()
+        render(
+            screen,
+            self.buffer,
+            self.dirty_lines,
+            self.dirty_lock,
+            self.ncols,
+            self.char_width,
+            self.char_height,
+            self.pxx,
+            self.pxy,
+            self.font,
+            self.emoji_font,
+            color_map,
+        )
 
 
     def clear(self):
