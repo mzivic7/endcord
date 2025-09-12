@@ -125,12 +125,15 @@ def load_secret():
 def save_secret(profiles):
     """Save profiles to system keyring"""
     if sys.platform == "linux":
-        subprocess.run([
-            "secret-tool", "store",
-            "--label=" + f"{APP_NAME} profiles",
-            "service", APP_NAME,
-            ], input=profiles.encode(), check=True,
-        )
+        try:
+            subprocess.run([
+                "secret-tool", "store",
+                "--label=" + f"{APP_NAME} profiles",
+                "service", APP_NAME,
+                ], input=profiles.encode(), check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(f"secret-tool error: {e}")
 
     elif sys.platform == "win32":
         try:
@@ -658,3 +661,4 @@ def manage(profiles_path, external_selected, force_open=False):
             "plaintext": profiles_plain,
         }
         return profiles, selected, proceed
+    return None, None, False

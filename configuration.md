@@ -49,7 +49,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `cursor_off_time = 0.5`  
     Time in seconds the cursor stays OFF. Set to None or 0 to disable cursor blinking.
 - `blocked_mode = 1`  
-    What to do with blocked/ignored messages:
+    What to do with blocked/ignored messages:  
     0 - No blocking  
     1 - Mask blocked messages  
     2 - Hide blocked messages  
@@ -58,7 +58,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `keep_deleted = False`  
     Whether to keep deleted messages in chat, with different color, or remove them.
 - `limit_cache_deleted = 30`  
-    Limit lumber of cached deleted messages per channel.
+    Limit number of cached deleted messages per channel.
 - `tree_show_invisible = False`  
     Show "invisible" status in tree when DM user is online but invisible.  
     Probably a discord bug, might get removed in the future.  

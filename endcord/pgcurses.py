@@ -156,6 +156,11 @@ color_map = [DEFAULT_PAIR] * (COLORS + 1)
 fake_videoresize = pygame.event.Event(pygame.VIDEORESIZE, w=1, h=1)   # used to trigger redraw
 icon = None
 current_icon_index = None
+emoji_font = None
+font_regular = None
+font_bold = None
+font_italic = None
+font_bold_italic = None
 
 if sys.platform == "win32":
     emoji_font_name = "Segoe UI Emoji"
@@ -355,7 +360,7 @@ def insstr(buffer, nlines, ncols, dirty_lines, dirty_lock, y, x, text, attr):
             dirty_lines.add(row)
 
 
-def render(screen, buffer, dirty_lines, dirty_lock, ncols, char_width, char_height, pxx, pxy, font, emoji_font, color_map):
+def render(screen, buffer, dirty_lines, dirty_lock, ncols, char_width, char_height, pxx, pxy, font_regular, font_bold, font_italic, font_bold_italic, emoji_font, color_map):
     """Render buffer onto screen"""
     with dirty_lock:
         for y in dirty_lines:
@@ -408,8 +413,18 @@ def render(screen, buffer, dirty_lines, dirty_lock, ncols, char_width, char_heig
                 px_x = span_draw_x * char_width
                 px_y = y * char_height
                 screen.fill(bg, (px_x + pxx, px_y + pxy, len(text) * char_width, char_height))
-                font.strong = bool(flags & A_BOLD)
-                font.oblique = bool(flags & A_ITALIC)
+                if flags & A_BOLD:
+                    if flags & A_ITALIC:
+                        font = font_bold_italic
+                    else:
+                        font = font_bold
+                elif flags & A_ITALIC:
+                    if flags & A_ITALIC:
+                        font = font_bold_italic
+                    else:
+                        font = font_italic
+                else:
+                    font = font_regular
                 font.underline = bool(flags & A_UNDERLINE)
                 font.render_to(screen, (px_x + pxx, px_y + pxy), text, fg)
 
@@ -423,18 +438,14 @@ if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endc
 class Window:
     """Pygame-Curses window class"""
 
-    def __init__(self, nlines, ncols, begy, begx, parent_begx, parent_begy, font, emoji_font):
+    def __init__(self, nlines, ncols, begy, begx, parent_begx, parent_begy):
         self.begy, self.begx = begy + parent_begy, begx + parent_begx
         self.bgcolor = pygame.Color((0, 0, 0))
         self.input_buffer = []
         self.clock = pygame.time.Clock()
         self.nodelay_state = False
 
-        self.font = font
-        self.emoji_font = emoji_font
-        self.font.pad = True
-
-        rect = self.font.get_rect(" ")
+        rect = font_regular.get_rect(" ")
         self.char_width, self.char_height = rect.width, rect.height
         if ncols and nlines:
             self.ncols = ncols
@@ -451,7 +462,7 @@ class Window:
 
     def derwin(self, nlines, ncols, begy, begx):
         """curses.derwin clone using pygame"""
-        return Window(nlines, ncols, begy, begx, self.begx, self.begy, self.font, self.emoji_font)
+        return Window(nlines, ncols, begy, begx, self.begx, self.begy)
 
 
     def screen_resize(self):
@@ -529,8 +540,11 @@ class Window:
             self.char_height,
             self.pxx,
             self.pxy,
-            self.font,
-            self.emoji_font,
+            font_regular,
+            font_bold,
+            font_italic,
+            font_bold_italic,
+            emoji_font,
             color_map,
         )
 
@@ -566,7 +580,7 @@ class Window:
             for x in range(self.ncols):
                 px_x = x * self.char_width
                 px_y = y * self.char_height
-                self.font.render_to(screen, (px_x + self.pxx, px_y + self.pxy), ch, fg_color, bg_color)
+                font_regular.render_to(screen, (px_x + self.pxx, px_y + self.pxy), ch, fg_color, bg_color)
 
 
     def nodelay(self, flag: bool):
@@ -669,7 +683,7 @@ def getmouse():
 
 def initscr():
     """curses.initscr clone using pygame"""
-    global screen
+    global screen, font_regular, font_bold, font_italic, font_bold_italic, emoji_font
     pygame.display.init()
     pygame.font.init()
     pygame.freetype.init()
@@ -679,11 +693,13 @@ def initscr():
     if MAXIMIZED:
         win = pg_Window.from_display_module()
         win.maximize()
-    base_font_path = pygame.font.match_font(FONT_NAME)
     emoji_font = pygame.font.SysFont(emoji_font_name, FONT_SIZE)
-    font = pygame.freetype.Font(base_font_path, FONT_SIZE)
-    font.pad = True
-    return Window(0, 0, 0, 0, 0, 0, font, emoji_font)
+    font_regular = pygame.freetype.SysFont(FONT_NAME, FONT_SIZE)
+    font_bold = pygame.freetype.SysFont(FONT_NAME, FONT_SIZE, bold=True)
+    font_italic = pygame.freetype.SysFont(FONT_NAME, FONT_SIZE, italic=True)
+    font_bold_italic = pygame.freetype.SysFont(FONT_NAME, FONT_SIZE, bold=True, italic=True)
+    font_regular.pad = font_bold.pad = font_italic.pad = font_bold_italic.pad = True
+    return Window(0, 0, 0, 0, 0, 0)
 
 
 def wrapper(func, *args, **kwargs):

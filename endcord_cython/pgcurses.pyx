@@ -72,7 +72,10 @@ cpdef render(
     int char_height,
     int pxx,
     int pxy,
-    object font,
+    object font_regular,
+    object font_bold,
+    object font_italic,
+    object font_bold_italic,
     object emoji_font,
     list color_map,
 ):
@@ -146,8 +149,18 @@ cpdef render(
                 px_x = span_draw_x * char_width
                 px_y = y * char_height
                 screen.fill(bg, (px_x + pxx, px_y + pxy, len(text) * char_width, char_height))
-                font.strong = bool(flags & A_BOLD)
-                font.oblique = bool(flags & A_ITALIC)
+                if flags & A_BOLD:
+                    if flags & A_ITALIC:
+                        font = font_bold_italic
+                    else:
+                        font = font_bold
+                elif flags & A_ITALIC:
+                    if flags & A_ITALIC:
+                        font = font_bold_italic
+                    else:
+                        font = font_italic
+                else:
+                    font = font_regular
                 font.underline = bool(flags & A_UNDERLINE)
                 font.render_to(screen, (px_x + pxx, px_y + pxy), text, fg)
 
