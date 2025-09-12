@@ -16,12 +16,20 @@ import magic
 import numpy as np
 import pexpect
 import pexpect.popen_spawn
-import soundcard
 import soundfile
 
 from endcord import defaults
 
 logger = logging.getLogger(__name__)
+
+# safely import soundcard, in case there is no sound system
+try:
+    import soundcard
+    have_soundcard = True
+except (AssertionError, RuntimeError):
+    logger.warn("Failed connecting to sound system")
+    have_soundcard = False
+
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 match_split = re.compile(r"[^\w']")
 APP_NAME = "endcord"
@@ -29,10 +37,13 @@ ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
 NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification sound
 
 # get speaker
-try:
-    speaker = soundcard.default_speaker()
-    have_sound = True
-except Exception:
+if have_soundcard:
+    try:
+        speaker = soundcard.default_speaker()
+        have_sound = True
+    except Exception:
+        have_sound = False
+else:
     have_sound = False
 
 # platform specific code
@@ -601,10 +612,15 @@ class Recorder():
     def record(self):
         """Continuously record audio"""
         timer = 0
-        try:
-            mic = soundcard.default_microphone()
-        except Exception as e:
-            logger.warn(f"No microphone found. Error: {e}")
+        if have_soundcard:
+            try:
+                mic = soundcard.default_microphone()
+            except Exception as e:
+                logger.warn(f"No microphone found. Error: {e}")
+                self.recording = False
+                return
+        else:
+            logger.warn("Failed connecting to sound system")
             self.recording = False
             return
         with mic.recorder(samplerate=48000, channels=1) as rec:

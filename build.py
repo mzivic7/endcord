@@ -72,25 +72,34 @@ def get_cython_bins(directory="endcord_cython", startswith=None):
     return bins
 
 
+def find_file_in_venv(lib_name, file_name):
+    """Search for file in specified library in current venv"""
+    for root, dirs, files in os.walk(".venv"):
+        if lib_name in dirs:
+            soundcard_dir = os.path.join(root, lib_name)
+            path = os.path.join(soundcard_dir, file_name)
+            if os.path.isfile(path):
+                return path
+    else:
+        print(f"{lib_name}/{file_name} not found")
+        return
+
+
 def patch_soundcard():
     """
     Search for soundcard/mediafoundation.py in .venv
     Prepend "if _ole32: " to "_ole32.CoUninitialize()" line while respecting indentation
+    Search for soundcard/pulseaudio.py in .venv
+    replace assert with proper exception
     """
     if not os.path.exists(".venv"):
         print(".venv dir not found")
         return
 
-    for root, dirs, files in os.walk(".venv"):
-        if "soundcard" in dirs:
-            soundcard_dir = os.path.join(root, "soundcard")
-            path = os.path.join(soundcard_dir, "mediafoundation.py")
-            if os.path.isfile(path):
-                break
-    else:
-        print("Soundcard library not found")
+    # patch mediafoundation.py
+    path = find_file_in_venv("soundcard", "mediafoundation.py")
+    if not path:
         return
-
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
@@ -101,6 +110,31 @@ def patch_soundcard():
         if match:
             indent = match.group(1)
             lines[num] = f"{indent}if _ole32: _ole32.CoUninitialize()\n"
+            changed = True
+            break
+
+    if changed:
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        print(f"Patched file: {path}")
+    else:
+        print(f"Nothing to patch in file {path}")
+
+    # patch pulseaudio.py
+    path = find_file_in_venv("soundcard", "pulseaudio.py")
+    if not path:
+        return
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    pattern = re.compile(r"^(\s*)assert self\._pa_context_get_state")
+    changed = False
+    for num, line in enumerate(lines):
+        match = re.match(pattern, line)
+        if match:
+            indent = match.group(1)
+            lines[num] = f"{indent}if self._pa_context_get_state(self.context) != _pa.PA_CONTEXT_READY:\n"
+            lines.insert(num+1, f'{indent+"    "}raise RuntimeError("PulseAudio context not ready (no sound system?)")\n')
             changed = True
             break
 
@@ -270,6 +304,8 @@ def build_with_nuitka(onedir, clang, mingw, experimental=False):
         pkgname = f"{get_app_name()}-lite"
         print("ASCII media support is disabled")
 
+    patch_soundcard()
+
     mode = "--standalone" if onedir else "--onefile"
     compiler = ""
     if clang:
@@ -289,7 +325,6 @@ def build_with_nuitka(onedir, clang, mingw, experimental=False):
         if experimental:
             options.append("--include-package=gi._enum")
     elif sys.platform == "win32":
-        patch_soundcard()
         options = ["--assume-yes-for-downloads"]
         hidden_imports += [
             "--include-package=winrt.windows.foundation",

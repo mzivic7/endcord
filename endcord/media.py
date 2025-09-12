@@ -13,8 +13,14 @@ from queue import Queue
 
 import av
 import magic
-import soundcard
 from PIL import Image, ImageEnhance
+
+# safely import soundcard, in case there is no sound system
+try:
+    import soundcard
+    have_soundcard = True
+except (AssertionError, RuntimeError):
+    have_soundcard = False
 
 from endcord import xterm256
 
@@ -67,10 +73,13 @@ if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endc
     from endcord_cython.media import img_to_curses
 
 # get speaker
-try:
-    speaker = soundcard.default_speaker()
-    have_sound = True
-except Exception:
+if have_soundcard:
+    try:
+        speaker = soundcard.default_speaker()
+        have_sound = True
+    except Exception:
+        have_sound = False
+else:
     have_sound = False
 
 class CursesMedia():
