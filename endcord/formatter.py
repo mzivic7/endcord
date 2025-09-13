@@ -741,26 +741,27 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
         # replied message line
         if message["referenced_message"]:
-            if message["referenced_message"]["id"]:
-                if blocked_mode and message["referenced_message"]["user_id"] in blocked and not show_blocked:
-                    message["referenced_message"]["username"] = "blocked"
-                    message["referenced_message"]["global_name"] = "blocked"
-                    message["referenced_message"]["nick"] = "blocked"
-                    message["referenced_message"]["content"] = "Blocked message"
+            ref_message = message["referenced_message"].copy()
+            if ref_message["id"]:
+                if blocked_mode and ref_message["user_id"] in blocked and not show_blocked:
+                    ref_message["username"] = "blocked"
+                    ref_message["global_name"] = "blocked"
+                    ref_message["nick"] = "blocked"
+                    ref_message["content"] = "Blocked message"
                     reply_color_format = color_blocked
-                if use_nick and message["referenced_message"]["nick"]:
-                    global_name_nick = message["referenced_message"]["nick"]
-                elif message["referenced_message"]["global_name"]:
-                    global_name_nick = message["referenced_message"]["global_name"]
+                if use_nick and ref_message["nick"]:
+                    global_name_nick = ref_message["nick"]
+                elif ref_message["global_name"]:
+                    global_name_nick = ref_message["global_name"]
                 else:
-                    global_name_nick = message["referenced_message"]["username"]
-                reply_embeds = message["referenced_message"]["embeds"].copy()
+                    global_name_nick = ref_message["username"]
+                reply_embeds = ref_message["embeds"].copy()
                 content = ""
-                if message["referenced_message"]["content"]:
-                    content, _ = replace_escaped_md(message["referenced_message"]["content"])
+                if ref_message["content"]:
+                    content, _ = replace_escaped_md(ref_message["content"])
                     content = replace_spoilers_oneline(content)
                     content = replace_discord_emoji(content)
-                    content = replace_mentions(content, message["referenced_message"]["mentions"])
+                    content = replace_mentions(content, ref_message["mentions"])
                     content = replace_roles(content, roles)
                     content = replace_discord_url(content)
                     content = replace_channels(content, channels)
@@ -775,9 +776,9 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                             content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
                 reply_line = (
                     format_reply
-                    .replace("%username", normalize_string(message["referenced_message"]["username"], limit_username))
+                    .replace("%username", normalize_string(ref_message["username"], limit_username))
                     .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
-                    .replace("%timestamp", generate_timestamp(message["referenced_message"]["timestamp"], format_timestamp, convert_timezone))
+                    .replace("%timestamp", generate_timestamp(ref_message["timestamp"], format_timestamp, convert_timezone))
                     .replace("%content", content.replace("\r", " ").replace("\n", " "))
                 )
             else:
@@ -786,7 +787,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     .replace("%username", normalize_string("Unknown", limit_username))
                     .replace("%global_name", normalize_string("Unknown", limit_global_name))
                     .replace("%timestamp", "")
-                    .replace("%content", message["referenced_message"]["content"].replace("\r", "").replace("\n", ""))
+                    .replace("%content", ref_message["content"].replace("\r", "").replace("\n", ""))
                 )
             emoji_count = count_emojis(reply_line[:max_length - 3])
             if len(reply_line) + emoji_count > max_length:

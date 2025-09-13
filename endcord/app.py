@@ -2730,7 +2730,7 @@ class Endcord:
             else:
                 self.update_extra_line("User is not blocked.")
 
-        elif cmd_type == 46:   # TOGGLE_BLOCKED_MESSAGES
+        elif cmd_type == 47:   # TOGGLE_BLOCKED_MESSAGES
             self.show_blocked_messages = not self.show_blocked_messages
             self.update_chat()
 
