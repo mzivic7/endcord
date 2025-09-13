@@ -57,11 +57,10 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Unlimited chat scrolling
 - Keep deleted messages (OFF by default)
 - Highlight messages with mentions
-- Show who is typing
-- Send 'typing' (ON by default)
+- Show who is typing and send 'typing' (ON by default)
 - Change status and custom status
 - Copy message text/url to clipboard
-- Hide or mask blocked/ignored users
+- Block/ignore/unblock, hide or mask blocked/ignored users messages
 - No ghost pings (when client is running)
 - Role colors in chat
 - Change server/channel/category notification settings

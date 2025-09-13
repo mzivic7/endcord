@@ -245,6 +245,7 @@ class Endcord:
         self.command_history = peripherals.load_json("command_history.json", [])
         self.command_history_index = 0
         self.command_history_stored_current = None
+        self.show_blocked_messages = False
         self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
@@ -2703,6 +2704,36 @@ class Endcord:
                 rpc=self.my_rpc,
             )
 
+        elif cmd_type == 45:   # BLOCK
+            user_id = cmd_args["user_id"]
+            ignore = cmd_args["ignore"]
+            if user_id != self.my_id:
+                success = self.discord.block_user(user_id, ignore)
+                if success:
+                    self.blocked.append(user_id)
+                    self.update_chat()
+                    self.update_extra_line("User has been blocked successfully.")
+                else:
+                    self.update_extra_line("Failed to block user.")
+
+        elif cmd_type == 46:   # UNBLOCK
+            user_id = cmd_args["user_id"]
+            ignore = cmd_args["ignore"]
+            if user_id in self.blocked and user_id != self.my_id:
+                success = self.discord.unblock_user(user_id, ignore)
+                if success:
+                    self.blocked.remove(user_id)
+                    self.update_chat()
+                    self.update_extra_line("User has been unblocked successfully.")
+                else:
+                    self.update_extra_line("Failed to unblock user.")
+            else:
+                self.update_extra_line("User is not blocked.")
+
+        elif cmd_type == 46:   # TOGGLE_BLOCKED_MESSAGES
+            self.show_blocked_messages = not self.show_blocked_messages
+            self.update_chat()
+
         if reset:
             self.reset_actions()
             self.restore_input_text = (None, None)
@@ -4041,6 +4072,7 @@ class Endcord:
             self.colors,
             self.colors_formatted,
             self.blocked,
+            self.show_blocked_messages,
             self.config,
         )
         if keep_selected:

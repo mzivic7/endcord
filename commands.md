@@ -92,5 +92,11 @@
     Set custom status emoji.
 - `custom_status_remove`  
     Remove custom status.
+- `block *ignore <@[user_id]>`  
+    Block user. `ignore` is optional.
+- `unblock *ignore <@[user_id]>`  
+    Unblock user. `ignore` is optional.
+- `toggle_blocked_messages`  
+    Toggle showing messages from blocked users in chat. Toggles between `blocked_mode` setting and fully shown messages.
 - `redraw`  
     Redraw UI if it ever gets messed up.

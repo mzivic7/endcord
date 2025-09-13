@@ -1422,7 +1422,52 @@ class Discord():
             connection.close()
             return None
         if response.status != 204:
-            logger.error(f"Failed to send poll vote: Response code: {response.status}")
+            logger.error(f"Failed to send poll vote. Response code: {response.status}")
+            connection.close()
+            return False
+        connection.close()
+        return True
+
+
+    def block_user(self, user_id, ignore=False):
+        """Block/ignore specified user"""
+        if ignore:
+            message_data = None
+        else:
+            message_data = json.dumps({"type": 2})
+        url = f"/api/v9/users/@me/relationships/{user_id}"
+        if ignore:
+            url = url + "/ignore"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("PUT", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status != 204:
+            logger.error(f"Failed block/ignore user. Response code: {response.status}")
+            connection.close()
+            return False
+        connection.close()
+        return True
+
+
+    def unblock_user(self, user_id, ignore=False):
+        """Unblock specified user (and unignore)"""
+        message_data = None
+        url = f"/api/v9/users/@me/relationships/{user_id}"
+        if ignore:
+            url = url + "/ignore"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("DELETE", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to unblock user. Response code: {response.status}")
             connection.close()
             return False
         connection.close()

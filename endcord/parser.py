@@ -627,4 +627,32 @@ def command_string(text):
             cmd_args = {"text": text[14:]}
             if len(text) <= 14:
                 cmd_type = 0
+
+    # 45 - BLOCK
+    elif text_lower.startswith("block"):
+        cmd_type = 45
+        match = re.search(match_profile, text)
+        if match:
+            cmd_args = {
+                "user_id": match.group(1),
+                "ignore": "ignore" in text_lower,
+            }
+        else:
+            cmd_type = 0
+
+    # 46 - UNBLOCK
+    elif text_lower.startswith("unblock"):
+        cmd_type = 46
+        match = re.search(match_profile, text)
+        if match:
+            cmd_args = {
+                "user_id": match.group(1),
+                "ignore": "ignore" in text_lower,
+            }
+        else:
+            cmd_type = 0
+
+    # 47 - TOGGLE_BLOCKED_MESSGAES
+    elif text_lower.startswith("toggle_blocked_messages"):
+        cmd_type = 47
     return cmd_type, cmd_args

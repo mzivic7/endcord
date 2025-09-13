@@ -547,7 +547,7 @@ def format_poll(poll):
     return content.strip("\n")
 
 
-def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, config):
+def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, show_blocked, config):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -710,7 +710,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         reply_color_format = color_base
 
         # handle blocked messages
-        if blocked_mode and user_id in blocked:
+        if blocked_mode and user_id in blocked and not show_blocked:
             if blocked_mode == 1:
                 message["username"] = "blocked"
                 message["global_name"] = "blocked"
@@ -742,7 +742,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         # replied message line
         if message["referenced_message"]:
             if message["referenced_message"]["id"]:
-                if blocked_mode and message["referenced_message"]["user_id"] in blocked:
+                if blocked_mode and message["referenced_message"]["user_id"] in blocked and not show_blocked:
                     message["referenced_message"]["username"] = "blocked"
                     message["referenced_message"]["global_name"] = "blocked"
                     message["referenced_message"]["nick"] = "blocked"
@@ -1796,7 +1796,7 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
         %count
     Possible options for format_timestamp:
         same as format codes for datetime package
-    Possoble options for blocked_mode:
+    Possible options for blocked_mode:
         0 - no blocking
         1 - mask blocked messages
         2 - hide blocked messages
