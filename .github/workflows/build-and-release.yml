@@ -86,7 +86,7 @@ jobs:
         run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache lld
 
       - name: Install Windows system dependencies
-        if: matrix.platform == 'windows' && ${{ matrix.clang-version }}
+        if: matrix.platform == 'windows'
         run: choco install ccache -y
         shell: powershell
 
