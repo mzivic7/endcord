@@ -43,7 +43,7 @@ jobs:
 
       ## uncomment to enable caching with artifacts
       # - name: Set CCACHE_DIR environment variable
-      #   if: matrix.nuitka == 'true'
+      #   if: ${{ matrix.clang }}
       #   shell: bash
       #   run: |
       #     if [[ "${{ runner.os }}" == "Windows" ]]; then
@@ -57,7 +57,7 @@ jobs:
       ## uncomment to enable caching with artifacts
       # - name: Download ccache artifact from previous run
       #   uses: dawidd6/action-download-artifact@v9
-      #   if: matrix.nuitka == 'true'
+      #   if: ${{ matrix.clang }}
       #   with:
       #     github_token: ${{ secrets.GITHUB_TOKEN }}
       #     workflow: build-and-release.yml
@@ -74,7 +74,7 @@ jobs:
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v2
-        if: matrix.nuitka == 'true'
+        if: ${{ matrix.clang }}
         with:
           version: ${{ matrix.clang-version }}
 
@@ -83,7 +83,7 @@ jobs:
         run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache lld
 
       - name: Install Windows system dependencies
-        if: matrix.platform == 'windows' && matrix.nuitka == 'true'
+        if: matrix.platform == 'windows' && ${{ matrix.clang-version }}
         run: choco install ccache -y
 
       - name: Install macOS system dependencies
@@ -137,7 +137,7 @@ jobs:
           elif [[ "${{ matrix.os }}" == "macos-15-intel" ]]; then
             zip "endcord-$version-${{ matrix.platform }}-x86_64.zip" endcord $extra
             zip "endcord-lite-$version-${{ matrix.platform }}-x86_64.zip" endcord-lite $extra
-          else:
+          else
             zip "endcord-$version-${{ matrix.platform }}-arm64.zip" endcord $extra
             zip "endcord-lite-$version-${{ matrix.platform }}-arm64.zip" endcord-lite $extra
           fi
@@ -155,7 +155,7 @@ jobs:
       ## uncomment to enable caching with artifacts
       # - name: Upload ccache artifact
       #   uses: actions/upload-artifact@v4
-      #   if: matrix.nuitka == 'true'
+      #   if: ${{ matrix.clang }}
       #   with:
       #     name: ccache-${{ matrix.os }}
       #     path: ${{ env.CCACHE_DIR }}
