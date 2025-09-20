@@ -83,7 +83,7 @@ jobs:
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v2
-        if: ${{ matrix.clang }}
+        if: ${{ matrix.clang && matrix.os != 'macos-15-intel' }}   # issues with uv
         with:
           version: ${{ matrix.clang-version }}
 
