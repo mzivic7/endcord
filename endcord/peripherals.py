@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from ast import literal_eval
 from configparser import ConfigParser
@@ -294,6 +295,14 @@ def detect_runtime():
     return "source"
 
 
+def find_linux_sound(name):
+    """Return path of sound file from its name, if it exists"""
+    if sys.platform == "linux":
+        path = os.path.join("/usr/share/sounds/freedesktop/stereo/", name + ".oga")
+        if os.path.exists(path):
+            return path
+
+
 def notify_send(title, message, sound="message", custom_sound=None):
     """Send simple notification containing title and message. Cross-platform."""
     if sys.platform == "linux":
@@ -438,7 +447,11 @@ def complete_path(path, separator=True):
 def play_audio(path):
     """Play audio file with soundcard"""
     if have_sound:
-        data, samplerate = soundfile.read(path, dtype="float32")
+        try:
+            data, samplerate = soundfile.read(path, dtype="float32")
+        except Exception as e:
+            print(f"Error loading sound file: {e}")
+            return
         speaker.play(data, samplerate=samplerate)
 
 
@@ -648,8 +661,68 @@ class Recorder():
         if self.recording:
             self.recording = False
             self.record_thread.join()
+            self.record_thread = None
             self.audio_data = np.concatenate(self.audio_data, axis=0)
             save_path = os.path.join(temp_path, "rec-audio-message.ogg")
             soundfile.write(save_path, self.audio_data, 48000, format="OGG", subtype="OPUS")
             del self.audio_data
             return save_path
+
+
+class Player():
+    """Sound loop player"""
+
+    def __init__(self):
+        self.playing = False
+        self.play_thread = None
+
+
+    def play_loop(self, file_path, loop, loop_delay, loop_max):
+        """Play sound file in a loop"""
+        try:
+            with soundfile.SoundFile(file_path) as sound:
+                sample_rate = sound.samplerate
+                channels = sound.channels
+                block_size = sample_rate // 20
+                speaker = soundcard.default_speaker()
+                start = time.time()
+                sleep_time = block_size / sample_rate
+                with speaker.player(samplerate=sample_rate, channels=channels) as stream:
+                    sound.seek(0)
+                    while self.playing:
+                        read_start = time.perf_counter()
+                        if time.time() - start >= loop_max:
+                            self.playing = False
+                            break
+                        if sound.tell() >= len(sound):
+                            if loop:
+                                sound.seek(0)
+                                time.sleep(loop_delay)
+                                read_start = time.perf_counter()
+                            else:
+                                break
+                        frames = sound.read(block_size, dtype="float32")
+                        read_time = time.perf_counter() - read_start
+                        stream.play(frames)
+                        time.sleep(sleep_time - read_time)
+
+
+        except Exception as e:
+            print(f"Playback error: {e}")
+            self.playing = False
+
+
+    def start(self, file_path, loop=False, loop_delay=0.7, loop_max=60):
+        """Start playing from beginning on loop"""
+        if not self.playing:
+            self.playing = True
+            self.play_thread = threading.Thread(target=self.play_loop, daemon=True, args=(file_path, loop, loop_delay, loop_max))
+            self.play_thread.start()
+
+
+    def stop_playback(self):
+        """Stop playback immediately"""
+        if self.playing:
+            self.playing = False
+        if self.play_thread:
+            self.play_thread.join()

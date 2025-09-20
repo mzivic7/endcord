@@ -102,7 +102,7 @@ class Endcord:
         self.ping_this_channel = config["notification_in_active"]
         self.username_role_colors = config["username_role_colors"]
         self.save_summaries = config["save_summaries"]
-        self.fun = not config["disable_easter_eggs"]
+        self.fun = config["easter_eggs"]
         self.tenor_gif_type = config["tenor_gif_type"]
         self.get_members = config["member_list"]
         self.member_list_auto_open = config["member_list_auto_open"]
@@ -115,6 +115,7 @@ class Endcord:
         self.assist_score_cutoff = config["assist_score_cutoff"]
         self.external_editor = config["external_editor"]
         self.limit_command_history = config["limit_command_history"]
+
         if not self.external_editor or not shutil.which(self.external_editor):
             self.external_editor = os.environ.get("EDITOR", "nano")
             if not shutil.which(self.external_editor):
@@ -251,6 +252,7 @@ class Endcord:
         self.gateway.set_want_summaries(self.save_summaries)
         self.timed_extra_line = threading.Event()
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
+        self.discord.get_voice_regions()
         self.main()
 
 
@@ -317,6 +319,7 @@ class Endcord:
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
+        self.permanent_extra_line = None
         self.search = False
         self.search_end = False
         self.search_gif = False
@@ -327,6 +330,9 @@ class Endcord:
         self.app_command_last_keypress = time.time()
         self.allow_app_command_autocomplete = False
         self.ignore_typing = False
+        self.ringing = None
+        self.in_call = False
+        self.ringer = None
         if not online:
             self.my_status = {
                 "status": "online",
@@ -1442,7 +1448,7 @@ class Endcord:
             # command
             elif action == 38:
                 if not self.command:
-                    self.update_extra_line()
+                    self.update_extra_line(force=True)
                     self.reset_actions()
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.restore_input_text = (None, "command")
@@ -2734,6 +2740,21 @@ class Endcord:
             self.show_blocked_messages = not self.show_blocked_messages
             self.update_chat()
 
+        elif cmd_type == 48:   # VOICE_START_CALL
+            pass
+
+        elif cmd_type == 49:   # VOICE_ACCEPT_CALL
+            pass
+
+        elif cmd_type == 50:   # VOICE_LEAVE_CALL
+            pass
+
+        elif cmd_type == 51:   # VOICE_REJECT_CALL
+            if self.ringing:
+                # only stop ringing and keep popup
+                self.stop_ringing()
+
+
         if reset:
             self.reset_actions()
             self.restore_input_text = (None, None)
@@ -3614,6 +3635,9 @@ class Endcord:
         self.tui.remove_extra_window()
         self.extra_window_open = False
         self.viewing_user_data = {"id": None, "guild_id": None}
+        if self.permanent_extra_line:
+            self.extra_line = self.permanent_extra_line
+            self.tui.draw_extra_line(self.extra_line)
 
 
     def do_search(self, text):
@@ -4335,12 +4359,29 @@ class Endcord:
         )
 
 
-    def update_extra_line(self, custom_text=None, update_only=False, timed=True):
+    def update_extra_line(self, custom_text=None, update_only=False, timed=True, permanent=False, force=False):
         """Generate extra line and update it in TUI"""
-        if custom_text:
-            if custom_text == self.extra_line:
+        if permanent:
+            if update_only:
+                self.permanent_extra_line = custom_text
+                return
+            if custom_text:
+                self.permanent_extra_line = custom_text
+                self.extra_line = custom_text
+                self.tui.draw_extra_line(self.extra_line)
+            else:
+                self.permanent_extra_line = None
                 self.extra_line = None
                 self.tui.remove_extra_line()
+            return
+        if custom_text:
+            if custom_text == self.extra_line:
+                if self.permanent_extra_line:
+                    self.extra_line = self.permanent_extra_line
+                    self.tui.draw_extra_line(self.extra_line)
+                else:
+                    self.extra_line = None
+                    self.tui.remove_extra_line()
             else:
                 self.extra_line = custom_text
                 self.tui.draw_extra_line(self.extra_line)
@@ -4355,8 +4396,14 @@ class Endcord:
             else:
                 attachments = None
             if attachments:
-                statusline_w = self.tui.get_dimensions()[2][1]
-                self.extra_line = formatter.generate_extra_line(attachments["attachments"], self.selected_attachment, statusline_w)
+                self.extra_line = formatter.generate_extra_line(
+                    attachments["attachments"],
+                    self.selected_attachment,
+                    self.tui.get_dimensions()[2][1],
+                )
+                self.tui.draw_extra_line(self.extra_line)
+            elif self.permanent_extra_line and not force:
+                self.extra_line = self.permanent_extra_line
                 self.tui.draw_extra_line(self.extra_line)
             else:
                 self.extra_line = None
@@ -4921,7 +4968,7 @@ class Endcord:
         """Update presence from protos locally and redraw status line"""
         custom_status_emoji = None
         custom_status = None
-        if "status" in self.discord_settings:
+        if "status" in self.discord_settings and "status" in self.discord_settings["status"]:
             status = self.discord_settings["status"]["status"]
             if "customStatus" in self.discord_settings["status"]:
                 custom_status_emoji = {
@@ -4976,7 +5023,7 @@ class Endcord:
                     title = data["global_name"]
                 if data["content"]:
                     body = data["content"]
-                elif data["embeds"]:
+                elif data.get("embeds"):
                     body = f"Sent {data["embeds"]} embeds"
                 else:
                     body = "Unknown content"
@@ -4990,6 +5037,24 @@ class Endcord:
                     "notification_id": notification_id,
                     "channel_id": data["channel_id"],
                 })
+
+
+    def start_ringing(self, path):
+        """Start ringing with specified audio file"""
+        if support_media:
+            self.ringer = media.CursesMedia(None, self.config, 0, ui=False)
+            self.ringer.play_audio_noui(path, loop=True, loop_delay=0.7, loop_max=60)
+        else:
+            self.ringer = peripherals.Player()
+            self.ringer.start(path, loop=True, loop_delay=0.7, loop_max=60)
+
+
+    def stop_ringing(self):
+        """Stop ringing"""
+        if self.ringer:
+            self.ringer.stop_playback()
+            del self.ringer
+            self.ringer = None
 
 
     def main(self):
@@ -5124,6 +5189,8 @@ class Endcord:
                     if guild["guild_id"] == guild_id:
                         guild_name = guild["name"]
                         break
+                else:
+                    guild = {"channels": []}
                 for channel in guild["channels"]:
                     if channel["id"] == channel_id and channel.get("permitted"):
                         channel_name = channel["name"]
@@ -5325,10 +5392,22 @@ class Endcord:
                     self.tui.update_chat(self.chat, self.chat_format)
                 else:
                     self.update_chat()
+                if self.ringing:
+                    for dm in self.dms:
+                        if dm["id"] == self.ringing:
+                            new_permanent_extra_line = formatter.generate_extra_line_ring(
+                                dm["name"],
+                                self.tui.get_dimensions()[2][1],
+                            )
+                            break
+                    if self.extra_line == self.permanent_extra_line and not self.extra_window_open:
+                        self.update_extra_line(custom_text=new_permanent_extra_line, update_only=True)
+                    else:
+                        self.update_extra_line(custom_text=new_permanent_extra_line, update_only=True, permanent=True)
                 if self.tui.get_dimensions()[1] != self.tree_dim:
                     self.update_tree()
                     self.tree_dim = self.tui.get_dimensions()[1]
-                self.update_extra_line(update_only=True)
+                self.update_extra_line(update_only=True, force=True)
 
             # check and update my status
             new_status = self.gateway.get_my_status()

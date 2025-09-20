@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         clang-version: [20.1.4]
-        os: [ubuntu-latest, windows-latest, macos-15]
+        os: [ubuntu-latest, windows-latest, macos-15, macos-15-intel]
         include:
           - os: ubuntu-latest
             platform: linux
@@ -24,6 +24,11 @@ jobs:
             nuitka: true
             clang: false   # https://github.com/Nuitka/Nuitka/issues/3370
           - os: macos-15
+            platform: macos
+            python-version: 3.13
+            nuitka: true
+            clang: true
+          - os: macos-15-intel
             platform: macos
             python-version: 3.13
             nuitka: true
@@ -74,15 +79,15 @@ jobs:
           version: ${{ matrix.clang-version }}
 
       - name: Install Linux system dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.platform == 'linux'
         run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache lld
 
       - name: Install Windows system dependencies
-        if: matrix.os == 'windows-latest' && matrix.nuitka == 'true'
+        if: matrix.platform == 'windows' && matrix.nuitka == 'true'
         run: choco install ccache -y
 
       - name: Install macOS system dependencies
-        if: matrix.os == 'macos-15'
+        if: matrix.platform == 'macos'
         run: |
           brew install ccache libmagic
           echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
@@ -113,7 +118,7 @@ jobs:
             uv run build.py --lite "${args[@]}"
 
       - name: Make binaries executable
-        if: matrix.os == 'macos-15' || matrix.os == 'ubuntu-latest'
+        if: matrix.platform == 'macos' || matrix.platform == 'linux'
         run: chmod +x ./dist/endcord ./dist/endcord-lite || true
 
       - name: Archive files
@@ -123,15 +128,18 @@ jobs:
           extra="README.md LICENSE commands.md configuration.md"
           cd dist
           cp ../{README.md,LICENSE,commands.md,configuration.md} .
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
             tar -czf "endcord-$version-${{ matrix.platform }}.tar.gz" endcord $extra
             tar -czf "endcord-lite-$version-${{ matrix.platform }}.tar.gz" endcord-lite $extra
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          elif [[ "${{ matrix.platform }}" == "windows" ]]; then
             7z a "endcord-$version-${{ matrix.platform }}.zip" endcord.exe $extra
             7z a "endcord-lite-$version-${{ matrix.platform }}.zip" endcord-lite.exe $extra
-          else
-            zip "endcord-$version-${{ matrix.platform }}.zip" endcord $extra
-            zip "endcord-lite-$version-${{ matrix.platform }}.zip" endcord-lite $extra
+          elif [[ "${{ matrix.os }}" == "macos-15-intel" ]]; then
+            zip "endcord-$version-${{ matrix.platform }}-x86_64.zip" endcord $extra
+            zip "endcord-lite-$version-${{ matrix.platform }}-x86_64.zip" endcord-lite $extra
+          else:
+            zip "endcord-$version-${{ matrix.platform }}-arm64.zip" endcord $extra
+            zip "endcord-lite-$version-${{ matrix.platform }}-arm64.zip" endcord-lite $extra
           fi
           cd ..
 

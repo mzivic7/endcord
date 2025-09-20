@@ -20,15 +20,14 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 ## Features
 - Extremely low CPU and RAM usage (values greatly depend on number of servers and channels)
-- View images, gifs, videos, audio and stickers in terminal with ASCII art or in external app
-- YouTube video and stream support
+- View images, gifs, videos, audio, stickers and YouTube with ASCII art or in external app
+- Voice calls (WIP)
 - Integrated RPC (only Rich Presence)
 - Mouse controls
 - Desktop notifications
 - Download/upload attachments
 - Select message and: reply, edit, delete, go to replied, react, vote in a poll
 - Member list
-- Toggle reply ping
 - Search messages
 - Client commands with history
 - App commands and some interactions

@@ -55,7 +55,7 @@ settings = {
     "custom_user_agent": None,
     "proxy": None,
     "custom_host": None,
-    "disable_easter_eggs": False,
+    "easter_eggs": True,
     "debug": False,
 }
 theme = {

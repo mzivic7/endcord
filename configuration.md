@@ -137,7 +137,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Be careful, using proxy (especially TOR) might make you more suspicious to discord.
 - `custom_host = None`  
     Custom host to connect to, like `spacebar.chat`. Set to None to use default host (`discord.com`)
-- `"disable_easter_eggs = False`  
+- `"easter_eggs = True`  
     In case some easter egg is annoying.
 - `debug = False`  
     Enable debug mode.

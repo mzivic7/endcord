@@ -618,6 +618,9 @@ def manage(profiles_path, external_selected, force_open=False):
             selected = profiles_plain["selected"]
         profiles_plain = profiles_plain["profiles"]
 
+    if external_selected:
+        selected = external_selected
+
     if (bool(profiles_enc) or bool(profiles_plain)) and selected is not None and not force_open:
         update_time(profiles_enc, profiles_plain, selected)
         if have_keyring:
@@ -630,8 +633,6 @@ def manage(profiles_path, external_selected, force_open=False):
         }
         return profiles, selected, True
 
-    if external_selected:
-        selected = external_selected
 
     # if no profiles and have working keyring
     if sys.platform == "linux" and not (bool(profiles_enc) or bool(profiles_plain)) and have_keyring:

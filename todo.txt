@@ -1,24 +1,56 @@
 Voice calls
-    ring when someone is calling in dm
-    permanent popup when ringing
-    commands: voice_start_call, voice_end_call, voice_accept_call, voice_reject_call
-    get voice gateway url
-    start voice gateway
-    stop voice gateway
-    handle voice gateway events
-    play sound
-    record sound
-    permanent popup when in voice call
-    buttons in popup
-    handle reconnect
+    app.py
+        voice_start_call
+            get gateway
+            connect to voice gateway and wait
+            prevent starting multiple calls
+            play sound: "linux_ringtone_outgoing" / "custom_ringtone_outgoing"
+            stop ringing after 30 seconds
+            stop ringing when other joins
+        stop outgoing call with voice_reject_call or voice_leave_call
+            stop playing sound
+        voice_accept_call
+            if there is incoming call:
+                get gateway
+                connect to voice gateway and wait
+                stop ringing
+                notification if cant join
+                prevent joining multiple calls
+        voice_leave_call
+            send leave event
+            stop gateway
+            remove popup
+
+        if self.extra_line == self.permanent_extra_line and not self.extra_window_open
+            mouse buttons in ringing popup ([Accept] [Reject])
+
+    gateway_voice.py
+        handle received speaking event
+        send encryption key
+        receive, decrypt, decode and play sound
+        record, encode, enctypt, and send sound
+
+    app.py
+        use gateway.py: VOICE_STATE_UPDATE
+        generate_extra_line_call
+        speaking users in popup (most recent first)
+        show muted, speaking and other users
+        toggle_mute command (should be in protos)
+        voice_list_call command (show all users and their states, updated)
+        stop call when reconnect
+        test for visible popup:   if self.extra_line == self.permanent_extra_line and not self.extra_window_open
+        mouse buttons in call ([Mute/Unmute] [Leave])
+
+    test on windows
+
 
 Voice channels
     add voice channels to tree
-    show busy voice channels
-    join voice channel
-    leave voice channel
-    integrate with voice calls
+    show voice channel activity
+    join call from tree
+    join call with goto
 
+Optimize main loop? (use queue?)
+Add proxy support to voice calls
 Video calls
-Update soundcard and numpy
 Localization

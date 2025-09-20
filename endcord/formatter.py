@@ -1458,6 +1458,23 @@ def generate_extra_line(attachments, selected, max_len):
     return ""
 
 
+def generate_extra_line_ring(caller_name, max_len):
+    """Generate extra line containing iformation about incoming call"""
+    left_text = f"{caller_name} is calling you, use commands: voice_*"
+    right_text = "[Accept] [Reject]"
+    if len(left_text) + 1 + len(right_text) <= max_len:
+        space_num = max_len - (len(left_text) + len(right_text))
+        return left_text + " " * space_num + right_text
+    max_str1_length = max_len - len(right_text) - 3   # 3 for ...
+    shortened_str1 = left_text[:max_str1_length] + "..."
+    return shortened_str1 + right_text
+
+
+def generate_extra_line_call(max_len):
+    """Generate extra line containing iformation about ongoing call"""
+    pass
+
+
 def generate_extra_window_profile(user_data, user_roles, presence, max_len):
     """Generate extra window title and body for user profile view"""
     # prepare user strings

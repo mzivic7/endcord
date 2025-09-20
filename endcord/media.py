@@ -85,7 +85,7 @@ else:
 class CursesMedia():
     """Methods for showing and playing media in terminal with curses"""
 
-    def __init__(self, screen, config, start_color_id):
+    def __init__(self, screen, config, start_color_id, ui=True):
         logging.getLogger("libav").setLevel(logging.ERROR)
         self.screen = screen
         self.font_scale = config["media_font_scale"]   # 2.25
@@ -113,11 +113,11 @@ class CursesMedia():
         self.seek = None
 
         self.lock = threading.RLock()
-
         self.need_update = threading.Event()
-        self.show_ui()
 
-        self.media_screen_size = self.media_screen.getmaxyx()
+        self.ui = ui
+        if ui:
+            self.show_ui()
         # self.init_colors()   # 255_curses_bug - enable this
         self.start_color_id = 0   # 255_curses_bug
 
@@ -233,10 +233,11 @@ class CursesMedia():
                 frame = 0
 
 
-    def play_audio(self, path):
+    def play_audio(self, path, loop=False, loop_delay=0.7, loop_max=60):
         """Play only audio"""
-        self.init_colors()   # 255_curses_bug
-        self.show_ui()
+        if self.ui:
+            self.init_colors()   # 255_curses_bug
+            self.show_ui()
 
         self.seek = None
         if not have_sound:
@@ -248,12 +249,13 @@ class CursesMedia():
         self.video_time = 0   # using video_time to simplify controls
 
         # fill screen
-        self.media_screen.clear()
-        h, w = self.media_screen.getmaxyx()
-        for y in range(h):
-            self.media_screen.insstr(y, 0, " " * w, curses.color_pair(self.start_color_id+1))
-        self.media_screen.noutrefresh()
-        self.need_update.set()
+        if self.ui:
+            self.media_screen.clear()
+            h, w = self.media_screen.getmaxyx()
+            for y in range(h):
+                self.media_screen.insstr(y, 0, " " * w, curses.color_pair(self.start_color_id+1))
+            self.media_screen.noutrefresh()
+            self.need_update.set()
 
         all_audio_streams = container.streams.audio
         if not all_audio_streams:   # no audio?
@@ -270,24 +272,51 @@ class CursesMedia():
         frame_duration = 1 / container.streams.audio[0].codec_context.sample_rate
 
         with speaker.player(samplerate=audio_stream.rate, channels=audio_stream.channels, blocksize=1152) as stream:
-            for frame in container.decode(audio=0):
-                if self.seek is not None:
-                    container.seek(int(self.seek / audio_stream.time_base), stream=audio_stream)
-                    self.video_time = self.seek
-                    self.seek = None
-                    if self.pause_after_seek:
-                        self.pause_after_seek = False
-                        self.pause = True
-                    continue
-                if not self.playing:
+            start = int(time.time())
+            while self.playing:
+                for frame in container.decode(audio=0):
+                    if self.seek is not None:
+                        container.seek(int(self.seek / audio_stream.time_base), stream=audio_stream)
+                        self.video_time = self.seek
+                        self.seek = None
+                        if self.pause_after_seek:
+                            self.pause_after_seek = False
+                            self.pause = True
+                        continue
+                    if not self.playing:
+                        break
+                    stream.play(frame.to_ndarray().astype("float32").T)
+                    self.video_time += frame.samples * frame_duration
+                    if self.pause:
+                        if self.ui:
+                            self.draw_ui()
+                        while self.pause:
+                            time.sleep(0.1)
+                if loop:
+                    if int(time.time()) - start > loop_max:
+                        break
+                    time.sleep(loop_delay)
+                    container.seek(0)
+                else:
                     break
-                stream.play(frame.to_ndarray().astype("float32").T)
-                self.video_time += frame.samples * frame_duration
-                if self.pause:
-                    self.draw_ui()
-                    while self.pause:
-                        time.sleep(0.1)
         self.ended = True
+
+
+    def play_audio_noui(self, path, loop=False, loop_delay=0.7, loop_max=60):
+        """Play audio without UI"""
+        self.ui = False
+        self.playing = True
+        self.run = True
+        self.pause = False
+        self.player_thread = threading.Thread(target=self.play_audio, daemon=True, args=(path, loop, loop_delay, loop_max))
+        self.player_thread.start()
+
+
+    def stop_playback(self):
+        """Stop all playbacks immediately"""
+        self.pause = False
+        self.run = False
+        self.playing = False
 
 
     def audio_player(self, audio_queue, samplerate, channels, audio_ready):
@@ -403,6 +432,7 @@ class CursesMedia():
         if os.path.isdir(path):
             return
         self.path = path
+        self.ui = True
         self.run = True
         self.screen_update_thread = threading.Thread(target=self.screen_update, daemon=True)
         self.screen_update_thread.start()
@@ -515,6 +545,7 @@ class CursesMedia():
             self.media_screen = self.screen.derwin(*media_screen_hwyx)
             ui_line_hwyx = (1, w, h - 1, 0)
             self.ui_line = self.screen.derwin(*ui_line_hwyx)
+            self.media_screen_size = self.media_screen.getmaxyx()
 
 
     def hide_ui(self):

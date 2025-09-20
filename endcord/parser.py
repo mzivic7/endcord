@@ -655,4 +655,22 @@ def command_string(text):
     # 47 - TOGGLE_BLOCKED_MESSGAES
     elif text_lower.startswith("toggle_blocked_messages"):
         cmd_type = 47
+
+    # 48 - VOICE_START_CALL
+    elif text_lower.startswith("voice_start_call"):
+        cmd_type = 58
+
+    # 49 - VOICE_ACCEPT_CALL
+    elif text_lower.startswith("voice_accept_call"):
+        cmd_type = 49
+
+    # 50 - VOICE_LEAVE_VALL
+    elif text_lower.startswith("voice_leave_call"):
+        cmd_type = 50
+
+    # 51 - VOICE_REJECT_CALL
+    elif text_lower.startswith("voice_reject_call"):
+        cmd_type = 51
+
+
     return cmd_type, cmd_args

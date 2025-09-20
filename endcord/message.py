@@ -396,6 +396,8 @@ def prepare_special_message_types(message):
         content = f"> *Removed {message["mentions"][0]["username"]} from the {chat}.*"
     elif msg_type == 3:   # CALL
         content = "> *Started a call.*"
+        if "call" in message and message["call"].get("ended_timestamp"):
+            content = "> *Call ended*"
     elif msg_type == 4:   # CHANNEL_NAME_CHANGE
         content = f"> *Changed the channel name to {message["content"]}.*"
     elif msg_type == 5:   # CHANNEL_ICON_CHANGE

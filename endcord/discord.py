@@ -107,6 +107,8 @@ class Discord():
         self.guild_commands = []
         self.threads = []
         self.uploading = []
+        self.voice_regions = []
+        self.ranked_voice_regions = []
 
 
     def get_connection(self, host, port):
@@ -1754,9 +1756,10 @@ class Discord():
     def get_my_standing(self):
         """Get my account standing"""
         message_data = None
+        url = "/api/v9/safety-hub/@me"
         try:
             connection = self.get_connection(self.host, 443)
-            connection.request("GET", "/api/v9/safety-hub/@me", message_data, self.header)
+            connection.request("GET", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
@@ -1766,5 +1769,65 @@ class Discord():
             connection.close()
             return data["account_standing"]["state"]
         logger.error(f"Failed to fetch account standing. Response code: {response.status}")
+        connection.close()
+        return None
+
+
+    def get_voice_regions(self):
+        """Get voice regions list"""
+        if self.voice_regions:
+            return self.voice_regions
+        message_data = None
+        url = "/api/v9/voice/regions"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            regions = []
+            optimal = None
+            for num, region in enumerate(data):
+                if region["deprecated"]:
+                    continue
+                if region["optimal"]:
+                    optimal = num
+                regions.append(region["id"])
+            if optimal is not None:
+                optimal = regions.pop(optimal)
+                regions.insert(0, optimal)
+            self.voice_regions = regions
+            return regions
+        logger.error(f"Failed to fetch voice regions. Response code: {response.status}")
+        connection.close()
+        return None
+
+
+    def get_best_voice_region(self):
+        """Get voice regions ranked by latency"""
+        if self.ranked_voice_regions:
+            return self.ranked_voice_regions
+        message_data = None
+        url = "/rtc"
+        try:
+            connection = self.get_connection(f"latency.{self.host}", 443)
+            connection.request("GET", url, message_data, {})
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            regions = []
+            for region in enumerate(data):
+                regions.append(region["region"])
+            self.ranked_voice_regions = regions
+            return regions
+        logger.error(f"Failed to fetch ranked voice regions. Response code: {response.status}")
         connection.close()
         return None

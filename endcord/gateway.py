@@ -20,17 +20,20 @@ from discord_protos import PreloadedUserSettings
 from google.protobuf.json_format import MessageToDict
 
 from endcord import debug, perms
-from endcord.message import prepare_message
+from endcord.message import prepare_message, prepare_special_message_types
 
 DISCORD_HOST = "discord.com"
 LOCAL_MEMBER_COUNT = 50   # members per guild, CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
+VOICE_FLAGS = 3   # CLIPS_ENABLED and ALLOW_VOICE_RECORDING
+QOS_HEARTBEAT = True
+QOS_PAYLOAD = {"ver": 26, "active": True, "reason": "foregrounded"}
 inflator = zlib.decompressobj()
 logger = logging.getLogger(__name__)
 
 
 def zlib_decompress(data):
-    """Decompress zlib data, if it is not zlib compressed return data instead"""
+    """Decompress zlib data, if it is not zlib compressed, return data instead"""
     buffer = bytearray()
     buffer.extend(data)
     if len(data) < 4 or data[-4:] != ZLIB_SUFFIX:
@@ -50,7 +53,7 @@ def reset_inflator():
 
 
 class Gateway():
-    """Methods for fetching and sending data to Discord using Discord's gateway through websocket"""
+    """Methods for fetching and sending data to Discord gateway through websocket"""
 
     def __init__(self, token, host, client_prop, user_agent, proxy=None):
         if host:
@@ -67,6 +70,7 @@ class Gateway():
             f"User-Agent: {user_agent}",
         ]
         self.client_prop = client_prop
+        self.init_time = time.time() * 1000
         self.token = token
         self.proxy = urllib.parse.urlparse(proxy)
         self.run = True
@@ -84,6 +88,7 @@ class Gateway():
         self.summaries_buffer = []
         self.msg_ack_buffer = []
         self.threads_buffer = []
+        self.call_buffer = []
         self.reconnect_requested = False
         self.status_changed = False
         self.dm_activities_changed = False
@@ -123,6 +128,8 @@ class Gateway():
         self.my_roles = []
         self.guilds_changed = False
         self.app_command_autocomplete_resp = []
+        self.voice_gateway_data = {}
+        self.voice_gateway_data_ready = 0
 
 
     def thread_guard(self):
@@ -205,7 +212,7 @@ class Gateway():
         self.heartbeat_interval = int(json.loads(zlib_decompress(self.ws.recv()))["d"]["heartbeat_interval"])
         self.receiver_thread = threading.Thread(target=self.safe_function_wrapper, daemon=True, args=(self.receiver, ))
         self.receiver_thread.start()
-        self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
+        self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True)
         self.heartbeat_thread.start()
         self.reconnect_thread = threading.Thread()
         self.authenticate()
@@ -312,6 +319,10 @@ class Gateway():
                 self.sequence = int(response["s"])
                 optext = response["t"]
                 data = response["d"]
+                guild = None
+                guild_channels = None
+                role = None
+                guild_roles = None
                 if optext == "READY":
                     ready_time_start = time.time()
                     self.resume_gateway_url = data["resume_gateway_url"]
@@ -858,6 +869,7 @@ class Gateway():
                                 mentions.append({
                                     "id": mention["id"],
                                 })
+                        message = prepare_special_message_types(message)
                         ready_data = {
                             "id": message["id"],
                             "channel_id": message["channel_id"],
@@ -1269,6 +1281,40 @@ class Gateway():
                         "d": data,
                     })
 
+                elif optext == "VOICE_STATE_UPDATE":
+                    if 1 <= self.voice_gateway_data_ready < 3:
+                        self.voice_gateway_data["session_id"] = data["session_id"]
+                        self.voice_gateway_data["guild_id"] = data.get("guild_id")
+                        self.voice_gateway_data["channel_id"] = data["channel_id"]
+                        self.voice_gateway_data_ready += 1
+
+                elif optext == "VOICE_SERVER_UPDATE":
+                    if 1 <= self.voice_gateway_data_ready < 3:
+                        self.voice_gateway_data["token"] = data["token"]
+                        self.voice_gateway_data["endpoint"] = data["endpoint"]
+                        self.voice_gateway_data_ready += 1
+
+                elif optext == "CALL_CREATE":
+                    self.call_buffer.append({
+                        "op": "CALL_CREATE",
+                        "channel_id": data["channel_id"],
+                    })
+
+                elif optext == "CALL_UPDATE":
+                    # nothing usefull here, it only updates to whom is it ringing
+                    # but in endcord its always ringing
+                    pass
+
+                elif optext == "CALL_DELETE":
+                    self.call_buffer.append({
+                        "op": "CALL_DELETE",
+                        "channel_id": data["channel_id"],
+                    })
+
+                elif optext == "VOICE_STATE_UPDATE":
+                    # nothin usefull here for now
+                    pass
+
             elif opcode == 7:
                 logger.info("Host requested reconnect")
                 self.resumable = True
@@ -1302,22 +1348,44 @@ class Gateway():
                 raise SystemExit("Ready event could not be processed in time, probably because of too many servers. Exiting...")
             time.sleep(0.5)
             sleep_time += 5
-        heartbeat_interval_rand = self.heartbeat_interval * (0.8 - 0.6 * random.random()) / 1000
-        heartbeat_sent_time = time.time()
+        heartbeat_interval_rand = int(self.heartbeat_interval * (0.8 - 0.6 * random.random()) / 1000)
+        heartbeat_sent_time = int(time.time())
+        time_spent_event_time = int(time.time()) - 1990   # send it 10s after start, then every 30min
         while self.run and not self.wait and self.heartbeat_running:
-            if time.time() - heartbeat_sent_time >= heartbeat_interval_rand:
-                self.send({"op": 1, "d": self.sequence})
-                heartbeat_sent_time = time.time()
-                logger.debug("Heartbeat sent")
+            send_time_spent_event = not self.legacy and int(time.time()) - time_spent_event_time >= 1800
+            if send_time_spent_event:
+                self.send({
+                    "op": 41,
+                    "d": {
+                        "initialization_timestamp": self.init_time,
+                        "session_id": self.client_prop["client_heartbeat_session_id"],
+                        "client_launch_id": self.client_prop["client_launch_id"],
+                    },
+                })
+                logger.debug("Sent Time Spent event")
+                time_spent_event_time = int(time.time())
+            if time.time() - heartbeat_sent_time >= heartbeat_interval_rand or send_time_spent_event:
+                if QOS_HEARTBEAT and not self.legacy:
+                    self.send({
+                        "op": 1,
+                        "d": {
+                            "seq": self.sequence,
+                            "qos": QOS_PAYLOAD,
+                        },
+                    })
+                else:
+                    self.send({"op": 1, "d": self.sequence})
+                heartbeat_sent_time = int(time.time())
+                logger.debug("Sent heartbeat")
                 if not self.heartbeat_received:
                     logger.warn("Heartbeat reply not received")
                     self.resumable = True
                     break
                 self.heartbeat_received = False
-                heartbeat_interval_rand = self.heartbeat_interval * (0.8 - 0.6 * random.random()) / 1000
+                heartbeat_interval_rand = int(self.heartbeat_interval * (0.8 - 0.6 * random.random()) / 1000)
             # sleep(heartbeat_interval * jitter), but jitter is limited to (0.1 - 0.9)
             # in this time heartbeat ack should be received from discord
-            time.sleep(0.5)
+            time.sleep(1)
         self.state = 0
         logger.info("Heartbeater stopped")
         self.reconnect_requested = True
@@ -1393,7 +1461,7 @@ class Gateway():
                 self.receiver_thread = threading.Thread(target=self.safe_function_wrapper, daemon=True, args=(self.receiver, ))
                 self.receiver_thread.start()
             if not self.heartbeat_thread.is_alive():
-                self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True, args=())
+                self.heartbeat_thread = threading.Thread(target=self.send_heartbeat, daemon=True)
                 self.heartbeat_thread.start()
             self.state = 1
             logger.info("Connection established")
@@ -1561,6 +1629,26 @@ class Gateway():
             }
             self.send(payload)
             logger.debug("Requesting guild members chunk")
+
+
+    def request_voice_gateway(self, guild_id, channel_id, mute, video, preferred_regions):
+        """Request voice gateway, VOICE_STATE_UPDATE and VOICE_SERVER_UPDATE events are expected"""
+        payload = {
+            "op": 4,
+            "d": {
+                "guild_id": guild_id,
+                "channel_id": channel_id,
+                "self_mute": mute,
+                "self_deaf": False,
+                "self_video": video,
+                "preferred_regions": preferred_regions,
+                "presences": False,
+                "user_ids": VOICE_FLAGS,
+            },
+        }
+        self.send(payload)
+        self.voice_gateway_data_ready = 1
+        logger.debug("Requesting voice gateway")
 
 
     def set_subscribed_channels(self, subscribed_channels):
@@ -1736,6 +1824,14 @@ class Gateway():
         return None
 
 
+    def get_voice_gateway(self):
+        """Get voice gateway data when it is ready"""
+        if self.voice_gateway_data_ready >= 2:
+            cache = self.voice_gateway_data
+            self.voice_gateway_data = {}
+            self.voice_gateway_data_ready = 0
+            return cache
+
     # all following "get_*" work like this:
     # internally:
     #    get events and append them to list
@@ -1799,3 +1895,14 @@ class Gateway():
         if len(self.threads_buffer) == 0:
             return None
         return self.threads_buffer.pop(0)
+
+
+
+    def get_call_events(self):
+        """
+        Get call events.
+        Returns 1 by 1 call event.
+        """
+        if len(self.call_buffer) == 0:
+            return None
+        return self.call_buffer.pop(0)
