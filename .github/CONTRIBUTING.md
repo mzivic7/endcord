@@ -151,6 +151,7 @@ user/flags - missing
 - `READY`:  
 /merged_members/id - should be /merged_members/user_id  
 /read_state/entries/mention_count - should be `0`, not `null`  
+/private_channels/recipient_ids - missing, have recipients list instead
 /users/global_name - missing  
 /user_guild_settings/entries/channel_overrides/collapsed - missing  
 

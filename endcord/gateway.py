@@ -472,7 +472,7 @@ class Gateway():
                     # DM channels
                     for dm in data["private_channels"]:
                         recipients = []
-                        for recipient_id in dm["recipient_ids"]:
+                        for recipient_id in dm.get("recipient_ids", [dm["recipients"][0]["id"]]):   # spacebar_fix - get
                             for user in data["users"]:
                                 if user["id"] == recipient_id:
                                     recipients.append({
