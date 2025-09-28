@@ -91,6 +91,7 @@ if sys.platform == "linux":
         # fallback to .cache
         if not os.access(f"/run/user/{os.getuid()}", os.W_OK):
             temp_path = f"~/.cache/{APP_NAME}"
+    os.makedirs(temp_path, exist_ok=True)
 
     path = os.environ.get("XDG_DOWNLOAD_DIR", "")
     if path.strip():
