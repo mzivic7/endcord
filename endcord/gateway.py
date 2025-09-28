@@ -472,13 +472,25 @@ class Gateway():
                     # DM channels
                     for dm in data["private_channels"]:
                         recipients = []
-                        for recipient_id in dm.get("recipient_ids", [dm.get("recipients", [{"id": None}])[0]["id"]]):   # spacebar_fix - get
+                        legacy_recipients = []
+                        if "recipients" in dm:   # spacebar_fix - it uses old "recipients" key
+                            for recipient in dm["recipients"]:
+                                legacy_recipients.append(recipient["id"])
+                            else:
+                                legacy_recipients.append(self.my_id)
+                        for recipient_id in dm.get("recipient_ids", legacy_recipients):   # spacebar_fix - get
                             for user in data["users"]:
                                 if user["id"] == recipient_id:
                                     recipients.append({
                                         "id": recipient_id,
                                         "username": user["username"],
                                         "global_name": user.get("global_name"),   # spacebar_fix - get
+                                    })
+                                elif recipient_id == self.my_id:   # spacebar_fix - can open dm with self
+                                    recipients.append({
+                                        "id": recipient_id,
+                                        "username": data["user"]["username"],
+                                        "global_name": data["user"].get("global_name"),   # spacebar_fix - get
                                     })
                         name = None
                         if "name" in dm and dm["name"]:   # for group dm

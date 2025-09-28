@@ -3379,6 +3379,7 @@ class Endcord:
         """Format and show extra window with profile information"""
         if not user_data:
             self.update_extra_line("No profile information found.")
+            return
         max_w = self.tui.get_dimensions()[2][1]
         roles = []
         if user_data["roles"]:

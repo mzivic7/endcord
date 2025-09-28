@@ -83,7 +83,7 @@ def prepare_message(message):
                 message["referenced_message"]["embeds"] = forwarded.get("embeds")
                 message["referenced_message"]["attachments"] = forwarded.get("attachments")
             reference_embeds = prepare_embeds(message["referenced_message"]["embeds"], "")
-            for attachment in message["referenced_message"]["attachments"]:
+            for attachment in message["referenced_message"].get("attachments", []):
                 reference_embeds.append({
                     "type": attachment.get("content_type", "unknown"),
                     "name": attachment["filename"],
