@@ -922,8 +922,7 @@ class Gateway():
                     })
 
                 elif optext == "MESSAGE_REACTION_ADD":
-
-                    if "member" in data:
+                    if "member" in data and "user" in data["member"]:   # spacebar_fix - "user" is mising
                         user_id = data["member"]["user"]["id"]
                         username = data["member"]["user"]["username"]
                         global_name = data["member"]["user"].get("global_name")   # spacebar_fix - get
@@ -938,7 +937,7 @@ class Gateway():
                         "channel_id": data["channel_id"],
                         "guild_id": data.get("guild_id"),
                         "emoji": data["emoji"]["name"],
-                        "emoji_id": data["emoji"]["id"],
+                        "emoji_id": data["emoji"].get("id"),   # spacebar_fix - get
                         "user_id": user_id,
                         "username": username,
                         "global_name": global_name,
@@ -950,7 +949,6 @@ class Gateway():
                     })
 
                 elif optext == "MESSAGE_REACTION_ADD_MANY":
-
                     channel_id = data["channel_id"]
                     guild_id = data.get("guild_id")
                     message_id = data["message_id"]
@@ -973,13 +971,12 @@ class Gateway():
                             })
 
                 elif optext == "MESSAGE_REACTION_REMOVE":
-
                     ready_data = {
                         "id": data["message_id"],
                         "channel_id": data["channel_id"],
                         "guild_id": data.get("guild_id"),
                         "emoji": data["emoji"]["name"],
-                        "emoji_id": data["emoji"]["id"],
+                        "emoji_id": data["emoji"].get("id"),   # spacebar_fix - get
                         "user_id": data["user_id"],
                     }
                     self.messages_buffer.append({

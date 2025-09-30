@@ -186,8 +186,8 @@ keybindings = {
     "show_reactions": "ALT+119",   # Alt+W
     "show_pinned": "ALT+110",   # Alt+N
     # extra line
-    "attach_prev": "ALT+552",   # Alt+Left
-    "attach_next": "ALT+567",   # Alt+Right
+    "attach_prev": 552,   # Alt+Left
+    "attach_next": 567,   # Alt+Right
     "attach_cancel": 11,   # Ctrl+K
     # extra window
     "extra_up": 573,   # Alt+Up

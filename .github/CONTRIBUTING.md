@@ -163,7 +163,11 @@ user/flags - missing
 /item/member/user/global_name - missing  
 
 - `MESSAGE_REACTION_ADD`:
-/member/user/global_name - missing  
+/member/user - missing  
+/emoji/id - missing when its standard emoji  
+
+- `MESSAGE_REACTION_REMOVE`:
+/emoji/id - missing when its standard emoji  
 
 - `GUILD_MEMBERS_CHUNK`:
 /members/user/global_name - missing  

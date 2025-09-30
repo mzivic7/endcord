@@ -109,6 +109,7 @@ class Discord():
         self.uploading = []
         self.voice_regions = []
         self.ranked_voice_regions = []
+        self.attachment_id = 1
 
 
     def get_connection(self, host, port):
@@ -1561,11 +1562,12 @@ class Discord():
             "files": [{
                 "file_size": peripherals.get_file_size(path),
                 "filename": filename,
-                "id": None,   # should not be None, but works
+                "id": self.attachment_id,
                 "is_clip": peripherals.get_is_clip(path),
             }],
         })
         url = f"/api/v9/channels/{channel_id}/attachments"
+        self.attachment_id += 1
         try:
             connection = self.get_connection(self.host, 443)
             connection.request("POST", url, message_data, self.header)

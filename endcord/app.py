@@ -1152,6 +1152,7 @@ class Endcord:
                 for attachments in self.ready_attachments:
                     if attachments["channel_id"] == self.active_channel["channel_id"]:
                         num_attachments = len(attachments["attachments"])
+                        break
                 if self.selected_attachment + 1 < num_attachments:
                     self.selected_attachment += 1
                     self.update_extra_line()
@@ -1208,6 +1209,16 @@ class Endcord:
                     url = self.search_messages[extra_index]["gif"]
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, False, True)))
                     self.download_threads[-1].start()
+                else:
+                    for attachments in self.ready_attachments:
+                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                            if attachments["attachments"] and len(attachments["attachments"]) >= self.selected_attachment - 1:
+                                file_path = attachments["attachments"][self.selected_attachment]["path"]
+                                if isinstance(file_path, str):
+                                    self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(file_path, ))
+                                    self.media_thread.start()
+                            break
+
 
             # open and join thread from forum
             elif action == 23 and self.forum:
