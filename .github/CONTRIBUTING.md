@@ -141,6 +141,7 @@ user/flags - missing
 
 - `MESSAGE_CREATE`, `MESSAGE_UPDATE`, `/api/v9/channels/{channel_id}/messages`, `/api/v9/guilds/{guild_id}/messages/search` and `/api/v9/channels/{channel_id}/pins`:
 /author/global_name - missing  
+/referenced_message - should be null only if its pointing to delteted message, otherwise remove this field  
 /referenced_message/author/global_name - missing  
 /reactions/emoji/id - missing  
 /poll - should be removed if its `null`  
@@ -174,4 +175,3 @@ user/flags - missing
 
 - Misc:
 Spacebar is still using old `user_settings` instead new protobuf settings.  
-Attachments are uploaded with old API.  

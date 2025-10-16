@@ -80,6 +80,12 @@ def parser(app_name, version, default_config_path, log_path):
         if provided, will play it without starting endcord discord",
     )
     parser.add_argument(
+        "--host",
+        type=str,
+        action="store",
+        help="custom host to connect to; overrides custom_host in config",
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",

@@ -98,5 +98,17 @@
     Unblock user. `ignore` is optional.
 - `toggle_blocked_messages`  
     Toggle showing messages from blocked users in chat. Toggles between `blocked_mode` setting and fully shown messages.
+- `voice_start_call`  
+    Start voice call in currently open DM.
+- `voice_accept_call`  
+    Accept incoming voice call.
+- `voice_leave_call`  
+    Leave current voice call.
+- `voice_reject_call`  
+    Silence incoming call or cancel outgoing call.
+- `voice_list_call`  
+    Show all call participants and their states in an updated list. Must be in the call to use this.
+- `toggle_mute`  
+    Toggle mute state before joining a call. Persisted across sessions.
 - `redraw`  
     Redraw UI if it ever gets messed up.

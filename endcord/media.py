@@ -302,7 +302,7 @@ class CursesMedia():
         self.ended = True
 
 
-    def play_audio_noui(self, path, loop=False, loop_delay=0.7, loop_max=60):
+    def play_audio_noui(self, path, loop=False, loop_delay=1, loop_max=60):
         """Play audio without UI"""
         self.ui = False
         self.playing = True
@@ -463,7 +463,7 @@ class CursesMedia():
                     self.start_ui_thread()
                     self.play_audio(path)
                 else:
-                    logger.warn(f"Unsupported media format: {file_type}")
+                    logger.warning(f"Unsupported media format: {file_type}")
                     self.run = False
             while self.run:   # dont exit when video ends
                 time.sleep(0.2)
@@ -491,7 +491,7 @@ class CursesMedia():
             self.start_ui_thread()
             self.play_video(stream_url)
         else:
-            logger.warn("Cant play youtube link, yt-dlp path is invalid")
+            logger.warning("Cant play youtube link, yt-dlp path is invalid")
 
 
     def control_codes(self, code):

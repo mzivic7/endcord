@@ -280,6 +280,7 @@ class TUI():
         self.tree_selected_abs = -1
         self.chat_index = 0   # chat scroll index
         self.tree_index = 0
+        self.chat_scrolled_top = False
         self.tree_format_changed = False
         self.input_index = 0   # index of input cursor
         self.input_line_index = 0   # index of input line, when moving it to left
@@ -317,7 +318,7 @@ class TUI():
         self.assist_start = -1
         self.instant_assist = False
         self.first_click = (0, 0, 0)
-        self.mouse_chat_x = None
+        self.mouse_rel_x = None
         self.wrap_around_disable = False
         self.pressed_num_key = None
 
@@ -475,7 +476,22 @@ class TUI():
 
     def get_clicked_chat(self):
         """Get index of clicked line in chat buffer and x coordinate"""
-        return self.chat_selected, self.mouse_chat_x
+        return self.chat_selected, self.mouse_rel_x
+
+
+    def get_extra_line_clicked(self):
+        """Get clicked x coordinate of extra line"""
+        return self.mouse_rel_x
+
+
+    def get_chat_scrolled_top(self):
+        """Check wether chat scrolling hit the top end"""
+        return self.chat_scrolled_top
+
+
+    def reset_chat_scrolled_top(self):
+        """Force reset state of chat scrolling hit the top end"""
+        self.chat_scrolled_top = False
 
 
     def get_assist(self):
@@ -499,7 +515,7 @@ class TUI():
                     self.input_buffer[self.assist_start-1] in ASSIST_TRIGGERS
                 ):
                     assist_type = ASSIST_TRIGGERS.index(self.input_buffer[self.assist_start-1]) + 1
-                    if assist_type == 3 and self.assist_start != 1 and self.input_buffer[self.assist_start-2] != " ":
+                    if assist_type == 3 and self.assist_start != 1 and self.input_buffer[self.assist_start-2] not in (" ", "\n"):
                         # skip :emoji trigger if no space before it
                         return None, None
                     assist_word = self.input_buffer[self.assist_start : self.input_index]
@@ -522,23 +538,27 @@ class TUI():
         return self.last_free_id
 
 
-    def set_selected(self, selected, change_amount=0):
+    def set_selected(self, selected, change_amount=0, scroll=True):
         """Set selected line and text scrolling"""
         if self.chat_selected >= selected:
             up = True
         else:
             up = False
         self.chat_selected = selected
-        if self.chat_selected == -1:
-            self.chat_index = 0
+        if scroll:
+            if self.chat_selected == -1:
+                self.chat_index = 0
+            elif change_amount and self.chat_index:
+                self.chat_index += change_amount
+            on_screen_h = selected - self.chat_index
+            if on_screen_h > self.chat_hw[0] - 3 or on_screen_h < 3:
+                if up:
+                    self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
+                else:
+                    self.chat_index = max(selected - 3, 0)
         elif change_amount and self.chat_index:
             self.chat_index += change_amount
-        on_screen_h = selected - self.chat_index
-        if on_screen_h > self.chat_hw[0] - 3 or on_screen_h < 3:
-            if up:
-                self.chat_index = max(selected - self.chat_hw[0] + 3, 0)
-            else:
-                self.chat_index = max(selected - 3, 0)
+
         self.draw_chat()
 
 
@@ -2270,11 +2290,6 @@ class TUI():
             self.chat_selected = self.chat_index + self.win_chat.getmaxyx()[0] - y - 1
             self.draw_chat()
 
-        elif self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
-            x, y = self.mouse_rel_pos(x, y, self.win_extra_window)
-            self.extra_selected = self.extra_index + y - 1
-            self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-
         elif self.win_member_list and self.mouse_in_window(x, y, self.win_member_list):
             x, y = self.mouse_rel_pos(x, y, self.win_member_list)
             self.mlist_selected = self.mlist_index + y
@@ -2286,6 +2301,15 @@ class TUI():
             self.set_input_index(input_index)
             self.draw_input_line()
 
+        elif self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
+            x, y = self.mouse_rel_pos(x, y, self.win_extra_window)
+            self.extra_selected = self.extra_index + y - 1
+            self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+
+        elif self.win_extra_line and self.mouse_in_window(x, y, self.win_extra_line):
+            self.mouse_rel_x = self.mouse_rel_pos(x, y, self.win_extra_line)[0]
+            return 48   # special handling
+
 
     def mouse_double_click(self, x, y):
         """Handle mouse double click events"""
@@ -2293,7 +2317,7 @@ class TUI():
             return self.common_keybindings(self.keybindings["tree_select"][0], switch=True)
 
         if self.mouse_in_window(x, y, self.win_chat):
-            self.mouse_chat_x = self.mouse_rel_pos(x, y, self.win_chat)[0]
+            self.mouse_rel_x = self.mouse_rel_pos(x, y, self.win_chat)[0]
             return 40   # special handling
 
         if self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
@@ -2354,9 +2378,12 @@ class TUI():
                 if self.chat_index + self.chat_hw[0] - 3 + 3 < len(self.chat_buffer):
                     self.chat_index += self.mouse_scroll_sensitivity
                     self.draw_chat()
+                else:
+                    self.chat_scrolled_top = True
             elif self.chat_index:
                 self.chat_index -= min(self.mouse_scroll_sensitivity, self.chat_index)
                 self.draw_chat()
+                self.chat_scrolled_top = False
 
         elif self.win_extra_window and self.mouse_in_window(x, y, self.win_extra_window):
             if up:

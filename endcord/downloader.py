@@ -49,7 +49,7 @@ class Downloader:
         else:
             http = urllib3.PoolManager()
             if proxy.scheme:
-                logger.warn("Invalid proxy, continuing without proxy")
+                logger.warning("Invalid proxy, continuing without proxy")
         response = http.request("GET", url, preload_content=False)
         extension = response.headers.get("Content-Type", None).split("/")[-1].replace("jpeg", "jpg")
         destination = os.path.join(os.path.expanduser(peripherals.temp_path), filename)

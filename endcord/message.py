@@ -147,8 +147,7 @@ def prepare_message(message):
             "type": attachment.get("content_type", "unknown"),
             "name": attachment["filename"],
             "url": attachment["url"],
-        })   # keep attachments in same place as embeds
-
+        })   # keep attachments in same place as embeds (attachments have no "main_url")
     # mentions
     mentions = []
     if message["mentions"]:

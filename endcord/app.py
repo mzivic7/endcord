@@ -31,7 +31,7 @@ from endcord.assist_data import COMMAND_ASSISTS, SEARCH_HELP_TEXT
 support_media = (
     importlib.util.find_spec("PIL") is not None and
     importlib.util.find_spec("av") is not None and
-    importlib.util.find_spec("numpy") is not None
+    importlib.util.find_spec("nacl") is not None
 )
 if support_media:
     from endcord import clipboard, media
@@ -178,9 +178,9 @@ class Endcord:
         if config["custom_user_agent"]:
             client_prop = client_properties.add_user_agent(client_prop, config["custom_user_agent"])
         client_prop_gateway = client_properties.add_for_gateway(client_prop)
-        user_agent = client_prop["browser_user_agent"]
+        self.user_agent = client_prop["browser_user_agent"]
         client_prop = client_properties.encode_properties(client_prop)
-        logger.debug(f"User-Agent: {user_agent}")
+        logger.debug(f"User-Agent: {self.user_agent}")
 
         self.chat = []
         self.chat.insert(0, f"Connecting to {self.config["custom_host"] if self.config["custom_host"] else "Discord"}")
@@ -190,7 +190,7 @@ class Endcord:
             self.token,
             config["custom_host"],
             client_prop,
-            user_agent,
+            self.user_agent,
             proxy=config["proxy"],
         )
         # preload chat for faster startup
@@ -201,7 +201,7 @@ class Endcord:
             self.token,
             config["custom_host"],
             client_prop_gateway,
-            user_agent,
+            self.user_agent,
             proxy=config["proxy"],
         )
         # this takes some time, so let other things init in parallel
@@ -216,6 +216,7 @@ class Endcord:
         self.premium = None
         self.my_user_data = self.discord.get_user(self.my_id, extra=True)
         self.channel_cache = []
+        self.voice_gateway = None
         self.reset()
         self.gateway_state = self.gateway.get_state()
         self.chat_dim, self.tree_dim, _  = self.tui.get_dimensions()
@@ -223,6 +224,7 @@ class Endcord:
             "last_guild_id": None,
             "last_channel_id": None,
             "collapsed": [],
+            "muted": False,
         }
         self.tree = []
         self.tree_format = []
@@ -330,8 +332,14 @@ class Endcord:
         self.app_command_last_keypress = time.time()
         self.allow_app_command_autocomplete = False
         self.ignore_typing = False
-        self.ringing = None
-        self.in_call = False
+        self.incoming_call = None
+        self.joining_call = False
+        if self.voice_gateway:
+            self.voice_gateway.disconnect()
+        self.voice_gateway = None
+        self.in_call = None
+        self.call_participants = []
+        self.voice_call_list_open = False
         self.ringer = None
         if not online:
             self.my_status = {
@@ -513,7 +521,6 @@ class Endcord:
             # load from cache
             if from_cache:
                 self.load_from_channel_cache(num)
-                self.update_chat()
 
             # use preloaded
             elif preload and self.preloaded:
@@ -529,7 +536,7 @@ class Endcord:
                     self.last_message_id = self.messages[0]["id"]
                 elif self.messages is None:
                     self.remove_running_task("Switching channel", 1)
-                    logger.warn("Channel switching failed")
+                    logger.warning("Channel switching failed")
                     return
 
         # if not failed
@@ -566,6 +573,20 @@ class Endcord:
             self.disable_sending = False
             self.tui.remove_extra_line()
 
+        # find where to scroll chat to show last seen message
+        if not forum:
+            self.remove_last_acked_message_id(self.active_channel["channel_id"])
+            last_acked_msg = self.get_last_acked_message_id(self.active_channel["channel_id"])
+            if last_acked_msg:
+                for num, message in enumerate(self.messages):
+                    if last_acked_msg and int(message["id"]) <= int(last_acked_msg):
+                        select_message_index = min(max(num - 1, 0), len(self.messages) - 2)
+                        break
+                else:
+                    select_message_index = len(self.messages) - 2
+            else:
+                select_message_index = None
+
         # misc
         self.typing = []
         self.active_channel["admin"] = this_guild.get("admin", False)
@@ -573,9 +594,8 @@ class Endcord:
         self.got_commands = False
         self.selected_attachment = 0
         self.gateway.subscribe(channel_id, guild_id)
+        self.tui.reset_chat_scrolled_top()
         self.gateway.set_subscribed_channels([x[0] for x in self.channel_cache] + [channel_id])
-        if not forum:
-            self.set_seen(channel_id)
         if self.recording:
             self.recording = False
             _ = recorder.stop()
@@ -620,7 +640,7 @@ class Endcord:
 
         # update UI
         if not forum:
-            self.update_chat(keep_selected=False)
+            self.update_chat(keep_selected=False, select_message_index=select_message_index)
         else:
             self.tui.update_chat(self.chat, self.chat_format)
         if not guild_id:   # no member list in dms
@@ -1636,6 +1656,34 @@ class Endcord:
                                 self.download_threads[-1].start()
                             else:
                                 webbrowser.open(url, new=0, autoraise=True)
+
+            # mouse single-click on extra line
+            elif action == 48:
+                if self.extra_line == self.permanent_extra_line and not self.extra_window_open:
+                    if self.in_call:
+                        mouse_x = self.tui.get_extra_line_clicked()
+                        muted = bool(self.state.get("muted")) * 2
+                        if len(self.extra_line)-13 - muted <= mouse_x < len(self.extra_line)-9:   # TOGGLE MUTE
+                            if muted:
+                                self.state["muted"] = False
+                                self.update_voice_mute_in_call()
+                            else:
+                                self.state["muted"] = True
+                                self.update_voice_mute_in_call()
+                        elif len(self.extra_line)-6 <= mouse_x < len(self.extra_line)-1:   # LEAVE
+                            self.leave_call()
+                    elif self.incoming_call:
+                        mouse_x = self.tui.get_extra_line_clicked()
+                        if len(self.extra_line)-16 <= mouse_x < len(self.extra_line)-10:   # ACCEPT
+                            if not self.in_call:
+                                if self.incoming_call:
+                                    threading.Thread(target=self.start_call, daemon=True, args=(True, None, self.incoming_call)).start()
+                            else:
+                                self.update_extra_line("Cant join multiple calls")
+                        elif len(self.extra_line)-7 <= mouse_x < len(self.extra_line)-1:   # REJECT
+                            if self.incoming_call:
+                                # only stop ringing and keep popup
+                                self.stop_ringing()
 
             # escape in main UI
             elif action == 5:
@@ -2714,6 +2762,8 @@ class Endcord:
                 settings["status"]["customStatus"]["emojiName"] = self.my_status["custom_status_emoji"]["name"]
             if not self.gateway.legacy:
                 self.discord.patch_settings_proto(1, settings)
+            else:
+                self.discord.patch_settings_old("custom_status", {"text": self.my_status["custom_status"]})
             self.gateway.update_presence(
                 self.my_status["status"],
                 custom_status=self.my_status["custom_status"],
@@ -2752,19 +2802,50 @@ class Endcord:
             self.update_chat()
 
         elif cmd_type == 48:   # VOICE_START_CALL
-            pass
+            if not self.in_call:
+                if not self.active_channel["guild_id"]:
+                    threading.Thread(target=self.start_call, daemon=True, args=(False, None, self.active_channel["channel_id"])).start()
+                else:
+                    self.update_extra_line("Can only start call in DM")
+            else:
+                self.update_extra_line("Cant join multiple calls")
 
         elif cmd_type == 49:   # VOICE_ACCEPT_CALL
-            pass
+            if not self.in_call:
+                if self.incoming_call:
+                    threading.Thread(target=self.start_call, daemon=True, args=(True, None, self.incoming_call)).start()
+            else:
+                self.update_extra_line("Cant join multiple calls")
 
         elif cmd_type == 50:   # VOICE_LEAVE_CALL
-            pass
+            self.leave_call()
 
         elif cmd_type == 51:   # VOICE_REJECT_CALL
-            if self.ringing:
+            if self.incoming_call:
                 # only stop ringing and keep popup
                 self.stop_ringing()
 
+        elif cmd_type == 52:   # VOICE_TOGGLE_MUTE
+            if self.state.get("muted"):
+                self.state["muted"] = False
+                if self.in_call:
+                    self.update_voice_mute_in_call()
+                else:
+                    self.update_extra_line("Client voice has been UNMUTED.")
+            else:
+                self.state["muted"] = True
+                if self.in_call:
+                    self.update_voice_mute_in_call()
+                else:
+                    self.update_extra_line("Client voice has been MUTED.")
+            peripherals.save_json(self.state, "state.json")
+
+        elif cmd_type == 53:   # VOICE_LIST_CALL
+            if self.in_call:
+                if self.voice_call_list_open:
+                    self.close_extra_window()
+                else:
+                    self.view_voice_call_list(reset=True)
 
         if reset:
             self.reset_actions()
@@ -3004,7 +3085,7 @@ class Endcord:
             self.messages[msg_index]["spoiled"] += 1
         else:
             self.messages[msg_index]["spoiled"] = 1
-        self.update_chat(keep_selected=True)
+        self.update_chat(keep_selected=True, scroll=False)
 
 
     def download_file(self, url, move=True, open_media=False, open_move=False):
@@ -3241,7 +3322,7 @@ class Endcord:
                 time.sleep(0.1)
 
 
-    def get_chat_chunk(self, past=True):
+    def get_chat_chunk(self, past=True, scroll=False):
         """Get chunk of chat in specified direction and add it to existing chat, trim chat to limited size and trigger update_chat"""
         self.add_running_task("Downloading chat", 4)
         start_id = self.messages[-int(past)]["id"]
@@ -3253,25 +3334,33 @@ class Endcord:
                 self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
             self.messages = self.messages + new_chunk
             all_msg = len(self.messages)
-            selected_line = len(self.chat) - 1
+            old_chat_len = len(self.chat)
+            selected_line = old_chat_len - 1
             selected_msg = self.lines_to_msg(selected_line)
             self.messages = self.messages[-self.limit_chat_buffer:]
             if new_chunk:
+                old_selected, _ = self.tui.get_chat_selected()
                 self.update_chat(keep_selected=None)
                 # when messages are trimmed, keep same selected position
                 if len(self.messages) != all_msg:
                     selected_msg_new = selected_msg - (all_msg - len(self.messages))
                     selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                self.tui.set_selected(selected_line)
+                if scroll:
+                    scroll_diff = old_chat_len - 1 - selected_line
+                    self.tui.set_chat_index(self.tui.chat_index + 2 - scroll_diff)
+                else:
+                    self.tui.set_selected(selected_line)
             elif new_chunk == []:   # if its None - its network error
                 self.chat_end = True
+            self.tui.reset_chat_scrolled_top()
 
         else:
             logger.debug(f"Requesting chat chunk after {start_id}")
             new_chunk = self.get_messages_with_members(after=start_id)
             if new_chunk is not None:   # if its None - its network error
                 selected_line = 0
+                old_chat_len = len(self.chat)
                 selected_msg = self.lines_to_msg(selected_line)
                 if new_chunk and self.messages[0]["id"] == self.last_message_id and new_chunk[0]["id"] != self.last_message_id:
                     self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
@@ -3283,7 +3372,11 @@ class Endcord:
                 selected_msg_new = selected_msg + len(new_chunk)
                 selected_line = self.msg_to_lines(selected_msg_new)
                 self.tui.allow_chat_selected_hide(self.messages[0]["id"] == self.last_message_id)
-                self.tui.set_selected(selected_line)
+                if scroll:
+                    scroll_diff = len(self.chat) - old_chat_len
+                    self.tui.set_chat_index(selected_line - 4)
+                else:
+                    self.tui.set_selected(selected_line)
         self.remove_running_task("Downloading chat", 4)
 
 
@@ -3561,6 +3654,20 @@ class Endcord:
                 return True
 
 
+    def view_voice_call_list(self, reset=False):
+        """Show voice call participants and their states in extra window"""
+        self.stop_assist(close=False)
+        max_w = self.tui.get_dimensions()[2][1]
+        extra_title, extra_body = formatter.generate_extra_window_call(
+            self.call_participants,
+            self.state.get("muted"),
+            max_w,
+        )
+        self.tui.draw_extra_window(extra_title, extra_body, start_zero=reset)
+        self.extra_window_open = True
+        self.voice_call_list_open = True
+
+
     def build_reaction(self, text, msg_index=None):
         """Build and send reaction from provided text"""
         first = text.split(" ")[0]
@@ -3646,6 +3753,7 @@ class Endcord:
         """Close extra window and toggle its state"""
         self.tui.remove_extra_window()
         self.extra_window_open = False
+        self.voice_call_list_open = False
         self.viewing_user_data = {"id": None, "guild_id": None}
         if self.permanent_extra_line:
             self.extra_line = self.permanent_extra_line
@@ -4051,7 +4159,6 @@ class Endcord:
                 if messages[0]["id"] >= self.last_message_id:
                     # if it is not scrolled up
                     messages.insert(0, message_c)
-                    pass
                 continue
             for num, message in enumerate(messages):
                 try:
@@ -4072,7 +4179,6 @@ class Endcord:
         if support_media and not self.config["native_media_player"]:
             self.tui.lock_ui(True)
             self.curses_media.play(path)
-            # restore first 255 colors, attributes were not modified
             self.tui.restore_colors()   # 255_curses_bug
             self.tui.lock_ui(False)
         else:
@@ -4084,8 +4190,11 @@ class Endcord:
             peripherals.native_open(path, mpv_path)
 
 
-    def update_chat(self, keep_selected=True, change_amount=0):
+    def update_chat(self, keep_selected=True, change_amount=0, select_message_index=None, scroll=True):
         """Generate chat and update it in TUI"""
+        if not self.messages:
+            return
+
         if keep_selected:
             selected_line, text_index = self.tui.get_chat_selected()
             if selected_line == -1:
@@ -4097,6 +4206,13 @@ class Endcord:
         else:
             self.unseen_scrolled = False
             self.update_status_line()
+
+        # spacebar_fix - message/referenced_message is always null, instead only for deleted message
+        if self.gateway.legacy:
+            for message in self.messages:
+                if message["referenced_message"] and not message["referenced_message"]["id"]:
+                    message["referenced_message"] = None
+
         self.chat, self.chat_format, self.chat_indexes, self.chat_map = formatter.generate_chat(
             self.messages,
             self.current_roles,
@@ -4108,16 +4224,23 @@ class Endcord:
             self.colors,
             self.colors_formatted,
             self.blocked,
+            self.get_last_acked_message_id(self.active_channel["channel_id"]),
             self.show_blocked_messages,
             self.config,
         )
+
         if keep_selected:
             selected_msg = selected_msg + change_amount
             selected_line_new = self.msg_to_lines(selected_msg) - remainder
             change_amount_lines = selected_line_new - selected_line
-            self.tui.set_selected(selected_line_new, change_amount=change_amount_lines)
+            self.tui.set_selected(selected_line_new, change_amount=change_amount_lines, scroll=scroll)
+        elif select_message_index is not None:
+            selected_line = self.msg_to_lines(select_message_index)
+            self.tui.set_selected(selected_line, scroll=scroll)
+            self.unseen_scrolled = True
         elif keep_selected is not None:
-            self.tui.set_selected(-1)   # return to bottom
+            self.tui.set_selected(-1, scroll=scroll)   # return to bottom
+
         self.tui.update_chat(self.chat, self.chat_format)
 
 
@@ -4204,7 +4327,7 @@ class Endcord:
         self.tab_string, self.tab_string_format = formatter.generate_tab_string(
             tabs_names,
             active_tab_index,
-            [x["channel_id"] for x in self.unseen],
+            [x["channel_id"] for x in self.unseen if not x.get("seen")],
             self.config["format_tabs"],
             self.config["tabs_separator"],
             self.config["limit_global_name"],
@@ -4373,6 +4496,7 @@ class Endcord:
 
     def update_extra_line(self, custom_text=None, update_only=False, timed=True, permanent=False, force=False):
         """Generate extra line and update it in TUI"""
+        update_only |= self.extra_window_open
         if permanent:
             if update_only:
                 self.permanent_extra_line = custom_text
@@ -4386,7 +4510,9 @@ class Endcord:
                 self.extra_line = None
                 self.tui.remove_extra_line()
             return
-        if custom_text:
+        if update_only:
+            self.extra_line = custom_text
+        elif custom_text:
             if custom_text == self.extra_line:
                 if self.permanent_extra_line:
                     self.extra_line = self.permanent_extra_line
@@ -4399,8 +4525,6 @@ class Endcord:
                 self.tui.draw_extra_line(self.extra_line)
             if timed:
                 self.timed_extra_line.set()
-        elif update_only and self.extra_line:
-            self.tui.draw_extra_line(self.extra_line)
         else:
             for attachments in self.ready_attachments:
                 if attachments["channel_id"] == self.active_channel["channel_id"]:
@@ -4430,8 +4554,8 @@ class Endcord:
             self.dms,
             self.guilds,
             self.threads,
-            [x["channel_id"] for x in self.unseen],
-            [x["channel_id"] for x in self.unseen if x["mentions"]],
+            [x["channel_id"] for x in self.unseen if not x.get("seen")],
+            [x["channel_id"] for x in self.unseen if x["mentions"] and not x.get("seen")],
             self.guild_positions,
             self.activities,
             collapsed,
@@ -4459,7 +4583,7 @@ class Endcord:
             if not self.tui.is_window_open and not self.unseen_scrolled:
                 # tree update for current channel is triggered from process_msg_events_other_channels
                 self.tui.set_chat_index(1)
-                self.update_chat()
+                self.update_chat(scroll=False)
             tray_state = 0   # standard
             if self.unseen_scrolled:
                 tray_state = 1
@@ -4499,71 +4623,114 @@ class Endcord:
         return sum(self.chat_indexes[:msg + 1]) - 1
 
 
-    def set_seen(self, target_id, force=False, ack=True):
+    def set_seen(self, target_id, force=False, ack=True, channel_only=False):
         """
         Set channel/category/guild as seen if it is not already seen.
         Force will set even if its not marked as unseen, used for active channel.
         """
         for unseen_channel in self.unseen:
             if unseen_channel["channel_id"] == target_id:   # find this unseen chanel
+                if unseen_channel.get("seen"):
+                    break
                 if ack:
                     self.discord.send_ack(target_id, self.messages[0]["id"])
                 if not force:   # dont remove notification when marking seen current channel
                     self.set_local_seen(target_id)
                 self.update_tree()
                 break
-        else:   # if its not in unseen then check guilds and categories
-            channels = []
-            # check guilds
-            for guild in self.guilds:
-                if guild["guild_id"] == target_id:
-                    for channel in self.unseen:
-                        channel_id = channel["channel_id"]
-                        for channel_g in guild["channels"]:
-                            if channel_id == channel_g["id"]:
-                                channels.append({
-                                    "channel_id": channel["channel_id"],
-                                    "message_id": channel["last_message_id"],
-                                })
-                                break
-                    break
-            # check categories
-            _, _, guild_id, _, parent_id = self.find_parents_from_id(target_id)
-            guild = None
-            if guild_id and not parent_id:   # category has no parent_id
+        else:
+            if not channel_only:   # if its not in unseen then check guilds and categories
+                channels = []
+                # check guilds
                 for guild in self.guilds:
-                    if guild["guild_id"] == guild_id:
-                        break
-            if guild:
-                for channel_g in guild["channels"]:
-                    if channel_g["parent_id"] == target_id:   # category
-                        channel_id = channel_g["id"]
+                    if guild["guild_id"] == target_id:
                         for channel in self.unseen:
-                            if channel["channel_id"] == channel_id:
-                                channels.append({
-                                    "channel_id": channel["channel_id"],
-                                    "message_id": channel["last_message_id"],
-                                })
-                                break
-            if channels:
-                self.discord.send_ack_bulk(channels)
-                for channel in channels:
-                    if not force:
-                        self.set_local_seen(channel["channel_id"])
-                self.update_tree()
+                            channel_id = channel["channel_id"]
+                            for channel_g in guild["channels"]:
+                                if channel_id == channel_g["id"]:
+                                    if channel.get("seen"):
+                                        break
+                                    channels.append({
+                                        "channel_id": channel["channel_id"],
+                                        "message_id": channel["last_message_id"],
+                                    })
+                                    break
+                        break
+                # check categories
+                _, _, guild_id, _, parent_id = self.find_parents_from_id(target_id)
+                guild = None
+                if guild_id and not parent_id:   # category has no parent_id
+                    for guild in self.guilds:
+                        if guild["guild_id"] == guild_id:
+                            break
+                if guild:
+                    for channel_g in guild["channels"]:
+                        if channel_g["parent_id"] == target_id:   # category
+                            channel_id = channel_g["id"]
+                            for channel in self.unseen:
+                                if channel["channel_id"] == channel_id:
+                                    if unseen_channel.get("seen"):
+                                        break
+                                    channels.append({
+                                        "channel_id": channel["channel_id"],
+                                        "message_id": channel["last_message_id"],
+                                    })
+                                    break
+                if channels:
+                    self.discord.send_ack_bulk(channels)
+                    for channel in channels:
+                        if not force:
+                            self.set_local_seen(channel["channel_id"])
+                    self.update_tree()
 
 
     def set_local_seen(self, channel_id):
         """Set channel seen locally"""
-        for num, unseen_channel in enumerate(self.unseen):   # remove unseen
+        for num, unseen_channel in enumerate(self.unseen):
             if channel_id == unseen_channel["channel_id"]:
-                self.unseen.pop(num)
+                self.unseen[num]["seen"] = True
         if self.enable_notifications:   # remove notification
             for num, notification in enumerate(self.notifications):
                 if notification["channel_id"] == channel_id:
                     notification_id = self.notifications.pop(num)["notification_id"]
                     peripherals.notify_remove(notification_id)
                     break
+
+
+    def set_local_unseen(self, channel_id, message_id, ping, skip_unread):
+        """Set channel unseen locally"""
+        for num, channel in enumerate(self.unseen):
+            if channel["channel_id"] == channel_id:
+                if channel.get("seen"):
+                    channel["seen"] = False
+                if not self.unseen[num]["last_acked_message_id"]:
+                    self.unseen[num]["last_acked_message_id"] = self.unseen[num]["last_message_id"]
+                if ping:
+                    self.unseen[num]["mentions"].append(message_id)
+                break
+        else:
+            self.unseen.append({
+                "channel_id": channel_id,
+                "last_acked_message_id": None,
+                "last_message_id": message_id,
+                "mentions": [message_id] if ping else [],
+            })
+        if not skip_unread:
+            self.update_tree()
+
+
+    def get_last_acked_message_id(self, channel_id):
+        """Get last acked message id for specified channel"""
+        for channel in self.unseen:
+            if channel["channel_id"] == channel_id:
+                return channel["last_acked_message_id"]
+
+
+    def remove_last_acked_message_id(self, channel_id):
+        """Remove last acked message id for specified channel"""
+        for num, channel in enumerate(self.unseen):
+            if channel["channel_id"] == channel_id and channel.get("seen") and channel["last_acked_message_id"]:
+                self.unseen[num]["last_acked_message_id"] = None
 
 
     def compute_permissions(self):
@@ -4740,7 +4907,7 @@ class Endcord:
             # limit chat size
             if len(self.messages) > self.limit_chat_buffer:
                 self.messages.pop(-1)
-            self.update_chat(change_amount=1)
+            self.update_chat(change_amount=1, scroll=False)
             if not self.unseen_scrolled:
                 if time.time() - self.sent_ack_time > self.ack_throttling:
                     self.set_seen(self.active_channel["channel_id"], force=True)
@@ -4758,7 +4925,7 @@ class Endcord:
             if new_member_roles:
                 self.member_roles = new_member_roles
                 self.select_current_member_roles()
-                self.update_chat()
+                self.update_chat(scroll=False)
         else:
             for num, loaded_message in enumerate(self.messages):
                 if data["id"] == loaded_message["id"]:
@@ -4766,7 +4933,7 @@ class Endcord:
                         for element in MESSAGE_UPDATE_ELEMENTS:
                             loaded_message[element] = data[element]
                             loaded_message["spoiled"] = 0
-                        self.update_chat()
+                        self.update_chat(scroll=False)
                     elif op == "MESSAGE_DELETE":
                         if self.keep_deleted:
                             self.messages[num]["deleted"] = True
@@ -4775,9 +4942,9 @@ class Endcord:
                             if num == 0:
                                 self.last_message_id = self.messages[0]["id"]
                         if num < selected_line and not self.keep_deleted:
-                            self.update_chat(change_amount=-1)
+                            self.update_chat(change_amount=-1, scroll=False)
                         else:
-                            self.update_chat()
+                            self.update_chat(scroll=False)
                     elif op == "MESSAGE_REACTION_ADD":
                         for num2, reaction in enumerate(loaded_message["reactions"]):
                             if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
@@ -4792,7 +4959,7 @@ class Endcord:
                                 "count": 1,
                                 "me": data["user_id"] == self.my_id,
                             })
-                        self.update_chat()
+                        self.update_chat(scroll=False)
                     elif op == "MESSAGE_REACTION_REMOVE":
                         for num2, reaction in enumerate(loaded_message["reactions"]):
                             if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
@@ -4803,7 +4970,7 @@ class Endcord:
                                     if data["user_id"] == self.my_id:
                                         loaded_message["reactions"][num2]["me"] = False
                                 break
-                        self.update_chat()
+                        self.update_chat(scroll=False)
                     elif op in ("MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE") and "poll" in loaded_message:
                         if "poll" in loaded_message:
                             add = op == "MESSAGE_POLL_VOTE_ADD"
@@ -4813,7 +4980,7 @@ class Endcord:
                                     if data["user_id"] == self.my_id:
                                         loaded_message["poll"]["options"][num2]["me_voted"] = add
                                     break
-                        self.update_chat()
+                        self.update_chat(scroll=False)
 
 
     def process_msg_events_cached_channel(self, new_message, ch_num):
@@ -4908,19 +5075,8 @@ class Endcord:
                     self.send_desktop_notification(new_message)
 
                 # set unseen
-                if not self.unseen_scrolled and not this_channel:
-                    for num, channel in enumerate(self.unseen):
-                        if channel["channel_id"] == new_message_channel_id:
-                            if ping:
-                                self.unseen[num]["mentions"].append(data["id"])
-                            break
-                    else:
-                        self.unseen.append({
-                            "channel_id": new_message_channel_id,
-                            "mentions": [data["id"]] if ping else [],
-                        })
-                    if not skip_unread:
-                        self.update_tree()
+                if not this_channel or (this_channel and self.unseen_scrolled):
+                    self.set_local_unseen(new_message_channel_id, data["id"], ping, skip_unread)
 
 
     def process_msg_events_ghost_ping(self, new_message):
@@ -4941,6 +5097,287 @@ class Endcord:
                                 peripherals.notify_remove(notification_id)
                                 break
                     break
+
+
+    def process_call_gateway_events(self, event):
+        """Process call related event from gateway"""
+        for dm in self.dms:
+            if dm["id"] == event["channel_id"]:
+                break
+        else:
+            return
+        if dm["is_spam"] or dm["muted"]:
+            return
+
+        if event["op"] == "CALL_CREATE" and not (self.in_call or self.joining_call):
+            if not self.incoming_call:
+                self.incoming_call = dm["id"]
+                if self.recording:   # stop recording voice message
+                    self.recording = False
+                    _ = recorder.stop()
+                self.permanent_extra_line = formatter.generate_extra_line_ring(
+                    dm["name"],
+                    self.tui.get_dimensions()[2][1],
+                )
+                self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
+                if event["ringing"]:
+                    custom_ringtone = self.config["custom_ringtone_incoming"]
+                    linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_incoming"])
+                    if custom_ringtone and os.path.exists(custom_ringtone):
+                        self.start_ringing(custom_ringtone)
+                    elif linux_ringtone and os.path.exists(linux_ringtone):
+                        self.start_ringing(linux_ringtone)
+                    else:
+                        logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
+
+        elif event["op"] == "CALL_UPDATE" and not (self.in_call or self.joining_call):
+            if event["ringing"]:
+                custom_ringtone = self.config["custom_ringtone_incoming"]
+                linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_incoming"])
+                if custom_ringtone and os.path.exists(custom_ringtone):
+                    self.start_ringing(custom_ringtone)
+                elif linux_ringtone and os.path.exists(linux_ringtone):
+                    self.start_ringing(linux_ringtone)
+                else:
+                    logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
+
+        elif event["op"] == "CALL_DELETE" and self.incoming_call and not (self.in_call or self.joining_call):
+            self.incoming_call = None
+            self.update_extra_line(custom_text=None, permanent=True)
+            self.stop_ringing()
+
+        elif event["op"] == "STATE_UPDATE":
+            for num, participant in enumerate(self.call_participants):
+                if participant["user_id"] == event["user_id"]:
+                    if participant["name"]:
+                        self.call_participants[num]["muted"] = event["muted"]
+                    else:
+                        # if user is added by USER_JOIN, show popup
+                        self.update_extra_line(f"{participant["name"]} joined the call")
+                        if event["name"]:
+                            self.call_participants[num]["name"] = event["name"]
+                        self.call_participants[num]["muted"] = event["muted"]
+                    if self.voice_call_list_open:
+                        self.view_voice_call_list()
+                    break
+            else:
+                # USER_JOIN will show popup
+                self.call_participants.append({
+                    "user_id": event["user_id"],
+                    "name": event["name"],
+                    "muted": event["muted"],
+                    "speaking": False,
+                })
+
+
+    def process_call_voice_gateway_events(self, event):
+        """Process events from voice gateway"""
+        if event["op"] == "USER_SPEAK":
+            for num, participant in enumerate(self.call_participants):
+                if participant["user_id"] == event["user_id"] and participant["name"]:
+                    self.call_participants[num]["speaking"] = event["speaking"]
+
+        elif event["op"] == "USER_JOIN":
+            self.stop_ringing()
+            if self.in_call and not self.in_call["guild_id"]:
+                for dm in self.dms:
+                    if dm["id"] == self.in_call["channel_id"]:
+                        for recipient in dm["recipients"]:
+                            if recipient["id"] == event["user_id"]:
+                                name = recipient["global_name"] if recipient["global_name"] else recipient["username"]
+                                self.update_extra_line(f"{name} joined the call")
+                                # add call participant
+                                for num, participant in enumerate(self.call_participants):
+                                    if participant["user_id"] == event["user_id"]:
+                                        if not participant["name"]:
+                                            self.call_participants[num]["name"] = name
+                                        break
+                                else:
+                                    self.call_participants.append({
+                                        "user_id": recipient["id"],
+                                        "name": name,
+                                        "muted": False,
+                                        "speaking": False,
+                                    })
+                                if self.voice_call_list_open:
+                                    self.view_voice_call_list()
+                                break
+                        break
+            elif self.in_call:
+                for participant in self.call_participants:
+                    if participant["user_id"] == event["user_id"] and participant["name"]:
+                        # if user is already added by STATE_UPDATE, just show popup
+                        self.update_extra_line(f"{participant["name"]} joined the call")
+                        break
+                else:
+                    # this adds only user_id, STATE_UPDATE has to fill user data
+                    self.call_participants.append({
+                        "user_id": recipient["id"],
+                        "name": None,
+                        "muted": False,
+                        "speaking": False,
+                    })
+                if self.voice_call_list_open:
+                    self.view_voice_call_list()
+
+        elif event["op"] == "USER_LEAVE":
+            if self.in_call:
+                for num, participant in enumerate(self.call_participants):
+                    if participant["user_id"] == event["user_id"]:
+                        self.update_extra_line(f"{participant["name"]} left the call")
+                        self.call_participants.pop(num)
+                        if self.voice_call_list_open:
+                            self.view_voice_call_list()
+                        break
+
+
+    def start_ringing(self, path, loop_delay=1, loop_max=60):
+        """Start ringing with specified audio file"""
+        if support_media:
+            self.ringer = media.CursesMedia(None, self.config, 0, ui=False)
+            self.ringer.play_audio_noui(path, loop=True, loop_delay=loop_delay, loop_max=loop_max)
+        else:
+            self.ringer = peripherals.Player()
+            self.ringer.start(path, loop=True, loop_delay=loop_delay, loop_max=loop_max)
+
+
+    def stop_ringing(self):
+        """Stop ringing"""
+        if self.ringer:
+            self.ringer.stop_playback()
+            del self.ringer
+            self.ringer = None
+
+
+    def start_call(self, incoming=False, guild_id=None, channel_id=None):
+        """Start voice call"""
+        if not support_media:
+            self.update_extra_line("Failed to start call: No media support.")
+            return
+
+        self.joining_call = True
+        self.call_participants = []
+        self.update_extra_line(custom_text="Connecting to voice server.", permanent=True)
+        self.gateway.request_voice_gateway(
+            guild_id,
+            channel_id,
+            self.state.get("muted", False),
+            video=False,
+            preferred_regions=self.discord.get_best_voice_region(),
+        )
+        for _ in range(100):   # wait for 10s
+            voice_gateway_data = self.gateway.get_voice_gateway()
+            if voice_gateway_data:
+                break
+            time.sleep(0.1)
+        else:
+            self.update_extra_line(permanent=True)
+            self.update_extra_line("Failed to start call: gateway timeout.")
+            logger.warning("Failed to start call: gateway timeout.")
+            self.joining_call = False
+            return
+
+        from endcord import voice
+        self.voice_gateway = voice.Gateway(
+            voice_gateway_data,
+            self.my_id,
+            self.state.get("muted"),
+            self.user_agent,
+            proxy=self.config["proxy"],
+        )
+        self.in_call = {"guild_id": guild_id, "channel_id": channel_id}
+        for _ in range(100):   # wait for 10s
+            if self.voice_gateway.get_state() == 2:
+                break
+            time.sleep(0.1)
+        else:
+            self.update_extra_line(permanent=True)
+            self.update_extra_line("Failed to start call: voice gateway timeout.")
+            logger.warning("Failed to start call: voice gateway timeout.")
+            del self.voice_gateway
+            self.voice_gateway = None
+            self.joining_call = False
+            self.in_call = None
+            return
+
+        if not guild_id:
+            recipients = []
+            for dm in self.dms:
+                if dm["id"] == channel_id:
+                    for recipient in dm["recipients"]:
+                        if recipient["id"] != self.my_id:
+                            recipients.append(recipient["id"])
+                    break
+            if recipients:
+                self.discord.send_ring(channel_id, recipients)
+
+        self.permanent_extra_line = formatter.generate_extra_line_call(
+            self.call_participants,
+            self.state.get("muted"),
+            self.tui.get_dimensions()[2][1],
+        )
+        self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
+
+        if incoming:
+            self.stop_ringing()
+        elif not self.incoming_call:
+            custom_ringtone = self.config["custom_ringtone_outgoing"]
+            linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_outgoing"])
+            if custom_ringtone and os.path.exists(custom_ringtone):
+                self.start_ringing(custom_ringtone, loop_delay=1.5, loop_max=30)
+            elif linux_ringtone and os.path.exists(linux_ringtone):
+                self.start_ringing(linux_ringtone, loop_delay=1.5, loop_max=30)
+            else:
+                logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
+        self.joining_call = False
+
+
+    def leave_call(self):
+        """Leave voice call"""
+        if self.voice_gateway:
+            self.voice_gateway.stop_voice_handler()
+
+        if self.voice_call_list_open:
+            self.close_extra_window()
+
+        self.gateway.request_voice_disconnect()
+
+        # keep popup (will be removed on CALL_DELETE event)
+        for dm in self.dms:
+            if dm["id"] == self.incoming_call:
+                new_permanent_extra_line = formatter.generate_extra_line_ring(
+                    dm["name"],
+                    self.tui.get_dimensions()[2][1],
+                )
+                self.update_extra_line(custom_text=new_permanent_extra_line, update_only=True)
+                break
+
+        # wait for host response then terminate voice gateway
+        time.sleep(0.5)
+        if self.voice_gateway:
+            self.voice_gateway.disconnect()
+        self.stop_ringing()
+        self.in_call = None
+        self.voice_gateway = None
+
+
+    def update_voice_mute_in_call(self):
+        """Update this client mute state while in voice call"""
+        if self.in_call and self.voice_gateway:
+            self.voice_gateway.set_mute(self.state.get("muted", False))
+            self.gateway.update_mute_in_call(
+                self.in_call["guild_id"],
+                self.in_call["channel_id"],
+                self.state.get("muted", False),
+                video=False,
+                preferred_regions=self.discord.get_best_voice_region(),
+            )
+            self.permanent_extra_line = formatter.generate_extra_line_call(
+                self.call_participants,
+                self.state.get("muted"),
+                self.tui.get_dimensions()[2][1],
+            )
+            self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
 
 
     def update_summary(self, new_summary):
@@ -5051,24 +5488,6 @@ class Endcord:
                 })
 
 
-    def start_ringing(self, path):
-        """Start ringing with specified audio file"""
-        if support_media:
-            self.ringer = media.CursesMedia(None, self.config, 0, ui=False)
-            self.ringer.play_audio_noui(path, loop=True, loop_delay=0.7, loop_max=60)
-        else:
-            self.ringer = peripherals.Player()
-            self.ringer.start(path, loop=True, loop_delay=0.7, loop_max=60)
-
-
-    def stop_ringing(self):
-        """Stop ringing"""
-        if self.ringer:
-            self.ringer.stop_playback()
-            del self.ringer
-            self.ringer = None
-
-
     def main(self):
         """Main app method"""
         logger.info("Init sequence started")
@@ -5143,9 +5562,9 @@ class Endcord:
 
         # some checks
         if not peripherals.have_sound:
-            logger.warn("No sound! Audio system is probably not running")
+            logger.warning("No sound! Audio system is probably not running")
         if "~/.cache/" in peripherals.temp_path:
-            logger.warn(f"Temp files will be stored in {peripherals.temp_path}")
+            logger.warning(f"Temp files will be stored in {peripherals.temp_path}")
         if self.config["proxy"]:
             logger.info(f"Using proxy: {self.config["proxy"]}")
 
@@ -5179,6 +5598,7 @@ class Endcord:
                 "last_guild_id": None,
                 "last_channel_id": None,
                 "collapsed": [],
+                "muted": False,
             }
             self.state = peripherals.load_json("state.json", self.state)
         if self.state["last_guild_id"] in self.state["collapsed"]:
@@ -5334,6 +5754,34 @@ class Endcord:
                 else:
                     break
 
+            # get new call events
+            while self.run:
+                new_call_event = self.gateway.get_call_events()
+                if new_call_event:
+                    self.process_call_gateway_events(new_call_event)
+                else:
+                    break
+
+            # voice gateway stuff
+            if self.voice_gateway:
+                # check if voice call disconnected with errror
+                if not self.voice_gateway.run:
+                    # if it errored there will still be self.voice_gateway but it wont be running
+                    self.leave_call()
+                if self.voice_gateway:
+                    # get new call events
+                    while self.run:
+                        new_call_event = self.voice_gateway.get_call_events()
+                        if new_call_event:
+                            self.process_call_voice_gateway_events(new_call_event)
+                        else:
+                            break
+
+                    # check voice gateway state
+                    if self.in_call:
+                        if not self.voice_gateway.get_state():
+                            self.leave_call()
+
             # send new rpc
             if self.enable_rpc:
                 new_rpc = self.rpc.get_rpc()
@@ -5366,7 +5814,7 @@ class Endcord:
                 if text_index == 0:
                     self.unseen_scrolled = False
                     self.update_status_line()
-                    self.set_seen(self.active_channel["channel_id"])
+                    self.set_seen(self.active_channel["channel_id"], channel_only=True)
 
             # send pending ack
             if not self.unseen_scrolled and self.pending_ack and time.time() - self.sent_ack_time > self.ack_throttling:
@@ -5401,25 +5849,31 @@ class Endcord:
                 self.chat_dim = new_chat_dim
                 if self.forum:
                     self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
-                    self.tui.update_chat(self.chat, self.chat_format)
+                    self.tui.update_chat(self.chat, self.chat_format, scroll=False)
                 else:
-                    self.update_chat()
-                if self.ringing:
+                    self.update_chat(scroll=False)
+                if self.incoming_call:
+                    new_permanent_extra_line = None
                     for dm in self.dms:
-                        if dm["id"] == self.ringing:
+                        if dm["id"] == self.incoming_call:
                             new_permanent_extra_line = formatter.generate_extra_line_ring(
                                 dm["name"],
                                 self.tui.get_dimensions()[2][1],
                             )
                             break
-                    if self.extra_line == self.permanent_extra_line and not self.extra_window_open:
-                        self.update_extra_line(custom_text=new_permanent_extra_line, update_only=True)
-                    else:
-                        self.update_extra_line(custom_text=new_permanent_extra_line, update_only=True, permanent=True)
+                    if self.in_call:
+                        new_permanent_extra_line = formatter.generate_extra_line_call(
+                            self.call_participants,
+                            self.state.get("muted"),
+                            self.tui.get_dimensions()[2][1],
+                        )
+                    if new_permanent_extra_line and new_permanent_extra_line != self.permanent_extra_line:
+                        self.update_extra_line(custom_text=new_permanent_extra_line, permanent=True)
                 if self.tui.get_dimensions()[1] != self.tree_dim:
                     self.update_tree()
                     self.tree_dim = self.tui.get_dimensions()[1]
-                self.update_extra_line(update_only=True, force=True)
+                if not self.incoming_call:
+                    self.update_extra_line(force=True)
 
             # check and update my status
             new_status = self.gateway.get_my_status()
@@ -5478,10 +5932,10 @@ class Endcord:
 
             # check if new chat chunks needs to be downloaded in any direction
             if not self.forum and self.messages:
-                if selected_line == 0 and self.messages[0]["id"] != self.last_message_id:
-                    self.get_chat_chunk(past=False)
-                elif selected_line >= len(self.chat) - 1 and not self.chat_end:
-                    self.get_chat_chunk(past=True)
+                if (selected_line == 0 or text_index == 0) and self.messages[0]["id"] != self.last_message_id:
+                    self.get_chat_chunk(past=False, scroll=(text_index == 0))
+                elif (selected_line >= len(self.chat) - 1 or self.tui.get_chat_scrolled_top()) and not self.chat_end:
+                    self.get_chat_chunk(past=True, scroll=self.tui.get_chat_scrolled_top())
             elif self.forum and not self.forum_end:
                 len_forum = len(self.messages) + len(self.forum_old)
                 if len_forum <= 1 or selected_line >= len_forum - 2:

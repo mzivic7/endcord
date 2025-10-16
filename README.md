@@ -327,7 +327,7 @@ Default themes are assumed to be drawn on dark terminal background (preferably b
 Very large number of image and video formats are supported thanks to pillow and PyAV.  
 All the visual media is converted to ASCII art that can be additionally configured in [theme](configuration.md).  
 But there is also setting in config to open media in external app (cross-system, will use default system app for that file format).  
-"endcord-lite" (without ASCII media support), can be built by specifying `--lite` flag to build script. Lite version is significantly smaller, but still can open media in external app.  
+"endcord-lite" (without voice calls and ASCII media support), can be built by specifying `--lite` flag to build script. Lite version is significantly smaller, cant make voice calls, but still can open media in external app.  
 
 ### OS specific keybindings
 Some keybindings are used by terminals or OS itself, so they are by default rebound to something else.  
@@ -346,7 +346,7 @@ Open link in browser - `Alt+O`
     Binaries are built on Ubuntu-like distro. Locally built binaries can be smaller, thus starts faster.
 - From AUR:
     - `yay -S endcord` - full version with media support, larger executable
-    - `yay -S endcord-lite` - lite version without media support
+    - `yay -S endcord-lite` - lite version without voice calls and media support
     - `-git` versions will build from source, with latest changes
 - [Build](#building) endcord, then copy built executable to system:  
     `sudo cp dist/endcord /usr/local/bin/`
@@ -385,7 +385,7 @@ Never tested on macOS. Feedback is welcome.
 
 ## Building
 To see all build script options, run: `uv run build.py -h`.  
-To build endcord-lite, add `--lite` flag. No ascii media, slightly less RAM usage, smaller executable, faster startup.  
+To build endcord-lite, add `--lite` flag. No voice calls and ascii media, slightly less RAM usage, smaller executable, faster startup.  
 To build into directory, not as a single executable, add `--onedir` flag. Will speed up startup.  
 To build with Nuitka, add `--nuitka` flag. More optimized, smaller executable, long compile time. See [Nuitka](#nuitka) for more info.  
 If compiler is not available, or built binary is failing, try building with `--nocython`, which will produce slightly less optimized binaries.  
@@ -438,8 +438,8 @@ Nuitka requirements:
 - Do not repeatedly view user profiles.
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence, but it shouldn't be critical.
-- Disable `send_typing in config` - it calls REST API every 7s when typing, but it shouldn't be critical.
-- Increase `limit_channel_cache` in settings - so REST API is not called on every channel switch. This will also slightly increase RAM and CPU usage.
+- Disable `send_typing` in config - it calls REST API every 7s when typing, but it shouldn't be critical.
+- Increase `limit_channel_cache` in config - so REST API is not called on every channel switch. This will also slightly increase RAM and CPU usage.
 - `anonymous` mode in `client_properties` setting might be more risky than `default` mode.
 - Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
 
@@ -494,7 +494,7 @@ Then run endcord from source: `uv run main.py`.
 After first run in experimental mode, extra config will be generated in endcord config path in file called `pgcurses.json`. More info in [configuration](configuration.md).
 
 ### Spacebar and other custom hosts
-Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `spacebar.chat`. Set to `None` to use default host (`discord.com`).  
+Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `old.server.spacebar.chat`. Set to `None` to use default host (`discord.com`).  
 Then endcord will try to connect to that host instead discord. Token is different on different hosts!  
 Only connecting to spacebar instances is known to work, but endcord may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
 

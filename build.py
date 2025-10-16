@@ -14,7 +14,7 @@ def check_media_support():
     return (
         importlib.util.find_spec("PIL") is not None and
         importlib.util.find_spec("av") is not None and
-        importlib.util.find_spec("numpy") is not None
+        importlib.util.find_spec("nacl") is not None
     )
 
 
@@ -314,6 +314,7 @@ def build_with_nuitka(onedir, clang, mingw, experimental=False):
         compiler = "--mingw64"
     python_flags = ["--python-flag=-OO"]
     hidden_imports = ["--include-module=uuid"]
+    exclude_imports = ["--nofollow-import-to=cython"]
     package_data = [
         "--include-package-data=emoji:unicode_codes/emoji.json",
         "--include-package-data=soundcard",
@@ -347,11 +348,11 @@ def build_with_nuitka(onedir, clang, mingw, experimental=False):
         compiler,
         *python_flags,
         *hidden_imports,
+        *exclude_imports,
         *package_data,
         *options,
         "--remove-output",
         "--output-dir=dist",
-        "--debug", "--no-debug-c-warnings",
         f"--output-filename={pkgname}",
         "main.py",
     ]
@@ -390,7 +391,7 @@ def parser():
     parser.add_argument(
         "--lite",
         action="store_true",
-        help="change environment to build or run endcord-lite, by deleting media support depenencies",
+        help="change environment to build or run endcord-lite, by deleting voice call and media support depenencies",
     )
     parser.add_argument(
         "--onedir",

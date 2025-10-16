@@ -646,7 +646,7 @@ class Window:
                             bracketed = "\x1b[200~" + pasted + "\x1b[201~"
                             self.input_buffer.extend(bracketed.encode("utf-8"))
                         return -1
-                    logger.warn("Pyperclip must be installed in order to have clipboard support")
+                    logger.warning("Pyperclip must be installed in order to have clipboard support")
                 code = self.do_key_press(event)
                 if code is not None:
                     return code
@@ -713,7 +713,7 @@ def wrapper(func, *args, **kwargs):
     elif tray_error:
         logger.error(f"Failed to start tray: {tray_error}")
     else:
-        logger.warn("Pystray must be installed to have tray icon, on Linux additionaly pygobject")
+        logger.warning("Pystray must be installed to have tray icon, on Linux additionaly pygobject")
 
     def user_thread():
         func(window, *args, **kwargs)

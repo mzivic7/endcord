@@ -89,7 +89,7 @@ def main(args):
         if not (
             importlib.util.find_spec("PIL") is not None and
             importlib.util.find_spec("av") is not None and
-            importlib.util.find_spec("numpy") is not None
+            importlib.util.find_spec("nacl") is not None
         ):
             sys.exit("Ascii media player is not supported")
         from endcord import media
@@ -105,6 +105,8 @@ def main(args):
 
     if args.proxy:
         config["proxy"] = args.proxy
+    if args.host:
+        config["custom_host"] = args.host
 
     from endcord import profile_manager
     logger.info(f"Started endcord {VERSION}")

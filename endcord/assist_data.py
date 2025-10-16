@@ -54,6 +54,12 @@ COMMAND_ASSISTS = (
     ("block *ignore <@[user_id]> - block/ignore user", "block"),
     ("unblock *ignore <@[user_id]> - unblock/unignore user", "unblock"),
     ("toggle_blocked_messages - toggle showing messages from blocked users in chat", "toggle_blocked_messages"),
+    ("voice_start_call - Start voice call in currently open DM", "voice_start_call"),
+    ("voice_accept_call - Accept incoming voice call", "voice_accept_call"),
+    ("voice_leave_call - Leave current voice call", "voice_leave_call"),
+    ("voice_reject_call - Silence incoming call or cancel outgoing call", "voice_reject_call"),
+    ("voice_list_call - Show all call participants and their states in an updated list", "voice_list_call"),
+    ("toggle_mute - Toggle mute state before joining a call", "toggle_mute"),
     ("redraw - redraw UI if it ever gets messed up", "redraw"),
     ("set [key] = [value] - change settings and save them.", "set"),
 )

@@ -60,6 +60,11 @@ def normalize_string(input_string, max_length):
         input_string = input_string + " "
     return input_string
 
+def trim_string(input_string, max_length):
+    """If string is too long, trim it and append '...' so returned string is not longer than max_length"""
+    if len(input_string) > max_length:
+        return input_string[:max_length - 3] + "..."
+    return input_string
 
 def normalize_int_str(input_int, digits_limit):
     """Convert integer to string and limit its value to preferred number of digits"""
@@ -547,7 +552,7 @@ def format_poll(poll):
     return content.strip("\n")
 
 
-def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, show_blocked, config):
+def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member_roles, colors, colors_formatted, blocked, last_seen_msg, show_blocked, config):
     """
     Generate chat according to provided formatting.
     Message shape:
@@ -606,6 +611,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     format_date = config["format_date"]
     emoji_as_text = config["emoji_as_text"]
     quote_character = config["quote_character"]
+    trim_embed_url_size = max(config["trim_embed_url_size"], 20)
     use_global_name = "%global_name" in format_message
 
     chat = []
@@ -614,6 +620,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     chat_map = []   # ((num, username:(st, end), is_reply, reactions:((st, end), ...), date:(st, end), url:(st, end, index)), ...)
     len_edited = len(edited_string)
     enable_separator = format_date and date_separator
+    have_unseen_messages_line = False
     # load colors
     color_default = [colors[0]]
     color_blocked = [colors[2]]
@@ -739,6 +746,20 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         except IndexError:
             pass
 
+        # unread message separator
+        try:
+            if date_separator and not have_unseen_messages_line and last_seen_msg and int(messages[num+1]["id"]) <= int(last_seen_msg):
+                # keep text always in center
+                filler = max_length - 3
+                filler_l = filler // 2
+                filler_r = filler - filler_l
+                temp_chat.append(f"{date_separator * filler_l}New{date_separator * filler_r}")
+                temp_format.append([color_deleted])
+                temp_chat_map.append(None)
+                have_unseen_messages_line = True
+        except IndexError:
+            pass
+
         # replied message line
         if message["referenced_message"]:
             ref_message = message["referenced_message"].copy()
@@ -770,10 +791,20 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                         content = emoji.demojize(content)
                 if reply_embeds:
                     for embed in reply_embeds:
-                        if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
+                        embed_url = embed["url"]
+                        if embed_url and not embed.get("hidden") and embed_url not in content:
                             if content:
                                 content += "\n"
-                            content += f"[{clean_type(embed["type"])} embed]: {embed["url"]}"
+                            if "main_url" not in embed:   # its attachment
+                                if trim_embed_url_size:
+                                    embed_url = trim_string(embed_url, trim_embed_url_size)
+                                content += f"[{clean_type(embed["type"])} attachment]: {embed_url}"
+                            elif embed["type"] == "rich":
+                                content += f"[rich embed]: {embed_url}"
+                            else:
+                                if trim_embed_url_size:
+                                    embed_url = trim_string(embed_url, trim_embed_url_size)
+                                content += f"[{clean_type(embed["type"])} embed]: {embed_url}"
                 reply_line = (
                     format_reply
                     .replace("%username", normalize_string(ref_message["username"], limit_username))
@@ -847,10 +878,20 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 content = quote_character + " " + content[2:]
                 quote = True
         for embed in message["embeds"]:
-            if embed["url"] and not embed.get("hidden") and embed["url"] not in content:
+            embed_url = embed["url"]
+            if embed_url and not embed.get("hidden") and embed_url not in content:
                 if content:
                     content += "\n"
-                content += f"[{clean_type(embed["type"])} embed]:\n{embed["url"]}"
+                if "main_url" not in embed:   # its attachment
+                    if trim_embed_url_size:
+                        embed_url = trim_string(embed_url, trim_embed_url_size)
+                    content += f"[{clean_type(embed["type"])} attachment]: {embed_url}"
+                elif embed["type"] == "rich":
+                    content += f"[rich embed]:\n{embed_url}"
+                else:
+                    if trim_embed_url_size:
+                        embed_url = trim_string(embed_url, trim_embed_url_size)
+                    content += f"[{clean_type(embed["type"])} embed]: {embed_url}"
         for sticker in message["stickers"]:
             sticker_type = sticker["format_type"]
             if content:
@@ -1231,10 +1272,17 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         details = my_status["activities"][0]["details"][:limit_typing]
         sm_txt = my_status["activities"][0]["small_text"]
         lg_txt = my_status["activities"][0]["large_text"]
-        if my_status["activities"][0]["type"] == 0:
+        activiy_type = my_status["activities"][0]["type"]
+        if activiy_type == 0:
             verb = "Playing"
-        else:
+        elif activiy_type == 1:
+            verb = "Streaming"
+        elif activiy_type == 2:
             verb = "Listening to"
+        elif activiy_type == 3:
+            verb = "Watching"
+        elif activiy_type == 5:
+            verb = "Competing in"
         rich = (
             format_rich
             .replace("%type", verb)
@@ -1462,17 +1510,49 @@ def generate_extra_line_ring(caller_name, max_len):
     """Generate extra line containing iformation about incoming call"""
     left_text = f"{caller_name} is calling you, use commands: voice_*"
     right_text = "[Accept] [Reject]"
+
     if len(left_text) + 1 + len(right_text) <= max_len:
         space_num = max_len - (len(left_text) + len(right_text))
         return left_text + " " * space_num + right_text
+
     max_str1_length = max_len - len(right_text) - 3   # 3 for ...
     shortened_str1 = left_text[:max_str1_length] + "..."
     return shortened_str1 + right_text
 
 
-def generate_extra_line_call(max_len):
+def generate_extra_line_call(call_participants, muted, max_len):
     """Generate extra line containing iformation about ongoing call"""
-    pass
+    left_text = "In the call: You"
+    right_text = f"[{"Unmute" if muted else "Mute"}] [Leave]"
+
+    for participant in call_participants:
+        left_text += f", {participant["name"]}"
+        if len(left_text) + 1 + len(right_text) > max_len:
+            break
+
+    if len(left_text) + 1 + len(right_text) <= max_len:
+        space_num = max_len - (len(left_text) + len(right_text))
+        return left_text + " " * space_num + right_text
+
+    max_str1_length = max_len - len(right_text) - 3   # 3 for ...
+    shortened_str1 = left_text[:max_str1_length] + "..."
+    return shortened_str1 + right_text
+
+
+def generate_extra_window_call(call_participants, me_muted, max_len):
+    """Generate extra windows title and body as a list of voice call participants and their states"""
+    title_line = "Voice call participants:"
+    body = []
+    body.append(f"Me - {"muted  " if me_muted else "unmuted"}")
+    for participant in call_participants:
+        name = participant["name"]
+        text = f" - {"muted  " if participant["muted"] else "unmuted"}"
+        if participant["speaking"]:
+            text += " - speaking"
+        if len(participant["name"]) + len(text) > max_len:
+            name = name[:-(len(participant["name"]) + len(text) - max_len)]
+        body.append(name + text)
+    return title_line, body
 
 
 def generate_extra_window_profile(user_data, user_roles, presence, max_len):
@@ -1550,10 +1630,17 @@ def generate_extra_window_profile(user_data, user_roles, presence, max_len):
         if presence["activities"]:
             body_line += "\n"
         for activity in presence["activities"]:
-            if activity["type"] == 0:
+            activity_type = activity["type"]
+            if activity_type == 0:
                 action = "Playing"
-            else:
+            elif activity_type == 1:
+                action = "Streaming"
+            elif activity_type == 2:
                 action = "Listening to"
+            elif activity_type == 3:
+                action = "Watching"
+            elif activity_type == 5:
+                action = "Competing in"
             if activity["state"]:
                 state = f" - {activity["state"]}"
             else:

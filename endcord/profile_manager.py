@@ -64,7 +64,7 @@ def setup_secret_service():
         # ensure dbus is running
         if "DBUS_SESSION_BUS_ADDRESS" not in os.environ:
             if not shutil.which("dbus-launch"):
-                logger.warn("Cant use keyring: 'dbus' package is not installed")
+                logger.warning("Cant use keyring: 'dbus' package is not installed")
             output = subprocess.check_output(["dbus-launch"]).decode()
             for line in output.strip().splitlines():
                 if "=" in line:
@@ -80,10 +80,10 @@ def setup_secret_service():
             check=False,
         )
         if "not activatable" in result.stderr.decode():
-            logger.warn("Cant use keyring: failed to start 'gnome-keyring' daemon, it is probably not installed")
+            logger.warning("Cant use keyring: failed to start 'gnome-keyring' daemon, it is probably not installed")
 
     except subprocess.CalledProcessError:
-        logger.warn("Cant use keyring: failed to start gnome-keyring")
+        logger.warning("Cant use keyring: failed to start gnome-keyring")
 
 
 def load_secret():
@@ -197,7 +197,7 @@ def load_plain(profiles_path):
         with open(path, "r") as f:
             return json.load(f)
     except Exception:
-        logger.warn("Invalid profiles.json file")
+        logger.warning("Invalid profiles.json file")
         return []
 
 
@@ -595,7 +595,7 @@ def manage(profiles_path, external_selected, force_open=False):
     have_keyring = True
     if sys.platform == "linux" and not shutil.which("secret-tool"):
         have_keyring = False
-        logger.warn("Cant use keyring: 'libsecret' package is not installed")
+        logger.warning("Cant use keyring: 'libsecret' package is not installed")
 
     selected = None
     if have_keyring:

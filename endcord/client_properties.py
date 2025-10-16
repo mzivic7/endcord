@@ -8,8 +8,8 @@ import uuid
 
 # default client properties
 CLIENT_BUILD_NUMBER = 400453   # should only affect experimental features availability
-USER_AGENT_WEB = "Mozilla/5.0 (%OS; rv:138.0) Gecko/20100101 Firefox/138.0"
-USER_AGENT_DESKTOP = "Mozilla/5.0 (%OS) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.101 Chrome/134.0.6998.205 Electron/35.3.0 Safari/537.36"
+USER_AGENT_WEB = "Mozilla/5.0 (%OS; rv:144.0) Gecko/20100101 Firefox/144.0"
+USER_AGENT_DESKTOP = "Mozilla/5.0 (%OS) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.112 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36"
 LINUX_UA_STRING = "X11; Linux x86_64"
 WINDOWS_UA_STRING = "Windows NT %VER; Win64; x64"
 MACOS_UA_STRING = "Machintos; Intel Mac OS X %VER"
@@ -25,7 +25,7 @@ elif sys.platform == "darwin":
 else:
     operating_system = "Linux"
 
-# probably wont work on windows, but im not adding whole locale library for that
+# probably wont work on windows, but im not adding entire locale library for that
 locale = os.environ.get("LC_ALL") or os.environ.get("LANG")
 if locale:
     system_locale = locale.split(".")[0]

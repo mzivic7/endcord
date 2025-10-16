@@ -658,7 +658,7 @@ def command_string(text):
 
     # 48 - VOICE_START_CALL
     elif text_lower.startswith("voice_start_call"):
-        cmd_type = 58
+        cmd_type = 48
 
     # 49 - VOICE_ACCEPT_CALL
     elif text_lower.startswith("voice_accept_call"):
@@ -672,5 +672,8 @@ def command_string(text):
     elif text_lower.startswith("voice_reject_call"):
         cmd_type = 51
 
+    # 53 - VOICE_LIST_CALL
+    elif text_lower.startswith("voice_list_call"):
+        cmd_type = 53
 
     return cmd_type, cmd_args

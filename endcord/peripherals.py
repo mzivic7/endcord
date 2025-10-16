@@ -28,7 +28,7 @@ try:
     import soundcard
     have_soundcard = True
 except (AssertionError, RuntimeError):
-    logger.warn("Failed connecting to sound system")
+    logger.warning("Failed connecting to sound system")
     have_soundcard = False
 
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
@@ -389,7 +389,7 @@ def copy_to_clipboard(text):
                 )
                 proc.communicate(input=text.encode("utf-8"))
             except FileNotFoundError:
-                logger.warn("Cant copy: wl-copy not found on system")
+                logger.warning("Cant copy: wl-copy not found on system")
         else:
             try:
                 proc = subprocess.Popen(
@@ -400,7 +400,7 @@ def copy_to_clipboard(text):
                 )
                 proc.communicate(input=text.encode("utf-8"))
             except FileNotFoundError:
-                logger.warn("Cant copy: xclip not found on system")
+                logger.warning("Cant copy: xclip not found on system")
     elif sys.platform == "win32":
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()
@@ -630,11 +630,11 @@ class Recorder():
             try:
                 mic = soundcard.default_microphone()
             except Exception as e:
-                logger.warn(f"No microphone found. Error: {e}")
+                logger.warning(f"No microphone found. Error: {e}")
                 self.recording = False
                 return
         else:
-            logger.warn("Failed connecting to sound system")
+            logger.warning("Failed connecting to sound system")
             self.recording = False
             return
         with mic.recorder(samplerate=48000, channels=1) as rec:
@@ -713,7 +713,7 @@ class Player():
             self.playing = False
 
 
-    def start(self, file_path, loop=False, loop_delay=0.7, loop_max=60):
+    def start(self, file_path, loop=False, loop_delay=1, loop_max=60):
         """Start playing from beginning on loop"""
         if not self.playing:
             self.playing = True

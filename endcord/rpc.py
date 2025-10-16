@@ -133,7 +133,7 @@ class RPC:
             self.rpc_thread = threading.Thread(target=self.server_thread_linux, daemon=True, args=())
             self.rpc_thread.start()
         else:
-            logger.warn(f"RPC server cannot be started on this platform: {sys.platform}")
+            logger.warning(f"RPC server cannot be started on this platform: {sys.platform}")
             return
 
 
@@ -289,7 +289,7 @@ class RPC:
                         send_data(connection, op, response)
 
             else:
-                logger.warn("Failed retrieving RPC app data from discord")
+                logger.warning("Failed retrieving RPC app data from discord")
         except Exception as e:
             logger.error(e)
         # remove presence from list
@@ -331,7 +331,7 @@ class RPC:
         """Thread that listens for new connections on socket and starts new client_thread for each connection"""
         if sys.platform in ("linux", "darwin"):
             if not os.path.isdir(os.path.dirname(DISCORD_SOCKET)):
-                logger.warn("Error starting RPC server: could not create socket")
+                logger.warning("Error starting RPC server: could not create socket")
                 return
             if os.path.exists(DISCORD_SOCKET):
                 os.unlink(DISCORD_SOCKET)

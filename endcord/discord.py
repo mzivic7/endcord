@@ -3,6 +3,7 @@ import http.client
 import json
 import logging
 import os
+import re
 import socket
 import ssl
 import time
@@ -146,7 +147,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             if exit_on_error:
-                logger.warn("No internet connection. Exiting...")
+                logger.warning("No internet connection. Exiting...")
                 raise SystemExit("No internet connection. Exiting...")
             connection.close()
             return None
@@ -663,10 +664,10 @@ class Discord():
             file.write(response.read())
 
 
-    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None, stickers=None):
+    def send_message(self, channel_id, message_content, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None, stickers=None):
         """Send a message in the channel with reply with or without ping"""
         message_dict = {
-            "content": message_text,
+            "content": message_content,
             "tts": "false",
             "flags": 0,
             "nonce": generate_nonce(),
@@ -1580,7 +1581,7 @@ class Discord():
             connection.close()
             return data["attachments"][0], 0
         if response.status == 413:
-            logger.warn("Failed to get attachment upload link: 413 - File too large.")
+            logger.warning("Failed to get attachment upload link: 413 - File too large.")
             connection.close()
             return None, 2   # file too large
         logger.error(f"Failed to get attachment upload link. Response code: {response.status}")
@@ -1670,13 +1671,13 @@ class Discord():
         """Send voice message from file path, file must be ogg"""
         waveform, duration = peripherals.get_audio_waveform(path)
         if not duration:
-            logger.warn(f"Couldn't read voice message file: {path}")
+            logger.warning(f"Couldn't read voice message file: {path}")
         upload_data, status = self.request_attachment_link(channel_id, path, custom_name="voice-message.ogg")
         if status != 0:
-            logger.warn("Cant send voice message, attachment error")
+            logger.warning("Cant send voice message, attachment error")
         uploaded = self.upload_attachment(upload_data["upload_url"], path)
         if not uploaded:
-            logger.warn("Cant upload voice message, upload error")
+            logger.warning("Cant upload voice message, upload error")
         message_dict = {
             "channel_id": channel_id,
             "content": "",
@@ -1725,6 +1726,28 @@ class Discord():
         logger.error(f"Failed to send voice message. Response code: {response.status}")
         connection.close()
         return False
+
+
+    def send_ring(self, channel_id, recipients):
+        """Ring private channel recipients if there is an active call"""
+        message_data = json.dumps({
+            "recipients": recipients,
+        })
+        url = f"/api/v9/channels/{channel_id}/call/ring"
+        logger.debug("Ringing provate channel recipients")
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status != 204:
+            logger.error(f"Failed to ring private channel recipients. Response code: {response.status}")
+            connection.close()
+            return False
+        connection.close()
+        return True
 
 
     def get_pfp(self, user_id, pfp_id, size=80):
@@ -1816,20 +1839,21 @@ class Discord():
         message_data = None
         url = "/rtc"
         try:
-            connection = self.get_connection(f"latency.{self.host}", 443)
+            media_host = re.sub(r"(?<=\.)[^./]+(?=/|$)", "media", self.host)
+            connection = self.get_connection(f"latency.{media_host}", 443)
             connection.request("GET", url, message_data, {})
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return None
+            return self.ranked_voice_regions
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
             regions = []
-            for region in enumerate(data):
+            for region in data:
                 regions.append(region["region"])
             self.ranked_voice_regions = regions
-            return regions
+            return self.ranked_voice_regions
         logger.error(f"Failed to fetch ranked voice regions. Response code: {response.status}")
         connection.close()
-        return None
+        return self.ranked_voice_regions
