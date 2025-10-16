@@ -578,14 +578,14 @@ def source_prompt(screen):
 
 
 
-def update_time(profiles_enc, profiles_plain, selected):
+def update_time(profiles_enc, profiles_plain, profile_name):
     """Update time for selected profile"""
     for profile in profiles_enc:
-        if profile["name"] == selected:
+        if profile["name"] == profile_name:
             profile["time"] = int(time.time())
             return
     for profile in profiles_plain:
-        if profile["name"] == selected:
+        if profile["name"] == profile_name:
             profile["time"] = int(time.time())
             return
 
@@ -663,3 +663,42 @@ def manage(profiles_path, external_selected, force_open=False):
         }
         return profiles, selected, proceed
     return None, None, False
+
+
+def refresh_token(new_token, profile_name, profiles_path):
+    """Refresh token for specified profile in keyring and plaintext"""
+    try:
+        profiles_enc = load_secret()
+        profiles_enc = json.loads(profiles_enc)
+        if profiles_enc:
+            profiles_enc = profiles_enc["profiles"]
+        else:
+            profiles_enc = []
+    except Exception:
+        profiles_enc = []
+
+    profiles_plain = load_plain(profiles_path)
+    if profiles_plain:
+        profiles_plain = profiles_plain["profiles"]
+
+    for profile in profiles_enc:
+        if profile["name"] == profile_name:
+            profile["token"] = new_token
+            logger.info(f"Token refreshed for profile {profile_name}")
+            break
+    else:
+        for profile in profiles_plain:
+            if profile["name"] == profile_name:
+                profile["token"] = new_token
+                logger.info(f"Token refreshed for profile {profile_name}")
+                break
+        else:
+            logger.info(f"Failed refreshing token for profile {profile_name}")
+            return False
+
+    if profiles_enc:
+        save_secret(json.dumps({"selected": profile_name, "profiles": profiles_enc}))
+    if profiles_plain:
+        save_plain({"selected": profile_name, "profiles": profiles_plain}, profiles_path)
+
+    return True

@@ -104,6 +104,8 @@ class Gateway():
         self.subscribed_channels = []
         self.emojis = []
         self.stickers = []
+        self.token_update = None
+        self.user_update = None
         self.premium = False
         self.error = None
         self.querying_members = False
@@ -333,6 +335,8 @@ class Gateway():
                     last_messages = []
                     self.my_id = data["user"]["id"]
                     self.premium = data["user"]["premium_type"]   # 0 - none, 1 - classic, 2 - full, 3 - basic
+                    if data.get("auth_token"):
+                        self.token_update = data["auth_token"]
                     # guilds and channels
                     if ("guilds" not in data) and ("user_guild_settings" in data):
                         logger.warning("Abnormal READY event received, if its always happening, report this")
@@ -439,6 +443,7 @@ class Gateway():
                                     "channel_id": thread["id"],
                                 })
                         self.threads_buffer.append({
+                            "op": "THREAD_UPDATE",
                             "guild_id": guild_id,
                             "threads": threads,
                         })
@@ -1057,32 +1062,12 @@ class Gateway():
                             "joined": False,
                         })
                     self.threads_buffer.append({
+                        "op": "THREAD_UPDATE",
                         "guild_id": guild_id,
                         "threads": threads,
                     })
 
-                elif optext == "THREAD_UPDATE":
-                    self.threads_buffer.append({
-                        "guild_id": data["guild_id"],
-                        "threads": [{
-                            "id": data["id"],
-                            "type": data["type"],
-                            "owner_id": data["owner_id"],
-                            "name": data["name"],
-                            "locked": data["thread_metadata"]["locked"],
-                            "message_count": data["message_count"],
-                            "timestamp": data["thread_metadata"]["create_timestamp"],
-                            "parent_id": data["parent_id"],
-                            "suppress_everyone": False,   # no config for threads
-                            "suppress_roles": False,
-                            "message_notifications": None,
-                            "muted": False,
-                            "joined": False,
-                        }],
-                    })
-
                 elif self.want_member_list and optext == "GUILD_MEMBER_LIST_UPDATE":
-
                     guild_id = data["guild_id"]
                     for guild_index, guild in enumerate(self.activities):
                         if guild["guild_id"] == guild_id:
@@ -1197,44 +1182,6 @@ class Gateway():
                     self.user_settings_proto = MessageToDict(decoded)
                     self.proto_changed = True
 
-                elif optext in ("CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"):
-                    new_channel = response["d"]
-                    if "guild_id" not in new_channel:
-                        continue   # skipping new DMs intentionally
-                    channel_id = new_channel["id"]
-                    guild_id = new_channel["guild_id"]
-                    if optext == "CHANNEL_DELETE":
-                        for num, guild in enumerate(self.guilds):
-                            if guild["guild_id"] == guild_id:
-                                for num_ch, channel in enumerate(guild["channels"]):
-                                    if channel["id"] == channel_id:
-                                        self.guilds[num]["channels"].pop(num_ch)
-                                        break
-                                break
-                    else:
-                        for num, guild in enumerate(self.guilds):
-                            if guild["guild_id"] == guild_id:
-                                for num_ch, channel in enumerate(guild["channels"]):
-                                    if channel["id"] == channel_id:
-                                        break
-                                else:
-                                    self.guilds[num]["channels"].append({})
-                                    num_ch += 1
-                                break
-                        else:
-                            continue
-                        self.guilds[num]["channels"][num_ch] = {
-                            "id": new_channel["id"],
-                            "type": new_channel["type"],
-                            "name": new_channel["name"],
-                            "topic": new_channel.get("topic"),
-                            "parent_id": new_channel.get("parent_id"),
-                            "position": new_channel["position"],
-                            "permission_overwrites": new_channel["permission_overwrites"],
-                            "hidden": False,
-                        }
-                    self.guilds_changed = True
-
                 elif optext == "USER_GUILD_SETTINGS_UPDATE":
                     if data["guild_id"]:   # guild and channel
                         for guild_num_search, guild_g in enumerate(self.guilds):
@@ -1281,6 +1228,31 @@ class Gateway():
                                 "muted": dm["muted"],
                             })
                     self.guilds_changed = True
+
+                elif optext == "USER_UPDATE":
+                    tag = None
+                    if data.get("primary_guild") and "tag" in data["primary_guild"]:   # spacebar_fix - get
+                        tag = data["primary_guild"]["tag"]
+                    self.user_update = ({
+                        "id": data["id"],
+                        "guild_id": None,
+                        "username": data["username"],
+                        "global_name": data.get("global_name"),   # spacebar_fix - get
+                        "bio": data.get("bio"),
+                        "pronouns": data.get("pronouns"),
+                        "joined_at": None,
+                        "tag": tag,
+                        "bot": data.get("bot"),
+                        "extra": {
+                            "avatar": data["avatar"],
+                            "avatar_decoration_data": data.get("avatar_decoration_data"),   # spacebar_fix - get
+                            "discriminator": data["discriminator"],
+                            "flags": data.get("flags"),   # spacebar_fix - get
+                            "premium_type": data["premium_type"],
+                        },
+                        "roles": None,
+                    })
+                    self.premium = data["premium_type"]
 
                 elif optext == "APPLICATION_COMMAND_AUTOCOMPLETE_RESPONSE":
                     self.app_command_autocomplete_resp = response["d"]["choices"]
@@ -1342,6 +1314,78 @@ class Gateway():
                         "op": "CALL_DELETE",
                         "channel_id": data["channel_id"],
                     })
+
+                elif optext in ("THREAD_UPDATE", "THREAD_CREATE"):
+                    self.threads_buffer.append({
+                        "op": "THREAD_UPDATE",
+                        "guild_id": data["guild_id"],
+                        "threads": [{
+                            "id": data["id"],
+                            "type": data["type"],
+                            "owner_id": data["owner_id"],
+                            "name": data["name"],
+                            "locked": data["thread_metadata"]["locked"],
+                            "message_count": data["message_count"],
+                            "timestamp": data["thread_metadata"]["create_timestamp"],
+                            "parent_id": data["parent_id"],
+                            "suppress_everyone": False,   # no config for threads
+                            "suppress_roles": False,
+                            "message_notifications": None,
+                            "muted": False,
+                            "joined": False,
+                        }],
+                    })
+
+                elif optext == "THREAD_DELETE":
+                    self.threads_buffer.append({
+                        "op": "THRRAD_DELETE",
+                        "guild_id": data["guild_id"],
+                        "threads": [{
+                            "id": data["id"],
+                            "parent_id": data["parent_id"],
+                        }],
+                    })
+
+                elif optext in ("CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"):
+                    new_channel = response["d"]
+                    if "guild_id" not in new_channel:
+                        continue   # skipping new DMs intentionally
+                    channel_id = new_channel["id"]
+                    guild_id = new_channel["guild_id"]
+                    if optext == "CHANNEL_DELETE":
+                        for num, guild in enumerate(self.guilds):
+                            if guild["guild_id"] == guild_id:
+                                for num_ch, channel in enumerate(guild["channels"]):
+                                    if channel["id"] == channel_id:
+                                        self.guilds[num]["channels"].pop(num_ch)
+                                        break
+                                break
+                    else:
+                        for num, guild in enumerate(self.guilds):
+                            if guild["guild_id"] == guild_id:
+                                for num_ch, channel in enumerate(guild["channels"]):
+                                    if channel["id"] == channel_id:
+                                        break
+                                else:
+                                    self.guilds[num]["channels"].append({})
+                                    num_ch += 1
+                                break
+                        else:
+                            continue
+                        self.guilds[num]["channels"][num_ch] = {
+                            "id": new_channel["id"],
+                            "type": new_channel["type"],
+                            "name": new_channel["name"],
+                            "topic": new_channel.get("topic"),
+                            "parent_id": new_channel.get("parent_id"),
+                            "position": new_channel["position"],
+                            "permission_overwrites": new_channel["permission_overwrites"],
+                            "hidden": False,
+                        }
+                    self.guilds_changed = True
+
+                elif optext in ("GUILD_CREATE", "GUILD_UPDATE", "GUILD_DELETE"):
+                    pass
 
             elif opcode == 7:
                 logger.info("Host requested reconnect")
@@ -1731,6 +1775,7 @@ class Gateway():
         """Set if client wants to receive summaries"""
         self.want_summaries = want
 
+
     def get_ready(self):
         """Return wether gateway processed entire READY event"""
         return self.ready
@@ -1753,7 +1798,7 @@ class Gateway():
 
     def get_guilds(self):
         """
-        Get list of guilds and channels with their metadata, updated only when reconnecting
+        Get list of guilds and channels with their metadata, updated only when reconnecting or guild/channels changed
         Channel types:
         0 - text
         2 - voice
@@ -1771,6 +1816,7 @@ class Gateway():
             self.guilds_changed = False
             return self.guilds
         return None
+
 
     def get_roles(self):
         """Get list of roles for all guilds with their metadata, updated only when reconnecting"""
@@ -1898,6 +1944,23 @@ class Gateway():
             self.voice_gateway_data_ready = 0
             return cache
 
+
+    def get_token_update(self):
+        """Get new refreshed token"""
+        cache = self.token_update
+        self.token_update = None
+        return cache
+
+
+    def get_user_update(self):
+        """Get update user (self)"""
+        if self.user_update:
+            cache = self.user_update
+            self.user_update = None
+            return cache
+        return None
+
+
     # all following "get_*" work like this:
     # internally:
     #    get events and append them to list
@@ -1955,13 +2018,12 @@ class Gateway():
 
     def get_threads(self):
         """
-        Get threads.
-        Returns 1 by 1 update for list of threads.
+        Get thread update related events: update, crate and delete.
+        Returns 1 by 1 update event with opcode.
         """
         if len(self.threads_buffer) == 0:
             return None
         return self.threads_buffer.pop(0)
-
 
 
     def get_call_events(self):

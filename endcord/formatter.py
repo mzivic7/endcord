@@ -1446,8 +1446,8 @@ def generate_tab_string(tabs, active_tab, unseen, format_tabs, tabs_separator, l
 
 def generate_prompt(my_user_data, active_channel, format_prompt, limit_prompt=15):
     """
-    Generate status line according to provided formatting.
-    Possible options for format_status_line:
+    Generate prompt line according to provided formatting.
+    Possible options for format_prompt_line:
         %global_name
         %username
         %server

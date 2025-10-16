@@ -100,6 +100,22 @@ class RPC:
         self.changed = False
         self.external = config["rpc_external"]
         self.presences = []
+        self.generate_dispatch(user)
+
+        # start server thread
+        if sys.platform == "win32":
+            self.rpc_thread = threading.Thread(target=self.server_thread_win, daemon=True, args=())
+            self.rpc_thread.start()
+        elif sys.platform == "linux":
+            self.rpc_thread = threading.Thread(target=self.server_thread_linux, daemon=True, args=())
+            self.rpc_thread.start()
+        else:
+            logger.warning(f"RPC server cannot be started on this platform: {sys.platform}")
+            return
+
+
+    def generate_dispatch(self, user):
+        """Generate dispatch ready event from user data"""
         self.dispatch = {
             "cmd": "DISPATCH",
             "data": {
@@ -124,17 +140,6 @@ class RPC:
             "evt": "READY",
             "nonce": None,
         }
-
-        # start server thread
-        if sys.platform == "win32":
-            self.rpc_thread = threading.Thread(target=self.server_thread_win, daemon=True, args=())
-            self.rpc_thread.start()
-        elif sys.platform == "linux":
-            self.rpc_thread = threading.Thread(target=self.server_thread_linux, daemon=True, args=())
-            self.rpc_thread.start()
-        else:
-            logger.warning(f"RPC server cannot be started on this platform: {sys.platform}")
-            return
 
 
     def build_response(self, data):

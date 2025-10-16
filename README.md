@@ -381,6 +381,7 @@ Never tested on macOS. Feedback is welcome.
 > [!WARNING]
 > Using third-party client is against Discord's Terms of Service and may cause your account to be banned!  
 > **Use endcord at your own risk!**
+> For more info see [FAQ](#FAQ).
 
 
 ## Building
@@ -432,16 +433,21 @@ Nuitka requirements:
 7. This is your discord token. **Do not share it!**
 
 ### To further decrease probability of getting banned
-- MOST IMPORTANT: Do not use endcord to perform any out-of-ordinary actions (i.e. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
-- Discord REST API is called (most notably) each time client is started, when channel is changed, app command is sent and message is seen and sent. It would be best to not abuse these actions in order to reduce REST API calls.
+Endcord does its best to avoid causing any suspicious activity, so using it as-is is pretty much enough, but most important steps are:
+- Do not use endcord to perform any out-of-ordinary actions (i.e. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
+- Increase `limit_channel_cache` in config - so REST API is not called on every channel switch. This will also slightly increase RAM and CPU usage.
+- `anonymous` mode in `client_properties` setting might be more risky than `default` mode.
+- Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
+- If endcord hasnt been updated in a while, set `custom_user_agent` to the one found in API requests in offiial discord client.
+- Endcord automatically refreshes token stored in keyring or plaintext, so there is no need to update it manually unless token is revoked.
+Less important steps is to decrease REST API calls, which might have little to no effect:
+- Discord REST API is called (most notably) each time client is started, when channel is changed, app command is sent and message is seen or sent. It would be best to not abuse these actions in order to reduce REST API calls.
 - Do not leave endcord on busy channels running in background.
 - Do not repeatedly view user profiles.
 - Sending ack (when channel is marked as seen) is throttled by endcord to 5s (configurable).
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence, but it shouldn't be critical.
 - Disable `send_typing` in config - it calls REST API every 7s when typing, but it shouldn't be critical.
-- Increase `limit_channel_cache` in config - so REST API is not called on every channel switch. This will also slightly increase RAM and CPU usage.
-- `anonymous` mode in `client_properties` setting might be more risky than `default` mode.
-- Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
+
 
 ### What if you get banned?
 You can write to Discord TNS team: https://dis.gd/request.  

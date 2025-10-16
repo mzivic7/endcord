@@ -75,7 +75,9 @@ class Endcord:
                 self.token = profile["token"]
                 break
         else:
-            self.token = (profiles["keyring"] + profiles["plaintext"])[0]["token"]
+            selected_profile = profiles["keyring"] + profiles["plaintext"]
+            self.token = selected_profile[0]["token"]
+            self.profiles["selected"] = selected_profile["name"]
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
@@ -4772,15 +4774,14 @@ class Endcord:
                 break
 
 
-    def load_threads(self, new_threads):
+    def load_threads(self, event):
         """
         Add new threads to sorted list of threads by guild and channel.
         new_threads is list of threads that belong to same guild.
         Threads are sorted by creation date.
         """
         to_sort = False
-        guild_id = new_threads["guild_id"]
-        new_threads = new_threads["threads"]
+        guild_id = event["guild_id"]
         for num, guild in enumerate(self.threads):
             if guild["guild_id"] == guild_id:
                 break
@@ -4790,7 +4791,7 @@ class Endcord:
                 "guild_id": guild_id,
                 "channels": [],
             })
-        for new_thread in new_threads:
+        for new_thread in event["threads"]:
             parent_id = new_thread["parent_id"]
             for channel in self.threads[num]["channels"]:
                 if channel["channel_id"] == parent_id:
@@ -4819,6 +4820,28 @@ class Endcord:
                     for channel in guild["channels"]:
                         channel["threads"] = sorted(channel["threads"], key=lambda x: x["id"], reverse=True)
                 break
+        self.update_tree()
+        if self.forum:
+            self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
+            self.tui.update_chat(self.chat, self.chat_format)
+
+
+    def remove_thread(self, event):
+        """Delete threads for specified guild and channel"""
+        guild_id = event["guild_id"]
+        for num, guild in enumerate(self.threads):
+            if guild["guild_id"] == guild_id:
+                break
+        else:
+            return
+        for new_thread in event["threads"]:
+            parent_id = new_thread["parent_id"]
+            for channel in self.threads[num]["channels"]:
+                if channel["channel_id"] == parent_id:
+                    for tnum, thread in enumerate(channel["threads"]):
+                        if thread["id"] == new_thread["id"]:
+                            channel["threads"].pop(tnum)
+                    break
         self.update_tree()
         if self.forum:
             self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
@@ -5510,6 +5533,18 @@ class Endcord:
 
         self.discord_settings = self.gateway.get_settings_proto()
 
+        new_token = self.gateway.get_token_update()
+        if new_token:
+            from endcord import profile_manager
+            profile_manager.refresh_token(
+                new_token,
+                self.profiles["selected"],
+                os.path.join(peripherals.config_path, "profiles.json"),
+            )
+            del sys.modules["endcord.profile_manager"]   # save resources
+            del profile_manager
+        del new_token
+
         # just in case, download proto if its not in gateway
         if "status" not in self.discord_settings:
             self.discord_settings = self.discord.get_settings_proto(1)
@@ -5578,14 +5613,6 @@ class Endcord:
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
-
-        # load threads, if any
-        while self.run:
-            new_threads = self.gateway.get_threads()
-            if new_threads:
-                self.load_threads(new_threads)
-            else:
-                break
 
         # load pings, unseen and blocked
         self.unseen = self.gateway.get_unseen()
@@ -5746,11 +5773,14 @@ class Endcord:
                 else:
                     break
 
-            # get new threads
+            # get thread updates
             while self.run:
-                new_threads = self.gateway.get_threads()
-                if new_threads:
-                    self.load_threads(new_threads)
+                thread_event = self.gateway.get_threads()
+                if thread_event:
+                    if thread_event["op"] == "THREAD_UPDATE":
+                        self.load_threads(thread_event)   # add or update thread
+                    elif thread_event["op"] == "THREAD_DELETE":
+                        self.remove_thread()
                 else:
                     break
 
@@ -5897,6 +5927,16 @@ class Endcord:
             if new_activities:
                 self.activities = new_activities
                 self.update_tree()
+
+            # check for user data updates
+            new_user_data = self.gateway.get_user_update()
+            if new_user_data:
+                new_user_data["nick"] = self.my_user_data["nick"]
+                self.my_user_data = new_user_data
+                self.premium = self.gateway.get_premium()
+                self.rpc.generate_dispatch(new_user_data)
+                self.update_status_line()
+                self.update_prompt()
 
             # check for new member presences
             if self.get_members:

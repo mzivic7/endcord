@@ -26,7 +26,7 @@ So, before even thinking about putting it through LLM, open an issue and save yo
 2. Run main.py: `uv run main.py`
 
 
-## useful debugging things
+## Useful debugging things
 
 ### Debug points in code
 - `debug_events` - save all received events from gateway
