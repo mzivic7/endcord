@@ -8,7 +8,6 @@ Multiple call management
     after this client leaves call, but other one is still in - keep call in the list
     if this client leaves call and its last - remove from list
 
-Add command to create guild invite url
 Handle guild role create/update/delete events
 Handle guild create/update/delete events
 Handle guild_member_update event

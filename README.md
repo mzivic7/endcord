@@ -64,6 +64,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Role colors in chat
 - Change server/channel/category notification settings
 - Partial markdown support (underline, bold, italic, spoiler, quote)
+- Generate server invite link
 - Theming
 - Customizable status, title and prompt lines
 - Customizable chat lines (message, newline, reaction, reply)

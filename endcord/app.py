@@ -2849,6 +2849,19 @@ class Endcord:
                 else:
                     self.view_voice_call_list(reset=True)
 
+        elif cmd_type == 54:   # GENERATE_INVITE
+            if self.active_channel["guild_id"]:
+                invite_url = self.discord.get_invite_url(
+                    self.active_channel["channel_id"],
+                    cmd_args["max_age"],
+                    cmd_args["max_uses"],
+                )
+                if invite_url:
+                    peripherals.copy_to_clipboard(invite_url)
+                    self.update_extra_line("Servr invite copied to clipboard")
+                else:
+                    self.update_extra_line("Failed to generate invite, see log for more info")
+
         if reset:
             self.reset_actions()
             self.restore_input_text = (None, None)
@@ -5902,8 +5915,6 @@ class Endcord:
                 if self.tui.get_dimensions()[1] != self.tree_dim:
                     self.update_tree()
                     self.tree_dim = self.tui.get_dimensions()[1]
-                if not self.incoming_call:
-                    self.update_extra_line(force=True)
 
             # check and update my status
             new_status = self.gateway.get_my_status()

@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 DISCORD_EPOCH_MS = 1420070400000
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
 TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%d-%H-%M", "%H:%M:%S", "%H:%M")
+TIME_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 NOTIFICATION_VALUES = ("all", "mention", "nothing", "suppress_everyone", "suppress_roles")
 
 match_from = re.compile(r"from:<@\d*>")
@@ -24,6 +25,7 @@ match_profile = re.compile(r"<@(\d*)>")
 match_command_arguments = re.compile(r"--(\S+)=(\w+|\"[^\"]+\")?")
 
 match_string_select = re.compile(r"string_select(?: (\d+))?\s+(.+)")
+match_time_with_unit = re.compile(r"(\d+)([wdhms])")
 
 
 def date_to_snowflake(date, end=False):
@@ -63,6 +65,20 @@ def date_to_timestamp(date):
         time_obj = time_obj.replace(year=now.year, month=now.month, day=now.day)
 
     return int(time_obj.timestamp())
+
+
+def time_string_seconds(time_str):
+    """Convert time string to seconds.Strings: 1w, 2d, 3h, 4m, 5s"""
+    try:
+        return int(time_str)
+    except ValueError:
+        pass
+    total = 0
+    for value, unit in re.findall(match_time_with_unit, time_str.lower()):
+        total += int(value) * TIME_UNITS[unit]
+    if not total:
+        return 0
+    return total
 
 
 def search_string(text):
@@ -675,5 +691,27 @@ def command_string(text):
     # 53 - VOICE_LIST_CALL
     elif text_lower.startswith("voice_list_call"):
         cmd_type = 53
+
+    # 54 - GENERATE_INVITE
+    elif text_lower.startswith("generate_invite"):
+        cmd_type = 54
+        max_age = 604800
+        max_uses = 0
+        text_split = text_lower.split(" ")
+        text_split = list(filter(None, text_split))
+        if len(text_split) >= 2:
+            new_max_age = time_string_seconds(text_split[1])
+            if new_max_age is not None:
+                max_age = new_max_age
+        if len(text_split) >= 3:
+            try:
+                max_uses = int(text_split[2])
+            except ValueError:
+                pass
+
+        cmd_args = {
+            "max_age": max_age,
+            "max_uses": max_uses,
+        }
 
     return cmd_type, cmd_args

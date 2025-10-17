@@ -60,6 +60,7 @@ COMMAND_ASSISTS = (
     ("voice_reject_call - Silence incoming call or cancel outgoing call", "voice_reject_call"),
     ("voice_list_call - Show all call participants and their states in an updated list", "voice_list_call"),
     ("toggle_mute - Toggle mute state before joining a call", "toggle_mute"),
+    ("generate_invite *duration *limit - Generate invite to current server, default is 7 days", "generate_invite"),
     ("redraw - redraw UI if it ever gets messed up", "redraw"),
     ("set [key] = [value] - change settings and save them.", "set"),
 )

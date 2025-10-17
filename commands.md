@@ -110,5 +110,8 @@
     Show all call participants and their states in an updated list. Must be in the call to use this.
 - `toggle_mute`  
     Toggle mute state before joining a call. Persisted across sessions.
+- `generate_invite *duration *limit`  
+    Generate invite to current server with custom expiration `duration` and uses `limit`. Set to 0 for infinite. Invite URL will be copied to clipboard.
+    `duration` can be: `4w3d5h30m10s` where `w`is weeks, `d` is days..., can be used partially and mixed: `5h1w`. Default is 7 days and infinite uses.
 - `redraw`  
     Redraw UI if it ever gets messed up.

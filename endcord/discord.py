@@ -1597,7 +1597,7 @@ class Discord():
         # and this function wont be run if request_attachment_link() is not successful
         header = {
             "Content-Type": "application/octet-stream",
-            "Origin": "https://discord.com",
+            "Origin": f"https://{self.host}",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "cross-site",
             "User-Agent": self.user_agent,
@@ -1755,7 +1755,7 @@ class Discord():
         message_data = None
         url = f"/avatars/{user_id}/{pfp_id}.webp?size={size}"
         header = {
-            "Origin": "https://discord.com",
+            "Origin": f"https://{self.host}",
             "Sec-Fetch-Mode": "no-cors",
             "Sec-Fetch-Site": "cross-site",
             "User-Agent": self.user_agent,
@@ -1774,6 +1774,37 @@ class Discord():
             connection.close()
             return destination
         logger.error(f"Failed to download pfp. Response code: {response.status}")
+        connection.close()
+        return None
+
+
+    def get_invite_url(self, channel_id, max_age, max_uses):
+        """Get invite url for specified guild channel"""
+        message_dict = {
+            "flags": 0,
+            "max_age": max_age,
+            "max_uses": max_uses,
+            "target_type": None,
+            "target_user_id": None,
+            "temporary": False,
+            "validate": None,
+        }
+        url = f"/api/v9/channels/{channel_id}/invites"
+        message_data = json.dumps(message_dict)
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            if data["code"]:
+                return f"https://{self.host}/invite/{data["code"]}"
+            return None
+        logger.error(f"Failed to generate invite url. Response code: {response.status}")
         connection.close()
         return None
 
