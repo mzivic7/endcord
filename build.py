@@ -30,34 +30,6 @@ def remove_media():
         subprocess.run(["uv", "pip", "uninstall", "pillow" , "av", "pynacl"], check=True)
 
 
-def build_numpy_lite():
-    """Build numpy without openblass to reduce final binary size"""
-    # check if numpy without blas is not already installed
-    cmd = [
-        "uv", "run", "python", "-c",
-        "import numpy; print(int(numpy.__config__.show_config('dicts')['Build Dependencies']['blas'].get('found', False)))",
-    ]
-    if int(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()):
-        print("Building numpy lite (no openblas)")
-        subprocess.run(["uv", "pip", "install", "pip"], check=True)   # because uv wont work with --config-settings as intended
-        try:
-            if sys.platform == "win32":
-                python_interpreter = r".venv\Scripts\python.exe"
-            else:
-                python_interpreter = ".venv/bin/python"
-            subprocess.run([python_interpreter, "-m", "pip", "uninstall", "--yes", "numpy"], check=True)
-            subprocess.run([
-                python_interpreter, "-m", "pip", "install", "--no-cache-dir", "--no-binary=:all:", "numpy",
-                "--config-settings=setup-args=-Dblas=None",
-                "--config-settings=setup-args=-Dlapack=None",
-            ], check=True)
-        except subprocess.CalledProcessError:   # fallback
-            print("Failed building numpy lite (no openblas), faling back to default numpy")
-            subprocess.run(["uv", "pip", "install", "numpy"], check=True)
-        subprocess.run(["uv", "pip", "uninstall", "pip"], check=True)
-    else:
-        print("Numpy lite (no openblas) is already built")
-
 def check_dev():
     """Check if its dev environment and set it up"""
     if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
@@ -253,6 +225,39 @@ def toggle_experimental(check_only=False):
     return not enable
 
 
+
+def build_numpy_lite(clang):
+    """Build numpy without openblass to reduce final binary size"""
+    # check if numpy without blas is not already installed
+    cmd = [
+        "uv", "run", "python", "-c",
+        "import numpy; print(int(numpy.__config__.show_config('dicts')['Build Dependencies']['blas'].get('found', False)))",
+    ]
+    if int(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()):
+        print("Building numpy lite (no openblas)")
+        if clang:
+            os.environ["CC"] = "clang"
+            os.environ["CXX"] = "clang++"
+        subprocess.run(["uv", "pip", "install", "pip"], check=True)   # because uv wont work with --config-settings as intended
+        try:
+            if sys.platform == "win32":
+                python_interpreter = r".venv\Scripts\python.exe"
+            else:
+                python_interpreter = ".venv/bin/python"
+            subprocess.run([python_interpreter, "-m", "pip", "uninstall", "--yes", "numpy"], check=True)
+            subprocess.run([
+                python_interpreter, "-m", "pip", "install", "--no-cache-dir", "--no-binary=:all:", "numpy",
+                "--config-settings=setup-args=-Dblas=None",
+                "--config-settings=setup-args=-Dlapack=None",
+            ], check=True)
+        except subprocess.CalledProcessError:   # fallback
+            print("Failed building numpy lite (no openblas), faling back to default numpy")
+            subprocess.run(["uv", "pip", "install", "numpy"], check=True)
+        subprocess.run(["uv", "pip", "uninstall", "pip"], check=True)
+    else:
+        print("Numpy lite (no openblas) is already built")
+
+
 def build_cython(clang, mingw):
     """Build cython extensions"""
     cmd = ["uv", "run", "python", "setup.py", "build_ext", "--inplace"]
@@ -332,7 +337,7 @@ def build_with_nuitka(onedir, clang, mingw, experimental=False):
         pkgname = f"{get_app_name()}-lite"
         print("ASCII media support is disabled")
 
-    build_numpy_lite()
+    build_numpy_lite(clang)
     patch_soundcard()
 
     mode = "--standalone" if onedir else "--onefile"
