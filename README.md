@@ -73,8 +73,8 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Show mentions as `@username`, `@role`, `#channel_name`
 - Channel chat caching
 - Remember last open channel and tree state
-- Automatic recovery on network failure
 - Proxy support
+- Can connect to spacebar
 - Profile manager for multiple accounts
 - Store token in system keyring
 - Experimental windowed mode with tray icon

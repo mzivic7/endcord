@@ -123,6 +123,20 @@ https://discord.com/developers/docs/change-log#upcoming-application-command-perm
 end_guild 1100
 ```
 
+### Support for zstd stream compression:
+```py
+inflator = zstandard.ZstdDecompressor().decompressobj()
+def zstd_decompress(data):
+    """Decompress zstd stream"""
+    buffer = bytearray(data)
+    try:
+        return inflator.decompress(buffer)
+    except zstandard.ZstdError as e:
+        logger.error(f"zstd error: {e}")
+        return None
+```
+Use `&compress=zstd-stream` in gateway url.
+
 ### Spacebar differences
 In the code, all spacebar fixes can be found as `# spacebar_fix - [note]`.  
 `[note]` contains some information on what is changed.  

@@ -259,7 +259,7 @@ media = [
 requires-dist = [
     { name = "discord-protos", specifier = ">=0.0.2" },
     { name = "emoji", specifier = ">=2.15.0" },
-    { name = "numpy", specifier = "==2.3.4" },
+    { name = "numpy", specifier = ">=2.3.4" },
     { name = "pexpect", specifier = ">=4.9.0" },
     { name = "pysocks", specifier = ">=1.7.1" },
     { name = "python-magic", marker = "sys_platform != 'win32'", specifier = ">=0.4.27" },

@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "discord-protos>=0.0.2",
     "emoji>=2.15.0",
-    "numpy==2.3.4",
+    "numpy>=2.3.4",
     "pexpect>=4.9.0",
     "pysocks>=1.7.1",
     "python-magic>=0.4.27; sys_platform != 'win32'",

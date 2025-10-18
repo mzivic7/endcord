@@ -320,7 +320,7 @@ def app_command_string(text, my_commands, guild_commands, permitted_guild_comman
         "name": command["name"],
         "type": 1,   # only slash commands
         "options": options,
-        "attachments":[],
+        "attachments": [],
     }
     return command_data, app_id, need_attachment
 

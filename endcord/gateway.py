@@ -661,7 +661,7 @@ class Gateway():
                     ready_time_mid = time.time()
                     for user in data["relationships"]:
                         if user["type"] == 2 or user.get("user_ignored"):
-                            self.blocked.append(user["user_id"])
+                            self.blocked.append(user["id"])
                     time_log_string += f"    blocked users - {round((time.time() - ready_time_mid) * 1000, 3)}ms\n"
                     ready_time_mid = time.time()
                     # get user settings
