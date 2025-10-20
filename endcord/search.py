@@ -207,6 +207,8 @@ def search_emojis(all_emojis, premium, guild_id, query, limit=50, score_cutoff=1
     # standard emoji
     if len(results) < limit:
         for key, item in emoji.EMOJI_DATA.items():
+            if item["status"] > 2:   # skip unqualified and minimally qualified emoji
+                continue
             # emoji.EMOJI_DATA = {emoji: {"en": ":emoji_name:", "status": 2, "E": 3}...}
             # using only qualified emojis (status: 2)
             formatted = f"{item["en"]} - {key}"

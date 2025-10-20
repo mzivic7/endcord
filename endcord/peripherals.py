@@ -1,5 +1,6 @@
 import base64
 import glob
+import importlib.util
 import json
 import logging
 import os
@@ -13,23 +14,13 @@ import webbrowser
 from ast import literal_eval
 from configparser import ConfigParser
 
-import magic
-import numpy as np
+import filetype
 import pexpect
 import pexpect.popen_spawn
-import soundfile
 
 from endcord import defaults
 
 logger = logging.getLogger(__name__)
-
-# safely import soundcard, in case there is no sound system
-try:
-    import soundcard
-    have_soundcard = True
-except (AssertionError, RuntimeError):
-    logger.warning("Failed connecting to sound system")
-    have_soundcard = False
 
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 match_split = re.compile(r"[^\w']")
@@ -37,15 +28,6 @@ APP_NAME = "endcord"
 ASPELL_TIMEOUT = 0.1   # aspell limit for looking-up one word
 NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification sound
 
-# get speaker
-if have_soundcard:
-    try:
-        speaker = soundcard.default_speaker()
-        have_sound = True
-    except Exception:
-        have_sound = False
-else:
-    have_sound = False
 
 # platform specific code
 if sys.platform == "win32":
@@ -125,6 +107,22 @@ elif sys.platform == "win32":
     runner = "explorer"
 elif sys.platform == "darwin":
     runner = "open"
+
+# check for audio systems
+have_pipewire = (sys.platform == "linux" and shutil.which("pw-cat") and "pipewire" in subprocess.check_output(["ps", "-A"], text=True))
+have_pulseaudio = (sys.platform == "linux" and shutil.which("paplay") and "pulseaudio" in subprocess.check_output(["ps", "-A"], text=True))
+have_afplay = (sys.platform == "darwin" and shutil.which("afplay"))
+
+def import_soundcard():
+    """Safely import soundcard"""
+    try:
+        if importlib.util.find_spec("soundcard") is not None:
+            import soundcard
+            return soundcard
+        return None
+    except (AssertionError, RuntimeError):
+        logger.warning("Soundcard failed connecting to sound system")
+        return None
 
 
 def save_config(path, data, section):
@@ -423,12 +421,16 @@ def get_file_size(path):
 
 def get_is_clip(path):
     """Get whether file is video or not"""
-    return magic.from_file(path, mime=True).split("/")[0] == "video"
+    kind = filetype.guess(path)
+    if kind and kind.mime:
+        return kind.mime.split("/")[0] == "video"
 
 
 def get_can_play(path):
-    """Get wether file can be played as media"""
-    return magic.from_file(path, mime=True).split("/")[0] in ("image", "video", "audio")
+    """Get whether file can be played as media"""
+    kind = filetype.guess(path)
+    if kind and kind.mime:
+        return kind.mime.split("/")[0] in ("image", "video", "audio")
 
 
 def complete_path(path, separator=True):
@@ -446,20 +448,56 @@ def complete_path(path, separator=True):
 
 
 def play_audio(path):
-    """Play audio file with soundcard"""
-    if have_sound:
+    """Play audio file with simpleaudio or with pw-cat on pipewire"""
+    path = os.path.expanduser(path)
+    if sys.platform == "linux":
+        if have_pipewire:
+            try:
+                result = subprocess.run(["pw-cat", "-p", path], capture_output=True, text=True, check=False)
+                if result.returncode == 0:
+                    return
+                logger.error("pw-cat error:", result.stderr.strip() or result.stdout.strip())
+            except Exception as e:
+                logger.error(f"Failed to run pw-cat: {e}")
+        elif have_pulseaudio:
+            try:
+                result = subprocess.run(["paplay", path], capture_output=True, text=True, check=False)
+                if result.returncode == 0:
+                    return
+                logger.error("paplay error:", result.stderr.strip() or result.stdout.strip())
+            except Exception as e:
+                logger.error(f"Failed to run paplay: {e}")
+    elif sys.platform == "darwin" and have_afplay:
         try:
-            data, samplerate = soundfile.read(path, dtype="float32")
+            result = subprocess.run(["afplay", path], capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                return
+            logger.error("afplay error:", result.stderr.strip() or result.stdout.strip())
         except Exception as e:
-            print(f"Error loading sound file: {e}")
-            return
+            logger.error(f"Failed to run afplay: {e}")
+        return
+    elif sys.platform == "win32":
+        # no simple windows implementation
+        pass
+
+    # fallback to soundcard
+    import soundfile
+    try:
+        data, samplerate = soundfile.read(path, dtype="float32")
+    except Exception as e:
+        print(f"Error loading sound file: {e}")
+    soundcard = import_soundcard()
+    if soundcard:
+        speaker = soundcard.default_speaker()
         speaker.play(data, samplerate=samplerate)
 
 
 def get_audio_waveform(path):
     """Get audio file waveform and length"""
+    import numpy as np
     if not os.path.exists(path):
         return None, None
+    import soundfile
     with soundfile.SoundFile(path) as audio_file:
         data = audio_file.read()
         if data.ndim > 1:
@@ -626,7 +664,8 @@ class Recorder():
     def record(self):
         """Continuously record audio"""
         timer = 0
-        if have_soundcard:
+        soundcard = import_soundcard()
+        if soundcard:
             try:
                 mic = soundcard.default_microphone()
             except Exception as e:
@@ -659,6 +698,8 @@ class Recorder():
 
     def stop(self):
         """Stop recording audio and return file path"""
+        import numpy as np
+        import soundfile
         if self.recording:
             self.recording = False
             self.record_thread.join()
@@ -681,33 +722,34 @@ class Player():
     def play_loop(self, file_path, loop, loop_delay, loop_max):
         """Play sound file in a loop"""
         try:
-            with soundfile.SoundFile(file_path) as sound:
-                sample_rate = sound.samplerate
-                channels = sound.channels
-                block_size = sample_rate // 20
-                speaker = soundcard.default_speaker()
-                start = time.time()
-                sleep_time = block_size / sample_rate
-                with speaker.player(samplerate=sample_rate, channels=channels) as stream:
-                    sound.seek(0)
-                    while self.playing:
-                        read_start = time.perf_counter()
-                        if time.time() - start >= loop_max:
-                            self.playing = False
-                            break
-                        if sound.tell() >= len(sound):
-                            if loop:
-                                sound.seek(0)
-                                time.sleep(loop_delay)
-                                read_start = time.perf_counter()
-                            else:
+            soundcard = import_soundcard()
+            if soundcard:
+                import soundfile
+                with soundfile.SoundFile(file_path) as sound:
+                    sample_rate = sound.samplerate
+                    channels = sound.channels
+                    block_size = sample_rate // 20
+                    speaker = soundcard.default_speaker()
+                    start = time.time()
+                    sleep_time = block_size / sample_rate
+                    with speaker.player(samplerate=sample_rate, channels=channels) as stream:
+                        sound.seek(0)
+                        while self.playing:
+                            read_start = time.perf_counter()
+                            if time.time() - start >= loop_max:
+                                self.playing = False
                                 break
-                        frames = sound.read(block_size, dtype="float32")
-                        read_time = time.perf_counter() - read_start
-                        stream.play(frames)
-                        time.sleep(sleep_time - read_time)
-
-
+                            if sound.tell() >= len(sound):
+                                if loop:
+                                    sound.seek(0)
+                                    time.sleep(loop_delay)
+                                    read_start = time.perf_counter()
+                                else:
+                                    break
+                            frames = sound.read(block_size, dtype="float32")
+                            read_time = time.perf_counter() - read_start
+                            stream.play(frames)
+                            time.sleep(sleep_time - read_time)
         except Exception as e:
             print(f"Playback error: {e}")
             self.playing = False

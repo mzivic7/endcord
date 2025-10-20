@@ -1,3 +1,15 @@
+Add THIRD_PARTY_LICENSES.txt generator to build script
+    generate it with all libs licenses
+    include file in workflow
+
+Handle guild role create/update/delete events
+    get event in gateway.py and send update to app.py
+    update roles in app.py
+    skip if role doesnt affect me
+    get permission_overwrites
+    recalculate perms for that guild
+    regenerate tree and chat
+
 Multiple call management
     remove self.ringing
     keep all calls in a list
@@ -8,12 +20,10 @@ Multiple call management
     after this client leaves call, but other one is still in - keep call in the list
     if this client leaves call and its last - remove from list
 
-Handle guild role create/update/delete events
-Handle guild create/update/delete events
-Handle guild_member_update event
 Server folders in tree
 Extensions support
 Optimize main loop with queues and threading events
+Check RAM usage when not removing permission_overwrites when parsing perms
 
 Voice calls
     fix playing sound

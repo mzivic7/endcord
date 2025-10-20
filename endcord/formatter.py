@@ -193,6 +193,7 @@ def count_emojis(text):
     """Count how many emojis are in the text"""
     return sum(1 for char in text if char in emoji.EMOJI_DATA)
 
+
 def replace_discord_emoji(text):
     """
     Transform emoji strings into nicer looking ones:

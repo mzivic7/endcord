@@ -7,11 +7,10 @@ requires-python = ">=3.12"
 dependencies = [
     "discord-protos>=0.0.2",
     "emoji>=2.15.0",
+    "filetype>=1.2.0",
     "numpy>=2.3.4",
     "pexpect>=4.9.0",
     "pysocks>=1.7.1",
-    "python-magic>=0.4.27; sys_platform != 'win32'",
-    "python-magic-bin>=0.4.14; sys_platform == 'win32'",
     "python-socks>=2.7.2",
     "pywin32>=311 ; sys_platform == 'win32'",
     "pywin32-ctypes>=0.2.3; sys_platform == 'win32'",
@@ -26,7 +25,7 @@ dependencies = [
 [dependency-groups]
 build = [
     "cython>=3.1.4",
-    "nuitka>=2.8.1",
+    "nuitka>=2.8.3",
     "pyinstaller>=6.16.0",
     "setuptools>=80.9.0",
 ]

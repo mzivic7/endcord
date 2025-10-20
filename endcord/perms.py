@@ -23,11 +23,10 @@ def decode_permission(permission, flag):
 def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id):
     """Read channel permissions and add permitted and allowed_embeds to each channel"""
     # select guild
-    guild = {}
     for guild in guilds:
         if guild["guild_id"] == this_guild_id:
             break
-    if not guild:
+    else:
         return guilds
 
     # check if this user is admin
@@ -43,9 +42,10 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
     if guild["owned"] or admin:
         for num, channel in enumerate(guild["channels"]):
             guild["channels"][num]["permitted"] = True
+            guild["channels"][num]["allow_manage"] = True
             guild["channels"][num]["allow_attach"] = True
             guild["channels"][num]["allow_write"] = True
-            guild["channels"][num].pop("permission_overwrites", None)
+            guild["channels"][num].get("permission_overwrites", None)
         guild["admin"] = True
         return guilds
 
@@ -61,7 +61,8 @@ def compute_permissions(guilds, this_guild_roles, this_guild_id, my_roles, my_id
         if "permitted" in channel:
             continue
 
-        permission_overwrites = guild["channels"][num].pop("permission_overwrites", [])
+        # replace get with pop if uses lots of ram, but it will break live role updates
+        permission_overwrites = guild["channels"][num].get("permission_overwrites", [])
 
         # @everyone role overwrite
         permissions = base_permissions

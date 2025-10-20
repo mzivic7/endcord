@@ -75,9 +75,9 @@ class Endcord:
                 self.token = profile["token"]
                 break
         else:
-            selected_profile = profiles["keyring"] + profiles["plaintext"]
-            self.token = selected_profile[0]["token"]
-            self.profiles["selected"] = selected_profile["name"]
+            profiles = profiles["keyring"] + profiles["plaintext"]
+            self.token = profiles[0]["token"]
+            self.profiles["selected"] = profiles[0]["name"]
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
@@ -373,8 +373,6 @@ class Endcord:
                 if dm["is_spam"] and dm["id"] in self.dms_vis_id:
                     self.dms_vis_id.remove(dm["id"])
                     self.dms.remove(dm)
-                elif dm["muted"] and dm["id"] in self.dms_vis_id:
-                    self.dms_vis_id.remove(dm["id"])
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
@@ -2743,7 +2741,7 @@ class Endcord:
                 else:
                     self.my_status["custom_status_emoji"] = {
                         "id": None,
-                        "name": emoji.emojize(cmd_args["emoji"]),
+                        "name": emoji.emojize(cmd_args["emoji"], language="alias", variant="emoji_type"),
                         "animated": False,
                     }
             else:
@@ -3711,7 +3709,7 @@ class Endcord:
                     emoji_string = selected_reaction["emoji"]
                 add_to_existing = True
         except ValueError:   # new emoji
-            emoji_string = emoji.emojize(first)
+            emoji_string = emoji.emojize(first, language="alias", variant="emoji_type")
         if emoji.is_emoji(emoji_string):   # standard emoji
             if emoji_string not in my_present_emojis:
                 if len(all_reactions) < 20 or add_to_existing:
@@ -4759,7 +4757,7 @@ class Endcord:
                     my_roles = roles["roles"]
                     break
             if my_roles is None:
-                return
+                continue
             # get guild roles
             this_guild_roles = []
             for roles in self.all_roles:
@@ -4774,6 +4772,19 @@ class Endcord:
                 my_roles,
                 self.my_id,
             )
+
+
+    def clean_permissions(self, guild_id):
+        """Remove all computed permissions for specified guild"""
+        for guild in self.guilds:
+            if guild["guild_id"] == guild_id:
+                break
+        for num, channel in enumerate(guild["channels"]):
+            guild["channels"][num].pop("perms_computed", None)
+            guild["channels"][num].pop("allow_manage", None)
+            guild["channels"][num].pop("permitted", None)
+            guild["channels"][num].pop("allow_write", None)
+            guild["channels"][num].pop("allow_attach", None)
 
 
     def hide_channel(self, channel_id, guild_id):
@@ -4895,7 +4906,7 @@ class Endcord:
                         dm["muted"] = True
                         self.dms_vis_id.append(channel_id)
                     self.update_tree()
-                    return dm["muted"]
+                    return dm.get("muted")
         elif guild_id:   # channel/category
             for guild in self.guilds:
                 if guild["guild_id"] == guild_id:
@@ -5609,8 +5620,6 @@ class Endcord:
             self.curses_media = None
 
         # some checks
-        if not peripherals.have_sound:
-            logger.warning("No sound! Audio system is probably not running")
         if "~/.cache/" in peripherals.temp_path:
             logger.warning(f"Temp files will be stored in {peripherals.temp_path}")
         if self.config["proxy"]:
@@ -5942,10 +5951,22 @@ class Endcord:
             # check for user data updates
             new_user_data = self.gateway.get_user_update()
             if new_user_data:
-                new_user_data["nick"] = self.my_user_data["nick"]
-                self.my_user_data = new_user_data
-                self.premium = self.gateway.get_premium()
-                self.rpc.generate_dispatch(new_user_data)
+                roles_changed = new_user_data[1]
+                new_user_data = new_user_data[0]
+                if not new_user_data.get("nick"):
+                    new_user_data["nick"] = self.my_user_data["nick"]
+                if "name" in new_user_data:   # its user_update
+                    self.my_user_data = new_user_data
+                    self.premium = self.gateway.get_premium()
+                    self.rpc.generate_dispatch(new_user_data)
+                else:   # its guild_member_update
+                    self.my_user_data["nick"] = new_user_data["nick"]
+                if roles_changed:
+                    self.my_roles = self.gateway.get_my_roles()
+                    self.clean_permissions(roles_changed)
+                    self.compute_permissions()
+                    self.update_tree()
+                    self.update_chat()
                 self.update_status_line()
                 self.update_prompt()
 

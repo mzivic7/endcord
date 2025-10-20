@@ -12,7 +12,7 @@ import traceback
 from queue import Queue
 
 import av
-import magic
+import filetype
 from PIL import Image, ImageEnhance
 
 # safely import soundcard, in case there is no sound system
@@ -26,6 +26,15 @@ from endcord import xterm256
 
 logger = logging.getLogger(__name__)
 match_youtube = re.compile(r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}")
+
+
+def get_mime(path):
+    """Try to get mime type of the file"""
+    kind = filetype.guess(path)
+    if kind:
+        return kind.mime
+    return "unknown/unknown"
+
 
 def img_to_curses(screen, img, img_gray, start_color_id, ascii_palette, ascii_palette_len, screen_width, screen_height, width, height):
     """Draw image using curses with padding"""
@@ -446,24 +455,24 @@ class CursesMedia():
                 self.start_ui_thread()
                 self.play_video(path)
             else:
-                file_type = magic.from_file(path, mime=True).split("/")
-                if file_type[0] == "image":
-                    if file_type[1] == "gif":
+                mime = get_mime(path).split("/")
+                if mime[0] == "image":
+                    if mime[1] == "gif":
                         self.media_type = "gif"
                         self.play_anim(path)
                     else:
                         self.media_type = "img"
                         self.play_img(path)
-                elif file_type[0] == "video":
+                elif mime[0] == "video":
                     self.media_type = "video"
                     self.start_ui_thread()
                     self.play_video(path)
-                elif file_type[0] == "audio":
+                elif mime[0] == "audio":
                     self.media_type = "audio"
                     self.start_ui_thread()
                     self.play_audio(path)
                 else:
-                    logger.warning(f"Unsupported media format: {file_type}")
+                    logger.warning(f"Unsupported media format: {mime}")
                     self.run = False
             while self.run:   # dont exit when video ends
                 time.sleep(0.2)
