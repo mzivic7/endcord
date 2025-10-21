@@ -11,21 +11,51 @@ import sys
 import tomllib
 
 
+def get_app_name():
+    """Get app name from pyproject.toml"""
+    if os.path.exists("pyproject.toml"):
+        with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        if "project" in data and "version" in data["project"]:
+            return str(data["project"]["name"])
+        fprint("App name not specified in pyproject.toml")
+        sys.exit()
+    fprint("pyproject.toml file not found")
+    sys.exit()
+
+
+def get_version_number():
+    """Get version number from pyproject.toml"""
+    if os.path.exists("pyproject.toml"):
+        with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        if "project" in data and "version" in data["project"]:
+            return str(data["project"]["version"])
+        fprint("Version not specified in pyproject.toml")
+        sys.exit()
+    fprint("pyproject.toml file not found")
+    sys.exit()
+
+
 def supports_color():
     """Return True if the running terminal supports ANSI colors."""
     if sys.platform == "win32":
-        return os.getenv("ANSICON") is not None or \
-               os.getenv("WT_SESSION") is not None or \
-               os.getenv("TERM_PROGRAM") == "vscode" or \
-               os.getenv("TERM") in ("xterm", "xterm-color", "xterm-256color")
+        return (os.getenv("ANSICON") is not None or
+            os.getenv("WT_SESSION") is not None or
+            os.getenv("TERM_PROGRAM") == "vscode" or
+            os.getenv("TERM") in ("xterm", "xterm-color", "xterm-256color")
+        )
     if not sys.stdout.isatty():
         return False
     return os.getenv("TERM", "") != "dumb"
 
+
+PKGNAME = get_app_name()
+PKGVER = get_version_number()
 USE_COLOR = supports_color()
 
 
-def fprint(text, color_code="\033[1;35m", prepend="[Endcord Build Script]: "):
+def fprint(text, color_code="\033[1;35m", prepend=f"[{PKGNAME.capitalize()} Build Script]: "):
     """Print colored text prepended with text, default is light purple"""
     if USE_COLOR:
         print(f"{color_code}{prepend}{text}\033[0m")
@@ -58,32 +88,6 @@ def check_dev():
     """Check if its dev environment and set it up"""
     if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
         subprocess.run(["uv", "sync", "--group", "build"], check=True)
-
-
-def get_app_name():
-    """Get app name from pyproject.toml"""
-    if os.path.exists("pyproject.toml"):
-        with open("pyproject.toml", "rb") as f:
-            data = tomllib.load(f)
-        if "project" in data and "version" in data["project"]:
-            return str(data["project"]["name"])
-        fprint("App name not specified in pyproject.toml")
-        sys.exit()
-    fprint("pyproject.toml file not found")
-    sys.exit()
-
-
-def get_version_number():
-    """Get version number from pyproject.toml"""
-    if os.path.exists("pyproject.toml"):
-        with open("pyproject.toml", "rb") as f:
-            data = tomllib.load(f)
-        if "project" in data and "version" in data["project"]:
-            return str(data["project"]["version"])
-        fprint("Version not specified in pyproject.toml")
-        sys.exit()
-    fprint("pyproject.toml file not found")
-    sys.exit()
 
 
 def get_cython_bins(directory="endcord_cython", startswith=None):
@@ -352,10 +356,10 @@ def build_cython(clang, mingw):
 def build_with_pyinstaller(onedir, nosoundcard):
     """Build with pyinstaller"""
     if check_media_support():
-        pkgname = get_app_name()
+        pkgname = PKGNAME
         fprint("ASCII media support is enabled")
     else:
-        pkgname = f"{get_app_name()}-lite"
+        pkgname = f"{PKGNAME}-lite"
         fprint("ASCII media support is disabled")
 
     mode = "--onedir" if onedir else "--onefile"
@@ -385,7 +389,6 @@ def build_with_pyinstaller(onedir, nosoundcard):
         options = []
 
     # prepare command and run it
-    fprint("Starting pyinstaller")
     cmd = [
         "uv", "run", "python", "-m", "PyInstaller",
         mode,
@@ -399,6 +402,7 @@ def build_with_pyinstaller(onedir, nosoundcard):
         "main.py",
     ]
     cmd = [arg for arg in cmd if arg != ""]
+    fprint("Starting pyinstaller")
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
@@ -418,10 +422,10 @@ def build_with_pyinstaller(onedir, nosoundcard):
 def build_with_nuitka(onedir, clang, mingw, nosoundcard, experimental=False):
     """Build with nuitka"""
     if check_media_support():
-        pkgname = get_app_name()
+        pkgname = PKGNAME
         fprint("ASCII media support is enabled")
     else:
-        pkgname = f"{get_app_name()}-lite"
+        pkgname = f"{PKGNAME}-lite"
         fprint("ASCII media support is disabled")
 
     build_numpy_lite(clang)
@@ -451,6 +455,8 @@ def build_with_nuitka(onedir, clang, mingw, nosoundcard, experimental=False):
     if nosoundcard:
         exclude_imports.append("--nofollow-import-to=soundcard")
         package_data.remove("--include-package-data=soundcard")
+    if clang:
+        os.environ["CFLAGS"] = "-Wno-macro-redefined"
 
     # platform-specific
     if sys.platform == "linux":
@@ -468,13 +474,12 @@ def build_with_nuitka(onedir, clang, mingw, nosoundcard, experimental=False):
         package_data += ["--include-package-data=winrt"]
     elif sys.platform == "darwin":
         options = [
-            f"--macos-app-name={get_app_name()}",
+            f"--macos-app-name={PKGNAME}",
             f"--macos-app-version={get_version_number()}",
             '--macos-app-protected-resource="NSMicrophoneUsageDescription:Microphone access for recording voice message."',
         ]
 
     # prepare command and run it
-    fprint("Starting nuitka")
     cmd = [
         "uv", "run", "python", "-m", "nuitka",
         mode,
@@ -490,6 +495,7 @@ def build_with_nuitka(onedir, clang, mingw, nosoundcard, experimental=False):
         "main.py",
     ]
     cmd = [arg for arg in cmd if arg != ""]
+    fprint("Starting nuitka")
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
@@ -510,7 +516,7 @@ def parser():
     """Setup argument parser for CLI"""
     parser = argparse.ArgumentParser(
         prog="build.py",
-        description="build script for endcord",
+        description=f"build script for {PKGNAME}",
     )
     parser._positionals.title = "arguments"
     parser.add_argument(
