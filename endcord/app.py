@@ -720,7 +720,7 @@ class Endcord:
 
 
     def select_current_member_roles(self):
-        """Select member-roles for currently active guild and check for missing primary role colors"""
+        """Select member roles for currently active guild and check for missing primary role colors"""
         if not self.active_channel["guild_id"]:
             self.current_member_roles = []
             return
@@ -4199,7 +4199,7 @@ class Endcord:
                 mpv_path = self.config["mpv_path"]
             else:
                 mpv_path = ""
-            self.update_extra_line("Media will be played in native player")
+            self.update_extra_line("Media will be opened in native app")
             peripherals.native_open(path, mpv_path)
 
 
@@ -5217,6 +5217,80 @@ class Endcord:
                 })
 
 
+    def process_new_user_data(self, new_user_data):
+        """Process new user data"""
+        guild_roles_changed = new_user_data[2]
+        changed_guild = new_user_data[1]
+        new_user_data = new_user_data[0]
+
+        if new_user_data:   # gateway will send this only when this user data changes
+            if not new_user_data.get("nick"):
+                new_user_data["nick"] = self.my_user_data["nick"]
+            if "name" in new_user_data:   # its my user_update
+                self.my_user_data = new_user_data
+                self.premium = self.gateway.get_premium()
+                self.rpc.generate_dispatch(new_user_data)
+            else:   # its guild_member_update
+                self.my_user_data["nick"] = new_user_data["nick"]
+            if changed_guild:   # its my roles update from guild_member_update
+                self.my_roles = self.gateway.get_my_roles()
+                self.clean_permissions(changed_guild)
+                self.compute_permissions()
+                for roles in self.my_roles:
+                    if roles["guild_id"] == changed_guild:
+                        self.current_my_roles = roles["roles"]
+                        break
+                for guild in self.member_roles:
+                    if guild["guild_id"] == self.active_channel["guild_id"]:
+                        for member in guild["members"]:
+                            if member["user_id"] == self.my_id:
+                                member["roles"] = self.current_my_roles
+                                member.pop("primary_role_color", None)
+                                break
+                        break
+                self.select_current_member_roles()
+                self.update_tree()
+                self.update_chat()
+            self.update_status_line()
+            self.update_prompt()
+
+        if guild_roles_changed:
+            guild_id = guild_roles_changed[0]
+            role_id = guild_roles_changed[1]
+            for num, roles in enumerate(self.my_roles):
+                if roles["guild_id"] == guild_id:
+                    break
+            else:
+                num = None
+            if num is not None:
+                self.all_roles = color.convert_role_colors(self.all_roles, guild_id, role_id)
+                # 255_curses_bug - update only portion of roles color ids
+                self.all_roles = self.tui.init_role_colors(
+                    self.all_roles,
+                    self.default_msg_color[1],
+                    self.default_msg_alt_color[1],
+                    guild_id=guild_id,
+                )
+                for roles in self.all_roles:
+                    if roles["guild_id"] == guild_id:
+                        self.current_roles = roles["roles"]
+                        break
+                for guild in self.member_roles:
+                    if guild["guild_id"] == guild_id:
+                        for member in guild["members"]:
+                            member.pop("primary_role_color", None)
+                        break
+                self.select_current_member_roles()
+
+                # update perms and redraw
+                if role_id in roles["roles"]:
+                    self.clean_permissions(guild_id)
+                    self.compute_permissions()
+                    self.update_tree()
+                if guild_id == self.active_channel["guild_id"]:
+                    self.update_chat(scroll=False)
+
+
     def process_call_voice_gateway_events(self, event):
         """Process events from voice gateway"""
         if event["op"] == "USER_SPEAK":
@@ -5951,24 +6025,7 @@ class Endcord:
             # check for user data updates
             new_user_data = self.gateway.get_user_update()
             if new_user_data:
-                roles_changed = new_user_data[1]
-                new_user_data = new_user_data[0]
-                if not new_user_data.get("nick"):
-                    new_user_data["nick"] = self.my_user_data["nick"]
-                if "name" in new_user_data:   # its user_update
-                    self.my_user_data = new_user_data
-                    self.premium = self.gateway.get_premium()
-                    self.rpc.generate_dispatch(new_user_data)
-                else:   # its guild_member_update
-                    self.my_user_data["nick"] = new_user_data["nick"]
-                if roles_changed:
-                    self.my_roles = self.gateway.get_my_roles()
-                    self.clean_permissions(roles_changed)
-                    self.compute_permissions()
-                    self.update_tree()
-                    self.update_chat()
-                self.update_status_line()
-                self.update_prompt()
+                self.process_new_user_data(new_user_data)
 
             # check for new member presences
             if self.get_members:

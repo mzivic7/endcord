@@ -107,6 +107,7 @@ class Gateway():
         self.stickers = []
         self.token_update = None
         self.user_update = None
+        self.guild_roles_changed = None
         self.premium = False
         self.error = None
         self.querying_members = False
@@ -302,6 +303,7 @@ class Gateway():
         else:
             properties = guild
         guild_channels = []
+
         # channels
         for channel in guild["channels"]:
             if channel["type"] in (0, 2, 4, 5, 15) and not self.bot:
@@ -320,6 +322,7 @@ class Gateway():
             })
         guild_roles = []
         base_permissions = 0
+
         # roles
         for role in guild["roles"]:
             if role["id"] == guild_id:
@@ -341,6 +344,8 @@ class Gateway():
             "guild_id": guild_id,
             "roles": guild_roles,
         })
+
+        # guild
         community = False
         for feature in properties["features"]:
             if feature in ("COMMUNITY", "COMMUNITY_CANARY"):
@@ -357,6 +362,7 @@ class Gateway():
             "community": community,
             "premium": properties["premium_tier"],
         })
+
         # threads
         threads = []
         for thread in guild.get("threads", []):
@@ -386,6 +392,7 @@ class Gateway():
             "guild_id": guild_id,
             "threads": threads,
         })
+
         # emojis
         guild_emojis = []
         for emojis in guild["emojis"]:
@@ -399,6 +406,7 @@ class Gateway():
             "guild_name": properties["name"],
             "emojis": guild_emojis,
         })
+
         # stickers
         guild_stickers = []
         for sticker in guild["stickers"]:
@@ -1433,7 +1441,6 @@ class Gateway():
                         self.add_guild(data)
                         # add my roles
                         for member in data.get("members", []):
-                            logger.info((self.my_id, member.get("id")))
                             if member.get("user_id") == self.my_id or member.get("id") or member["user"]["id"] == self.my_id:
                                 self.my_roles.append({
                                     "guild_id": guild_id,
@@ -1461,6 +1468,64 @@ class Gateway():
                                 self.guilds.pop(num)
                                 self.guilds_changed = True
                                 break
+
+                elif optext in ("GUILD_ROLE_CREATE", "GUILD_ROLE_UPDATE", "GUILD_ROLE_DELETE"):
+                    guild_id = data["guild_id"]
+                    for num_guild, guild in enumerate(self.roles):
+                        if guild["guild_id"] == guild_id:
+                            break
+                    else:
+                        continue
+                    if optext == "GUILD_ROLE_CREATE":
+                        role = data["role"]
+                        self.roles[num_guild]["roles"].append({
+                            "id": role["id"],
+                            "name": role["name"],
+                            "color": role["color"],
+                            "position": role["position"],
+                            "hoist": role["hoist"],
+                            "permissions": role["permissions"],
+                        })
+                        # sort roles
+                        self.roles[num_guild]["roles"] = sorted(self.roles[num_guild]["roles"], key=lambda x: x.get("position"), reverse=True)
+                        self.roles[num_guild]["roles"] = sorted(self.roles[num_guild]["roles"], key=lambda x: not bool(x.get("color")))
+                        if not self.user_update:
+                            self.user_update = (None, None)
+                        self.guild_roles_changed = (guild_id, role["id"])
+                    elif optext == "GUILD_ROLE_UPDATE":
+                        role = data["role"]
+                        for num, role_old in enumerate(self.roles[num_guild]["roles"]):
+                            if role["id"] == role_old["id"]:
+                                self.roles[num_guild]["roles"][num] = {
+                                    "id": role["id"],
+                                    "name": role["name"],
+                                    "color": role["color"],
+                                    "position": role["position"],
+                                    "hoist": role["hoist"],
+                                    "permissions": role["permissions"],
+                                }
+                                # sort roles
+                                self.roles[num_guild]["roles"] = sorted(self.roles[num_guild]["roles"], key=lambda x: x.get("position"), reverse=True)
+                                self.roles[num_guild]["roles"] = sorted(self.roles[num_guild]["roles"], key=lambda x: not bool(x.get("color")))
+                                # update default role
+                                if role["id"] == guild_id:
+                                    for num_g, guild in enumerate(self.guilds):
+                                        if guild["guild_id"] == num_guild:
+                                            self.guilds[num_g]["permissions"] = role["permissions"]
+                                            break
+                                if not self.user_update:
+                                    self.user_update = (None, None)
+                                self.guild_roles_changed = (guild_id, role["id"])
+                                break
+                    elif optext == "GUILD_ROLE_DELETE":
+                        for num, role in enumerate(self.roles[num_guild]["roles"]):
+                            if role["id"] == data["role_id"]:
+                                self.roles[num_guild]["roles"].pop(num)
+                                if not self.user_update:
+                                    self.user_update = (None, None)
+                                self.guild_roles_changed = (guild_id, role["id"])
+                                break
+
             elif opcode == 7:
                 logger.info("Host requested reconnect")
                 self.resumable = True
@@ -2024,12 +2089,16 @@ class Gateway():
 
     def get_user_update(self):
         """
-        Get user update (self) and wether roles have changed (guild_id, returns a tuple: (user_update, roles_changed).
+        Get a tuple of:
+        user update (self) - dict,
+        wether roles have changed - guild_id
+        wether guild roles have changed - (guild_id, role_id)
         If user_update has only user_id and nick, then its guild_mmember_update event.
         """
         if self.user_update:
-            cache = self.user_update
+            cache = (*self.user_update, self.guild_roles_changed)
             self.user_update = None
+            self.guild_roles_changed = None
             return cache
         return None
 

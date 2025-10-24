@@ -558,14 +558,15 @@ class TUI():
                     self.chat_index = max(selected - 3, 0)
         elif change_amount and self.chat_index:
             self.chat_index += change_amount
-
-        self.draw_chat()
+        if not self.disable_drawing:
+            self.draw_chat()
 
 
     def set_chat_index(self, index):
         """Set chat index, used to trigger unseen scrolled"""
         self.chat_index = index
-        self.draw_chat()
+        if not self.disable_drawing:
+            self.draw_chat()
 
 
     def set_input_index(self, index):
@@ -600,7 +601,8 @@ class TUI():
         """Scroll to chat bottom"""
         self.chat_selected = -1
         self.chat_index = 0
-        self.draw_chat()
+        if not self.disable_drawing:
+            self.draw_chat()
 
 
     def store_input_selected(self):

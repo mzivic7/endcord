@@ -344,7 +344,7 @@ Open link in browser - `Alt+O`
 ## Installing
 ### Linux
 - Pre-built binaries (built with nuitka using clang) are available in releases  
-    Binaries are built on Ubuntu-like distro. Locally built binaries can be smaller, thus starts faster.
+    Binaries are built on Ubuntu-like distro. **Locally built binaries can be smaller, thus starts faster**.
 - From AUR:
     - `yay -S endcord` - full version with media support, larger executable
     - `yay -S endcord-lite` - lite version without voice calls and media support

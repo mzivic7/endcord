@@ -18,9 +18,9 @@ def get_app_name():
             data = tomllib.load(f)
         if "project" in data and "version" in data["project"]:
             return str(data["project"]["name"])
-        fprint("App name not specified in pyproject.toml")
+        print("App name not specified in pyproject.toml")
         sys.exit()
-    fprint("pyproject.toml file not found")
+    print("pyproject.toml file not found")
     sys.exit()
 
 
@@ -31,9 +31,9 @@ def get_version_number():
             data = tomllib.load(f)
         if "project" in data and "version" in data["project"]:
             return str(data["project"]["version"])
-        fprint("Version not specified in pyproject.toml")
+        print("Version not specified in pyproject.toml")
         sys.exit()
-    fprint("pyproject.toml file not found")
+    print("pyproject.toml file not found")
     sys.exit()
 
 
@@ -75,12 +75,14 @@ def check_media_support():
 def add_media():
     """Add media support"""
     if not check_media_support():
+        fprint("Adding media support dependencies")
         subprocess.run(["uv", "sync", "--all-groups"], check=True)
 
 
 def remove_media():
     """Remove media support"""
     if check_media_support():
+        fprint("Removing media support dependencies")
         subprocess.run(["uv", "pip", "uninstall", "pillow" , "av", "pynacl"], check=True)
 
 
@@ -88,6 +90,21 @@ def check_dev():
     """Check if its dev environment and set it up"""
     if importlib.util.find_spec("PyInstaller") is None or importlib.util.find_spec("nuitka") is None:
         subprocess.run(["uv", "sync", "--group", "build"], check=True)
+
+
+def build_third_party_licenses(exclude=[]):
+    """Collect and build all lincenses found in venv into THIRD_PARTY_LICENSES.txt file"""
+    fprint("Building list of third party licenses")
+    subprocess.run(["uv", "pip", "install", "pip-licenses"], check=True)
+    command = [
+        "uv", "run", "pip-licenses",
+        "--ignore-packages " + " ".joind(exclude),
+        "--format=plain-vertical",
+        "--no-license-path",
+        "--output-file=THIRD_PARTY_LICENSES.txt",
+    ]
+    subprocess.run(command, check=True)
+    subprocess.run(["uv", "pip", "uninstall", "pip-licenses", "prettytable", "wcwidth"], check=True)
 
 
 def get_cython_bins(directory="endcord_cython", startswith=None):
@@ -111,7 +128,7 @@ def find_file_in_venv(lib_name, file_name):
             if os.path.isfile(path):
                 return path
     else:
-        fprint(f"{lib_name}/{file_name} not found")
+        print(f"{lib_name}/{file_name} not found")
         return
 
 
@@ -122,8 +139,9 @@ def patch_soundcard():
     Search for soundcard/pulseaudio.py in .venv
     replace assert with proper exception
     """
+    fprint("Patching soundcard")
     if not os.path.exists(".venv"):
-        fprint(".venv dir not found")
+        print(".venv dir not found")
         return
 
     # patch mediafoundation.py
@@ -146,9 +164,9 @@ def patch_soundcard():
     if changed:
         with open(path, "w", encoding="utf-8") as f:
             f.writelines(lines)
-        fprint(f"Patched file: {path}")
+        print(f"Patched file: {path}")
     else:
-        fprint(f"Nothing to patch in file {path}")
+        print(f"Nothing to patch in file {path}")
 
     # patch pulseaudio.py
     path = find_file_in_venv("soundcard", "pulseaudio.py")
@@ -171,17 +189,18 @@ def patch_soundcard():
     if changed:
         with open(path, "w", encoding="utf-8") as f:
             f.writelines(lines)
-        fprint(f"Patched file: {path}")
+        print(f"Patched file: {path}")
     else:
-        fprint(f"Nothing to patch in file {path}")
+        print(f"Nothing to patch in file {path}")
 
 
 def clean_emoji():
     """Clean emoji dict from unused emojis and data"""
+    fprint("Cleaning emoji data")
     changed = False
     # find emoji file
     if not os.path.exists(".venv"):
-        fprint(".venv dir not found")
+        print(".venv dir not found")
         return
     path = find_file_in_venv("emoji", ["unicode_codes", "emoji.json"])
 
@@ -217,10 +236,8 @@ def clean_emoji():
     with open(path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
 
-    if changed:
-        fprint("Cleaned emoji data")
-    else:
-        fprint("Emoji data is already cleaned")
+    if not changed:
+        print("Emoji data is already cleaned")
 
 
 def toggle_experimental(check_only=False):
@@ -305,13 +322,17 @@ def toggle_experimental(check_only=False):
 
 def build_numpy_lite(clang):
     """Build numpy without openblass to reduce final binary size"""
+    if sys.platform != "linux":
+        fprint("Skipping numpy lite (no openblas) building on non-linux platforms")
+        return
+
     # check if numpy without blas is not already installed
     cmd = [
         "uv", "run", "python", "-c",
         "import numpy; print(int(numpy.__config__.show_config('dicts')['Build Dependencies']['blas'].get('found', False)))",
     ]
+    fprint("Building numpy lite (no openblas)")
     if int(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()):
-        fprint("Building numpy lite (no openblas)")
         if clang:
             os.environ["CC"] = "clang"
             os.environ["CXX"] = "clang++"
@@ -328,16 +349,16 @@ def build_numpy_lite(clang):
                 "--config-settings=setup-args=-Dlapack=None",
             ], check=True)
         except subprocess.CalledProcessError:   # fallback
-            fprint("Failed building numpy lite (no openblas), faling back to default numpy")
+            print("Failed building numpy lite (no openblas), faling back to default numpy")
             subprocess.run(["uv", "pip", "install", "numpy"], check=True)
         subprocess.run(["uv", "pip", "uninstall", "pip"], check=True)
     else:
-        fprint("Numpy lite (no openblas) is already built")
+        print("Numpy lite (no openblas) is already built")
 
 
 def build_cython(clang, mingw):
     """Build cython extensions"""
-    fprint(f"Starting cython compilation with {"clang" if clang else "gcc"}{("mingw") if mingw else ""}")
+    fprint(f"Compiling cython code with {"clang" if clang else "gcc"}{("mingw") if mingw else ""}")
     cmd = ["uv", "run", "python", "setup.py", "build_ext", "--inplace"]
     if clang:
         os.environ["CC"] = "clang"
@@ -345,7 +366,21 @@ def build_cython(clang, mingw):
     elif mingw and sys.platform == "win32":
         cmd.append("--compiler=mingw32")   # covers mingw 32 and 64
 
-    subprocess.run(cmd, check=True)
+    # run process with control of stdout
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    for line in process.stdout:
+        line_clean = line.rstrip("\n")
+        if len(line_clean) < 100 and "Cythonizing" not in line_clean and "Compiling" not in line_clean and "creating" not in line_clean:
+            print(line_clean)
+    process.wait()
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, cmd)
 
     files = [f for f in os.listdir("endcord_cython") if f.endswith(".c")]
     for f in files:
@@ -406,7 +441,7 @@ def build_with_pyinstaller(onedir, nosoundcard):
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        fprint(f"Build failed: {e}")
+        print(f"Build failed: {e}")
         sys.exit(e.returncode)
 
     # cleanup
@@ -499,7 +534,7 @@ def build_with_nuitka(onedir, clang, mingw, nosoundcard, experimental=False):
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        fprint(f"Build failed: {e}")
+        print(f"Build failed: {e}")
         sys.exit(e.returncode)
 
     # cleanup
@@ -559,6 +594,11 @@ def parser():
         action="store_true",
         help="toggle experimental mode and exit",
     )
+    parser.add_argument(
+        "--build-licenses",
+        action="store_true",
+        help="build file containing licenses from all used third party libraries",
+    )
     return parser.parse_args()
 
 
@@ -590,6 +630,10 @@ if __name__ == "__main__":
             build_cython(args.clang, args.mingw)
         except Exception as e:
             fprint(f"Failed building cython extensions, error: {e}")
+
+    if args.build_licenses:
+        exclude = ["ordered-set", "zstandard", "altgraph", "packaging", "pyinstaller-hooks-contrib", "packaging", "setuptools"]
+        build_third_party_licenses(exclude)
 
     if args.nuitka:
         build_with_nuitka(args.onedir, args.clang, args.mingw, args.nosoundcard, experimental)
