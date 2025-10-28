@@ -234,6 +234,8 @@ class TUI():
         self.mouse = config["mouse"]
         self.screen_update_delay = min(config["screen_update_delay"], 0.01)
         self.mouse_scroll_sensitivity = min(max(1, config["mouse_scroll_sensitivity"]), 10)
+        self.fun = 0
+        self.fun_thread = None
         mouse_scroll_selection = config["mouse_scroll_selection"]
 
         # select mouse scroll method
@@ -304,6 +306,7 @@ class TUI():
         self.extra_window_body = ""
         self.member_list = []
         self.member_list_format = []
+        self.red_list = []
         self.extra_selected = -1
         self.extra_index = 0
         self.extra_select = False
@@ -592,6 +595,30 @@ class TUI():
             curses.set_tray_icon(icon)
 
 
+    def set_fun(self, fun_lvl):
+        """Set fun level"""
+        self.fun = fun_lvl
+        if self.fun == 2 and not self.fun_thread:
+            curses.init_pair(15, -1, 196)
+            self.fun_thread = threading.Thread(target=self.fun_loop, daemon=True)
+            self.fun_thread.start()
+
+
+    def fun_loop(self):
+        """Thread for fun features"""
+        import random
+        self.fun_lock = threading.Lock()
+        while self.run:
+            while not self.red_list:
+                time.sleep(0.2)
+            if self.red_list:
+                with self.fun_lock:
+                    self.red_list.pop(random.randrange(len(self.red_list)))
+                    self.draw_input_line()
+                sleep_time = 0.3 / max(len(self.red_list), 1)
+                time.sleep(random.uniform(sleep_time, sleep_time*5))
+
+
     def disable_wrap_around(self, disable):
         """Explicitly disable wrap around in extra window"""
         self.wrap_around_disable = disable
@@ -869,6 +896,8 @@ class TUI():
                 # selected part of string
                 elif self.input_select_start is not None and selected_start_screen <= pos < selected_end_screen:
                     safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(15) | self.attrib_map[15])
+                elif pos in self.red_list:
+                    safe_insch(self.win_input_line, 0, pos, character, curses.color_pair(20))
                 else:
                     for bad_range in self.misspelled:
                         if bad_range[0] <= pos < sum(bad_range) and (bad_range[0] > self.cursor_pos or self.cursor_pos >= sum(bad_range)+1):
@@ -1866,6 +1895,9 @@ class TUI():
                     self.delete_selection()
                     self.input_select_start = None
                 self.input_buffer = self.input_buffer[:self.input_index] + chr(key) + self.input_buffer[self.input_index:]
+                if self.fun == 2:
+                    with self.fun_lock:
+                        self.red_list.append(self.input_index)
                 self.input_index += 1
                 self.typing = int(time.time())
                 if self.enable_autocomplete:

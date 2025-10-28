@@ -495,11 +495,13 @@ def command_string(text):
         cmd_type = 24
 
     # 25 - GOTO
-    elif text_lower.startswith("goto"):
+    elif text_lower.startswith(("goto", "xyzzy")):
         cmd_type = 25
         match = re.search(match_channel, text)
         if match:
             cmd_args = {"channel_id": match.group(1)}
+        elif text_lower.startswith("xyzzy"):
+            cmd_args = {"channel_id": "special"}
         else:
             cmd_type = 0
 
@@ -713,5 +715,9 @@ def command_string(text):
             "max_age": max_age,
             "max_uses": max_uses,
         }
+
+    # 66 - 666
+    elif text_lower == "666":
+        cmd_type = 66
 
     return cmd_type, cmd_args

@@ -408,10 +408,9 @@ To toggle [experimental windowed mode](#experimental-windowed-mode) run: `uv run
 
 ### macOS
 1. Install [Python](https://www.python.org/) 3.13 or later
-2. Install dependencies: `brew install uv libmagic`
-3. Clone this repository, unzip it
-4. Open terminal, cd to unzipped folder
-5. run build script: `uv run build.py`
+2. Clone this repository, unzip it
+3. Open terminal, cd to unzipped folder
+4. run build script: `uv run build.py`
 
 ### Nuitka
 To enable building with Nuitka, add `--nuitka` flag (takes a long time).  

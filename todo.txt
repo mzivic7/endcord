@@ -1,17 +1,18 @@
-Multiple call management
-    remove self.ringing
-    keep all calls in a list
-    new calls ring
-    reject_call stops ringing universally and removes popup
-    if ring timeout or reject call, it stays in list but popup is removed
-    on channel switch check list and show popup again
-    after this client leaves call, but other one is still in - keep call in the list
-    if this client leaves call and its last - remove from list
+Handle events when creating and closing dm and group
+    update self.dms in gateway
+    signal app.py to update it
+    regenerate tree
 
 Server folders in tree
+    drop-down at same level as guilds
+    add decoration so its different from guild
+    handle open/close drop-down
+    handle moue click
+    option to disable it in settings
+    option to change drop-down sign
+
 Extensions support
-Optimize main loop with queues and threading events
-Check RAM usage when not removing permission_overwrites when parsing perms
+Optimize main loop with queues and threading
 
 Voice calls
     fix playing sound

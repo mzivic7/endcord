@@ -210,6 +210,12 @@ class Endcord:
         threading.Thread(target=self.gateway.connect, daemon=True).start()
         self.downloader = downloader.Downloader(config["proxy"])
         self.tui = tui.TUI(self.screen, self.config, keybindings)
+        if self.fun:
+            today = (time.localtime().tm_mon, time.localtime().tm_mday)
+            self.fun = 2 if (10, 25) <= today <= (11, 2) else self.fun
+            self.fun = 3 if today >= (12, 25) or today <= (1, 23) else self.fun
+            self.fun = 4 if today == (4, 1) else self.fun
+            self.tui.set_fun(self.fun)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
         self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 1)
@@ -247,6 +253,7 @@ class Endcord:
         self.assist_found = []
         self.restore_input_text = (None, None)
         self.extra_bkp = None
+        self.checkpoint = None
         self.command_history = peripherals.load_json("command_history.json", [])
         self.command_history_index = 0
         self.command_history_stored_current = None
@@ -334,7 +341,8 @@ class Endcord:
         self.app_command_last_keypress = time.time()
         self.allow_app_command_autocomplete = False
         self.ignore_typing = False
-        self.incoming_call = None
+        self.incoming_calls = []
+        self.most_recent_incoming_call = None
         self.joining_call = False
         if self.voice_gateway:
             self.voice_gateway.disconnect()
@@ -599,6 +607,28 @@ class Endcord:
         if self.recording:
             self.recording = False
             _ = recorder.stop()
+
+        # check for call popups
+        if self.incoming_calls and not self.in_call:
+            self.most_recent_incoming_call = None
+            if channel_id in self.incoming_calls:
+                new_permanent_extra_line = None
+                if self.most_recent_incoming_call:
+                    incoming_call_ch_id = self.most_recent_incoming_call
+                else:
+                    incoming_call_ch_id = channel_id
+                for dm in self.dms:
+                    if dm["id"] == incoming_call_ch_id:
+                        new_permanent_extra_line = formatter.generate_extra_line_ring(
+                            dm["name"],
+                            self.tui.get_dimensions()[2][1],
+                        )
+                        break
+                if new_permanent_extra_line and new_permanent_extra_line != self.permanent_extra_line:
+                    self.update_extra_line(custom_text=new_permanent_extra_line, permanent=True)
+            elif not self.in_call:
+                self.update_extra_line(permanent=True)
+
 
         # select guild member activities
         if guild_id:
@@ -1672,18 +1702,23 @@ class Endcord:
                                 self.update_voice_mute_in_call()
                         elif len(self.extra_line)-6 <= mouse_x < len(self.extra_line)-1:   # LEAVE
                             self.leave_call()
-                    elif self.incoming_call:
+                    elif self.most_recent_incoming_call or self.active_channel["channel_id"] in self.incoming_calls:
                         mouse_x = self.tui.get_extra_line_clicked()
                         if len(self.extra_line)-16 <= mouse_x < len(self.extra_line)-10:   # ACCEPT
                             if not self.in_call:
-                                if self.incoming_call:
-                                    threading.Thread(target=self.start_call, daemon=True, args=(True, None, self.incoming_call)).start()
+                                if self.most_recent_incoming_call:
+                                    incoming_call_ch_id = self.most_recent_incoming_call
+                                else:
+                                    incoming_call_ch_id = self.active_channel["channel_id"]
+                                threading.Thread(target=self.start_call, daemon=True, args=(True, None, incoming_call_ch_id)).start()
                             else:
                                 self.update_extra_line("Cant join multiple calls")
                         elif len(self.extra_line)-7 <= mouse_x < len(self.extra_line)-1:   # REJECT
-                            if self.incoming_call:
-                                # only stop ringing and keep popup
-                                self.stop_ringing()
+                            self.stop_ringing()
+                            self.most_recent_incoming_call = None
+                            # remove popup if not in this channel
+                            if self.active_channel["channel_id"] not in self.incoming_calls:
+                                self.update_extra_line(permanent=True)
 
             # escape in main UI
             elif action == 5:
@@ -2370,6 +2405,14 @@ class Endcord:
 
         elif cmd_type == 25:   # GOTO
             object_id = cmd_args["channel_id"]
+            tp = False
+            if object_id == "special" and self.fun:
+                if not self.checkpoint:
+                    self.checkpoint = self.active_channel["channel_id"]
+                    self.update_extra_line("Teleportation point set.")
+                else:
+                    object_id = self.checkpoint
+                    tp = True
             channel_id, channel_name, guild_id, guild_name, parent_hint = self.find_parents_from_id(object_id)
             # guild
             if not channel_id:
@@ -2403,6 +2446,8 @@ class Endcord:
                     self.tui.tree_select(self.tree_pos_from_id(object_id))
                     time.sleep(0.1)   # sometimes dms list gets collapsed if no delay
                 self.switch_channel(channel_id, channel_name, guild_id, guild_name, parent_hint=parent_hint)
+                if tp:
+                    self.update_extra_line("You're inside building. There is food here.")
 
         elif cmd_type == 26:   # VIEW_PFP
             user_id = cmd_args.get("user_id", None)
@@ -2812,8 +2857,12 @@ class Endcord:
 
         elif cmd_type == 49:   # VOICE_ACCEPT_CALL
             if not self.in_call:
-                if self.incoming_call:
-                    threading.Thread(target=self.start_call, daemon=True, args=(True, None, self.incoming_call)).start()
+                if self.incoming_calls:
+                    if self.most_recent_incoming_call:
+                        incoming_call_ch_id = self.most_recent_incoming_call
+                    else:
+                        incoming_call_ch_id = self.active_channel["channel_id"]
+                    threading.Thread(target=self.start_call, daemon=True, args=(True, None, incoming_call_ch_id)).start()
             else:
                 self.update_extra_line("Cant join multiple calls")
 
@@ -2821,9 +2870,12 @@ class Endcord:
             self.leave_call()
 
         elif cmd_type == 51:   # VOICE_REJECT_CALL
-            if self.incoming_call:
-                # only stop ringing and keep popup
+            if self.incoming_calls:
                 self.stop_ringing()
+                self.most_recent_incoming_call = None
+                # remove popup if not in this channel
+                if self.active_channel["channel_id"] not in self.incoming_calls:
+                    self.update_extra_line(permanent=True)
 
         elif cmd_type == 52:   # VOICE_TOGGLE_MUTE
             if self.state.get("muted"):
@@ -2859,6 +2911,10 @@ class Endcord:
                     self.update_extra_line("Servr invite copied to clipboard")
                 else:
                     self.update_extra_line("Failed to generate invite, see log for more info")
+
+        elif cmd_type == 66 and self.fun:   # 666
+            self.fun = 2
+            self.tui.set_fun(2)
 
         if reset:
             self.reset_actions()
@@ -3670,11 +3726,10 @@ class Endcord:
     def view_voice_call_list(self, reset=False):
         """Show voice call participants and their states in extra window"""
         self.stop_assist(close=False)
-        max_w = self.tui.get_dimensions()[2][1]
         extra_title, extra_body = formatter.generate_extra_window_call(
             self.call_participants,
             self.state.get("muted"),
-            max_w,
+            self.tui.get_dimensions()[2][1],
         )
         self.tui.draw_extra_window(extra_title, extra_body, start_zero=reset)
         self.extra_window_open = True
@@ -5156,9 +5211,13 @@ class Endcord:
         if dm["is_spam"] or dm["muted"]:
             return
 
+        if self.in_call and event["channel_id"] != self.in_call["channel_id"] and event["op"] != "CALL_DELETE":
+            return
+
         if event["op"] == "CALL_CREATE" and not (self.in_call or self.joining_call):
-            if not self.incoming_call:
-                self.incoming_call = dm["id"]
+            if dm["id"] not in self.incoming_calls:
+                self.incoming_calls.append(dm["id"])
+                self.most_recent_incoming_call = dm["id"]
                 if self.recording:   # stop recording voice message
                     self.recording = False
                     _ = recorder.stop()
@@ -5188,21 +5247,25 @@ class Endcord:
                 else:
                     logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
 
-        elif event["op"] == "CALL_DELETE" and self.incoming_call and not (self.in_call or self.joining_call):
-            self.incoming_call = None
-            self.update_extra_line(custom_text=None, permanent=True)
-            self.stop_ringing()
+        elif event["op"] == "CALL_DELETE" and event["channel_id"] in self.incoming_calls:
+            self.incoming_calls.remove(event["channel_id"])
+            if self.most_recent_incoming_call == event["channel_id"]:
+                self.most_recent_incoming_call = None
+            if not (self.in_call or self.joining_call):
+                self.update_extra_line(permanent=True)
+                self.stop_ringing()
 
-        elif event["op"] == "STATE_UPDATE":
+        elif event["op"] == "STATE_UPDATE" and event["channel_id"] in self.incoming_calls:
             for num, participant in enumerate(self.call_participants):
                 if participant["user_id"] == event["user_id"]:
                     if participant["name"]:
                         self.call_participants[num]["muted"] = event["muted"]
                     else:
                         # if user is added by USER_JOIN, show popup
-                        self.update_extra_line(f"{participant["name"]} joined the call")
+                        self.update_extra_line(f"{event["name"]} joined the call")
                         if event["name"]:
                             self.call_participants[num]["name"] = event["name"]
+                            self.update_call_extra_line()
                         self.call_participants[num]["muted"] = event["muted"]
                     if self.voice_call_list_open:
                         self.view_voice_call_list()
@@ -5215,6 +5278,7 @@ class Endcord:
                     "muted": event["muted"],
                     "speaking": False,
                 })
+                self.update_call_extra_line()
 
 
     def process_new_user_data(self, new_user_data):
@@ -5312,6 +5376,7 @@ class Endcord:
                                     if participant["user_id"] == event["user_id"]:
                                         if not participant["name"]:
                                             self.call_participants[num]["name"] = name
+                                            self.update_call_extra_line()
                                         break
                                 else:
                                     self.call_participants.append({
@@ -5320,6 +5385,7 @@ class Endcord:
                                         "muted": False,
                                         "speaking": False,
                                     })
+                                    self.update_call_extra_line()
                                 if self.voice_call_list_open:
                                     self.view_voice_call_list()
                                 break
@@ -5338,6 +5404,7 @@ class Endcord:
                         "muted": False,
                         "speaking": False,
                     })
+                    self.update_call_extra_line()
                 if self.voice_call_list_open:
                     self.view_voice_call_list()
 
@@ -5347,6 +5414,7 @@ class Endcord:
                     if participant["user_id"] == event["user_id"]:
                         self.update_extra_line(f"{participant["name"]} left the call")
                         self.call_participants.pop(num)
+                        self.update_call_extra_line()
                         if self.voice_call_list_open:
                             self.view_voice_call_list()
                         break
@@ -5432,16 +5500,15 @@ class Endcord:
             if recipients:
                 self.discord.send_ring(channel_id, recipients)
 
-        self.permanent_extra_line = formatter.generate_extra_line_call(
-            self.call_participants,
-            self.state.get("muted"),
-            self.tui.get_dimensions()[2][1],
-        )
-        self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
+        # call started successfully
+        if self.most_recent_incoming_call == channel_id:
+            self.most_recent_incoming_call = False
+        if channel_id in self.incoming_calls:
+            self.incoming_calls.remove(channel_id)
+        self.update_call_extra_line()
 
-        if incoming:
-            self.stop_ringing()
-        elif not self.incoming_call:
+        self.stop_ringing()
+        if not incoming:
             custom_ringtone = self.config["custom_ringtone_outgoing"]
             linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_outgoing"])
             if custom_ringtone and os.path.exists(custom_ringtone):
@@ -5455,6 +5522,11 @@ class Endcord:
 
     def leave_call(self):
         """Leave voice call"""
+        if self.in_call:
+            call_channel_id = self.in_call["channel_id"]
+            if call_channel_id not in self.incoming_calls:
+                self.incoming_calls.append(call_channel_id)
+
         if self.voice_gateway:
             self.voice_gateway.stop_voice_handler()
 
@@ -5464,22 +5536,35 @@ class Endcord:
         self.gateway.request_voice_disconnect()
 
         # keep popup (will be removed on CALL_DELETE event)
-        for dm in self.dms:
-            if dm["id"] == self.incoming_call:
-                new_permanent_extra_line = formatter.generate_extra_line_ring(
-                    dm["name"],
-                    self.tui.get_dimensions()[2][1],
-                )
-                self.update_extra_line(custom_text=new_permanent_extra_line, update_only=True)
-                break
+        if self.in_call and call_channel_id == self.active_channel["channel_id"]:
+            for dm in self.dms:
+                if dm["id"] == call_channel_id:
+                    new_permanent_extra_line = formatter.generate_extra_line_ring(
+                        dm["name"],
+                        self.tui.get_dimensions()[2][1],
+                    )
+                    self.update_extra_line(custom_text=new_permanent_extra_line, permanent=True)
+                    break
+        else:
+            self.update_extra_line(permanent=True)
+        self.in_call = None
 
-        # wait for host response then terminate voice gateway
+        # wait for host respond then terminate voice gateway
         time.sleep(0.5)
         if self.voice_gateway:
             self.voice_gateway.disconnect()
         self.stop_ringing()
-        self.in_call = None
         self.voice_gateway = None
+
+
+    def update_call_extra_line(self):
+        """Update extra line shown when in call, eg on call participants change"""
+        self.permanent_extra_line = formatter.generate_extra_line_call(
+            self.call_participants,
+            self.state.get("muted"),
+            self.tui.get_dimensions()[2][1],
+        )
+        self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
 
 
     def update_voice_mute_in_call(self):
@@ -5493,12 +5578,7 @@ class Endcord:
                 video=False,
                 preferred_regions=self.discord.get_best_voice_region(),
             )
-            self.permanent_extra_line = formatter.generate_extra_line_call(
-                self.call_participants,
-                self.state.get("muted"),
-                self.tui.get_dimensions()[2][1],
-            )
-            self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
+            self.update_call_extra_line()
 
 
     def update_summary(self, new_summary):
@@ -5978,10 +6058,14 @@ class Endcord:
                     self.tui.update_chat(self.chat, self.chat_format, scroll=False)
                 else:
                     self.update_chat(scroll=False)
-                if self.incoming_call:
+                if self.most_recent_incoming_call or self.active_channel["channel_id"] in self.incoming_calls:
                     new_permanent_extra_line = None
+                    if self.most_recent_incoming_call:
+                        incoming_call_ch_id = self.most_recent_incoming_call
+                    else:
+                        incoming_call_ch_id = self.active_channel["channel_id"]
                     for dm in self.dms:
-                        if dm["id"] == self.incoming_call:
+                        if dm["id"] == incoming_call_ch_id:
                             new_permanent_extra_line = formatter.generate_extra_line_ring(
                                 dm["name"],
                                 self.tui.get_dimensions()[2][1],

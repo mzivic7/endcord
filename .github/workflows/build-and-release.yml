@@ -99,7 +99,7 @@ jobs:
       - name: Install macOS system dependencies
         if: matrix.platform == 'macos'
         run: |
-          brew install ccache libmagic
+          brew install ccache
           echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
 
       - name: Install dependencies with uv
