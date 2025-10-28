@@ -1,8 +1,3 @@
-Handle events when creating and closing dm and group
-    update self.dms in gateway
-    signal app.py to update it
-    regenerate tree
-
 Server folders in tree
     drop-down at same level as guilds
     add decoration so its different from guild
@@ -27,7 +22,6 @@ Voice calls
         join call with goto
         handle multiple speaking at the same time
     Group DM calls
-    Add proxy support to voice calls
 
 Vim-like bindings
 Video calls

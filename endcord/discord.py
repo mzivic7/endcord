@@ -117,7 +117,6 @@ class Discord():
         """Get connection object and handle proxying"""
         if self.proxy.scheme:
             if self.proxy.scheme.lower() == "http":
-                logger.info((self.proxy.hostname, self.proxy.port))
                 connection = http.client.HTTPSConnection(self.proxy.hostname, self.proxy.port)
                 connection.set_tunnel(host, port=port)
             elif "socks" in self.proxy.scheme.lower():

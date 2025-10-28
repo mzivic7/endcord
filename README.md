@@ -78,6 +78,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Profile manager for multiple accounts
 - Store token in system keyring
 - Experimental windowed mode with tray icon
+- Lots of easter eggs
 
 
 ## Configuration

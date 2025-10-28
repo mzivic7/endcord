@@ -422,6 +422,91 @@ class Gateway():
         })
 
 
+    def add_dm(self, dm, data=[]):
+        """Process received dm channel object and add it to dms list"""
+        channel_id = dm["id"]
+
+        recipients = []
+        add_me = dm["type"] == 3   # group dm
+        if "recipients" in dm:
+            for recipient in dm["recipients"]:
+                recipients.append({
+                    "id": recipient["id"],
+                    "username": recipient["username"],
+                    "global_name": recipient.get("global_name"),   # spacebar_fix - get
+                })
+            else:   # spacebar_fix - can open dm with self
+                add_me = True
+        elif data:
+            for recipient_id in dm["recipient_ids"]:
+                for user in data["users"]:
+                    if user["id"] == recipient_id:
+                        recipients.append({
+                            "id": recipient_id,
+                            "username": user["username"],
+                            "global_name": user.get("global_name"),   # spacebar_fix - get
+                        })
+                    elif recipient_id == self.my_id:   # spacebar_fix - can open dm with self
+                        recipients.append(self.my_data)
+        if add_me:
+            recipients.append(self.my_data)
+
+        name = None
+        if "name" in dm and dm["name"]:   # for group dm
+            name = dm["name"]
+        elif "owner_id" in dm:   # unnamed group DM
+            # first isolate owner
+            owner_name = "Unknown"
+            for recipient in recipients:
+                if recipient["id"] == dm["owner_id"]:
+                    if recipient["global_name"]:
+                        owner_name = recipient["global_name"]
+                    else:
+                        owner_name = recipient["username"]
+            # then build list of members names
+            names = ""
+            for recipient in recipients:
+                if recipient["id"] != dm["owner_id"]:
+                    if recipient["global_name"]:
+                        names += f", {recipient["global_name"]}"
+                    else:
+                        names += f"{recipient["username"]}"
+            if names:
+                name = f"{owner_name}; {names.strip(", ")}"
+            else:
+                name = f"{owner_name}'s Group"
+        elif recipients:   # regular DM
+            if recipients[0]["global_name"]:
+                name = recipients[0]["global_name"]
+            else:
+                name = recipients[0]["username"]
+        if not name:
+            name = "Unknown DM"
+
+        last_message_id = dm.get("last_message_id", 0)
+        if last_message_id is None:
+            last_message_id = 0
+
+        new_dm = {
+            "id": dm["id"],
+            "type": dm["type"],
+            "recipients": recipients,
+            "name": name,
+            "is_spam": dm.get("is_spam"),
+            "is_request": dm.get("is_message_request"),
+            "muted": False,
+            "last_message_id": int(last_message_id),
+            "avatar": dm.get("avatar"),
+        }
+        for num, dm_old in enumerate(self.dms):
+            if dm_old["id"] == channel_id:
+                self.dms[num] = new_dm
+                break
+        else:
+            self.dms.append(new_dm)
+
+
+
     def receiver(self):
         """Receive and handle all traffic from gateway, should be run in a thread"""
         logger.info("Receiver started")
@@ -491,6 +576,11 @@ class Gateway():
                     time_log_string = "READY event time profile:\n"
                     last_messages = []
                     self.my_id = data["user"]["id"]
+                    self.my_data = {
+                        "id": self.my_id,
+                        "username": data["user"]["username"],
+                        "global_name": data["user"].get("global_name"),   # spacebar_fix - get
+                    }
                     self.premium = data["user"]["premium_type"]   # 0 - none, 1 - classic, 2 - full, 3 - basic
                     if data.get("auth_token"):
                         self.token_update = data["auth_token"]
@@ -520,70 +610,7 @@ class Gateway():
                     ready_time_mid = time.time()
                     # DM channels
                     for dm in data["private_channels"]:
-                        recipients = []
-                        legacy_recipients = []
-                        if "recipients" in dm:   # spacebar_fix - it uses old "recipients" key
-                            for recipient in dm["recipients"]:
-                                legacy_recipients.append(recipient["id"])
-                            else:
-                                legacy_recipients.append(self.my_id)
-                        for recipient_id in dm.get("recipient_ids", legacy_recipients):   # spacebar_fix - get
-                            for user in data["users"]:
-                                if user["id"] == recipient_id:
-                                    recipients.append({
-                                        "id": recipient_id,
-                                        "username": user["username"],
-                                        "global_name": user.get("global_name"),   # spacebar_fix - get
-                                    })
-                                elif recipient_id == self.my_id:   # spacebar_fix - can open dm with self
-                                    recipients.append({
-                                        "id": recipient_id,
-                                        "username": data["user"]["username"],
-                                        "global_name": data["user"].get("global_name"),   # spacebar_fix - get
-                                    })
-                        name = None
-                        if "name" in dm and dm["name"]:   # for group dm
-                            name = dm["name"]
-                        elif "owner_id" in dm:   # unnamed group DM
-                            owner_name = "Unknown"
-                            for user in data["users"]:
-                                if user["id"] == dm["owner_id"]:
-                                    if user.get("global_name"):   # spacebar_fix - get
-                                        owner_name = user["global_name"]
-                                    else:
-                                        owner_name = user["username"]
-                            names = ""
-                            for user in recipients:
-                                if user["id"] != dm["owner_id"]:
-                                    if user["global_name"]:
-                                        names += f", {user["global_name"]}"
-                                    else:
-                                        names += f"{user["username"]}"
-                            if names:
-                                name = f"{owner_name}; {names.strip(", ")}"
-                            else:
-                                name = f"{owner_name}'s Group"
-                        elif recipients:   # regular DM
-                            if recipients[0]["global_name"]:
-                                name = recipients[0]["global_name"]
-                            else:
-                                name = recipients[0]["username"]
-                        if not name:
-                            name = "Unknown DM"
-                        last_message_id = dm.get("last_message_id", 0)
-                        if last_message_id is None:
-                            last_message_id = 0
-                        self.dms.append({
-                            "id": dm["id"],
-                            "type": dm["type"],
-                            "recipients": recipients,
-                            "name": name,
-                            "is_spam": dm.get("is_spam"),
-                            "is_request": dm.get("is_message_request"),
-                            "muted": False,
-                            "last_message_id": int(last_message_id),
-                            "avatar": dm.get("avatar"),
-                        })
+                        self.add_dm(dm, data)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)
                     for dm in self.dms:   # dont need it anymore
@@ -1286,6 +1313,8 @@ class Gateway():
                         },
                         "roles": None,
                     }, None)
+                    self.my_data["username"] = data["username"]
+                    self.my_data["global_name"] = data.get("global_name")   # spacebar_fix - get
                     self.premium = data["premium_type"]
 
                 elif optext == "GUILD_MEMBER_UPDATE":
@@ -1396,10 +1425,23 @@ class Gateway():
 
                 elif optext in ("CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"):
                     new_channel = response["d"]
-                    if "guild_id" not in new_channel:
-                        continue   # skipping new DMs intentionally
                     channel_id = new_channel["id"]
-                    guild_id = new_channel["guild_id"]
+                    guild_id = new_channel.get("guild_id")
+                    if not guild_id:   # DMs
+                        channel_id = new_channel["id"]
+                        if optext == "CHANNEL_DELETE":
+                            for num, dm in enumerate(self.dms):
+                                if dm["id"] == channel_id:
+                                    self.dms.pop(num)
+                                    break
+                        else:
+                            self.add_dm(new_channel)
+                        self.dms_id = []
+                        for dm in self.dms:
+                            self.dms_id.append(dm["id"])
+                        self.guilds_changed = True
+                        continue
+
                     if optext == "CHANNEL_DELETE":
                         for num, guild in enumerate(self.guilds):
                             if guild["guild_id"] == guild_id:

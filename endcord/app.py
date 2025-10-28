@@ -375,12 +375,7 @@ class Endcord:
         if guilds:
             self.guilds = guilds
         # not initializing role colors again to avoid issues with media colors
-        self.dms, self.dms_vis_id = self.gateway.get_dms()
-        if self.hide_spam:
-            for dm in self.dms:
-                if dm["is_spam"] and dm["id"] in self.dms_vis_id:
-                    self.dms_vis_id.remove(dm["id"])
-                    self.dms.remove(dm)
+        self.load_dms()
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
@@ -438,6 +433,16 @@ class Endcord:
 
         self.remove_running_task("Reconnecting", 1)
         logger.info("Reconnect complete")
+
+
+    def load_dms(self):
+        """Load dms and remove spam"""
+        self.dms, self.dms_vis_id = self.gateway.get_dms()
+        if self.hide_spam:
+            for dm in self.dms:
+                if dm["is_spam"]:
+                    self.dms_vis_id.remove(dm["id"])
+                    self.dms.remove(dm)
 
 
     def switch_channel(self, channel_id, channel_name, guild_id, guild_name, parent_hint=None, open_member_list=False, preload=False):
@@ -1719,6 +1724,12 @@ class Endcord:
                             # remove popup if not in this channel
                             if self.active_channel["channel_id"] not in self.incoming_calls:
                                 self.update_extra_line(permanent=True)
+                elif self.fun == 4 and self.extra_line and "adoptout" in self.extra_line:
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(
+                        "https://" + "archive.org/download/youtube-" + "/".join(["xvFZjo5PgG0"]*2) + ".mp4",
+                        False, True,
+                    )))
+                    self.download_threads[-1].start()
 
             # escape in main UI
             elif action == 5:
@@ -5780,12 +5791,7 @@ class Endcord:
             logger.info(f"Using proxy: {self.config["proxy"]}")
 
         # load dms
-        self.dms, self.dms_vis_id = self.gateway.get_dms()
-        if self.hide_spam:
-            for dm in self.dms:
-                if dm["is_spam"]:
-                    self.dms_vis_id.remove(dm["id"])
-                    self.dms.remove(dm)
+        self.load_dms()
         new_activities = self.gateway.get_dm_activities()
         if new_activities:
             self.activities = new_activities
@@ -5874,6 +5880,9 @@ class Endcord:
 
         # start extra line remover thread
         threading.Thread(target=self.extra_line_remover, daemon=True).start()
+
+        if self.fun == 4:
+            self.update_extra_line("Personalized ADs will be shown here. Click this to opt-out.")
 
         logger.info(f"Main loop started after {round(time.time() - self.init_time, 2)}s")
         del self.init_time
@@ -6045,7 +6054,7 @@ class Endcord:
             guilds = self.gateway.get_guilds()
             if guilds:
                 self.guilds = guilds
-                self.dms, self.dms_vis_id = self.gateway.get_dms()
+                self.load_dms()
                 self.compute_permissions()
                 self.update_tree()
 

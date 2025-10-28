@@ -144,7 +144,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `proxy = None`  
     Proxy URL to use, it must be this format: `protocol://host:port`, example: `socks5://localhost:1080`.  
     Supported proxy protocols: `http`, `socks5`.  
-    Be careful, using proxy (especially TOR) might make you more suspicious to discord.
+    Be warned! Using proxy (especially TOR) might make you more suspicious to discord.  
+    Voice and video calls will only work with socks5 proxy and it must support UDP ASSOCIATE.  
 - `custom_host = None`  
     Custom host to connect to, like `old.server.spacebar.chat`. Set to None to use default host (`discord.com`)
 - `"easter_eggs = True`  

@@ -11,6 +11,7 @@ import urllib.parse
 
 import av
 import nacl.bindings
+import socks
 import websocket
 
 # safely import soundcard, in case there is no sound system
@@ -76,10 +77,18 @@ class Gateway():
 
     def create_udp_socket(self):
         """Create udp soocket to the server"""
-        self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        if self.proxy:
+            self.udp = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp.set_proxy(
+                proxy_type=socks.SOCKS5 if "socks" in self.proxy.scheme.lower() else socks.HTTP,
+                addr=self.proxy.hostname,
+                port=self.proxy.port,
+            )
+        else:
+            self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp.connect((self.server_ip, self.server_port))
         self.udp.settimeout(UDP_TIMEOUT)
-        logger.debug("Created udb socket")
+        logger.debug("Created udp socket")
 
 
     def send_ip_discovery(self):
