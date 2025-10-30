@@ -77,7 +77,7 @@ class Gateway():
 
     def create_udp_socket(self):
         """Create udp soocket to the server"""
-        if self.proxy:
+        if self.proxy.scheme:
             self.udp = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
             self.udp.set_proxy(
                 proxy_type=socks.SOCKS5 if "socks" in self.proxy.scheme.lower() else socks.HTTP,

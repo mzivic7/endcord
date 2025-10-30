@@ -1455,9 +1455,10 @@ def generate_prompt(my_user_data, active_channel, format_prompt, limit_prompt=15
         %channel
     """
     guild = active_channel["guild_name"]
+    global_name = my_user_data["global_name"] if my_user_data["global_name"] else "Unknown"
     return (
         format_prompt
-        .replace("%global_name", str(my_user_data["global_name"])[:limit_prompt])
+        .replace("%global_name", str(global_name)[:limit_prompt])
         .replace("%username", my_user_data["username"][:limit_prompt])
         .replace("%server", guild[:limit_prompt] if guild else "DM")
         .replace("%channel", str(active_channel["channel_name"])[:limit_prompt])

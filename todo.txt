@@ -1,4 +1,5 @@
 Server folders in tree
+    get guild folders from protos and pass them to formatter
     drop-down at same level as guilds
     add decoration so its different from guild
     handle open/close drop-down
@@ -7,7 +8,26 @@ Server folders in tree
     option to change drop-down sign
 
 Extensions support
-Optimize main loop with queues and threading
+    load extensions
+    toggle extensions in config
+    extension is class with methods with specific names
+    classes are loaded on endcord init
+    for each class specific methods are run at specific points in code
+    define extension points
+    add new documentation
+
+Log viewer
+    show log at startup
+        read log and build "chat"
+        switch to special mode
+        build log as chat
+        update log live
+    add command
+        add to parser
+        add to assist
+        add to readme
+        add to commands
+        handle in app.py
 
 Voice calls
     fix playing sound
@@ -21,8 +41,8 @@ Voice calls
         join call from tree
         join call with goto
         handle multiple speaking at the same time
-    Group DM calls
 
+Optimize main loop with queues and threading
 Vim-like bindings
 Video calls
 Localization
