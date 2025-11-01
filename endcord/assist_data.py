@@ -62,5 +62,6 @@ COMMAND_ASSISTS = (
     ("toggle_mute - Toggle mute state before joining a call", "toggle_mute"),
     ("generate_invite *duration *limit - Generate invite to current server, default is 7 days", "generate_invite"),
     ("redraw - redraw UI if it ever gets messed up", "redraw"),
+    ("show_log - show live log", "show_log"),
     ("set [key] = [value] - change settings and save them.", "set"),
 )

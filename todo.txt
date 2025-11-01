@@ -16,19 +16,6 @@ Extensions support
     define extension points
     add new documentation
 
-Log viewer
-    show log at startup
-        read log and build "chat"
-        switch to special mode
-        build log as chat
-        update log live
-    add command
-        add to parser
-        add to assist
-        add to readme
-        add to commands
-        handle in app.py
-
 Voice calls
     fix playing sound
     start recorder thread, record, encode, encrypt, pack, send, stop when leave call, leave call on error

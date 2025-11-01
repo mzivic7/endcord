@@ -137,7 +137,8 @@ Switch tab keybinding is special - `NUM` is placeholder for 1-9 number keys, eg.
 Debug mode can be enabled with `-d` flag.  
 It will cause extra messages to be written to log file.  
 Endcord will periodically write to drive and log file will quickly grow in size.  
-Log is overwritten on each run.
+Log is overwritten on each run.  
+Log can be accessed with `show_log` command or in config directory.
 
 
 ## Usage

@@ -19,6 +19,7 @@ from endcord import (
     downloader,
     formatter,
     gateway,
+    log_queue,
     parser,
     peripherals,
     perms,
@@ -262,6 +263,7 @@ class Endcord:
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
         self.timed_extra_line = threading.Event()
+        self.log_queue_nanager = None
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.discord.get_voice_regions()
         self.main()
@@ -461,6 +463,11 @@ class Endcord:
 
         logger.debug(f"Switching channel, has_id: {bool(channel_id)}, has_guild: {bool(guild_id)}, has hint: {bool(parent_hint)}")
 
+        # stop log watcher so it doesnt interfere with chat generation
+        if self.log_queue_nanager:
+            self.log_queue_nanager.stop()
+            self.log_queue_nanager = None
+
         # save deleted
         if self.keep_deleted:
             self.cache_deleted()
@@ -584,7 +591,7 @@ class Endcord:
             self.disable_sending = "Can't send a message: No write permissions."
         else:
             self.disable_sending = False
-            self.tui.remove_extra_line()
+            self.update_extra_line()
 
         # find where to scroll chat to show last seen message
         if not forum:
@@ -701,6 +708,61 @@ class Endcord:
 
         self.remove_running_task("Switching channel", 1)
         logger.debug("Channel switching complete")
+
+
+    def blank_chat(self):
+        """Switch to None mode, no open channel, no chat displayed"""
+        if self.keep_deleted:
+            self.cache_deleted()
+        self.current_member_roles = []
+        if not self.forum and self.messages:
+            self.add_to_channel_cache(self.active_channel["channel_id"], self.messages, self.active_channel.get("pinned", False))
+
+        self.active_channel = {
+            "guild_id": None,
+            "channel_id": None,
+            "guild_name": None,
+            "channel_name": None,
+            "pinned": False,
+            "admin": False,
+        }
+        self.forum = False
+        self.last_message_id = 0
+        self.preloaded = False
+        self.need_preload = False
+        self.messages = []
+        self.current_guild_properties = {}
+        self.current_channels = []
+        self.current_channel = {}
+        self.disable_sending = False
+        self.typing = []
+        self.chat_end = False
+        self.got_commands = False
+        self.selected_attachment = 0
+        self.tui.reset_chat_scrolled_top()
+
+        if self.recording:
+            self.recording = False
+            _ = recorder.stop()
+
+        self.current_members = []
+        self.current_roles = []
+        self.current_my_roles = []
+        self.current_member_roles = []
+
+        self.chat = []
+        self.chat_format = []
+        self.chat_indexes = []
+        self.chat_map = []
+
+        self.tui.update_chat(self.chat, self.chat_format)
+        self.member_list_visible = False
+        self.tui.remove_member_list()
+        self.update_extra_line()
+        self.close_extra_window()
+        self.update_tabs(no_redraw=True)
+        self.update_prompt()
+        self.update_tree()
 
 
     def open_guild(self, guild_id, select=False, restore=False, open_only=False):
@@ -2923,6 +2985,10 @@ class Endcord:
                 else:
                     self.update_extra_line("Failed to generate invite, see log for more info")
 
+        elif cmd_type == 55:   # SHOW_LOG
+            self.blank_chat()
+            self.view_log()
+
         elif cmd_type == 66 and self.fun:   # 666
             self.fun = 2
             self.tui.set_fun(2)
@@ -3745,6 +3811,51 @@ class Endcord:
         self.tui.draw_extra_window(extra_title, extra_body, start_zero=reset)
         self.extra_window_open = True
         self.voice_call_list_open = True
+
+
+    def view_log(self):
+        """Show live log in chat area"""
+        self.messages = []
+        log = log_queue.read_log_file(os.path.expanduser(f"{peripherals.log_path}{peripherals.APP_NAME}.log"))
+        self.chat, self.chat_format, self.chat_indexes, self.chat_map = formatter.generate_log(
+            log,
+            self.colors,
+             self.tui.get_dimensions()[2][1],
+        )
+        self.tui.set_selected(-1)
+        self.tui.update_chat(self.chat, self.chat_format)
+
+        # start log watche thread
+        if not self.log_queue_nanager:
+            threading.Thread(target=self.log_watcher, daemon=True, args=(log, )).start()
+
+    def log_watcher(self, log=[]):
+        """Thread that looks for log changes and updates it in chat area"""
+        self.log_queue_nanager = log_queue.LogQueueManager()
+        self.log_queue_nanager.start()
+        while self.run:
+            new_log_entry = self.log_queue_nanager.get_log_entry()
+            log.append(new_log_entry)
+            if len(log) > 100:
+                log.pop(0)
+            selected_line, chat_index = self.tui.get_chat_selected()
+            old_chat_len = len(self.chat)
+            self.chat, self.chat_format, self.chat_indexes, self.chat_map = formatter.generate_log(
+                log,
+                self.colors,
+                self.tui.get_dimensions()[2][1],
+            )
+            chat_len_diff = old_chat_len - len(self.chat)
+            if selected_line != -1:
+                self.tui.set_selected(selected_line - chat_len_diff, scroll=False)
+            if chat_index:
+                self.tui.set_chat_index(chat_index - chat_len_diff)
+            self.tui.update_chat(self.chat, self.chat_format)
+            if self.active_channel["channel_id"]:   # failsafe
+                break
+        if self.log_queue_nanager:
+            self.log_queue_nanager.stop()
+            self.log_queue_nanager = None
 
 
     def build_reaction(self, text, msg_index=None):
@@ -5757,6 +5868,7 @@ class Endcord:
         logger.info("Gateway is ready")
         self.chat.insert(0, f"Connecting to {self.config["custom_host"] if self.config["custom_host"] else "Discord"}")
         self.chat.insert(0, "Loading channels")
+        self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
 
         # get data from gateway
         guilds = self.gateway.get_guilds()
@@ -5820,7 +5932,7 @@ class Endcord:
         # load messages
         if self.state["last_channel_id"]:
             self.chat.insert(0, "Loading messages")
-            self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 3)
+            self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
             guild_id = self.state["last_guild_id"]
             channel_id = self.state["last_channel_id"]
             channel_name = None
@@ -5846,7 +5958,7 @@ class Endcord:
                 self.tui.tree_select_active()
         else:
             self.chat.insert(0, "Select channel to load messages")
-            self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 3)
+            self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
         self.preloaded = False
         self.need_preload = False
 

@@ -115,3 +115,5 @@
     `duration` can be: `4w3d5h30m10s` where `w`is weeks, `d` is days..., can be used partially and mixed: `5h1w`. Default is 7 days and infinite uses.
 - `redraw`  
     Redraw UI if it ever gets messed up.
+- `show_log`  
+    Show live log.

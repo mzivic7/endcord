@@ -482,12 +482,15 @@ def urls_multiline_one_line(urls_range, line_len, newline_len, quote=False):
 
 def split_long_line(line, max_len, align=0):
     """
-    Split long line into list, on nearest space to left or on newline
-    optionally align newline to specified length
+    Split long line into list, on nearest space to left or on newline.
+    Optionally align newline to specified length.
     """
     lines_list = []
+    first = True
     while line:
         if len(line) > max_len:
+            if align and not first:
+                line = " " * align + line
             newline_index = len(line[:max_len].rsplit(" ", 1)[0])
             if "\n" in line[:max_len]:
                 newline_index = line.index("\n")
@@ -503,15 +506,18 @@ def split_long_line(line, max_len, align=0):
                     line = line[newline_index:]
             except IndexError:
                 line = line[newline_index+1:]
-        if "\n" in line:
+        elif "\n" in line:
+            if align and not first:
+                line = " " * align + line
             newline_index = line.index("\n")
             lines_list.append(line[:newline_index])
             line = line[newline_index+1:]
         else:
+            if align and not first:
+                line = " " * align + line
             lines_list.append(line)
             break
-        if align:
-            line = " " * align + line
+        first = False
     return lines_list
 
 
@@ -1480,6 +1486,22 @@ def generate_custom_prompt(text, format_prompt, limit_prompt=15):
     if prompt != format_prompt:
         text = ""
     return prompt
+
+
+def generate_log(log, colors, max_w):
+    """Generate log lines shown in chat area"""
+    chat = []
+    chat_format = []
+    indexes = []
+    chat_map = []
+    for message in log:
+        temp_chat = split_long_line(message, max_w, 4)
+        chat.extend(temp_chat)
+        chat_format.extend([[[colors[0]]]] * len(temp_chat))
+        indexes.append(len(temp_chat))
+        chat_map.extend([None] * len(temp_chat))
+    chat = chat[::-1]
+    return chat, chat_format, indexes, chat_map
 
 
 def generate_extra_line(attachments, selected, max_len):

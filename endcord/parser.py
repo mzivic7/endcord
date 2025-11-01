@@ -716,6 +716,10 @@ def command_string(text):
             "max_uses": max_uses,
         }
 
+    # 55 - SHOW_LOG
+    elif text_lower.startswith("show_log"):
+        cmd_type = 55
+
     # 66 - 666
     elif text_lower == "666":
         cmd_type = 66
