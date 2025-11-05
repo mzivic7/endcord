@@ -98,6 +98,8 @@
     Unblock user. `ignore` is optional.
 - `toggle_blocked_messages`  
     Toggle showing messages from blocked users in chat. Toggles between `blocked_mode` setting and fully shown messages.
+- `view_emoji [emoji]`  
+    Download specified custom emoji and show it in media player.
 - `voice_start_call`  
     Start voice call in currently open DM.
 - `voice_accept_call`  

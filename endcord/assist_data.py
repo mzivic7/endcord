@@ -54,6 +54,7 @@ COMMAND_ASSISTS = (
     ("block *ignore <@[user_id]> - block/ignore user", "block"),
     ("unblock *ignore <@[user_id]> - unblock/unignore user", "unblock"),
     ("toggle_blocked_messages - toggle showing messages from blocked users in chat", "toggle_blocked_messages"),
+    ("view_emoji [emoji] - download specified custom emoji and show it in media player", "view_emoji"),
     ("voice_start_call - Start voice call in currently open DM", "voice_start_call"),
     ("voice_accept_call - Accept incoming voice call", "voice_accept_call"),
     ("voice_leave_call - Leave current voice call", "voice_leave_call"),

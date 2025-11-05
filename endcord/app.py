@@ -3034,6 +3034,17 @@ class Endcord:
                 peripherals.save_json(self.state, "state.json")
                 self.update_tree()
 
+        elif cmd_type == 57:   # SHOW_EMOJI
+            match = re.search(formatter.match_d_emoji, cmd_args["name"])
+            if match:
+                emoji_id = match.group(3)
+                emoji_path = self.discord.get_emoji(emoji_id)
+                if emoji_path:
+                    self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(emoji_path, ))
+                    self.media_thread.start()
+            else:
+                self.update_extra_line("Invalid emoji. Should be: <:EmojiName:emoji_id>")
+
         elif cmd_type == 66 and self.fun:   # 666
             self.fun = 2
             self.tui.set_fun(2)

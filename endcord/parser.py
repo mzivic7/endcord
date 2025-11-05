@@ -729,6 +729,16 @@ def command_string(text):
         else:
             cmd_type = 0
 
+    # 57 - VIEW_EMOJI
+    elif text_lower.startswith("view_emoji"):
+        cmd_type = 57
+        name = text[11:].strip(" ")
+        if name:
+            cmd_args = {"name": name}
+        else:
+            cmd_type = 0
+
+
     # 66 - 666
     elif text_lower == "666":
         cmd_type = 66

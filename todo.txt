@@ -1,4 +1,3 @@
-Add command to preview custom emoji
 New screenshots in higher resolution
 Extensions support
     load extensions

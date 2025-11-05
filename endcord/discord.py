@@ -1751,6 +1751,10 @@ class Discord():
 
     def get_pfp(self, user_id, pfp_id, size=80):
         """Download pfp for specified user"""
+        destination = os.path.join(os.path.expanduser(peripherals.temp_path), f"{pfp_id}.webp")
+        if os.path.exists(destination):
+            return destination
+
         message_data = None
         url = f"/avatars/{user_id}/{pfp_id}.webp?size={size}"
         header = {
@@ -1767,7 +1771,6 @@ class Discord():
             connection.close()
             return None
         if response.status == 200:
-            destination = os.path.join(os.path.expanduser(peripherals.temp_path), f"{pfp_id}.webp")
             with open(destination, "wb") as f:
                 f.write(response.read())
             connection.close()
@@ -1775,6 +1778,40 @@ class Discord():
         logger.error(f"Failed to download pfp. Response code: {response.status}")
         connection.close()
         return None
+
+
+    def get_emoji(self, emoji_id, size=None):
+        """Download image for specified custom emoji"""
+        destination = os.path.join(os.path.expanduser(peripherals.temp_path), f"{emoji_id}.webp")
+        if os.path.exists(destination):
+            return destination
+
+        message_data = None
+        url = f"/emojis/{emoji_id}.webp"
+        if size:
+            url = url + f"?size={size}"
+        header = {
+            "Origin": f"https://{self.host}",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "cross-site",
+            "User-Agent": self.user_agent,
+        }
+        try:
+            connection = self.get_connection(self.cdn_host, 443)
+            connection.request("GET", url, message_data, header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            with open(destination, "wb") as f:
+                f.write(response.read())
+            connection.close()
+            return destination
+        logger.error(f"Failed to download emoji. Response code: {response.status}")
+        connection.close()
+        return None
+
 
 
     def get_invite_url(self, channel_id, max_age, max_uses):
