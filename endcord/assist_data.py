@@ -61,6 +61,7 @@ COMMAND_ASSISTS = (
     ("voice_list_call - Show all call participants and their states in an updated list", "voice_list_call"),
     ("toggle_mute - Toggle mute state before joining a call", "toggle_mute"),
     ("generate_invite *duration *limit - Generate invite to current server, default is 7 days", "generate_invite"),
+    ("rename_folder [name] - Locally rename currently selected folder in tree", "rename_folder"),
     ("redraw - redraw UI if it ever gets messed up", "redraw"),
     ("show_log - show live log", "show_log"),
     ("set [key] = [value] - change settings and save them.", "set"),

@@ -359,7 +359,11 @@ def load_json(file, default=None):
         return default
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            if default:
+                for key, value in default.items():
+                    _ = data.setdefault(key, value)
+            return data
     except Exception:
         return default
 

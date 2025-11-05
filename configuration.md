@@ -58,6 +58,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `tree_show_invisible = False`  
     Show "invisible" status in tree when DM user is online but invisible.  
     Probably a discord bug, might get removed in the future.  
+- `tree_show_folders = True`  
+    Wether to show or hide server folders in tree.
 - `wrap_around = True`  
     Wrap around selection in tree and extra window, i.e. go to first when moving selection past last item and opposite.
 - `mouse = True`  
@@ -236,6 +238,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw thread pointer in tree drop down menus.
 - `tree_drop_down_forum = "◆"`  
     A single character used to draw forum pointer in tree drop down menus.
+- `tree_drop_down_folder = "+"`  
+    A single character used to draw folder pointer in tree drop down menus.
 - `tree_dm_status = "●"`  
     A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd. Also used in member list.
 - `username_role_colors = True`  

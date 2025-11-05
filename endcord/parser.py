@@ -720,6 +720,15 @@ def command_string(text):
     elif text_lower.startswith("show_log"):
         cmd_type = 55
 
+    # 56 - RENAME_FOLDER
+    elif text_lower.startswith("rename_folder"):
+        cmd_type = 56
+        name = text[14:].strip(" ")
+        if name:
+            cmd_args = {"name": name}
+        else:
+            cmd_type = 0
+
     # 66 - 666
     elif text_lower == "666":
         cmd_type = 66

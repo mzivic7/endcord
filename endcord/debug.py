@@ -75,14 +75,20 @@ def anonymize_guilds(guilds):
     return anonymized
 
 
-def anonymize_guild_positions(guild_positions):
+def anonymize_guild_folders(guild_folders):
     """
-    Anonymize all sensitive data in guild_positions.
+    Anonymize all sensitive data in guild_folders.
     hash: guild_id
     """
     anonymized = []
-    for guild in guild_positions:
-        anonymized.append(hash_none(guild))
+    for folder in guild_folders:
+        guilds = []
+        for guild in folder["guilds"]:
+            guilds.append(hash_none(guild))
+        anonymized.append({
+            "id": folder["id"],
+            "guilds": guilds,
+        })
     return anonymized
 
 

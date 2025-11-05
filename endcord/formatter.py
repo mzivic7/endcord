@@ -2034,10 +2034,11 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
     return member_list, member_list_format
 
 
-def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, activities, collapsed, uncollapsed_threads, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dm_status_char, safe_emoji=False, show_invisible=False):
+def generate_tree(dms, guilds, threads, unseen, mentioned, guild_folders, activities, collapsed, uncollapsed_threads, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dd_folder, dm_status_char, folder_names=[], safe_emoji=False, show_invisible=False, show_folders=True):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
+        0XX - Guild folder (same level as guilds but hides them when collapsed)
         1XX - DM/Guild (top level drop down menu)
         2XX - category (second level drop down menu)
         3XX - channel (not drop-down)
@@ -2054,6 +2055,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
         XX2 - online DM
         XX3 - idle DM
         XX4 - DnD DM
+        1000 - end of folder drop down
         1100 - end of top level drop down
         1200 - end of second level drop down
         1300 - end of third level drop down
@@ -2136,21 +2138,68 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
     tree_format.append(1100)
     tree_metadata.append(None)
 
-    # sort guilds
+    # sort guilds and folders
     guilds_sorted = []
     guilds_used_index = []
-    for guild_sorted_id in guild_positions:
-        for num, guild in enumerate(guilds):
-            if guild["guild_id"] == guild_sorted_id:
-                guilds_sorted.append(guilds[num])
-                guilds_used_index.append(num)
-                break
+    for num_f, folder in enumerate(guild_folders):
+        if show_folders and folder["id"] and folder["id"] != "MISSING":
+            for folder_name in folder_names:
+                if folder_name["id"] == folder["id"]:
+                    name = folder_name["name"]
+                    break
+            else:
+                name = f"Folder-{num_f}"
+            guilds_sorted.append({
+                "folder": True,
+                "id": folder["id"],
+                "name": name,
+            })
+        for guild_id in folder["guilds"]:
+            for num, guild in enumerate(guilds):
+                if guild["guild_id"] == guild_id:
+                    guilds_sorted.append(guilds[num])
+                    guilds_used_index.append(num)
+                    break
+        if show_folders and folder["id"] and folder["id"] != "MISSING":
+            guilds_sorted.append({
+                "folder": True,
+                "id": folder["id"],
+                # no name indicates its end
+            })
     # add unsorted guilds
     for num, guild in enumerate(guilds):
         if num not in guilds_used_index:
             guilds_sorted.append(guild)
 
+    # generator loop
+    have_uncollapsed_folder = False
+    in_folder = None
     for guild in guilds_sorted:
+        # handle folders
+        if "folder" in guild:
+            if "name" in guild:
+                in_folder = guild["id"]
+                tree.append(f"{dd_folder} {guild["name"]}")
+                if not have_uncollapsed_folder and guild["id"] not in collapsed:
+                    code = 1
+                    have_uncollapsed_folder = True
+                else:
+                    code = 0
+                tree_format.append(code)
+                tree_metadata.append({
+                    "id": guild["id"],
+                    "type": -2,
+                    "name": guild["name"],
+                    "muted": False,
+                    "parent_index": None,
+                })
+            else:   # ending are already added when sorting guilds and folders
+                in_folder = None
+                tree.append("END-FOLDER-DROP-DOWN")
+                tree_format.append(1000)
+                tree_metadata.append(None)
+            continue
+
         # prepare data
         muted_guild = guild.get("muted", False)
         unseen_guild = False
@@ -2283,6 +2332,16 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_positions, acti
             "muted": muted_guild,
             "parent_index": None,
         })
+
+        # mark folder as unread/mention
+        if in_folder:
+            for num, folder in enumerate(tree_metadata):
+                if folder and folder["id"] == in_folder:
+                    if ping_guild and not muted_guild:
+                        tree_format[num] += 20
+                    elif unseen_guild and not muted_guild:
+                        tree_format[num] += 30
+                    break
 
         # add categories to the tree
         for category in categories:

@@ -26,22 +26,22 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Mouse controls
 - Desktop notifications
 - Download/upload attachments
-- Select message and: reply, edit, delete, go to replied, react, vote in a poll
+- Select message and: reply, edit, delete, go to replied, react, vote in a poll...
 - Member list
 - Search messages
 - Client commands with history
 - App commands and some interactions
 - View user profile
-- Channel tree (Server/DM/Group)
+- Channel tree
     - Correct channel order
     - Don't show hidden channels
     - Show muted channels as gray
     - Show unread channels as bold
     - Show channels with mention as red
-    - Navigate tree
-    - Expand categories and servers, enter channel
+    - Expand categories and servers
     - DMs in separate drop-down, show DM status
     - Forums, channel threads
+    - Folders with custom naming
     - View channel or server info
 - Show reactions, replied message, forwarded message
 - Show embeds, attachment types and links, code blocks
@@ -82,7 +82,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 
 ## Configuration
-Settings, log, state and themes location:
+Settings, logs, state and themes location:
 - On Linux: `~/.config/endcord/` or `$XDG_DATA_HOME/endcord/`  
 - On Windows: `%USERPROFILE%/AppData/Local/endcord/`  
 - On macOS: `~/Library/Application Support/endcord/`  
@@ -137,8 +137,8 @@ Switch tab keybinding is special - `NUM` is placeholder for 1-9 number keys, eg.
 Debug mode can be enabled with `-d` flag.  
 It will cause extra messages to be written to log file.  
 Endcord will periodically write to drive and log file will quickly grow in size.  
-Log is overwritten on each run.  
-Log can be accessed with `show_log` command or in config directory.
+Log from previous run is renamed to `-prev` on each run and it is replaced.  
+Current log can be accessed with `show_log` command or in config directory.
 
 
 ## Usage
@@ -485,6 +485,11 @@ Custom notification sound can be set in config: `custom_notification_sound = /pa
 This happens with `Alt+Key` keybindings, but may happen with other modifiers too. That happens because terminal emulators translate pressed keys with non-Latin keyboard layouts to Unicode. So when `ALT+B` is pressed, but Greek layout is used, endcord will receive `ALT+β`.  
 But this also means that it can be added to keybinding config, instead byte, provide character itself eg.: `β` or `ALT+β`.  
 See [keybinding](#keybinding) for instructions on how to add multiple keybindings for same action.
+
+### If some keybindings still dont work
+Its probably terminal emulator sending different key codes than those in default settings. Check this by running endcord with `-k` or `--keybinding` to start keybinding resolver.  
+Then press key combination and see printed code. Put this code in settings to use it.  
+This mostly happens with `Ctrl+Arrow` and `Alt+Arrow` combinations, on some non-standard terminal emulators like kitty or cmder.
 
 ### No colors in headless Linux tty
 If there are no colors in Linux tty (but there should be), endcord can run inside [fbterm](https://salsa.debian.org/debian/fbterm).  

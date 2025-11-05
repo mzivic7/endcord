@@ -154,7 +154,7 @@ class Discord():
             data = json.loads(response.read())
             connection.close()
             return data["id"]
-        if response.status == 401:   # unauthorized
+        if response.status in (400, 401):   # bad request or unauthorized
             logger.error("unauthorized access. Probably invalid token. Exiting...")
             raise SystemExit("unauthorized access. Probably invalid token. Exiting...")
         logger.error(f"Failed to get my id. Response code: {response.status}")

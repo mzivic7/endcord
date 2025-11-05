@@ -1,12 +1,5 @@
-Server folders in tree
-    get guild folders from protos and pass them to formatter
-    drop-down at same level as guilds
-    add decoration so its different from guild
-    handle open/close drop-down
-    handle moue click
-    option to disable it in settings
-    option to change drop-down sign
-
+Add command to preview custom emoji
+New screenshots in higher resolution
 Extensions support
     load extensions
     toggle extensions in config

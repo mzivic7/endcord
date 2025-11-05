@@ -162,6 +162,7 @@ class Endcord:
             "admin": False,
         }
         self.guilds = []
+        self.guild_folders = []
         self.all_roles = []
         self.current_roles = []
         self.current_guild_properties = {}
@@ -187,6 +188,7 @@ class Endcord:
 
         self.chat = []
         self.chat.insert(0, f"Connecting to {self.config["custom_host"] if self.config["custom_host"] else "Discord"}")
+        logger.info(f"Connecting to {self.config["custom_host"] if self.config["custom_host"] else "Discord"}")
 
         # initialize stuff
         self.discord = discord.Discord(
@@ -232,8 +234,9 @@ class Endcord:
         self.state = {
             "last_guild_id": None,
             "last_channel_id": None,
-            "collapsed": [],
             "muted": False,
+            "collapsed": [],
+            "folder_names": [],
         }
         self.tree = []
         self.tree_format = []
@@ -776,10 +779,20 @@ class Endcord:
 
         # dont collapse if its should stay open
         if open_only and collapse:
-            return
+            collapsed = self.state["collapsed"][:]
+            folder_changed = False
+            for folder in self.guild_folders:
+                if guild_id in folder["guilds"]:
+                    if folder["id"] in collapsed:
+                        collapsed.remove(folder["id"])
+                        folder_changed = True
+                    break
+            if folder_changed:
+                self.update_tree(collapsed=collapsed)
+            return collapsed
 
         # keep dms, collapsed and all guilds except one at cursor position
-        # copy over dms
+        # copy dms
         if 0 in self.state["collapsed"]:
             collapsed = [0]
         else:
@@ -791,12 +804,12 @@ class Endcord:
                 if collapse or guild_1["guild_id"] != guild_id:
                     collapsed.append(guild_1["guild_id"])
                 guild_ids.append(guild_1["guild_id"])
-            # copy over categories
+            # copy categories
             for collapsed_id in self.state["collapsed"]:
                 if collapsed_id not in guild_ids:
                     collapsed.append(collapsed_id)
         elif restore:
-            # copy over all
+            # copy all
             collapsed = self.state["collapsed"][:]
         # toggle only this guild
         elif collapse and guild_id not in self.state["collapsed"]:
@@ -806,6 +819,15 @@ class Endcord:
             collapsed = self.state["collapsed"][:]
             collapsed.remove(guild_id)
 
+        # check for folder that should be uncollapsed
+        folder_changed = False
+        for folder in self.guild_folders:
+            if guild_id in folder["guilds"]:
+                if folder["id"] in collapsed:
+                    collapsed.remove(folder["id"])
+                    folder_changed = True
+                break
+
         self.update_tree(collapsed=collapsed)
 
         # keep this guild selected
@@ -814,6 +836,8 @@ class Endcord:
                 if obj and obj["id"] == guild_id:
                     break
             self.tui.tree_select(tree_pos)
+
+        return folder_changed
 
 
     def select_current_member_roles(self):
@@ -2490,7 +2514,9 @@ class Endcord:
             # guild
             if not channel_id:
                 self.tui.tree_select(self.tree_pos_from_id(object_id))
-                self.open_guild(object_id, select=True, open_only=True)
+                folder_changed = self.open_guild(object_id, select=True, open_only=True)
+                if folder_changed:
+                    self.tui.tree_select(self.tree_pos_from_id(object_id))
             # category
             elif not parent_hint and guild_id:
                 self.open_guild(guild_id, select=True, open_only=True)
@@ -2988,6 +3014,25 @@ class Endcord:
         elif cmd_type == 55:   # SHOW_LOG
             self.blank_chat()
             self.view_log()
+
+        elif cmd_type == 56:   # RENAME_FOLDER
+            folder_id = self.tree_metadata[tree_sel].get("id")
+            guild_folders_ids = [x["id"] for x in self.guild_folders]
+            if folder_id and folder_id in guild_folders_ids:
+                for folder in self.state["folder_names"]:
+                    if folder["id"] == folder_id:
+                        folder["name"] = cmd_args["name"]
+                        break
+                else:
+                    self.state["folder_names"].append({
+                        "id": folder_id,
+                        "name": cmd_args["name"],
+                    })
+                for num, folder in enumerate(self.state["folder_names"]):
+                    if folder["id"] not in guild_folders_ids:
+                        self.state.pop(num)
+                peripherals.save_json(self.state, "state.json")
+                self.update_tree()
 
         elif cmd_type == 66 and self.fun:   # 666
             self.fun = 2
@@ -4746,7 +4791,7 @@ class Endcord:
             self.threads,
             [x["channel_id"] for x in self.unseen if not x.get("seen")],
             [x["channel_id"] for x in self.unseen if x["mentions"] and not x.get("seen")],
-            self.guild_positions,
+            self.guild_folders,
             self.activities,
             collapsed,
             self.uncollapsed_threads,
@@ -4758,9 +4803,12 @@ class Endcord:
             self.config["tree_drop_down_pointer"],
             self.config["tree_drop_down_thread"],
             self.config["tree_drop_down_forum"],
+            self.config["tree_drop_down_folder"],
             self.status_char,
+            folder_names=self.state.get("folder_names", []),
             safe_emoji=self.config["emoji_as_text"],
-            show_invisible = self.config["tree_show_invisible"],
+            show_invisible=self.config["tree_show_invisible"],
+            show_folders=self.config["tree_show_folders"],
         )
         # debug_guilds_tree
         # debug.save_json(self.tree, "tree.json", False)
@@ -5850,16 +5898,27 @@ class Endcord:
             self.discord_settings = self.discord.get_settings_proto(1)
 
         # guild position
-        self.guild_positions = []
+        self.guild_folders = []
+        found = []
         if "guildFolders" in self.discord_settings:
             for folder in self.discord_settings["guildFolders"].get("folders", []):
-                self.guild_positions += folder["guildIds"]
+                self.guild_folders.append({
+                    "id": folder.get("id"),
+                    "guilds": folder["guildIds"],
+                })
+                found += folder["guildIds"]
             # if some folders are missing use default positions
+            missing_guilds = []
             for guild in self.discord_settings["guildFolders"].get("guildPositions", []):
-                if guild not in self.guild_positions:   # deduplicate
-                    self.guild_positions.append(guild)
+                if guild not in found:   # deduplicate
+                    missing_guilds.append(guild)
+            self.guild_folders.append({
+                "id": "MISSING",
+                "guilds": missing_guilds,
+            })
         if logger.getEffectiveLevel() == logging.DEBUG:
-            debug.save_json(debug.anonymize_guild_positions(self.guild_positions), "guild_positions.json")
+            debug.save_json(debug.anonymize_guild_folders(self.guild_folders), "guild_folders.json")
+        del found
 
         # custom status
         self.update_presence_from_proto()
@@ -5918,12 +5977,16 @@ class Endcord:
             self.state = {
                 "last_guild_id": None,
                 "last_channel_id": None,
-                "collapsed": [],
                 "muted": False,
+                "collapsed": [],
+                "folder_names": [],
             }
             self.state = peripherals.load_json("state.json", self.state)
         if self.state["last_guild_id"] in self.state["collapsed"]:
             self.state["collapsed"].remove(self.state["last_guild_id"])
+        for folder in self.guild_folders:
+            if folder["id"] and folder["id"] != "MISSING" and folder["id"] not in self.state["collapsed"]:
+                self.state["collapsed"].append(folder["id"])
 
         # load summaries
         if self.save_summaries:

@@ -657,11 +657,16 @@ class TUI():
         """
         num = 0
         skipped = 0
+        drop_down_skip_folder = False
         drop_down_skip_guild = False
         drop_down_skip_category = False
         drop_down_skip_channel = False
         for num, code in enumerate(self.tree_format):
-            if code == 1100:
+            if code == 1000:
+                skipped += 1
+                drop_down_skip_folder = False
+                continue
+            elif code == 1100:
                 skipped += 1
                 drop_down_skip_guild = False
                 continue
@@ -673,11 +678,13 @@ class TUI():
                 skipped += 1
                 drop_down_skip_channel = False
                 continue
-            elif drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
+            elif drop_down_skip_folder or drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
                 skipped += 1
                 continue
             first_digit = code % 10
-            if first_digit == 0 and code < 200:
+            if first_digit == 0 and code < 100:
+                drop_down_skip_folder = True
+            elif first_digit == 0 and code < 200:
                 drop_down_skip_guild = True
             elif first_digit == 0 and code < 300:
                 drop_down_skip_category = True
@@ -701,11 +708,16 @@ class TUI():
         if tree_pos is None:
             return
         skipped = 0
+        drop_down_skip_folder = False
         drop_down_skip_guild = False
         drop_down_skip_category = False
         drop_down_skip_channel = False
         for num, code in enumerate(self.tree_format):
-            if code == 1100:
+            if code == 1000:
+                skipped += 1
+                drop_down_skip_folder = False
+                continue
+            elif code == 1100:
                 skipped += 1
                 drop_down_skip_guild = False
                 continue
@@ -717,11 +729,13 @@ class TUI():
                 skipped += 1
                 drop_down_skip_channel = False
                 continue
-            elif drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
+            elif drop_down_skip_folder or drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
                 skipped += 1
                 continue
             first_digit = code % 10
-            if first_digit == 0 and code < 200:
+            if first_digit == 0 and code < 100:
+                drop_down_skip_folder = True
+            elif first_digit == 0 and code < 200:
                 drop_down_skip_guild = True
             elif first_digit == 0 and code < 300:
                 drop_down_skip_category = True
@@ -943,7 +957,8 @@ class TUI():
             try:
                 h, w = self.tree_hw
                 # drawing from top to down
-                skipped = 0   # skipping drop-down ends (code 1000)
+                skipped = 0   # skipping drop-down ends (code 1XXX)
+                drop_down_skip_folder = False
                 drop_down_skip_guild = False
                 drop_down_skip_category = False
                 drop_down_skip_channel = False
@@ -953,7 +968,11 @@ class TUI():
                 for num, line in enumerate(self.tree):
                     code = self.tree_format[num]
                     first_digit = (code % 10)
-                    if code == 1100:
+                    if code == 1000:
+                        skipped += 1
+                        drop_down_skip_folder = False
+                        continue
+                    elif code == 1100:
                         skipped += 1
                         drop_down_level -= 1
                         drop_down_skip_guild = False
@@ -969,13 +988,15 @@ class TUI():
                         drop_down_skip_channel = False
                         continue
                     text_start = drop_down_level * 3 + 1
-                    if code < 300 or 500 <= code <= 599:
+                    if 99 < code < 300 or 500 <= code <= 599:
                         drop_down_level += 1
-                    if drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
+                    if drop_down_skip_folder or drop_down_skip_guild or drop_down_skip_category or drop_down_skip_channel:
                         skipped += 1
                         continue
                     self.tree_clean_len += 1
-                    if first_digit == 0 and code < 200:
+                    if first_digit == 0 and code < 100:
+                        drop_down_skip_folder = True
+                    elif first_digit == 0 and code < 200:
                         drop_down_skip_guild = True
                     elif first_digit == 0 and code < 300:
                         drop_down_skip_category = True
