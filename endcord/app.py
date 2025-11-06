@@ -644,7 +644,6 @@ class Endcord:
             elif not self.in_call:
                 self.update_extra_line(permanent=True)
 
-
         # select guild member activities
         if guild_id:
             if self.get_members:
@@ -951,15 +950,14 @@ class Endcord:
         # request missing members
         if missing_members:
             self.gateway.request_members(current_guild, missing_members)
-            for _ in range(10):   # wait max 1s
+            for _ in range(5):   # wait max 0.5s
                 new_member_roles = self.gateway.get_member_roles()
                 if new_member_roles:
                     # update member list
                     self.member_roles = new_member_roles
                     self.select_current_member_roles()
-                else:
-                    # wait to receive
-                    time.sleep(0.1)
+                    break
+                time.sleep(0.1)
 
 
     def remove_channel_cache(self, num=None, active=False):
@@ -3514,7 +3512,7 @@ class Endcord:
         # request missing members
         if missing_members:
             self.gateway.request_members(current_guild, missing_members)
-            for _ in range(10):   # wait max 1s
+            for _ in range(5):   # wait max 0.5s
                 new_member_roles = self.gateway.get_member_roles()
                 if new_member_roles:
                     # update member list
@@ -6030,11 +6028,20 @@ class Endcord:
             if channel_name:
                 self.switch_channel(channel_id, channel_name, guild_id, guild_name, open_member_list=self.member_list_auto_open, preload=True)
                 self.tui.tree_select_active()
+            else:
+                self.chat.insert(0, "Select channel to load messages")
+                self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
         else:
             self.chat.insert(0, "Select channel to load messages")
             self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
         self.preloaded = False
         self.need_preload = False
+
+        # collapse all guilds in tree on first run or profile change
+        if not self.active_channel["channel_id"]:
+            for guild in self.guilds:
+                self.state["collapsed"].append(0)
+                self.state["collapsed"].append(guild["guild_id"])
 
         # open uncollapsed guilds, generate and draw tree
         self.open_guild(self.active_channel["guild_id"], restore=True)
