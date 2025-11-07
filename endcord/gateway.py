@@ -263,7 +263,8 @@ class Gateway():
         })
         if len(self.member_roles[num]) > LOCAL_MEMBER_COUNT:
             self.member_roles[num].pop(-1)
-        self.roles_changed = True
+        if not self.roles_changed:
+            self.roles_changed = True
 
 
     def process_hidden_channels(self):
@@ -1063,7 +1064,6 @@ class Gateway():
                     })
 
                 elif optext == "GUILD_MEMBERS_CHUNK":
-
                     # received when requesting members (op 8)
                     if self.querying_members:
                         self.querying_members = False
@@ -1087,6 +1087,8 @@ class Gateway():
                                     member["user"]["id"],
                                     member["roles"],
                                 )
+                                if data.get("nonce"):
+                                    self.roles_changed = data["nonce"]
 
                 elif optext == "THREAD_LIST_SYNC":
                     threads = []
@@ -1858,7 +1860,7 @@ class Gateway():
                 break
 
 
-    def request_members(self, guild_id, members, query=None, limit=None):
+    def request_members(self, guild_id, members, query=None, limit=None, nonce=None):
         """
         Request update chunk for specified members in this guild.
         GUILD_MEMBERS_CHUNK event will be received after this.
@@ -1876,6 +1878,8 @@ class Gateway():
                     "user_ids": members,
                 },
             }
+            if nonce and members:
+                payload["d"]["nonce"] = nonce
             self.send(payload)
             logger.debug("Requesting guild members chunk")
 
@@ -2080,9 +2084,10 @@ class Gateway():
     def get_member_roles(self):
         """Get member roles, updated regularly."""
         if self.roles_changed:
+            temp = self.roles_changed
             self.roles_changed = False
-            return self.member_roles
-        return None
+            return self.member_roles, temp
+        return None, None
 
 
     def get_app_command_autocomplete_resp(self):

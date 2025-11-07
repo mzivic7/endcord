@@ -332,6 +332,7 @@ class Endcord:
         self.guild_apps = []
         self.guild_commands_permitted = []
         self.pinned = []
+        self.missing_memmbers_nonce = None
         self.forum = False
         self.disable_sending = False
         self.extra_line = None
@@ -547,7 +548,7 @@ class Endcord:
 
             # use preloaded
             elif preload and self.preloaded:
-                self.get_missing_members(self.active_channel["guild_id"], self.messages)
+                self.request_missing_members(self.active_channel["guild_id"], self.messages)
                 self.last_message_id = self.messages[0]["id"]
                 self.preloaded = False
                 self.need_preload = False
@@ -929,35 +930,12 @@ class Endcord:
         if self.keep_deleted and self.messages:
             self.messages = self.restore_deleted(self.messages)
 
-        current_guild = self.active_channel["guild_id"]
-        if not current_guild:
-            # skipping dms
-            return
-
-        # find missing member roles
+        # find and request missing member roles
         self.select_current_member_roles()
-        missing_members = []
-        for message in self.messages:
-            message_user_id = message["user_id"]
-            if message_user_id in missing_members:
-                continue
-            for member in self.current_member_roles:
-                if member["user_id"] == message_user_id:
-                    break
-            else:
-                missing_members.append(message_user_id)
-
-        # request missing members
-        if missing_members:
-            self.gateway.request_members(current_guild, missing_members)
-            for _ in range(5):   # wait max 0.5s
-                new_member_roles = self.gateway.get_member_roles()
-                if new_member_roles:
-                    # update member list
-                    self.member_roles = new_member_roles
-                    self.select_current_member_roles()
-                    break
-                time.sleep(0.1)
+        self.request_missing_members(
+            self.active_channel["guild_id"],
+            self.messages,
+        )
 
 
     def remove_channel_cache(self, num=None, active=False):
@@ -3486,12 +3464,12 @@ class Endcord:
             # skipping dms
             return messages
 
-        self.get_missing_members(current_guild, messages)
+        self.request_missing_members(current_guild, messages)
 
         return messages
 
 
-    def get_missing_members(self, current_guild, messages):
+    def request_missing_members(self, current_guild, messages):
         """Loop through all messages and download missing members"""
         if not current_guild:
             # skipping dms
@@ -3511,15 +3489,8 @@ class Endcord:
 
         # request missing members
         if missing_members:
-            self.gateway.request_members(current_guild, missing_members)
-            for _ in range(5):   # wait max 0.5s
-                new_member_roles = self.gateway.get_member_roles()
-                if new_member_roles:
-                    # update member list
-                    self.member_roles = new_member_roles
-                    self.select_current_member_roles()
-                    break
-                time.sleep(0.1)
+            self.missing_memmbers_nonce = discord.generate_nonce()
+            self.gateway.request_members(current_guild, missing_members, nonce=self.missing_memmbers_nonce)
 
 
     def get_chat_chunk(self, past=True, scroll=False):
@@ -5202,11 +5173,6 @@ class Endcord:
                     self.typing.pop(num)
                     self.update_status_line()
                     break
-            new_member_roles = self.gateway.get_member_roles()
-            if new_member_roles:
-                self.member_roles = new_member_roles
-                self.select_current_member_roles()
-                self.update_chat(scroll=False)
         else:
             for num, loaded_message in enumerate(self.messages):
                 if data["id"] == loaded_message["id"]:
@@ -5462,6 +5428,7 @@ class Endcord:
 
     def process_new_user_data(self, new_user_data):
         """Process new user data"""
+        # all these changes happen rarely so there is no need to buffer them
         guild_roles_changed = new_user_data[2]
         changed_guild = new_user_data[1]
         new_user_data = new_user_data[0]
@@ -6341,6 +6308,15 @@ class Endcord:
                 if self.active_channel["guild_id"] in changed_guilds:
                     if self.viewing_user_data["id"]:
                         self.view_profile(self.viewing_user_data)
+
+            # check for new member roles
+            new_member_roles, nonce = self.gateway.get_member_roles()
+            if new_member_roles:
+                self.member_roles = new_member_roles
+                if nonce == self.missing_memmbers_nonce:
+                    self.select_current_member_roles()
+                    self.update_chat(scroll=False)
+                    self.missing_memmbers_nonce = False
 
             # check for tree format changes
             self.check_tree_format()

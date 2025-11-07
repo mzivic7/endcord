@@ -1,11 +1,3 @@
-Remove delay when switching to some cached channels
-    send request with nonce and dont wait for receive
-    store nonce somewhere in app
-    when got it with nonce, update roles in gateway and signal app with that nonce
-    in app main loop, poll self.gateway.get_member_roles() or something more convinient
-    then in app update self.member_roles
-    and then update chat if nonce is same as the one sent
-
 New screenshots in higher resolution
 Extensions support
     load extensions
