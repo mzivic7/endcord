@@ -1,5 +1,6 @@
 settings = {
     "theme": None,
+    "extensions": True,
     "rpc": True,
     "downloads_path": None,
     "limit_chat_buffer": 100,

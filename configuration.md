@@ -4,6 +4,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 ### Main
 - `theme = None`  
     Custom theme path, or name of file in `Themes` directory.  Set to None to use theme from `config.ini` `[theme]` section or defaults.
+- `extensions = True`  
+    Enable extensions.
 - `rpc = True`  
     Enable RPC server.
 - `downloads_path = None`  

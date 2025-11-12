@@ -53,6 +53,8 @@
     Switch to specified tab by ist number.
 - `show_pinned`  
     Show pinned messages for current channel.
+- `quit`  
+    Quit endcord.
 
 ## Special commands (no keybinding)
 - `goto <#[channel_id]>`  

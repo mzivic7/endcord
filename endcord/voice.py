@@ -62,7 +62,7 @@ class Gateway():
             "Sec-WebSocket-Extensions: permessage-deflate",
             f"User-Agent: {user_agent}",
         ]
-        self.proxy = urllib.parse.urlparse(proxy)
+        self.proxy = urllib.parse.urlsplit(proxy)
         self.run = True
         self.state = 0
         self.heartbeat_received = True

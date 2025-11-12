@@ -72,7 +72,7 @@ cpdef draw_chat(
                         else:
                             if color > 255:   # set all colors after 255 to default color
                                 color = color_default
-                            color_ready = curses.color_pair(color) | attrib_map[color]
+                            color_ready = (<unsigned int>curses.color_pair(color)) | (<unsigned int>attrib_map[color])
                         safe_insch(win_chat, y, pos, character, color_ready)
                         break
                 else:

@@ -21,7 +21,6 @@ import pexpect.popen_spawn
 from endcord import defaults
 
 logger = logging.getLogger(__name__)
-
 match_first_non_alfanumeric = re.compile(r"^[^\w_]*")
 match_split = re.compile(r"[^\w']")
 APP_NAME = "endcord"
@@ -175,6 +174,13 @@ def load_config(path, default, section="main", gen_config=False):
                     config_data[key] = config_data_raw[key]
             else:
                 config_data[key] = default[key]
+        for key, value in config_data_raw.items():
+            if key.startswith("ext_"):
+                try:
+                    eval_value = literal_eval(value.replace("\\", "\\\\"))
+                    config_data[key] = eval_value
+                except ValueError:
+                    config_data[key] = value
     return config_data
 
 
@@ -292,6 +298,63 @@ def detect_runtime():
     if getattr(sys, "frozen", False):
         return "unknown"
     return "source"
+
+
+def get_extensions(path):
+    """Get list of valid extensions from specified path"""
+    extensions = []
+    invalid = []
+
+    # get list of valid extensions (dir name and py file name)
+    for entry in os.listdir(path):
+        full_path = os.path.join(path, entry)
+        if os.path.isdir(full_path):
+            main_file = os.path.join(full_path, entry + ".py")
+            if os.path.isfile(main_file):
+                extensions.append((main_file, entry))
+            else:
+                invalid.append((main_file, entry))
+    if not extensions:
+        return extensions, invalid
+
+    # safely check py file contents
+    match_class = re.compile(r"^class\s+Extension(\s*\(|\s*:)")
+    match_constant = re.compile(r"^(\w+)\s*=\s*(.+)$")
+    has_extension_class = False
+    constants = ["EXT_NAME", "EXT_VERSION", "EXT_ENDCORD_VERSION", "EXT_DESCRIPTION", "EXT_SOURCE"]
+    for ext_file, ext_name in extensions:
+        with open(ext_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        for line in lines:
+            if not line or line.startswith(("#", "'", '"')):
+                continue
+            if re.match(match_class, line):
+                has_extension_class = True
+                continue
+            match = match_constant.match(line)
+            if match:
+                name, value = match.groups()
+                if name in constants and value:
+                    constants.remove(name)
+        if not has_extension_class or constants:
+            extensions.remove((ext_file, ext_name))
+            invalid.append((ext_file, ext_name))
+
+    extensions = sorted(extensions, key=lambda x: x[1])
+    return extensions, invalid
+
+
+def install_extension(url):
+    """Install extension from specified git repo url"""
+    if shutil.which("git"):
+        ext_path = os.path.expanduser(os.path.join(config_path + "Extensions"))
+        if not os.path.exists(ext_path):
+            os.makedirs(os.path.expanduser(path), exist_ok=True)
+        print("Installing extension to: {ext_path}")
+        result = subprocess.run(["git", "clone", url], cwd=ext_path, capture_output=True, text=True, check=False)
+        print(result.stdout + result.stderr)
+    else:
+        print("git is needed to install extension")
 
 
 def find_linux_sound(name):
@@ -489,7 +552,7 @@ def play_audio(path):
     try:
         data, samplerate = soundfile.read(path, dtype="float32")
     except Exception as e:
-        print(f"Error loading sound file: {e}")
+        logger.error(f"Error loading sound file: {e}")
     soundcard = import_soundcard()
     if soundcard:
         speaker = soundcard.default_speaker()
@@ -755,7 +818,7 @@ class Player():
                             stream.play(frames)
                             time.sleep(sleep_time - read_time)
         except Exception as e:
-            print(f"Playback error: {e}")
+            logger.error(f"Playback error: {e}")
             self.playing = False
 
 

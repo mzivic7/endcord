@@ -102,6 +102,9 @@ def main(args):
                 logger.error(traceback.format_exc())
                 sys.exit("Curses error, see log for more info")
         sys.exit(0)
+    elif args.install_extension:
+        peripherals.install_extension(args.install_extension)
+        sys.exit(0)
 
     if args.proxy:
         config["proxy"] = args.proxy
@@ -129,7 +132,7 @@ def main(args):
         logging.getLogger().setLevel(logging.DEBUG)
     try:
         from endcord import app
-        curses.wrapper(app.Endcord, config, keybindings, profiles)
+        curses.wrapper(app.Endcord, config, keybindings, profiles, VERSION)
     except curses.error as e:
         if str(e) != "endwin() returned ERR":
             logger.error(traceback.format_exc())

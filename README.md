@@ -6,6 +6,7 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
+<a href="https://github.com/mzivic7/endcord/blob/main/.github/extensions.md">Extensions</a> |
 <a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
 <a href="https://discord.gg/judQSxw5K2">Discord</a>
@@ -20,11 +21,12 @@ Discord token is required in order to run endcord! see [Token](#token).
 
 ## Features
 - Extremely low CPU and RAM usage (values greatly depend on number of servers and channels)
-- View images, gifs, videos, audio, stickers and YouTube with ASCII art or in external app
+- Extension API
 - Voice calls (WIP)
 - Integrated RPC (only Rich Presence)
 - Mouse controls
 - Desktop notifications
+- View images, gifs, videos, audio, stickers and YouTube with ASCII art or in external app
 - Download/upload attachments
 - Select message and: reply, edit, delete, go to replied, react, vote in a poll...
 - Member list
@@ -423,6 +425,14 @@ Nuitka requirements:
 - on Windows: [Visual Studio 2022](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) or mingw (will be downloaded by nuitka)
 - on macOS install XCode via Apple Store
 
+### Free-threaded Python
+Endcord does work with free-threaded python, and it significantly improves media player performance with large video resolutions, by allowing decoding, video and sound to be played in separate threads, completely removing crackling sound when playing on high "terminal resolution".  
+But currently building does not work in this mode, nuitka [doesnt support free-threaded mode](<https://github.com/Nuitka/Nuitka/issues/3062>) yet.  
+Anyway, to run it from source:  
+First install python with uv: `uv python install 3.14t`, it must be >= 3.14t (because some libraries dont have free-threaded support for < 3.14).  
+Install dependencies: `uv sync --python 3.14t --group media`  
+Run main.py: `uv run --python 3.14t main.py`  
+
 
 ## FAQ
 ### Obtaining your Discord token
@@ -436,11 +446,12 @@ Nuitka requirements:
 
 ### To further decrease probability of getting banned
 Endcord does its best to avoid causing any suspicious activity, so using it as-is is pretty much enough, but most important steps are:
-- Do not use endcord to perform any out-of-ordinary actions (i.e. self-bots). Discord has spam heuristic algorithm for catching self-bots, third party clients can sometimes trip it.
+- Do not use endcord to perform any out-of-ordinary actions (i.e. self-bots). Third party clients can sometimes trip anti-spam heuristic algorithm for catching self-bots.
+- Do not use endcord at the same time with the client from which you coped token from, it might be it suspicios to have 2 clients using same token at the same time.
 - Increase `limit_channel_cache` in config - so REST API is not called on every channel switch. This will also slightly increase RAM and CPU usage.
 - `anonymous` mode in `client_properties` setting might be more risky than `default` mode.
 - Do not set invalid `custom_user_agent` setting, and try to match it with your OS.
-- If endcord hasnt been updated in a while, set `custom_user_agent` to the one found in API requests in offiial discord client.
+- If endcord hasnt been updated in a while, set `custom_user_agent` to the one found in API requests in offiial Discord client.
 - Endcord automatically refreshes token stored in keyring or plaintext, so there is no need to update it manually unless token is revoked.
 Less important steps is to decrease REST API calls, which might have little to no effect:
 - Discord REST API is called (most notably) each time client is started, when channel is changed, app command is sent and message is seen or sent. It would be best to not abuse these actions in order to reduce REST API calls.
@@ -510,6 +521,10 @@ After first run in experimental mode, extra config will be generated in endcord 
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `old.server.spacebar.chat`. Set to `None` to use default host (`discord.com`).  
 Then endcord will try to connect to that host instead discord. Token is different on different hosts!  
 Only connecting to spacebar instances is known to work, but endcord may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+
+### Extensions warning
+Extensions are enabled by default, and can be toggled in settings. But extension can modify almost everything in endcord, and can access your tokens. **Use extensions at your own risk!**  
+To prevent extension injection (malware can modify endcord config and inject extension in extensions directory) - which is very unlikely, there is build script option: `--disable-extensions` which disables extension loading in the code itself, overriding config.
 
 ### Virus scanners are flagging endcord binaries as malware
 These are false positives. Binaries are built using nuitka, the problem is that its regularly used by other people to distribute malware. So some AVs flag all Nuitka-built binaries as malware. [Ref](https://nuitka.net/user-documentation/common-issue-solutions.html#windows-virus-scanners).  

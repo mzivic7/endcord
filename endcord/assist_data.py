@@ -66,4 +66,5 @@ COMMAND_ASSISTS = (
     ("redraw - redraw UI if it ever gets messed up", "redraw"),
     ("show_log - show live log", "show_log"),
     ("set [key] = [value] - change settings and save them.", "set"),
+    ("quit - quit endcord", "quit"),
 )

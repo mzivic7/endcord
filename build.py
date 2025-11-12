@@ -319,6 +319,27 @@ def toggle_experimental(check_only=False):
     return not enable
 
 
+def enable_extensions(enable=True, check_only=False):
+    """"Enable/disable extensions support in the code"""
+    path = "./endcord/app.py"
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    changed = False
+    for num, line in enumerate(lines):
+        if line.startswith("ENABLE_EXTENSIONS = "):
+            if "True" in line and enable:
+                break
+            elif "False" in line and not enable:
+                break
+            lines[num] = f"ENABLE_EXTENSIONS = {bool(enable)}\n"
+            changed = True
+            break
+    if changed and not check_only:
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    if not check_only:
+        fprint(f"Extensions {"enabled" if enable else "disabled"}!")
+
 
 def build_numpy_lite(clang):
     """Build numpy without openblass to reduce final binary size"""
@@ -595,6 +616,11 @@ def parser():
         help="toggle experimental mode and exit",
     )
     parser.add_argument(
+        "--disable-extensions",
+        action="store_true",
+        help="disable extensions support in the code, overriding option in the config",
+    )
+    parser.add_argument(
         "--build-licenses",
         action="store_true",
         help="build file containing licenses from all used third party libraries",
@@ -625,6 +651,8 @@ if __name__ == "__main__":
     if sys.platform not in ("linux", "win32", "darwin"):
         sys.exit(f"This platform is not supported: {sys.platform}")
 
+    enable_extensions(enable=(not args.disable_extensions))
+
     if not args.nocython:
         try:
             build_cython(args.clang, args.mingw)
@@ -637,7 +665,9 @@ if __name__ == "__main__":
 
     if args.nuitka:
         build_with_nuitka(args.onedir, args.clang, args.mingw, args.nosoundcard, experimental)
-        sys.exit()
     else:
         build_with_pyinstaller(args.onedir, args.nosoundcard)
-        sys.exit()
+
+    enable_extensions(enable=True)
+
+    sys.exit()

@@ -58,7 +58,7 @@ class Gateway():
 
     def __init__(self, token, host, client_prop, user_agent, proxy=None):
         if host:
-            host_obj = urllib.parse.urlparse(host)
+            host_obj = urllib.parse.urlsplit(host)
             if host_obj.netloc:
                 self.host = host_obj.netloc
             else:
@@ -74,7 +74,7 @@ class Gateway():
         self.init_time = time.time() * 1000
         self.token = token
         self.bot = token.startswith("Bot")
-        self.proxy = urllib.parse.urlparse(proxy)
+        self.proxy = urllib.parse.urlsplit(proxy)
         self.run = True
         self.wait = False
         self.state = 0
@@ -841,7 +841,7 @@ class Gateway():
                     user_id = data["user"]["id"]
                     custom_status = None
                     activities = []
-                    for activity in data["activities"]:
+                    for activity in data.get("activities"):
                         if activity["type"] == 4:
                             custom_status = activity.get("state")
                         elif activity["type"] in (0, 2):

@@ -2,7 +2,7 @@ import curses
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 import emoji
 
@@ -87,7 +87,7 @@ def generate_timestamp(discord_time, format_string, timezone=True):
 
 def timestamp_from_snowflake(snowflake, format_string, timezone=True):
     """Convert discord snowflake to formatted string and optionally convert to current timezone"""
-    time_obj = datetime.fromtimestamp(((int(snowflake) >> 22) + DISCORD_EPOCH_MS) / 1000)
+    time_obj = datetime.fromtimestamp(((int(snowflake) >> 22) + DISCORD_EPOCH_MS) / 1000, UTC)
     if timezone:
         time_obj = time_obj.astimezone()
     return datetime.strftime(time_obj, format_string)
@@ -97,7 +97,7 @@ def day_from_snowflake(snowflake, timezone=True):
     """Extract day from discord snowflake with optional timezone conversion"""
     snowflake = int(snowflake)
     if timezone:
-        time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000)
+        time_obj = datetime.fromtimestamp(((snowflake >> 22) + DISCORD_EPOCH_MS) / 1000, UTC)
         time_obj = time_obj.astimezone()
         return time_obj.day
     # faster than datetime, but no timezone conversion
@@ -126,7 +126,7 @@ def generate_discord_timestamp(timestamp, discord_format, timezone=True):
     """Generate discord formatted timestamp"""
     if discord_format == "R":
         return generate_relative_time(int(timestamp))
-    time_obj = datetime.fromtimestamp(int(timestamp))
+    time_obj = datetime.fromtimestamp(int(timestamp), UTC)
     if timezone:
         time_obj = time_obj.astimezone()
     if discord_format == "t":

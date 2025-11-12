@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Create a bug report for this project
 title: ''
 labels: bug
 assignees: ''
@@ -8,6 +8,7 @@ assignees: ''
 ---
 
 <!-- Before submitting an issue, make sure that it is present in the latest version, and that issue is not already open.-->
+<!-- If some keybinding is not working, run keybinding resolver (endcord -k) and copy returned code to config in keybinding section to desired action.-->
 
 **Describe the bug**
 A clear and concise description of what the bug is.
@@ -23,7 +24,6 @@ A clear and concise description of what the bug is.
 Steps to reproduce the behavior:
 1.
 2.
-3.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.

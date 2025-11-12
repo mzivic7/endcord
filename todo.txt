@@ -1,13 +1,26 @@
+Fix member list not updating when switching between same-guild channels
+Dont flash tree when closing extra window
+Handle usernames with emoji
+Handle slowmode
+Add window borders
 New screenshots in higher resolution
-Extensions support
-    load extensions
-    toggle extensions in config
-    extension is class with methods with specific names
-    classes are loaded on endcord init
-    for each class specific methods are run at specific points in code
-    define extension points
-    add build option to forcibly disable extensions
-    add new documentation
+
+Add more extension points
+    add to parser.py
+    add to assist_data
+    add to execute_command
+    add binding to tui
+    add to wait_input to execute binding
+    add events to gateway.py
+    add new request to discord.py
+    add bindings
+
+Voice channels
+    add voice channels to tree
+    show voice channel activity
+    join call from tree
+    join call with goto
+    handle multiple speaking at the same time
 
 Voice calls
     fix playing sound
@@ -15,12 +28,6 @@ Voice calls
     pause recorder when muted
     send and receive RTCP?
     send speaking event?
-    Voice channels
-        add voice channels to tree
-        show voice channel activity
-        join call from tree
-        join call with goto
-        handle multiple speaking at the same time
 
 Optimize main loop with queues and threading
 Vim-like bindings

@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime
 
 import emoji
 
@@ -40,6 +41,7 @@ cythonized = importlib.util.find_spec("endcord_cython") and importlib.util.find_
 uses_pgcurses = tui.uses_pgcurses
 
 logger = logging.getLogger(__name__)
+ENABLE_EXTENSIONS = True
 MESSAGE_UPDATE_ELEMENTS = ("id", "edited", "content", "mentions", "mention_roles", "mention_everyone", "embeds")
 MEDIA_EMBEDS = ("image", "gifv", "video", "audio", "rich")
 STATUS_STRINGS = ("online", "idle", "dnd", "invisible")
@@ -64,7 +66,7 @@ recorder = peripherals.Recorder()
 class Endcord:
     """Main app class"""
 
-    def __init__(self, screen, config, keybindings, profiles):
+    def __init__(self, screen, config, keybindings, profiles, version):
         self.screen = screen
         self.config = config
         self.init_time = time.time()
@@ -74,11 +76,13 @@ class Endcord:
         for profile in profiles["keyring"] + profiles["plaintext"]:
             if profile["name"] == profiles["selected"]:
                 self.token = profile["token"]
+                self.last_run = profile["time"]
                 break
         else:
             profiles = profiles["keyring"] + profiles["plaintext"]
             self.token = profiles[0]["token"]
             self.profiles["selected"] = profiles[0]["name"]
+            self.last_run = profiles[0]["time"]
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
@@ -153,6 +157,7 @@ class Endcord:
 
         # variables
         self.run = False
+        self.extensions = []
         self.active_channel = {
             "guild_id": None,
             "channel_id": None,
@@ -215,13 +220,12 @@ class Endcord:
         self.tui = tui.TUI(self.screen, self.config, keybindings)
         if self.fun:
             today = (time.localtime().tm_mon, time.localtime().tm_mday)
-            self.fun = 2 if (10, 25) <= today <= (11, 2) else self.fun
-            self.fun = 3 if today >= (12, 25) or today <= (1, 23) else self.fun
+            self.fun = 2 if (10, 25) <= today <= (11, 8) else self.fun
+            self.fun = 3 if today >= (12, 25) or today <= (1, 8) else self.fun
             self.fun = 4 if today == (4, 1) else self.fun
-            self.tui.set_fun(self.fun)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
-        self.tui.update_chat(self.chat, [[[self.colors[0]]]] * 1)
+        self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
         self.tui.update_status_line("CONNECTING")
         self.my_id = self.discord.get_my_id()
         self.premium = None
@@ -269,7 +273,100 @@ class Endcord:
         self.log_queue_nanager = None
         # threading.Thread(target=self.profiling_auto_exit, daemon=True).start()
         self.discord.get_voice_regions()
+        if config["extensions"] and ENABLE_EXTENSIONS:
+            self.load_extensions(version)
         self.main()
+
+
+    def load_extensions(self, version):
+        """Load extensions and initialize them"""
+        # get extensions
+        path = os.path.expanduser(os.path.join(peripherals.config_path, "Extensions"))
+        if not os.path.exists(path):
+            os.makedirs(os.path.expanduser(path), exist_ok=True)
+        extensions, invalid = peripherals.get_extensions(path)
+
+        # load extensions
+        log_text = []
+        log_text_invalid = []
+        for ext_file, ext_name in extensions:
+            ext_dir = os.path.dirname(os.path.abspath(ext_file))
+            original_path = list(sys.path)
+            sys.path.insert(0, ext_dir)   # add extension dir to sys.path to load their modules
+            try:
+                spec = importlib.util.spec_from_file_location(ext_name, ext_file)
+                if not spec or not spec.loader:
+                    log_text_invalid.append(f"  {ext_name} - ERROR: Cannot load spec")
+                    continue
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                ext_class = getattr(module, "Extension", None)
+                ext_app_version = getattr(module, "EXT_ENDCORD_VERSION", None)
+                ext_version = getattr(module, "EXT_VERSION", None)
+                if not callable(ext_class):
+                    log_text_invalid.append(f"  {ext_name} - ERROR: Extension class is invalid")
+                    continue
+                if ext_app_version != version:
+                    log_text.append(f"  {ext_name} {ext_version} - WARNING: This extension is built for different endcord version!")
+                instance = ext_class(self)
+                self.extensions.append(instance)
+                log_text.append(f"  {ext_name} {ext_version} - OK")
+            except Exception as e:
+                log_text_invalid.append(f"  {ext_name} - ERROR: {e}")
+            finally:   # restore old sys.path
+                sys.path[:] = original_path
+
+        # log stuff
+        for ext_file, ext_name in invalid:
+            log_text_invalid.append(f"  {ext_name} - ERROR: Invalid extension structure")
+        if log_text:
+            logger.info(f"Loaded {len(self.extensions)} extensions:\n" + "\n".join(log_text))
+        if log_text_invalid:
+            logger.warn("Invalid extensions:\n" + "\n".join(log_text_invalid))
+        self.chat.insert(0, f"Successfully loaded {len(self.extensions)} extensions")
+        self.chat.insert(0, f"Not loaded (invalid) {len(extensions) - len(self.extensions) + len(invalid)} extensions")
+        self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
+        self.extension_cache = []
+
+
+    def execute_extensions_methods(self, method_name, *args, cache=False):
+        """Execute specific method for each extension if extension has this method, and chain them"""
+        if not self.extensions:
+            return args
+
+        # try to load from cache (improves performance with many extensions)
+        if cache:
+            for ext in self.extension_cache:
+                data = args
+                if ext[0] == method_name:
+                    for method in ext[1]:
+                        result = method(*data)
+                        if result is not None:
+                            if not isinstance(result, tuple):
+                                result = (result,)
+                            data = result
+                    if data is not None:
+                        return data
+                    return args
+
+        # try to load method from extensions and add to cache
+        methods = []
+        data = args
+        for extension in self.extensions:
+            method = getattr(extension, method_name, None)
+            if callable(method):
+                if cache:
+                    methods.append(method)
+                result = method(*data)
+                if result is not None:
+                    if not isinstance(result, tuple):
+                        result = (result,)
+                    data = result
+        if cache:
+            self.extension_cache.append((method_name, methods))
+        if data is not None:
+            return data
+        return args
 
 
     def profiling_auto_exit(self):
@@ -434,6 +531,9 @@ class Endcord:
             self.active_channel["guild_id"],
         )
         self.session_id = self.gateway.session_id
+
+        self.execute_extensions_methods("on_reconnect")
+
         self.update_chat(keep_selected=False)
         self.update_tree()
 
@@ -495,6 +595,9 @@ class Endcord:
         self.active_channel["channel_name"] = channel_name
         self.active_channel["pinned"] = False
         self.add_running_task("Switching channel", 1)
+
+        # run extensions
+        self.execute_extensions_methods("on_switch_channel_start")
 
         # update list of this guild channels
         this_guild = {}
@@ -683,6 +786,9 @@ class Endcord:
         self.select_current_member_roles()
         self.forum = forum   # changing it here because previous code takes long time
 
+        # run extensions
+        self.execute_extensions_methods("on_switch_channel_end")
+
         # update UI
         if not forum:
             self.update_chat(keep_selected=False, select_message_index=select_message_index)
@@ -707,7 +813,7 @@ class Endcord:
         if self.config["remember_state"] and self.current_channel.get("type") not in (11, 12, 15):
             self.state["last_guild_id"] = guild_id
             self.state["last_channel_id"] = channel_id
-            peripherals.save_json(self.state, "state.json")
+            peripherals.save_json(self.state, f"state_{self.profiles["selected"]}.json")
 
         self.remove_running_task("Switching channel", 1)
         logger.debug("Channel switching complete")
@@ -1170,7 +1276,8 @@ class Endcord:
                         selected_urls.append(urls[num])
                 if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
-                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_urls[0], )))
+                    selected_url = self.refresh_attachment_url(selected_urls[0])
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, )))
                     self.download_threads[-1].start()
                 else:
                     self.ignore_typing = True
@@ -1192,7 +1299,8 @@ class Endcord:
                     selected_urls.append(urls[num])
                 if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
-                    webbrowser.open(selected_urls[0], new=0, autoraise=True)
+                    selected_url = self.refresh_attachment_url(selected_urls[0])
+                    webbrowser.open(selected_url, new=0, autoraise=True)
                 else:
                     self.ignore_typing = True
                     self.downloading_file = {
@@ -1215,7 +1323,8 @@ class Endcord:
                         selected_urls.append(urls[num])
                 if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
-                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_urls[0], False, True)))
+                    selected_url = self.refresh_attachment_url(selected_urls[0])
+                    self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, False, True)))
                     self.download_threads[-1].start()
                 else:
                     self.ignore_typing = True
@@ -1749,9 +1858,11 @@ class Endcord:
                                 else:
                                     webbrowser.open(url, new=0, autoraise=True)
                             elif embed_url:
+                                url = self.refresh_attachment_url(url)
                                 self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, False, False, True)))
                                 self.download_threads[-1].start()
                             else:
+                                url = self.refresh_attachment_url(url)
                                 webbrowser.open(url, new=0, autoraise=True)
 
             # mouse single-click on extra line
@@ -1829,6 +1940,7 @@ class Endcord:
                     self.update_extra_line()
                     self.reset_actions()
                     self.restore_input_text = (input_text, "standard")
+                    self.execute_extensions_methods("on_escape_key")
                 self.update_status_line()
                 self.stop_assist()
 
@@ -1900,7 +2012,8 @@ class Endcord:
                         try:
                             num = max(int(input_text) - 1, 0)
                             if num <= len(self.downloading_file["urls"]):
-                                webbrowser.open(urls[num], new=0, autoraise=True)
+                                url = self.refresh_attachment_url(urls[num])
+                                webbrowser.open(url, new=0, autoraise=True)
                         except ValueError:
                             pass
                     elif self.downloading_file["open"]:
@@ -1908,7 +2021,8 @@ class Endcord:
                             logger.debug("Trying to play attachment from selection")
                             num = max(int(input_text) - 1, 0)
                             if num <= len(self.downloading_file["urls"]):
-                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[num], False, True)))
+                                url = self.refresh_attachment_url(urls[num])
+                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, False, True)))
                                 self.download_threads[-1].start()
                         except ValueError:
                             pass
@@ -1916,7 +2030,8 @@ class Endcord:
                         try:
                             num = max(int(input_text) - 1, 0)
                             if num <= len(self.downloading_file["urls"]):
-                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(urls[num], )))
+                                url = self.refresh_attachment_url(urls[num])
+                                self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, )))
                                 self.download_threads[-1].start()
                         except ValueError:
                             pass
@@ -2216,7 +2331,7 @@ class Endcord:
                         selected_urls.append(urls[num])
                 if len(selected_urls) == 1 or select_num:
                     select_num = max(min(select_num-1, len(selected_urls)-1), 0)
-                    selected_url = selected_urls[select_num]
+                    selected_url = self.refresh_attachment_url(selected_urls[select_num])
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, )))
                     self.download_threads[-1].start()
                 else:
@@ -2239,7 +2354,7 @@ class Endcord:
                     selected_urls.append(urls[num])
                 if len(selected_urls) == 1 or select_num:
                     select_num = max(min(select_num-1, len(selected_urls)-1), 0)
-                    selected_url = selected_urls[select_num]
+                    selected_url = self.refresh_attachment_url(selected_urls[select_num])
                     webbrowser.open(selected_url, new=0, autoraise=True)
                 else:
                     self.ignore_typing = True
@@ -2263,7 +2378,7 @@ class Endcord:
                         selected_urls.append(urls[num])
                 if len(selected_urls) == 1 or select_num:
                     select_num = max(min(select_num-1, len(selected_urls)-1), 0)
-                    selected_url = selected_urls[select_num]
+                    selected_url = self.refresh_attachment_url(selected_urls[select_num])
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, False, True)))
                     self.download_threads[-1].start()
                 else:
@@ -2965,7 +3080,7 @@ class Endcord:
                     self.update_voice_mute_in_call()
                 else:
                     self.update_extra_line("Client voice has been MUTED.")
-            peripherals.save_json(self.state, "state.json")
+            peripherals.save_json(self.state, f"state_{self.profiles["selected"]}.json")
 
         elif cmd_type == 53:   # VOICE_LIST_CALL
             if self.in_call:
@@ -3007,7 +3122,7 @@ class Endcord:
                 for num, folder in enumerate(self.state["folder_names"]):
                     if folder["id"] not in guild_folders_ids:
                         self.state.pop(num)
-                peripherals.save_json(self.state, "state.json")
+                peripherals.save_json(self.state, f"state_{self.profiles["selected"]}.json")
                 self.update_tree()
 
         elif cmd_type == 57:   # SHOW_EMOJI
@@ -3021,9 +3136,16 @@ class Endcord:
             else:
                 self.update_extra_line("Invalid emoji. Should be: <:EmojiName:emoji_id>")
 
+        elif cmd_type == 58:   # QUIT
+            self.run = False
+
         elif cmd_type == 66 and self.fun:   # 666
-            self.fun = 2
-            self.tui.set_fun(2)
+            self.fun = 1 if self.fun == 2 else 2
+            self.tui.set_fun(self.fun)
+
+        elif cmd_type == 67 and self.fun:   # TOGGLE_SNOW
+            self.fun = 1 if self.fun == 3 else 3
+            self.tui.set_fun(self.fun)
 
         if reset:
             self.reset_actions()
@@ -3076,6 +3198,26 @@ class Endcord:
         else:
             self.update_extra_line("Invalid app command.")
         self.stop_assist()
+
+
+    def refresh_attachment_url(self, url):
+        """Check if provided url is discord attachment url, and refresh it if its expired"""
+        queries = self.discord.check_expired_attachment_url(url)
+        if queries:
+            expiration = queries.get("ex")
+            if expiration:
+                try:
+                    expiration = int(expiration, 16)
+                    if len(str(expiration)) > 12:
+                        expiration //= 1000
+                    if expiration <= int(time.time()):
+                        new_url = self.discord.refresh_attachment_url(url)
+                        if new_url:
+                            return new_url
+                        return url
+                except ValueError:
+                    return url
+        return url
 
 
     def find_parents(self, tree_sel):
@@ -3368,7 +3510,7 @@ class Endcord:
 
         self.add_running_task("Uploading file", 2)
         self.update_extra_line()
-        upload_data, code = self.discord.request_attachment_link(self.active_channel["channel_id"], path)
+        upload_data, code = self.discord.request_attachment_url(self.active_channel["channel_id"], path)
         try:
             if upload_data:
                 uploaded = self.discord.upload_attachment(upload_data["upload_url"], path)
@@ -3598,7 +3740,7 @@ class Endcord:
 
     def preload_chat(self):
         """Download chat before switching channel to allow faster switching, used for initial chat when starting up"""
-        self.state = peripherals.load_json("state.json")
+        self.state = peripherals.load_json(f"state_{self.profiles["selected"]}.json")
         if self.state and self.state["last_channel_id"]:
             messages = self.discord.get_messages(self.state["last_channel_id"], self.msg_num)
             if self.need_preload and messages:
@@ -5144,7 +5286,7 @@ class Endcord:
                     self.uncollapsed_threads.append(self.tree_metadata[num]["id"])
             if self.state["collapsed"] != collapsed:
                 self.state["collapsed"] = collapsed
-                peripherals.save_json(self.state, "state.json")
+                peripherals.save_json(self.state, f"state_{self.profiles["selected"]}.json")
 
 
     def process_msg_events_active_channel(self, new_message, selected_line):
@@ -5290,7 +5432,7 @@ class Endcord:
         op = new_message["op"]
         skip_unread = data["channel_id"] == self.active_channel["channel_id"] and not self.unseen_scrolled
         new_message_channel_id = data["channel_id"]
-        if op == "MESSAGE_CREATE" and data["user_id"] != self.my_id:
+        if op == "MESSAGE_CREATE" and data["user_id"] != self.my_id and data["user_id"] not in self.blocked:
             # skip muted channels
             muted = False
             for guild in self.guilds:
@@ -5344,86 +5486,6 @@ class Endcord:
                                 peripherals.notify_remove(notification_id)
                                 break
                     break
-
-
-    def process_call_gateway_events(self, event):
-        """Process call related event from gateway"""
-        for dm in self.dms:
-            if dm["id"] == event["channel_id"]:
-                break
-        else:
-            return
-        if dm["is_spam"] or dm["muted"]:
-            return
-
-        if self.in_call and event["channel_id"] != self.in_call["channel_id"] and event["op"] != "CALL_DELETE":
-            return
-
-        if event["op"] == "CALL_CREATE" and not (self.in_call or self.joining_call):
-            if dm["id"] not in self.incoming_calls:
-                self.incoming_calls.append(dm["id"])
-                self.most_recent_incoming_call = dm["id"]
-                if self.recording:   # stop recording voice message
-                    self.recording = False
-                    _ = recorder.stop()
-                self.permanent_extra_line = formatter.generate_extra_line_ring(
-                    dm["name"],
-                    self.tui.get_dimensions()[2][1],
-                )
-                self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
-                if event["ringing"]:
-                    custom_ringtone = self.config["custom_ringtone_incoming"]
-                    linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_incoming"])
-                    if custom_ringtone and os.path.exists(custom_ringtone):
-                        self.start_ringing(custom_ringtone)
-                    elif linux_ringtone and os.path.exists(linux_ringtone):
-                        self.start_ringing(linux_ringtone)
-                    else:
-                        logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
-
-        elif event["op"] == "CALL_UPDATE" and not (self.in_call or self.joining_call):
-            if event["ringing"]:
-                custom_ringtone = self.config["custom_ringtone_incoming"]
-                linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_incoming"])
-                if custom_ringtone and os.path.exists(custom_ringtone):
-                    self.start_ringing(custom_ringtone)
-                elif linux_ringtone and os.path.exists(linux_ringtone):
-                    self.start_ringing(linux_ringtone)
-                else:
-                    logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
-
-        elif event["op"] == "CALL_DELETE" and event["channel_id"] in self.incoming_calls:
-            self.incoming_calls.remove(event["channel_id"])
-            if self.most_recent_incoming_call == event["channel_id"]:
-                self.most_recent_incoming_call = None
-            if not (self.in_call or self.joining_call):
-                self.update_extra_line(permanent=True)
-                self.stop_ringing()
-
-        elif event["op"] == "STATE_UPDATE" and event["channel_id"] in self.incoming_calls:
-            for num, participant in enumerate(self.call_participants):
-                if participant["user_id"] == event["user_id"]:
-                    if participant["name"]:
-                        self.call_participants[num]["muted"] = event["muted"]
-                    else:
-                        # if user is added by USER_JOIN, show popup
-                        self.update_extra_line(f"{event["name"]} joined the call")
-                        if event["name"]:
-                            self.call_participants[num]["name"] = event["name"]
-                            self.update_call_extra_line()
-                        self.call_participants[num]["muted"] = event["muted"]
-                    if self.voice_call_list_open:
-                        self.view_voice_call_list()
-                    break
-            else:
-                # USER_JOIN will show popup
-                self.call_participants.append({
-                    "user_id": event["user_id"],
-                    "name": event["name"],
-                    "muted": event["muted"],
-                    "speaking": False,
-                })
-                self.update_call_extra_line()
 
 
     def process_new_user_data(self, new_user_data):
@@ -5501,8 +5563,92 @@ class Endcord:
                     self.update_chat(scroll=False)
 
 
+    def process_call_gateway_events(self, event):
+        """Process call related event from gateway"""
+        for dm in self.dms:
+            if dm["id"] == event["channel_id"]:
+                break
+        else:
+            return
+        if dm["is_spam"] or dm["muted"]:
+            return
+
+        if self.in_call and event["channel_id"] != self.in_call["channel_id"] and event["op"] != "CALL_DELETE":
+            return
+
+        event = self.execute_extensions_methods("on_call_gateway_event", event, cache=True)
+
+        if event["op"] == "CALL_CREATE" and not (self.in_call or self.joining_call):
+            if dm["id"] not in self.incoming_calls:
+                self.incoming_calls.append(dm["id"])
+                self.most_recent_incoming_call = dm["id"]
+                if self.recording:   # stop recording voice message
+                    self.recording = False
+                    _ = recorder.stop()
+                self.permanent_extra_line = formatter.generate_extra_line_ring(
+                    dm["name"],
+                    self.tui.get_dimensions()[2][1],
+                )
+                self.update_extra_line(custom_text=self.permanent_extra_line, permanent=True)
+                if event["ringing"]:
+                    custom_ringtone = self.config["custom_ringtone_incoming"]
+                    linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_incoming"])
+                    if custom_ringtone and os.path.exists(custom_ringtone):
+                        self.start_ringing(custom_ringtone)
+                    elif linux_ringtone and os.path.exists(linux_ringtone):
+                        self.start_ringing(linux_ringtone)
+                    else:
+                        logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
+
+        elif event["op"] == "CALL_UPDATE" and not (self.in_call or self.joining_call):
+            if event["ringing"]:
+                custom_ringtone = self.config["custom_ringtone_incoming"]
+                linux_ringtone = peripherals.find_linux_sound(self.config["linux_ringtone_incoming"])
+                if custom_ringtone and os.path.exists(custom_ringtone):
+                    self.start_ringing(custom_ringtone)
+                elif linux_ringtone and os.path.exists(linux_ringtone):
+                    self.start_ringing(linux_ringtone)
+                else:
+                    logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
+
+        elif event["op"] == "CALL_DELETE" and event["channel_id"] in self.incoming_calls:
+            self.incoming_calls.remove(event["channel_id"])
+            if self.most_recent_incoming_call == event["channel_id"]:
+                self.most_recent_incoming_call = None
+            if not (self.in_call or self.joining_call):
+                self.update_extra_line(permanent=True)
+                self.stop_ringing()
+
+        elif event["op"] == "STATE_UPDATE" and event["channel_id"] in self.incoming_calls:
+            for num, participant in enumerate(self.call_participants):
+                if participant["user_id"] == event["user_id"]:
+                    if participant["name"]:
+                        self.call_participants[num]["muted"] = event["muted"]
+                    else:
+                        # if user is added by USER_JOIN, show popup
+                        self.update_extra_line(f"{event["name"]} joined the call")
+                        if event["name"]:
+                            self.call_participants[num]["name"] = event["name"]
+                            self.update_call_extra_line()
+                        self.call_participants[num]["muted"] = event["muted"]
+                    if self.voice_call_list_open:
+                        self.view_voice_call_list()
+                    break
+            else:
+                # USER_JOIN will show popup
+                self.call_participants.append({
+                    "user_id": event["user_id"],
+                    "name": event["name"],
+                    "muted": event["muted"],
+                    "speaking": False,
+                })
+                self.update_call_extra_line()
+
+
     def process_call_voice_gateway_events(self, event):
         """Process events from voice gateway"""
+        event = self.execute_extensions_methods("on_call_voice_gateway_event", event, cache=True)
+
         if event["op"] == "USER_SPEAK":
             for num, participant in enumerate(self.call_participants):
                 if participant["user_id"] == event["user_id"] and participant["name"]:
@@ -5665,6 +5811,8 @@ class Endcord:
                 logger.warning(f"Specified ringtone paths are invalid: {custom_ringtone}, {linux_ringtone}")
         self.joining_call = False
 
+        self.execute_extensions_methods("on_start_call")
+
 
     def leave_call(self):
         """Leave voice call"""
@@ -5701,6 +5849,8 @@ class Endcord:
             self.voice_gateway.disconnect()
         self.stop_ringing()
         self.voice_gateway = None
+
+        self.execute_extensions_methods("on_leave_call")
 
 
     def update_call_extra_line(self):
@@ -5803,20 +5953,22 @@ class Endcord:
                     # find guild and channel name
                     guild_id = data["guild_id"]
                     channel_id = data["channel_id"]
+                    guild_name = None
                     channel_name = None
                     for guild in self.guilds:
                         if guild["guild_id"] == guild_id:
+                            guild_name = guild["name"]
                             break
                     for channel in guild["channels"]:
                         if channel["id"] == channel_id and channel.get("permitted"):
                             channel_name = channel["name"]
                             break
-                    if channel_name:
-                        title = f"{data["global_name"]} (#{channel_name})"
+                    if guild_name and channel_name:
+                        title = f"{data["global_name"] if data["global_name"] else data["username"]} ({guild_name} #{channel_name})"
                     else:
-                        title = data["global_name"]
+                        title = data["global_name"] if data["global_name"] else data["username"]
                 else:
-                    title = data["global_name"]
+                    title = data["global_name"] if data["global_name"] else data["username"]
                 if data["content"]:
                     body = data["content"]
                 elif data.get("embeds"):
@@ -5957,7 +6109,7 @@ class Endcord:
                 "collapsed": [],
                 "folder_names": [],
             }
-            self.state = peripherals.load_json("state.json", self.state)
+            self.state = peripherals.load_json(f"state_{self.profiles["selected"]}.json", self.state)
         if self.state["last_guild_id"] in self.state["collapsed"]:
             self.state["collapsed"].remove(self.state["last_guild_id"])
         for folder in self.guild_folders:
@@ -6041,8 +6193,19 @@ class Endcord:
         # start extra line remover thread
         threading.Thread(target=self.extra_line_remover, daemon=True).start()
 
-        if self.fun == 4:
-            self.update_extra_line("Personalized ADs will be shown here. Click this to opt-out.")
+        # startup popups
+        if self.fun in (3, 4):
+            if self.last_run:
+                last_run = datetime.utcfromtimestamp(self.last_run)
+                last_run = (last_run.month, last_run.day)
+            else:
+                last_run = (6, 1)
+            if self.fun == 3 and (1, 8) < last_run < (12, 25):
+                self.update_extra_line("Christmas easter egg can be CPU-heavy. Run 'toggle_snow' command to stop it.", timed=False)
+            if self.fun == 4 and last_run != (4, 1):
+                self.update_extra_line("Personalized ADs will be shown here. Click this to opt-out.", timed=False)
+
+        self.execute_extensions_methods("on_main_start")
 
         logger.info(f"Main loop started after {round(time.time() - self.init_time, 2)}s")
         del self.init_time
@@ -6050,10 +6213,13 @@ class Endcord:
         while self.run:
             selected_line, text_index = self.tui.get_chat_selected()
 
+            self.execute_extensions_methods("on_main_loop", cache=True)
+
             # get new messages
             while self.run:
                 new_message = self.gateway.get_messages()
                 if new_message:
+                    new_message, = self.execute_extensions_methods("on_message_event", new_message, cache=True)
                     new_message_channel_id = new_message["d"]["channel_id"]
                     this_channel = (new_message_channel_id == self.active_channel["channel_id"])
                     if this_channel:
@@ -6222,6 +6388,7 @@ class Endcord:
             new_chat_dim = self.tui.get_dimensions()[0]
             if new_chat_dim != self.chat_dim:
                 self.chat_dim = new_chat_dim
+                self.execute_extensions_methods("on_resize")
                 if self.forum:
                     self.update_forum(self.active_channel["guild_id"], self.active_channel["channel_id"])
                     self.tui.update_chat(self.chat, self.chat_format, scroll=False)

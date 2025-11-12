@@ -738,9 +738,16 @@ def command_string(text):
         else:
             cmd_type = 0
 
+    # 58 - QUIT
+    elif text_lower.split(" ")[0] == "quit":
+        cmd_type = 58
 
     # 66 - 666
     elif text_lower == "666":
         cmd_type = 66
+
+    # 66 - TOGGLE_SNOW
+    elif text_lower == "toggle_snow":
+        cmd_type = 67
 
     return cmd_type, cmd_args

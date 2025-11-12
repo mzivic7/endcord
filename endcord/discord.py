@@ -80,7 +80,7 @@ class Discord():
 
     def __init__(self, token, host, client_prop, user_agent, proxy=None):
         if host:
-            host_obj = urllib.parse.urlparse(host)
+            host_obj = urllib.parse.urlsplit(host)
             if host_obj.netloc:
                 self.host = host_obj.netloc
             else:
@@ -93,13 +93,18 @@ class Discord():
         logger.debug(f"Endpoints: API={self.host}, CDN={self.cdn_host}")
         self.token = token
         self.header = {
+            "Accept": "*/*",
             "Authorization": self.token,
             "Content-Type": "application/json",
+            "Priority": "u=1",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
             "User-Agent": user_agent,
             "X-Super-Properties": client_prop,
         }
         self.user_agent = user_agent
-        self.proxy = urllib.parse.urlparse(proxy)
+        self.proxy = urllib.parse.urlsplit(proxy)
         self.my_id = self.get_my_id(exit_on_error=True)
         self.protos = [[], []]
         self.stickers = []
@@ -111,6 +116,13 @@ class Discord():
         self.voice_regions = []
         self.ranked_voice_regions = []
         self.attachment_id = 1
+
+
+    def check_expired_attachment_url(self, url):
+        """Check if provided url is attachment and return its querys"""
+        parsed_url = urllib.parse.urlsplit(url)
+        if self.cdn_host in parsed_url.netloc:
+            return dict(urllib.parse.parse_qsl(parsed_url.query))
 
 
     def get_connection(self, host, port):
@@ -650,7 +662,7 @@ class Discord():
     def get_file(self, url, save_path):
         """Download file from discord with proper header"""
         message_data = None
-        url_object = urllib.parse.urlparse(url)
+        url_object = urllib.parse.urlsplit(url)
         filename = os.path.basename(url_object.path)
         connection = self.get_connection(url_object.netloc, 443)
         connection.request("GET", url_object.path + "?" + url_object.query, message_data, self.header)
@@ -1545,7 +1557,7 @@ class Discord():
         return []
 
 
-    def request_attachment_link(self, channel_id, path, custom_name=None):
+    def request_attachment_url(self, channel_id, path, custom_name=None):
         """
         Request attachment upload link.
         If file is too large - will return None.
@@ -1593,7 +1605,7 @@ class Discord():
         Upload a file to provided url
         """
         # will load whole file into RAM, but discord limits upload size anyways
-        # and this function wont be run if request_attachment_link() is not successful
+        # and this function wont be run if request_attachment_url() is not successful
         header = {
             "Content-Type": "application/octet-stream",
             "Origin": f"https://{self.host}",
@@ -1601,7 +1613,7 @@ class Discord():
             "Sec-Fetch-Site": "cross-site",
             "User-Agent": self.user_agent,
         }
-        url = urllib.parse.urlparse(upload_url)
+        url = urllib.parse.urlsplit(upload_url)
         upload_url_path = f"{url.path}?{url.query}"
         with open(path, "rb") as f:
             try:
@@ -1666,12 +1678,33 @@ class Discord():
         return None
 
 
+    def refresh_attachment_url(self, url):
+        """Request refreshed attachment url"""
+        message_data = json.dumps({"attachment_urls": [url]})
+        url = "/api/v9/attachments/refresh-urls"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            if data["refreshed_urls"]:
+                return data["refreshed_urls"][0]["refreshed"]
+        logger.error(f"Failed to refresh attachment URL. Response code: {response.status}")
+        connection.close()
+        return None
+
+
     def send_voice_message(self, channel_id, path, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=None):
         """Send voice message from file path, file must be ogg"""
         waveform, duration = peripherals.get_audio_waveform(path)
         if not duration:
             logger.warning(f"Couldn't read voice message file: {path}")
-        upload_data, status = self.request_attachment_link(channel_id, path, custom_name="voice-message.ogg")
+        upload_data, status = self.request_attachment_url(channel_id, path, custom_name="voice-message.ogg")
         if status != 0:
             logger.warning("Cant send voice message, attachment error")
         uploaded = self.upload_attachment(upload_data["upload_url"], path)

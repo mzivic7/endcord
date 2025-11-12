@@ -597,9 +597,13 @@ class TUI():
 
     def set_fun(self, fun_lvl):
         """Set fun level"""
+        if fun_lvl != self.fun and self.fun_thread:
+            self.fun = fun_lvl
+            self.fun_thread.join(timeout=0.35)
         self.fun = fun_lvl
-        if self.fun == 2 and not self.fun_thread:
-            curses.init_pair(15, -1, 196)
+        if self.fun == 2:
+            self.fun_lock = threading.Lock()
+        if self.fun in (2, 3) and not (self.fun_thread and self.fun_thread.is_alive()):
             self.fun_thread = threading.Thread(target=self.fun_loop, daemon=True)
             self.fun_thread.start()
 
@@ -607,16 +611,43 @@ class TUI():
     def fun_loop(self):
         """Thread for fun features"""
         import random
-        self.fun_lock = threading.Lock()
-        while self.run:
-            while not self.red_list:
-                time.sleep(0.2)
-            if self.red_list:
-                with self.fun_lock:
-                    self.red_list.pop(random.randrange(len(self.red_list)))
-                    self.draw_input_line()
-                sleep_time = 0.3 / max(len(self.red_list), 1)
-                time.sleep(random.uniform(sleep_time, sleep_time*5))
+        if self.fun == 2:
+            bkp_fg, bkp_bg = curses.pair_content(15)
+            curses.init_pair(15, -1, 196)
+            while self.run and self.fun == 2:
+                if self.red_list:
+                    with self.fun_lock:
+                        self.red_list.pop(random.randrange(len(self.red_list)))
+                        self.draw_input_line()
+                    sleep_time = 0.3 / max(len(self.red_list), 1)
+                    time.sleep(random.uniform(sleep_time, sleep_time*5))
+                else:
+                    time.sleep(0.2)
+            curses.init_pair(15, bkp_fg, bkp_bg)
+            self.red_list = []
+
+        elif self.fun == 3:
+            h, w = self.screen.getmaxyx()
+            flakes = []
+            while self.run and self.fun == 3:
+                self.redraw_ui()
+                with self.lock:
+                    h, w = self.screen.getmaxyx()
+                    flakes = [flake for flake in flakes if flake[0] <= h]   # despawn
+                    if random.random() < w / 600 and len(flakes) < 30:   # spawn
+                        flakes.append([self.have_title, random.randint(self.have_title, w - 1)])
+                    for flake in flakes:   # move and draw
+                        flake[0] += 1
+                        flake[1] += random.choice((-1, 0, 1))
+                        y, x = flake
+                        if 0 <= y < h and 0 <= x < w:
+                            try:
+                                self.screen.addch(y, x, "*")
+                            except curses.error:
+                                pass
+                    self.screen.noutrefresh()
+                    self.need_update.set()
+                time.sleep(0.3)
 
 
     def disable_wrap_around(self, disable):
