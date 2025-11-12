@@ -6,7 +6,7 @@
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
-<a href="https://github.com/mzivic7/endcord/blob/main/.github/extensions.md">Extensions</a> |
+<a href="https://github.com/mzivic7/endcord/blob/main/extensions.md">Extensions</a> |
 <a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
 <a href="https://discord.gg/judQSxw5K2">Discord</a>
