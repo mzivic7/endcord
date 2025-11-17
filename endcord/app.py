@@ -398,7 +398,7 @@ class Endcord:
         if self.my_user_data:
             self.update_prompt()
         self.typing = []
-        self.unseen = []
+        self.read_state = []
         self.notifications = []
         self.typing_sent = int(time.time())
         self.sent_ack_time = time.time() - self.ack_throttling
@@ -483,7 +483,7 @@ class Endcord:
         if new_activities:
             self.activities = new_activities
             self.update_tree()
-        self.unseen = self.gateway.get_unseen()
+        self.read_state = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.select_current_member_roles()
         self.my_roles = self.gateway.get_my_roles()
@@ -703,7 +703,7 @@ class Endcord:
         # find where to scroll chat to show last seen message
         if not forum:
             last_acked_msg = None
-            for channel in self.unseen:
+            for channel in self.read_state:
                 if channel["channel_id"] == channel_id:
                     if not channel["last_message_id"] or int(channel["last_acked_message_id"]) < int(channel["last_message_id"]):
                         last_acked_msg = int(channel["last_acked_message_id"])
@@ -4586,7 +4586,7 @@ class Endcord:
         # find message id for last acked line
         last_seen_msg = None
         channel_id = self.active_channel["channel_id"]
-        for channel in self.unseen:
+        for channel in self.read_state:
             if channel["channel_id"] == channel_id:
                 last_acked_unreads_line = channel.get("last_acked_unreads_line")
                 last_message_id = channel["last_message_id"]
@@ -4706,7 +4706,7 @@ class Endcord:
         self.tab_string, self.tab_string_format = formatter.generate_tab_string(
             tabs_names,
             active_tab_index,
-            [x["channel_id"] for x in self.unseen if not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)],
+            [x["channel_id"] for x in self.read_state if not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)],
             self.config["format_tabs"],
             self.config["tabs_separator"],
             self.config["limit_global_name"],
@@ -4933,8 +4933,8 @@ class Endcord:
             self.dms,
             self.guilds,
             self.threads,
-            [x["channel_id"] for x in self.unseen if not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)],
-            [x["channel_id"] for x in self.unseen if (not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)) and x["mentions"]],
+            [x["channel_id"] for x in self.read_state if not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)],
+            [x["channel_id"] for x in self.read_state if (not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)) and x["mentions"]],
             self.guild_folders,
             self.activities,
             collapsed,
@@ -5010,7 +5010,7 @@ class Endcord:
         Force will set even if its not marked as unseen, used for active channel.
         """
         # find this unseen chanel
-        for channel in self.unseen:
+        for channel in self.read_state:
             if channel["channel_id"] == target_id:
                 last_message_id = channel["last_message_id"]
                 if not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id):
@@ -5022,7 +5022,7 @@ class Endcord:
             # check guilds
             for guild in self.guilds:
                 if guild["guild_id"] == target_id:
-                    for channel in self.unseen:
+                    for channel in self.read_state:
                         last_message_id = channel["last_message_id"]
                         if not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id):
                             continue
@@ -5046,7 +5046,7 @@ class Endcord:
                 for channel_g in guild["channels"]:
                     if channel_g["parent_id"] == target_id:   # category
                         channel_id = channel_g["id"]
-                        for channel in self.unseen:
+                        for channel in self.read_state:
                             last_message_id = channel["last_message_id"]
                             if not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id):
                                 continue
@@ -5066,7 +5066,7 @@ class Endcord:
     def set_channel_seen(self, channel_id, message_id=None, ack=True, force=False, update_tree=True, update_line=False):
         """Set one channel as seen"""
         remove_notification = False
-        for num, channel in enumerate(self.unseen):
+        for num, channel in enumerate(self.read_state):
             if channel_id == channel["channel_id"]:
                 this_channel = channel_id == self.active_channel["channel_id"]
                 last_message_id = channel["last_message_id"]
@@ -5075,23 +5075,19 @@ class Endcord:
                     if not message_id or message_id < channel["last_message_id"]:
                         message_id = channel["last_message_id"]
                     if message_id:
-                        self.unseen[num]["last_message_id"] = message_id
+                        self.read_state[num]["last_message_id"] = message_id
                         if ack:
                             self.send_ack(channel_id, message_id)
-                            if not this_channel:
-                                remove_notification = True   # not ack is from gateway
-                            self.unseen[num]["last_acked_message_id"] = message_id
-                        elif not update_tree:
-                            if not this_channel:
-                                remove_notification = True
-                            self.unseen[num]["last_acked_message_id"] = message_id
+                        if not this_channel:
+                            remove_notification = True
+                        self.read_state[num]["last_acked_message_id"] = message_id
                         if update_line and "last_acked_unreads_line" in channel:
-                            self.unseen[num]["last_acked_unreads_line"] = None
+                            self.read_state[num]["last_acked_unreads_line"] = None
                         if update_tree:
                             self.update_tree()
                 break
 
-        if self.enable_notifications and remove_notification:   # remove notification
+        if self.enable_notifications and remove_notification:
             for num, notification in enumerate(self.notifications):
                 if notification["channel_id"] == channel_id:
                     notification_id = self.notifications.pop(num)["notification_id"]
@@ -5102,21 +5098,22 @@ class Endcord:
     def set_channel_unseen(self, channel_id, message_id, ping, skip_unread, last_acked_message_id=1):
         """Set one channel as unseen"""
         update_tree = False
-        for num, channel in enumerate(self.unseen):
+        for num, channel in enumerate(self.read_state):
             if channel["channel_id"] == channel_id:
                 last_message_id = channel["last_message_id"]
                 if last_message_id and int(channel["last_acked_message_id"]) >= int(last_message_id):
                     update_tree = True   # only  update tree if previous state is "read"
-                self.unseen[num]["last_message_id"] = message_id
-                self.unseen[num]["last_acked_message_id"] = last_acked_message_id
+                self.read_state[num]["last_message_id"] = message_id
+                if last_acked_message_id != 1 or not channel["last_acked_message_id"]:
+                    self.read_state[num]["last_acked_message_id"] = last_acked_message_id
                 if ping:
-                    self.unseen[num]["mentions"].append(message_id)
+                    self.read_state[num]["mentions"].append(message_id)
                 if channel.get("last_acked_unreads_line") is None:
                     # last_acked_unreads_line is used to persist unreads line even after channel is acked
-                    self.unseen[num]["last_acked_unreads_line"] = self.unseen[num]["last_acked_message_id"]
+                    self.read_state[num]["last_acked_unreads_line"] = self.read_state[num]["last_acked_message_id"]
                 break
         else:
-            self.unseen.append({
+            self.read_state.append({
                 "channel_id": channel_id,
                 "last_acked_message_id": last_acked_message_id,
                 "last_message_id": message_id,
@@ -5132,14 +5129,14 @@ class Endcord:
 
     def set_channel_me_seen(self, channel_id, message_id):
         """Set one channel as seen because this client sent message in it"""
-        for num, channel in enumerate(self.unseen):
+        for num, channel in enumerate(self.read_state):
             if channel["channel_id"] == channel_id:
-                self.unseen[num]["last_acked_message_id"] = message_id
-                self.unseen[num]["last_message_id"] = message_id
-                self.unseen[num]["last_acked_unreads_line"] = None
+                self.read_state[num]["last_acked_message_id"] = message_id
+                self.read_state[num]["last_message_id"] = message_id
+                self.read_state[num]["last_acked_unreads_line"] = None
                 break
         else:
-            self.unseen.append({
+            self.read_state.append({
                 "channel_id": channel_id,
                 "last_acked_message_id": message_id,
                 "last_message_id": message_id,
@@ -5557,12 +5554,12 @@ class Endcord:
         """Check message events for deleted message and remove ghost pings"""
         if new_message["op"] == "MESSAGE_DELETE" and not self.keep_deleted:
             new_message_channel_id = new_message["d"]["channel_id"]
-            for num, channel in enumerate(self.unseen):
+            for num, channel in enumerate(self.read_state):
                 if (
                     new_message_channel_id == channel["channel_id"] and
                     new_message["d"]["id"] in channel["mentions"]   # if channel is from ready event - message is unknown
                 ):
-                    self.unseen[num]["mentions"].remove(new_message["d"]["id"])
+                    self.read_state[num]["mentions"].remove(new_message["d"]["id"])
                     self.update_tree()
                     if self.enable_notifications:
                         for num_1, notification in enumerate(self.notifications):
@@ -6178,7 +6175,7 @@ class Endcord:
             self.activities = new_activities
 
         # load pings, unseen and blocked
-        self.unseen = self.gateway.get_unseen()
+        self.read_state = self.gateway.get_unseen()
         self.blocked = self.gateway.get_blocked()
         self.run = True
 

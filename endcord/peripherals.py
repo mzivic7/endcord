@@ -390,10 +390,9 @@ def notify_send(title, message, sound="message", custom_sound=None):
         else:
             include_sound = ["-h", f"string:sound-name:{sound}"]
         if have_termux_notify:
-            command = ["termux-notification", "--icon=chat", "--sound", "--channel-id=1000", "-t", title, "-c", message]
+            command = ["termux-notification", "--icon=chat", "--sound", "--channel=1000", "-t", title, "-c", message]
             proc = subprocess.Popen(
                 command,
-                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )

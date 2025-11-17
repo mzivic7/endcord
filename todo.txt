@@ -1,8 +1,18 @@
+Merge self.read_state with self.channels ???
 Fix member list not updating when switching between same-guild channels
 Handle slowmode
 Add window borders
 New screenshots in higher resolution
-Game detection service?
+
+Game detection service
+    option in settings
+    use head request to check data version
+    get /api/v9/applications/detectable
+    save to file
+    monitor processes
+    check new process in list
+    update activity session
+    update presence
 
 Add more extension points
     add to parser.py
@@ -12,7 +22,6 @@ Add more extension points
     add to wait_input to execute binding
     add events to gateway.py
     add new request to discord.py
-    add bindings
 
 Voice channels
     add voice channels to tree

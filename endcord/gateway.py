@@ -124,7 +124,7 @@ class Gateway():
         self.guilds = []
         self.roles = []
         self.member_roles = []
-        self.msg_unseen = []
+        self.read_state = []
         self.subscribed = []
         self.dms = []
         self.dms_id = []
@@ -653,23 +653,15 @@ class Gateway():
                     time_log_string += f"    DMs - {round((time.time() - ready_time_mid) * 1000, 3)}ms\n"
                     ready_time_mid = time.time()
                     # unread messages and pings
-                    msg_unseen = []
+                    read_state = []
                     msg_ping = []
                     for channel in data["read_state"]["entries"]:
                         # last_message_id in unread_state is actually last_ACKED_message_id
                         if "last_message_id" in channel and "mention_count" in channel:
+                            read_state.append((channel["id"], channel["last_message_id"]))
                             if channel["mention_count"]:
-                                msg_unseen.append((channel["id"], channel["last_message_id"]))
                                 msg_ping.append(channel["id"])
-                            else:
-                                for last_message in last_messages:
-                                    if (
-                                        channel["id"] == last_message["channel_id"] and
-                                        channel["last_message_id"] < last_message["message_id"]
-                                    ):
-                                        # channel is unread
-                                        msg_unseen.append((channel["id"], channel["last_message_id"]))
-                    for channel_id, last_acked in msg_unseen:   # add relevant data
+                    for channel_id, last_acked in read_state:   # add relevant data
                         for last_message in last_messages:
                             if last_message["channel_id"] == channel_id:
                                 last_message_id = last_message["message_id"]
@@ -684,8 +676,8 @@ class Gateway():
                         }
                         if not last_message_id or int(unseel_channel["last_acked_message_id"]) < int(last_message_id):
                             unseel_channel["last_acked_unreads_line"] = unseel_channel["last_acked_message_id"]
-                        self.msg_unseen.append(unseel_channel)
-                    time_log_string += f"    unread and mentions - {round((time.time() - ready_time_mid) * 1000, 3)}ms\n"
+                        self.read_state.append(unseel_channel)
+                    time_log_string += f"    read state ({len(self.read_state)} channels) - {round((time.time() - ready_time_mid) * 1000, 3)}ms\n"
                     ready_time_mid = time.time()
                     # guild and dm settings
                     for guild in data["user_guild_settings"]["entries"]:
@@ -1972,7 +1964,7 @@ class Gateway():
 
     def get_unseen(self):
         """Get list of channels with unseen messages after connecting"""
-        return self.msg_unseen
+        return self.read_state
 
 
     def get_dms(self):
