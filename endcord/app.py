@@ -227,9 +227,9 @@ class Endcord:
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
         self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
         self.tui.update_status_line("CONNECTING")
-        self.my_id = self.discord.get_my_id()
-        self.premium = None
-        self.my_user_data = self.discord.get_user(self.my_id, extra=True)
+        self.my_id = None   # will be taken from gateway in main()
+        self.premium = None    # same
+        self.my_user_data = None    # same
         self.channel_cache = []
         self.voice_gateway = None
         self.reset()
@@ -266,7 +266,6 @@ class Endcord:
         self.command_history_index = 0
         self.command_history_stored_current = None
         self.show_blocked_messages = False
-        self.reset_actions()
         self.gateway.set_want_member_list(self.get_members)
         self.gateway.set_want_summaries(self.save_summaries)
         self.timed_extra_line = threading.Event()
@@ -393,16 +392,17 @@ class Endcord:
         self.chat_format = []
         self.tab_string = ""
         self.tab_string_format = []
-        self.unseen_scrolled = False
+        self.new_unreads = False
         self.chat_indexes = []
         self.chat_map = []
-        self.update_prompt()
+        if self.my_user_data:
+            self.update_prompt()
         self.typing = []
         self.unseen = []
         self.notifications = []
         self.typing_sent = int(time.time())
-        self.sent_ack_time = time.time()
-        self.pending_ack = False
+        self.sent_ack_time = time.time() - self.ack_throttling
+        self.pending_acks = []
         self.last_message_id = 0
         self.my_rpc = []
         self.chat_end = False
@@ -651,7 +651,7 @@ class Endcord:
 
             # use preloaded
             elif preload and self.preloaded:
-                self.request_missing_members(self.active_channel["guild_id"], self.messages)
+                self.request_missing_members(guild_id, self.messages)
                 self.last_message_id = self.messages[0]["id"]
                 self.preloaded = False
                 self.need_preload = False
@@ -702,11 +702,15 @@ class Endcord:
 
         # find where to scroll chat to show last seen message
         if not forum:
-            self.remove_last_acked_message_id(self.active_channel["channel_id"])
-            last_acked_msg = self.get_last_acked_message_id(self.active_channel["channel_id"])
+            last_acked_msg = None
+            for channel in self.unseen:
+                if channel["channel_id"] == channel_id:
+                    if not channel["last_message_id"] or int(channel["last_acked_message_id"]) < int(channel["last_message_id"]):
+                        last_acked_msg = int(channel["last_acked_message_id"])
+                    break
             if last_acked_msg:
                 for num, message in enumerate(self.messages):
-                    if last_acked_msg and int(message["id"]) <= int(last_acked_msg):
+                    if int(message["id"]) <= last_acked_msg:
                         select_message_index = min(max(num - 1, 0), len(self.messages) - 2)
                         break
                 else:
@@ -752,13 +756,13 @@ class Endcord:
         if guild_id:
             if self.get_members:
                 for guild in self.members:
-                    if guild["guild_id"] == self.active_channel["guild_id"]:
+                    if guild["guild_id"] == guild_id:
                         self.current_members = guild["members"]
                         break
                 else:
                     self.current_members = []
             for guild in self.subscribed_members:
-                if guild["guild_id"] == self.active_channel["guild_id"]:
+                if guild["guild_id"] ==guild_id:
                     self.current_subscribed_members = guild["members"]
                     break
                 else:
@@ -794,6 +798,7 @@ class Endcord:
             self.update_chat(keep_selected=False, select_message_index=select_message_index)
         else:
             self.tui.update_chat(self.chat, self.chat_format)
+        self.set_channel_seen(channel_id, self.messages[0]["id"])   # right after update_chat so new_unreads is determined
         if not guild_id:   # no member list in dms
             self.member_list_visible = False
             self.tui.remove_member_list()
@@ -1904,6 +1909,11 @@ class Endcord:
                     )))
                     self.download_threads[-1].start()
 
+            elif action == 49:
+                self.run = False
+                time.sleep(0.5)
+                sys.exit()
+
             # escape in main UI
             elif action == 5:
                 if self.recording:
@@ -2715,10 +2725,10 @@ class Endcord:
             self.switch_tab(select_num)
 
         elif cmd_type == 32:   # MARK_AS_READ:
-            channel_id = cmd_args.get("channel_id")
-            if not channel_id:
-                channel_id = self.tree_metadata[tree_sel]["id"]
-            self.set_seen(channel_id)
+            target_id = cmd_args.get("channel_id")
+            if not target_id:
+                target_id = self.tree_metadata[tree_sel]["id"]
+            self.set_mix_seen(target_id)
 
         elif cmd_type == 33:   # INSERT_TIMESTAMP
             timestamp = cmd_args["timestamp"]
@@ -3138,6 +3148,15 @@ class Endcord:
 
         elif cmd_type == 58:   # QUIT
             self.run = False
+
+        elif cmd_type == 59:   # MARK_AS_UNREAD
+            message_index = min(self.lines_to_msg(self.tui.get_chat_selected()[0])+1, len(self.messages)-1)
+            message_id = self.messages[message_index]["id"]
+            if message_id:
+                self.send_ack(self.active_channel["channel_id"], message_id, manual=True)
+                self.set_channel_unseen(self.active_channel["channel_id"], self.messages[0]["id"], False, False, last_acked_message_id=message_id)
+                self.update_tree()
+                self.update_chat(scroll=False)
 
         elif cmd_type == 66 and self.fun:   # 666
             self.fun = 1 if self.fun == 2 else 2
@@ -4556,13 +4575,7 @@ class Endcord:
             selected_line, text_index = self.tui.get_chat_selected()
             if selected_line == -1:
                 keep_selected = False
-            if change_amount > 0:
-                self.unseen_scrolled = bool(text_index)
-                self.update_status_line()
             selected_msg, remainder = self.lines_to_msg_with_remainder(selected_line)
-        else:
-            self.unseen_scrolled = False
-            self.update_status_line()
 
         # spacebar_fix - message/referenced_message is always null, instead only for deleted message
         if self.gateway.legacy:
@@ -4570,6 +4583,16 @@ class Endcord:
                 if message["referenced_message"] and not message["referenced_message"]["id"]:
                     message["referenced_message"] = None
 
+        # find message id for last acked line
+        last_seen_msg = None
+        channel_id = self.active_channel["channel_id"]
+        for channel in self.unseen:
+            if channel["channel_id"] == channel_id:
+                last_acked_unreads_line = channel.get("last_acked_unreads_line")
+                last_message_id = channel["last_message_id"]
+                if last_acked_unreads_line and (not last_message_id or int(last_acked_unreads_line) < int(last_message_id)):
+                    last_seen_msg = channel["last_acked_unreads_line"]
+                break
         self.chat, self.chat_format, self.chat_indexes, self.chat_map = formatter.generate_chat(
             self.messages,
             self.current_roles,
@@ -4581,7 +4604,7 @@ class Endcord:
             self.colors,
             self.colors_formatted,
             self.blocked,
-            self.get_last_acked_message_id(self.active_channel["channel_id"]),
+            last_seen_msg,
             self.show_blocked_messages,
             self.config,
         )
@@ -4594,7 +4617,6 @@ class Endcord:
         elif select_message_index is not None:
             selected_line = self.msg_to_lines(select_message_index)
             self.tui.set_selected(selected_line, scroll=scroll)
-            self.unseen_scrolled = True
         elif keep_selected is not None:
             self.tui.set_selected(-1, scroll=scroll)   # return to bottom
 
@@ -4684,7 +4706,7 @@ class Endcord:
         self.tab_string, self.tab_string_format = formatter.generate_tab_string(
             tabs_names,
             active_tab_index,
-            [x["channel_id"] for x in self.unseen if not x.get("seen")],
+            [x["channel_id"] for x in self.unseen if not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)],
             self.config["format_tabs"],
             self.config["tabs_separator"],
             self.config["limit_global_name"],
@@ -4743,7 +4765,7 @@ class Endcord:
             status_line_r, status_line_r_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
-                self.unseen_scrolled,
+                self.new_unreads,
                 self.typing,
                 self.active_channel,
                 action,
@@ -4761,7 +4783,7 @@ class Endcord:
         status_line_l, status_line_l_format = formatter.generate_status_line(
             self.my_user_data,
             self.my_status,
-            self.unseen_scrolled,
+            self.new_unreads,
             self.typing,
             self.active_channel,
             action,
@@ -4779,7 +4801,7 @@ class Endcord:
             title_line_r, title_line_r_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
-                self.unseen_scrolled,
+                self.new_unreads,
                 self.typing,
                 self.active_channel,
                 action,
@@ -4798,7 +4820,7 @@ class Endcord:
             title_line_l, title_line_l_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
-                self.unseen_scrolled,
+                self.new_unreads,
                 self.typing,
                 self.active_channel,
                 action,
@@ -4815,7 +4837,7 @@ class Endcord:
             title_tree, _ = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
-                self.unseen_scrolled,
+                self.new_unreads,
                 self.typing,
                 self.active_channel,
                 action,
@@ -4911,8 +4933,8 @@ class Endcord:
             self.dms,
             self.guilds,
             self.threads,
-            [x["channel_id"] for x in self.unseen if not x.get("seen")],
-            [x["channel_id"] for x in self.unseen if x["mentions"] and not x.get("seen")],
+            [x["channel_id"] for x in self.unseen if not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)],
+            [x["channel_id"] for x in self.unseen if (not (lm := x["last_message_id"]) or int(x["last_acked_message_id"]) < int(lm)) and x["mentions"]],
             self.guild_folders,
             self.activities,
             collapsed,
@@ -4929,7 +4951,6 @@ class Endcord:
             self.status_char,
             folder_names=self.state.get("folder_names", []),
             safe_emoji=self.config["emoji_as_text"],
-            show_invisible=self.config["tree_show_invisible"],
             show_folders=self.config["tree_show_folders"],
         )
         # debug_guilds_tree
@@ -4940,13 +4961,13 @@ class Endcord:
 
         # check for unreads/mentions for tray icon
         if uses_pgcurses:
-            if not self.tui.is_window_open and not self.unseen_scrolled:
+            if not self.tui.is_window_open and not bool(self.tui.get_chat_selected()[1]):
                 # tree update for current channel is triggered from process_msg_events_other_channels
                 self.tui.set_chat_index(1)
                 self.update_chat(scroll=False)
             tray_state = 0   # standard
-            if self.unseen_scrolled:
-                tray_state = 1
+            if self.new_unreads:
+                tray_state = 1   # unreads
             for num, code in enumerate(self.tree_format):
                 if 100 <= code < 200:
                     second_digit = int((code % 100) // 10)
@@ -4983,73 +5004,94 @@ class Endcord:
         return sum(self.chat_indexes[:msg + 1]) - 1
 
 
-    def set_seen(self, target_id, force=False, ack=True, channel_only=False):
+    def set_mix_seen(self, target_id):
         """
         Set channel/category/guild as seen if it is not already seen.
         Force will set even if its not marked as unseen, used for active channel.
         """
-        for unseen_channel in self.unseen:
-            if unseen_channel["channel_id"] == target_id:   # find this unseen chanel
-                if unseen_channel.get("seen"):
+        # find this unseen chanel
+        for channel in self.unseen:
+            if channel["channel_id"] == target_id:
+                last_message_id = channel["last_message_id"]
+                if not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id):
                     break
-                if ack:
-                    self.discord.send_ack(target_id, self.messages[0]["id"])
-                if not force:   # dont remove notification when marking seen current channel
-                    self.set_local_seen(target_id)
-                self.update_tree()
+                self.set_channel_seen(target_id, update_line=True)
                 break
         else:
-            if not channel_only:   # if its not in unseen then check guilds and categories
-                channels = []
-                # check guilds
+            channels = []
+            # check guilds
+            for guild in self.guilds:
+                if guild["guild_id"] == target_id:
+                    for channel in self.unseen:
+                        last_message_id = channel["last_message_id"]
+                        if not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id):
+                            continue
+                        channel_id = channel["channel_id"]
+                        for channel_g in guild["channels"]:
+                            if channel_id == channel_g["id"]:
+                                channels.append({
+                                    "channel_id": channel["channel_id"],
+                                    "message_id": channel["last_message_id"],
+                                })
+                                break
+                    break
+            # check categories
+            _, _, guild_id, _, parent_id = self.find_parents_from_id(target_id)
+            guild = None
+            if guild_id and not parent_id:   # category has no parent_id
                 for guild in self.guilds:
-                    if guild["guild_id"] == target_id:
-                        for channel in self.unseen:
-                            channel_id = channel["channel_id"]
-                            for channel_g in guild["channels"]:
-                                if channel_id == channel_g["id"]:
-                                    if channel.get("seen"):
-                                        break
-                                    channels.append({
-                                        "channel_id": channel["channel_id"],
-                                        "message_id": channel["last_message_id"],
-                                    })
-                                    break
+                    if guild["guild_id"] == guild_id:
                         break
-                # check categories
-                _, _, guild_id, _, parent_id = self.find_parents_from_id(target_id)
-                guild = None
-                if guild_id and not parent_id:   # category has no parent_id
-                    for guild in self.guilds:
-                        if guild["guild_id"] == guild_id:
-                            break
-                if guild:
-                    for channel_g in guild["channels"]:
-                        if channel_g["parent_id"] == target_id:   # category
-                            channel_id = channel_g["id"]
-                            for channel in self.unseen:
-                                if channel["channel_id"] == channel_id:
-                                    if unseen_channel.get("seen"):
-                                        break
-                                    channels.append({
-                                        "channel_id": channel["channel_id"],
-                                        "message_id": channel["last_message_id"],
-                                    })
-                                    break
-                if channels:
-                    self.discord.send_ack_bulk(channels)
-                    for channel in channels:
-                        if not force:
-                            self.set_local_seen(channel["channel_id"])
-                    self.update_tree()
+            if guild:
+                for channel_g in guild["channels"]:
+                    if channel_g["parent_id"] == target_id:   # category
+                        channel_id = channel_g["id"]
+                        for channel in self.unseen:
+                            last_message_id = channel["last_message_id"]
+                            if not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id):
+                                continue
+                            if channel["channel_id"] == channel_id:
+                                channels.append({
+                                    "channel_id": channel["channel_id"],
+                                    "message_id": channel["last_message_id"],
+                                })
+                                break
+            if channels:
+                self.discord.send_ack_bulk(channels)
+                for channel in channels:
+                    self.set_channel_seen(channel["channel_id"], ack=False, update_tree=False, update_line=True)
+                self.update_tree()
 
 
-    def set_local_seen(self, channel_id):
-        """Set channel seen locally"""
-        for num, unseen_channel in enumerate(self.unseen):
-            if channel_id == unseen_channel["channel_id"]:
-                self.unseen[num]["seen"] = True
-        if self.enable_notifications:   # remove notification
+    def set_channel_seen(self, channel_id, message_id=None, ack=True, force=False, update_tree=True, update_line=False):
+        """Set one channel as seen"""
+        remove_notification = False
+        for num, channel in enumerate(self.unseen):
+            if channel_id == channel["channel_id"]:
+                this_channel = channel_id == self.active_channel["channel_id"]
+                last_message_id = channel["last_message_id"]
+                unseen = not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id)
+                if unseen and (not this_channel or (not bool(self.tui.get_chat_selected()[1]) and this_channel) or force):
+                    if not message_id:
+                        message_id = channel["last_message_id"]
+                    if message_id:
+                        self.unseen[num]["last_message_id"] = message_id
+                        if ack:
+                            self.send_ack(channel_id, message_id)
+                            if not this_channel:
+                                remove_notification = True   # not ack is from gateway
+                            self.unseen[num]["last_acked_message_id"] = message_id
+                        elif not update_tree:
+                            if not this_channel:
+                                remove_notification = True
+                            self.unseen[num]["last_acked_message_id"] = message_id
+                        if update_line and "last_acked_unreads_line" in channel:
+                            self.unseen[num]["last_acked_unreads_line"] = None
+                        if update_tree:
+                            self.update_tree()
+                break
+
+        if self.enable_notifications and remove_notification:   # remove notification
             for num, notification in enumerate(self.notifications):
                 if notification["channel_id"] == channel_id:
                     notification_id = self.notifications.pop(num)["notification_id"]
@@ -5057,40 +5099,69 @@ class Endcord:
                     break
 
 
-    def set_local_unseen(self, channel_id, message_id, ping, skip_unread):
-        """Set channel unseen locally"""
+    def set_channel_unseen(self, channel_id, message_id, ping, skip_unread, last_acked_message_id=1):
+        """Set one channel as unseen"""
+        update_tree = False
         for num, channel in enumerate(self.unseen):
             if channel["channel_id"] == channel_id:
-                if channel.get("seen"):
-                    channel["seen"] = False
-                if not self.unseen[num]["last_acked_message_id"]:
-                    self.unseen[num]["last_acked_message_id"] = self.unseen[num]["last_message_id"]
+                last_message_id = channel["last_message_id"]
+                if last_message_id and int(channel["last_acked_message_id"]) >= int(last_message_id):
+                    update_tree = True   # only  update tree if previous state is "read"
+                self.unseen[num]["last_message_id"] = message_id
+                self.unseen[num]["last_acked_message_id"] = last_acked_message_id
                 if ping:
                     self.unseen[num]["mentions"].append(message_id)
+                if channel.get("last_acked_unreads_line") is None:
+                    # last_acked_unreads_line is used to persist unreads line even after channel is acked
+                    self.unseen[num]["last_acked_unreads_line"] = self.unseen[num]["last_acked_message_id"]
                 break
         else:
             self.unseen.append({
                 "channel_id": channel_id,
-                "last_acked_message_id": None,
+                "last_acked_message_id": last_acked_message_id,
                 "last_message_id": message_id,
                 "mentions": [message_id] if ping else [],
+                "last_acked_unreads_line": last_acked_message_id,
             })
-        if not skip_unread:
+            update_tree = True
+        if channel_id == self.active_channel["channel_id"] and not bool(self.tui.get_chat_selected()[1]):
+            self.set_channel_seen(self.active_channel["channel_id"], message_id)
+        if update_tree and not skip_unread:
             self.update_tree()
 
 
-    def get_last_acked_message_id(self, channel_id):
-        """Get last acked message id for specified channel"""
-        for channel in self.unseen:
-            if channel["channel_id"] == channel_id:
-                return channel["last_acked_message_id"]
-
-
-    def remove_last_acked_message_id(self, channel_id):
-        """Remove last acked message id for specified channel"""
+    def set_channel_me_seen(self, channel_id, message_id):
+        """Set one channel as seen because this client sent message in it"""
         for num, channel in enumerate(self.unseen):
-            if channel["channel_id"] == channel_id and channel.get("seen") and channel["last_acked_message_id"]:
-                self.unseen[num]["last_acked_message_id"] = None
+            if channel["channel_id"] == channel_id:
+                self.unseen[num]["last_acked_message_id"] = message_id
+                self.unseen[num]["last_message_id"] = message_id
+                self.unseen[num]["last_acked_unreads_line"] = None
+                break
+        else:
+            self.unseen.append({
+                "channel_id": channel_id,
+                "last_acked_message_id": message_id,
+                "last_message_id": message_id,
+                "mentions": [],
+            })
+        self.update_tree()
+
+
+    def send_ack(self, channel_id=None, message_id=None, manual=False):
+        """Send ack, if throttled - add to queue, if queue is larger than 1, then send bulk ack"""
+        # add to queue
+        if channel_id:
+            for ack in self.pending_acks:
+                if ack == channel_id:
+                    break
+            else:
+                self.pending_acks.append((channel_id, message_id))
+
+        # try to send
+        if self.pending_acks and time.time() - self.sent_ack_time > self.ack_throttling:
+            self.discord.send_ack(*self.pending_acks.pop(0), manual=manual)
+            self.sent_ack_time = time.time()
 
 
     def compute_permissions(self):
@@ -5302,19 +5373,19 @@ class Endcord:
             if len(self.messages) > self.limit_chat_buffer:
                 self.messages.pop(-1)
             self.update_chat(change_amount=1, scroll=False)
-            if not self.unseen_scrolled:
-                if time.time() - self.sent_ack_time > self.ack_throttling:
-                    self.set_seen(self.active_channel["channel_id"], force=True)
-                    self.sent_ack_time = time.time()
-                    self.pending_ack = False
-                else:
-                    self.pending_ack = True
+            update_status_line = False
+            if bool(self.tui.get_chat_selected()[1]):
+                if not self.new_unreads:
+                    update_status_line = True
+                self.new_unreads = True
             # remove user from typing
             for num, user in enumerate(self.typing):
                 if user["user_id"] == data["user_id"]:
                     self.typing.pop(num)
-                    self.update_status_line()
+                    update_status_line = True
                     break
+            if update_status_line:
+                self.update_status_line()
         else:
             for num, loaded_message in enumerate(self.messages):
                 if data["id"] == loaded_message["id"]:
@@ -5426,56 +5497,70 @@ class Endcord:
                                     break
 
 
-    def process_msg_events_other_channels(self, new_message, this_channel):
+    def process_msg_events_other_channels(self, new_message):
         """Process message events that should ping and send notification"""
         data = new_message["d"]
         op = new_message["op"]
-        skip_unread = data["channel_id"] == self.active_channel["channel_id"] and not self.unseen_scrolled
+        this_channel = data["channel_id"] == self.active_channel["channel_id"]
         new_message_channel_id = data["channel_id"]
-        if op == "MESSAGE_CREATE" and data["user_id"] != self.my_id and data["user_id"] not in self.blocked:
-            # skip muted channels
-            muted = False
-            for guild in self.guilds:
-                if guild["guild_id"] == data["guild_id"]:
-                    if guild.get("muted"):
-                        break
-                    for channel in guild["channels"]:
-                        if new_message_channel_id == channel["id"] and (channel.get("muted") or channel.get("hidden")):
-                            muted = True
-                            break
-                    break
-            if not muted:
-                # check if this message should ping
-                ping = False
-                mentions = data["mentions"]
-                # select my roles from same guild as message
-                my_roles = []
-                for guild in self.my_roles:
+        if op == "MESSAGE_CREATE":
+            if data["user_id"] == self.my_id:
+                self.set_channel_me_seen(new_message_channel_id, data["id"])
+            elif data["user_id"] not in self.blocked:
+                # skip muted channels
+                muted = False
+                for guild in self.guilds:
                     if guild["guild_id"] == data["guild_id"]:
-                        my_roles = guild["roles"]
-                if (
-                    data["mention_everyone"] or
-                    bool([i for i in my_roles if i in data["mention_roles"]]) or
-                    self.my_id in [x["id"] for x in mentions] or
-                    new_message_channel_id in self.dms_vis_id
-                ):
-                    if not skip_unread:
-                        ping = True
-                    self.send_desktop_notification(new_message)
+                        if guild.get("muted"):
+                            break
+                        for channel in guild["channels"]:
+                            if new_message_channel_id == channel["id"] and (channel.get("muted") or channel.get("hidden")):
+                                muted = True
+                                break
+                        break
+                if not muted:
+                    # check if this message should ping
+                    ping = False
+                    mentions = data["mentions"]
+                    # select my roles from same guild as message
+                    my_roles = []
+                    for guild in self.my_roles:
+                        if guild["guild_id"] == data["guild_id"]:
+                            my_roles = guild["roles"]
+                    if (
+                        data["mention_everyone"] or
+                        bool([i for i in my_roles if i in data["mention_roles"]]) or
+                        self.my_id in [x["id"] for x in mentions] or
+                        new_message_channel_id in self.dms_vis_id
+                    ):
+                        if not this_channel or self.new_unreads:   # new_unreads already set in process events for active channel
+                            ping = True
+                        self.send_desktop_notification(new_message)
 
-                # set unseen
-                if not this_channel or (this_channel and self.unseen_scrolled):
-                    self.set_local_unseen(new_message_channel_id, data["id"], ping, skip_unread)
+                    # set unseen
+                    if this_channel and self.new_unreads:
+                        last_acked_message_id = self.messages[1]["id"]
+                    else:
+                        last_acked_message_id = 1
+                    self.set_channel_unseen(
+                        new_message_channel_id,
+                        data["id"],
+                        ping,
+                        this_channel and not self.new_unreads,
+                        last_acked_message_id,
+                    )
+                    if this_channel and self.new_unreads:
+                        self.update_chat(scroll=False)
 
 
     def process_msg_events_ghost_ping(self, new_message):
         """Check message events for deleted message and remove ghost pings"""
         if new_message["op"] == "MESSAGE_DELETE" and not self.keep_deleted:
             new_message_channel_id = new_message["d"]["channel_id"]
-            for num, pinged_channel in enumerate(self.unseen):
+            for num, channel in enumerate(self.unseen):
                 if (
-                    new_message_channel_id == pinged_channel["channel_id"] and
-                    new_message["d"]["id"] in pinged_channel["mentions"]   # if channel is from ready event - message is unknown
+                    new_message_channel_id == channel["channel_id"] and
+                    new_message["d"]["id"] in channel["mentions"]   # if channel is from ready event - message is unknown
                 ):
                     self.unseen[num]["mentions"].remove(new_message["d"]["id"])
                     self.update_tree()
@@ -5922,7 +6007,7 @@ class Endcord:
                     "name": self.discord_settings["status"]["customStatus"].get("emojiName"),
                     "animated": self.discord_settings["status"]["customStatus"].get("animated", False),
                 }
-                custom_status = self.discord_settings["status"]["customStatus"]["text"]
+                custom_status = self.discord_settings["status"]["customStatus"].get("text")
             if custom_status_emoji and not (custom_status_emoji["name"] or custom_status_emoji["id"]):
                 custom_status_emoji = None
         else:   # just in case
@@ -5940,51 +6025,45 @@ class Endcord:
     def send_desktop_notification(self, new_message):
         """
         Send desktop notification, and handle its ID so it can be removed.
-        Send only one notification per channel.
         """
         if self.enable_notifications and self.my_status["status"] != "dnd":
-            skip = False
             data = new_message["d"]
-            for notification in self.notifications:
-                if notification["channel_id"] == data["channel_id"]:
-                    skip = True
-            if not skip:
-                if data["guild_id"]:
-                    # find guild and channel name
-                    guild_id = data["guild_id"]
-                    channel_id = data["channel_id"]
-                    guild_name = None
-                    channel_name = None
-                    for guild in self.guilds:
-                        if guild["guild_id"] == guild_id:
-                            guild_name = guild["name"]
-                            break
-                    for channel in guild["channels"]:
-                        if channel["id"] == channel_id and channel.get("permitted"):
-                            channel_name = channel["name"]
-                            break
-                    if guild_name and channel_name:
-                        title = f"{data["global_name"] if data["global_name"] else data["username"]} ({guild_name} #{channel_name})"
-                    else:
-                        title = data["global_name"] if data["global_name"] else data["username"]
+            if data["guild_id"]:
+                # find guild and channel name
+                guild_id = data["guild_id"]
+                channel_id = data["channel_id"]
+                guild_name = None
+                channel_name = None
+                for guild in self.guilds:
+                    if guild["guild_id"] == guild_id:
+                        guild_name = guild["name"]
+                        break
+                for channel in guild["channels"]:
+                    if channel["id"] == channel_id and channel.get("permitted"):
+                        channel_name = channel["name"]
+                        break
+                if guild_name and channel_name:
+                    title = f"{data["global_name"] if data["global_name"] else data["username"]} ({guild_name} #{channel_name})"
                 else:
                     title = data["global_name"] if data["global_name"] else data["username"]
-                if data["content"]:
-                    body = data["content"]
-                elif data.get("embeds"):
-                    body = f"Sent {data["embeds"]} embeds"
-                else:
-                    body = "Unknown content"
-                notification_id = peripherals.notify_send(
-                    title,
-                    body,
-                    sound=self.notification_sound,
-                    custom_sound=self.notification_path,
-                )
-                self.notifications.append({
-                    "notification_id": notification_id,
-                    "channel_id": data["channel_id"],
-                })
+            else:
+                title = data["global_name"] if data["global_name"] else data["username"]
+            if data["content"]:
+                body = data["content"]
+            elif data.get("embeds"):
+                body = f"Sent {data["embeds"]} embeds"
+            else:
+                body = "Unknown content"
+            notification_id = peripherals.notify_send(
+                title,
+                body,
+                sound=self.notification_sound,
+                custom_sound=self.notification_path,
+            )
+            self.notifications.append({
+                "notification_id": notification_id,
+                "channel_id": data["channel_id"],
+            })
 
 
     def main(self):
@@ -5992,23 +6071,26 @@ class Endcord:
         logger.info("Init sequence started")
         logger.info("Waiting for ready signal from gateway")
         self.my_status["client_state"] = "connecting"
-        self.update_status_line()
 
+        # wait for gateway and load data from it
         while not self.gateway.get_ready():
             if self.gateway.error:
                 logger.fatal(f"Gateway error: \n {self.gateway.error}")
                 sys.exit(self.gateway.error + ERROR_TEXT)
             time.sleep(0.2)
-
+        self.my_id = self.gateway.get_my_id()
+        self.premium = self.gateway.get_premium()
+        self.my_user_data = self.gateway.get_my_user_data()
+        self.update_prompt()
+        self.reset_actions()
+        self.update_status_line()
         self.session_id = self.gateway.session_id
         self.my_status["client_state"] = "online"
         self.update_status_line()
-
-        self.premium = self.gateway.get_premium()
+        self.discord_settings = self.gateway.get_settings_proto()
         logger.debug(f"Premium tier: {self.premium}")
 
-        self.discord_settings = self.gateway.get_settings_proto()
-
+        # perform token update if needed
         new_token = self.gateway.get_token_update()
         if new_token:
             from endcord import profile_manager
@@ -6021,7 +6103,7 @@ class Endcord:
             del profile_manager
         del new_token
 
-        # just in case, download proto if its not in gateway
+        # download proto if its not in gateway
         if "status" not in self.discord_settings:
             self.discord_settings = self.discord.get_settings_proto(1)
 
@@ -6234,8 +6316,8 @@ class Endcord:
                         if in_cache:
                             self.process_msg_events_cached_channel(new_message, ch_num)
                     # handle unseen and mentions
-                    if not this_channel or (this_channel and (self.unseen_scrolled or self.ping_this_channel or self.tui.disable_drawing or self.tui.is_window_open())):
-                        self.process_msg_events_other_channels(new_message, this_channel)
+                    if not this_channel or (this_channel and (self.new_unreads or self.ping_this_channel or self.tui.disable_drawing or self.tui.is_window_open())):
+                        self.process_msg_events_other_channels(new_message)
                     # remove ghost pings
                     self.process_msg_events_ghost_ping(new_message)
                 else:
@@ -6279,8 +6361,7 @@ class Endcord:
             while self.run:
                 new_message_ack = self.gateway.get_message_ack()
                 if new_message_ack:
-                    dont_remove_notify = new_message_ack["channel_id"] == self.active_channel["channel_id"]
-                    self.set_seen(new_message_ack["channel_id"], ack=False, force=dont_remove_notify)
+                    self.set_channel_seen(new_message_ack["channel_id"], new_message_ack["message_id"], ack=False)
                 else:
                     break
 
@@ -6351,17 +6432,14 @@ class Endcord:
                     self.typing_sent = int(time.time())
 
             # remove unseen after scrolled to bottom on unseen channel
-            if self.unseen_scrolled:
+            if self.new_unreads:
                 if text_index == 0:
-                    self.unseen_scrolled = False
+                    self.new_unreads = False
                     self.update_status_line()
-                    self.set_seen(self.active_channel["channel_id"], channel_only=True)
+                    self.set_channel_seen(self.active_channel["channel_id"], self.messages[0]["id"], update_line=True)
 
             # send pending ack
-            if not self.unseen_scrolled and self.pending_ack and time.time() - self.sent_ack_time > self.ack_throttling:
-                self.set_seen(self.active_channel["channel_id"], force=True)
-                self.sent_ack_time = time.time()
-                self.pending_ack = False
+            self.send_ack()
 
             # check gateway state
             gateway_state = self.gateway.get_state()

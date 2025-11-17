@@ -679,6 +679,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
         end_name = pre_name_len + limit_username + 1
     else:
         end_name = pre_name_len + limit_global_name + 1
+    len_messages = len(messages)
 
     for num, message in enumerate(messages):
         temp_chat = []   # stores only one multiline message
@@ -755,7 +756,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
         # unread message separator
         try:
-            if date_separator and not have_unseen_messages_line and last_seen_msg and int(messages[num+1]["id"]) <= int(last_seen_msg):
+            if not have_unseen_messages_line and date_separator and last_seen_msg and (num == len_messages-1 or (int(messages[num+1]["id"]) <= int(last_seen_msg))):
                 # keep text always in center
                 filler = max_length - 3
                 filler_l = filler // 2
@@ -2034,7 +2035,7 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
     return member_list, member_list_format
 
 
-def generate_tree(dms, guilds, threads, unseen, mentioned, guild_folders, activities, collapsed, uncollapsed_threads, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dd_folder, dm_status_char, folder_names=[], safe_emoji=False, show_invisible=False, show_folders=True):
+def generate_tree(dms, guilds, threads, unseen, mentioned, guild_folders, activities, collapsed, uncollapsed_threads, active_channel_id, dd_vline, dd_hline, dd_intersect, dd_corner, dd_pointer, dd_thread, dd_forum, dd_folder, dm_status_char, folder_names=[], safe_emoji=False, show_folders=True):
     """
     Generate channel tree according to provided formatting.
     tree_format keys:
@@ -2106,8 +2107,7 @@ def generate_tree(dms, guilds, threads, unseen, mentioned, guild_folders, activi
                         code += 3
                     elif status == "dnd":
                         code += 4
-                    elif not show_invisible:
-                        # "offline" means "invisible" but online
+                    else:
                         break
                     name = dm_status_char + name
                     break

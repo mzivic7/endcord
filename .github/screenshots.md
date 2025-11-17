@@ -8,17 +8,16 @@
 <a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
 <a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#support">Support</a>
-<img src="./.github/screenshots/02.png" alt="Screenshot 1" width="864">
 <br><br>
-<b>Standard theme:<b><br>
-<img src="./screenshots/02.png" alt="Standard theme" width="864">
-<br><br>
+<!-- <b>Standard theme:<b><br>
+<img src="./screenshots/01.png" alt="Standard theme" width="864">
+<br><br> -->
 <b>Legacy theme for terminals without extended character support:<b><br>
-<img src="./screenshots/01.png" alt="Legacy theme" width="800">
+<img src="./screenshots/02.png" alt="Legacy theme" width="800">
 <br><br>
-<b>Viewing user profile:<b><br>
+<!-- <b>Viewing user profile:<b><br>
 <img src="./screenshots/03.png" alt="Viewing user profile" width="800">
-<br><br>
+<br><br> -->
 <b>Media with ASCII art:<b><br>
 <img src="./screenshots/04.png" alt="Media with ASCII art" width="800">
 </div>

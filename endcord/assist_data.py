@@ -24,6 +24,7 @@ COMMAND_ASSISTS = (
     ("hide *<#[channel_id]> - view info of selected or specified channel", "hide"),
     ("toggle_mute *<#[channel_id]> - toggle mute state of selected or specified channel", "toggle_mute"),
     ("mark_as_read *<#[channel_id]> - mark channel/server/category/DM as read", "mark_as_read"),
+    ("mark_as_unread - mark selected message as unread", "mark_as_unread"),
     ("copy_message - copy selected message text", "copy_message"),
     ("spoil - reveal one by one spoiler in selected message", "spoil"),
     ("link_channel *<#[channel_id]> - store channel link in clipboard", "link_channel"),

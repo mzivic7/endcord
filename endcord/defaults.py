@@ -23,7 +23,6 @@ settings = {
     "hide_spam": True,
     "keep_deleted": False,
     "limit_cache_deleted": 30,
-    "tree_show_invisible": False,
     "tree_show_folders": True,
     "wrap_around": True,
     "mouse": True,
@@ -71,9 +70,9 @@ theme = {
     "member_list_width": 20,
     "format_message": "[%timestamp] <%username> | %content %edited",
     "format_newline": "                       %content",
-    "format_reply": "[REPLY] <%username> | ┌──> [%timestamp] %content",
-    "format_reactions": "[REACT]                └──< %reactions",
-    "format_interaction": "                       ┌──< %username used [%command]",
+    "format_reply": "[REPLY] <%username> | ╭──🡲 [%timestamp] %content",
+    "format_reactions": "[REACT]                ╰──⤙ %reactions",
+    "format_interaction": "                       ╭──< %username used [%command]",
     "format_one_reaction": "%count:%reaction",
     "format_timestamp": "%H:%M",
     "format_status_line_l": " %global_name (%username) - %status  %unreads %action %typing",
@@ -103,9 +102,9 @@ theme = {
     "tree_drop_down_vline": "│",
     "tree_drop_down_hline": "─",
     "tree_drop_down_intersect": "├",
-    "tree_drop_down_corner": "└",
-    "tree_drop_down_pointer": ">",
-    "tree_drop_down_thread": "<",
+    "tree_drop_down_corner": "╰",
+    "tree_drop_down_pointer": "🡲",
+    "tree_drop_down_thread": "⤙",
     "tree_drop_down_forum": "◆",
     "tree_drop_down_folder": "+",
     "tree_dm_status": "●",
@@ -184,7 +183,7 @@ keybindings = {
     "view_media": 22,   # Ctrl+V
     "spoil": "ALT+116",   # Alt+T
     "search": 6,   # Ctrl+F
-    "profile_info": "ALT+112",   # Alt+P
+    "profile_info": "",   # Alt+P
     "show_summaries": "ALT+115",   # Alt+S
     "copy_message_link": "ALT+117",   # Alt+U
     "go_channel": "ALT+103",   # Alt+G
@@ -216,6 +215,7 @@ keybindings = {
     "switch_tab_modifier": "ALT+NUM",   # Alt+Num
     "command_palette": 31,   # Ctrl+/
     "open_external_editor": "ALT+101",   # Alt+E
+    "quit": None,   # already bound to Ctrl+C
 }
 
 

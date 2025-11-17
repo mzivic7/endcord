@@ -100,6 +100,10 @@ class RPC:
         self.changed = False
         self.external = config["rpc_external"]
         self.presences = []
+        if user["bot"]:
+            logger.warn("RPC server cannot be started for bot accounts")
+            return
+
         self.generate_dispatch(user)
 
         # start server thread

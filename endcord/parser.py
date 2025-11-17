@@ -469,7 +469,7 @@ def command_string(text):
         else:
             try:
                 num = int(text.split(" ")[1].lower()) - 1
-                if num < len(STATUS_STRINGS) - 1:
+                if num < len(STATUS_STRINGS):
                     cmd_args = {"status": STATUS_STRINGS[num]}
             except ValueError:
                 pass
@@ -741,6 +741,11 @@ def command_string(text):
     # 58 - QUIT
     elif text_lower.split(" ")[0] == "quit":
         cmd_type = 58
+
+    # 59 - MARK_AS_UNREAD
+    elif text_lower.split(" ")[0] == "mark_as_unread":
+        cmd_type = 59
+
 
     # 66 - 666
     elif text_lower == "666":

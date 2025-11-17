@@ -188,10 +188,6 @@ class Discord():
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
-            if "guild_member" in data:
-                nick = data["guild_member"]["nick"]
-            else:
-                nick = None
             if extra:   # extra data for rpc
                 extra_data = {
                     "avatar": data["user"]["avatar"],
@@ -217,7 +213,7 @@ class Discord():
                 "guild_id": None,
                 "username": data["user"]["username"],
                 "global_name": data["user"].get("global_name"),   # spacebar_fix - get
-                "nick": nick,
+                "nick": None,
                 "bio": bio,
                 "pronouns": pronouns,
                 "joined_at": None,
@@ -819,13 +815,16 @@ class Discord():
         return True
 
 
-    def send_ack(self, channel_id, message_id):
+    def send_ack(self, channel_id, message_id, manual=False):
         """Send information that this channel has been seen up to this message"""
         last_viewed = ceil((time.time() - DISCORD_EPOCH) / 86400)   # days since first second of 2015 (discord epoch)
-        message_data = json.dumps({
-            "last_viewed": last_viewed,
-            "token": None,
-        })
+        if manual:
+            message_data = json.dumps({"manual": True})
+        else:
+            message_data = json.dumps({
+                "last_viewed": last_viewed,
+                "token": None,
+            })
         url = f"/api/v9/channels/{channel_id}/messages/{message_id}/ack"
         logger.debug("Sending message ack")
         try:

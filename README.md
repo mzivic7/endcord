@@ -80,6 +80,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Profile manager for multiple accounts
 - Store token in system keyring
 - Experimental windowed mode with tray icon
+- Works in termux, with android notifications
 - Lots of easter eggs
 
 
@@ -507,6 +508,10 @@ If there are no colors in Linux tty (but there should be), endcord can run insid
 Follow [fbterm setup instructions](https://wiki.archlinux.org/title/Fbterm#Installation), then set environment variable: `export TERM=fbterm` and run endcord.  
 Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.  
 
+### Legacy theme
+Endcord default theme uses non-standard characters to display som TUI elements, and these characters may not work on some terminals, or look weird wih some fonts.  
+If that happens, use [legacy theme](themes/legacy.ini). It is used by default on windows.  
+
 ### Experimental windowed mode
 This mode entirely replaces curses with pygame-ce GUI library. This means Endcord runs in its own window, not in terminal, but UI remains terminal-like.  
 Tray icon will also be enabled, so closing window will only minimize it to tray.  
@@ -521,6 +526,12 @@ After first run in experimental mode, extra config will be generated in endcord 
 Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `old.server.spacebar.chat`. Set to `None` to use default host (`discord.com`).  
 Then endcord will try to connect to that host instead discord. Token is different on different hosts!  
 Only connecting to spacebar instances is known to work, but endcord may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+
+### Termux
+Endcord does work under termux, but some keybindings dont (`Ctrl/Alt+Space`). It is recommended to rebind them in endcord config or use endcord in desktop environment (like `openbox`) in a terminal emulator with xterm256-colors (like `alacritty`) and with Termux:X11 app.  
+Endcord cant be built in termux, so to run it: first install python >= 3.12 and `uv`, then clone this repo, cd to folder and run from source: `uv run main.py` (it will take some time to download and build numpy).  
+To enable android notifications simply run `pkg install termux-api` and install Termux:API app. Vibration is disabled by default, to enable it: run endcord at least once, then in Termux:Api notification settings enable vibration for endcord ntifications.  
+Notifications will work as ling as endcord is running, so it might be necessary for termux to "Acquire wakelock".  
 
 ### Extensions warning
 Extensions are enabled by default, and can be toggled in settings. But extension can modify almost everything in endcord, and can access your tokens. **Use extensions at your own risk!**  

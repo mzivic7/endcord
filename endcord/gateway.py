@@ -73,7 +73,6 @@ class Gateway():
         self.client_prop = client_prop
         self.init_time = time.time() * 1000
         self.token = token
-        self.bot = token.startswith("Bot")
         self.proxy = urllib.parse.urlsplit(proxy)
         self.run = True
         self.wait = False
@@ -306,8 +305,9 @@ class Gateway():
         guild_channels = []
 
         # channels
+        bot = self.my_user_data["bot"]
         for channel in guild["channels"]:
-            if channel["type"] in (0, 2, 4, 5, 15) and not self.bot:
+            if channel["type"] in (0, 2, 4, 5, 15) and not bot:
                 hidden = True   # hidden by default
             else:
                 hidden = False
@@ -448,9 +448,9 @@ class Gateway():
                             "global_name": user.get("global_name"),   # spacebar_fix - get
                         })
                     elif recipient_id == self.my_id:   # spacebar_fix - can open dm with self
-                        recipients.append(self.my_data)
+                        recipients.append(self.my_user_data)
         if add_me:
-            recipients.append(self.my_data)
+            recipients.append(self.my_user_data)
 
         name = None
         if "name" in dm and dm["name"]:   # for group dm
@@ -506,6 +506,36 @@ class Gateway():
         else:
             self.dms.append(new_dm)
 
+
+    def set_my_user_data(self, data):
+        """Set my user data from user object"""
+        tag = None
+        if data.get("primary_guild") and "tag" in data["primary_guild"]:   # spacebar_fix - get
+            tag = data["primary_guild"]["tag"]
+        if data["bot"]:
+            extra_data = None
+        else:
+            extra_data = {
+                "avatar": data["avatar"],
+                "avatar_decoration_data": data.get("avatar_decoration_data"),   # spacebar_fix - get
+                "discriminator": data["discriminator"],
+                "flags": data.get("flags"),   # spacebar_fix - get
+                "premium_type": data["premium_type"],
+            }
+        self.my_user_data = {
+            "id": data["id"],
+            "guild_id": None,
+            "username": data["username"],
+            "global_name": data.get("global_name"),   # spacebar_fix - get
+            "nick": None,
+            "bio": data.get("bio"),
+            "pronouns":  data.get("pronouns"),
+            "joined_at": None,
+            "tag": tag,
+            "bot": data["bot"],
+            "extra": extra_data,
+            "roles": None,
+        }
 
 
     def receiver(self):
@@ -576,13 +606,10 @@ class Gateway():
                     self.clear_ready_vars()
                     time_log_string = "READY event time profile:\n"
                     last_messages = []
+                    # get my user data
+                    self.set_my_user_data(data["user"])
                     self.my_id = data["user"]["id"]
-                    self.my_data = {
-                        "id": self.my_id,
-                        "username": data["user"]["username"],
-                        "global_name": data["user"].get("global_name"),   # spacebar_fix - get
-                    }
-                    self.premium = data["user"]["premium_type"]   # 0 - none, 1 - classic, 2 - full, 3 - basic
+                    self.premium = data["user"].get("premium_type")   # 0 - none, 1 - classic, 2 - full, 3 - basic
                     if data.get("auth_token"):
                         self.token_update = data["auth_token"]
                     # guilds and channels
@@ -612,6 +639,11 @@ class Gateway():
                     # DM channels
                     for dm in data["private_channels"]:
                         self.add_dm(dm, data)
+                        if "last_message_id" in dm:
+                            last_messages.append({
+                                "message_id": dm["last_message_id"],   # really last message id
+                                "channel_id": dm["id"],
+                            })
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"], reverse=True)
                     self.dms = sorted(self.dms, key=lambda x: x["last_message_id"] == 0)
                     for dm in self.dms:   # dont need it anymore
@@ -627,7 +659,7 @@ class Gateway():
                         # last_message_id in unread_state is actually last_ACKED_message_id
                         if "last_message_id" in channel and "mention_count" in channel:
                             if channel["mention_count"]:
-                                msg_unseen.append([channel["id"], channel["last_message_id"]])
+                                msg_unseen.append((channel["id"], channel["last_message_id"]))
                                 msg_ping.append(channel["id"])
                             else:
                                 for last_message in last_messages:
@@ -636,26 +668,23 @@ class Gateway():
                                         channel["last_message_id"] != last_message["message_id"]
                                     ):
                                         # channel is unread
-                                        msg_unseen.append([channel["id"], channel["last_message_id"]])
+                                        msg_unseen.append((channel["id"], channel["last_message_id"]))
                     for channel_id, last_acked in msg_unseen:   # add relevant data
-                        guild_id = None
-                        for guild in self.guilds:
-                            for channel in guild["channels"]:
-                                if channel["id"] == channel_id:
-                                    guild_id = guild["guild_id"]
-                            if guild_id:
-                                break
-                        last_message_id = None
                         for last_message in last_messages:
                             if last_message["channel_id"] == channel_id:
                                 last_message_id = last_message["message_id"]
                                 break
-                        self.msg_unseen.append({
+                        else:
+                            last_message_id = 0
+                        unseel_channel = {
                             "channel_id": channel_id,
                             "last_message_id": last_message_id,
-                            "last_acked_message_id": last_acked,
+                            "last_acked_message_id": last_acked if last_acked else 0,   # dont allow it to be None
                             "mentions": ["True"] if channel_id in msg_ping else [],   # message_id is unknown
-                        })
+                        }
+                        if not last_message_id or int(unseel_channel["last_acked_message_id"]) < int(last_message_id):
+                            unseel_channel["last_acked_unreads_line"] = unseel_channel["last_acked_message_id"]
+                        self.msg_unseen.append(unseel_channel)
                     time_log_string += f"    unread and mentions - {round((time.time() - ready_time_mid) * 1000, 3)}ms\n"
                     ready_time_mid = time.time()
                     # guild and dm settings
@@ -1293,31 +1322,10 @@ class Gateway():
                     self.guilds_changed = True
 
                 elif optext == "USER_UPDATE":
-                    tag = None
-                    if data.get("primary_guild") and "tag" in data["primary_guild"]:   # spacebar_fix - get
-                        tag = data["primary_guild"]["tag"]
-                    self.user_update = ({
-                        "id": data["id"],
-                        "guild_id": None,
-                        "username": data["username"],
-                        "global_name": data.get("global_name"),   # spacebar_fix - get
-                        "bio": data.get("bio"),
-                        "pronouns": data.get("pronouns"),
-                        "joined_at": None,
-                        "tag": tag,
-                        "bot": data.get("bot"),
-                        "extra": {
-                            "avatar": data["avatar"],
-                            "avatar_decoration_data": data.get("avatar_decoration_data"),   # spacebar_fix - get
-                            "discriminator": data["discriminator"],
-                            "flags": data.get("flags"),   # spacebar_fix - get
-                            "premium_type": data["premium_type"],
-                        },
-                        "roles": None,
-                    }, None)
-                    self.my_data["username"] = data["username"]
-                    self.my_data["global_name"] = data.get("global_name")   # spacebar_fix - get
-                    self.premium = data["premium_type"]
+                    self.set_my_user_data(data)
+                    self.my_id = data["id"]
+                    self.premium = data.get("premium_type")
+                    self.user_update = (self.my_user_data, None)
 
                 elif optext == "GUILD_MEMBER_UPDATE":
                     if data["user"]["id"] == self.my_id:
@@ -2030,6 +2038,11 @@ class Gateway():
     def get_my_id(self):
         """Get my discord user ID"""
         return self.my_id
+
+
+    def get_my_user_data(self):
+        """Get my user data"""
+        return self.my_user_data
 
 
     def get_my_status(self):

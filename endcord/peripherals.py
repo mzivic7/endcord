@@ -36,6 +36,7 @@ if sys.platform == "win32":
 if sys.platform == "linux":
     have_gdbus = shutil.which("gdbus")
     have_notify_send = shutil.which("notify-send")
+    have_termux_notify = shutil.which("termux-notification")
     # if this DE has no notification sound, try to get fallback sound
     no_notify_sound = False
     fallback_notification_sound = None
@@ -107,10 +108,22 @@ elif sys.platform == "win32":
 elif sys.platform == "darwin":
     runner = "open"
 
+
 # check for audio systems
 have_pipewire = (sys.platform == "linux" and shutil.which("pw-cat") and "pipewire" in subprocess.check_output(["ps", "-A"], text=True))
 have_pulseaudio = (sys.platform == "linux" and shutil.which("paplay") and "pulseaudio" in subprocess.check_output(["ps", "-A"], text=True))
 have_afplay = (sys.platform == "darwin" and shutil.which("afplay"))
+
+
+# create notification channel on termux
+if have_termux_notify:
+    proc = subprocess.Popen(
+        ["termux-notification-channel", "1000", APP_NAME],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+
 
 def import_soundcard():
     """Safely import soundcard"""
@@ -376,7 +389,15 @@ def notify_send(title, message, sound="message", custom_sound=None):
             include_sound = []
         else:
             include_sound = ["-h", f"string:sound-name:{sound}"]
-        if have_notify_send:
+        if have_termux_notify:
+            command = ["termux-notification", "--icon=chat", "--sound", "--channel-id=1000", "-t", title, "-c", message]
+            proc = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        elif have_notify_send:
             command = ["notify-send", "-p", "--app-name", APP_NAME, *include_sound, title, message]
             proc = subprocess.Popen(
                 command,

@@ -57,9 +57,6 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Whether to keep deleted messages in chat, with different color, or remove them.
 - `limit_cache_deleted = 30`  
     Limit number of cached deleted messages per channel.
-- `tree_show_invisible = False`  
-    Show "invisible" status in tree when DM user is online but invisible.  
-    Probably a discord bug, might get removed in the future.  
 - `tree_show_folders = True`  
     Wether to show or hide server folders in tree.
 - `wrap_around = True`  
@@ -168,11 +165,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
     Formatting for each newline string after message base. See [format_newline](#format_newline) for more info.
-- `format_reply = [REPLY] <%username> | ┌──> [%timestamp] %content"`  
+- `format_reply = [REPLY] <%username> | ╭──> [%timestamp] %content"`  
     Formatting for replied message string. It is above message base. See [format_reply](#format_reply) for more info.
-- `format_reactions = "[REACT]                └──< %reactions"`  
+- `format_reactions = "[REACT]                ╰──< %reactions"`  
     Formatting for message reactions string. It is bellow last newline string. See [format_reactions](#format_reactions) for more info.
-- `format_interaction = "                       ┌──< %username used [%command]"`  
+- `format_interaction = "                       ╭──< %username used [%command]"`  
     Formatting for bot interaction string. It is above message base. Only `%username` and `%command` options are available.
 - `format_one_reaction = "%count:%reaction"`  
     Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](#format_one_reaction) for more info.
@@ -232,11 +229,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw horizontal line in tree drop down menus.
 - `tree_drop_down_intersect = "├"`  
     A single character used to draw intersections in tree drop down menus.
-- `tree_drop_down_corner = "└"`  
+- `tree_drop_down_corner = "╰"`  
     A single character used to draw corners in tree drop down menus.
-- `tree_drop_down_pointer = ">"`  
+- `tree_drop_down_pointer = "🡲"`  
     A single character used to draw pointer in tree drop down menus. Pointer is used to designate categories and servers.
-- `tree_drop_down_thread = "<"`  
+- `tree_drop_down_thread = "⤙"`  
     A single character used to draw thread pointer in tree drop down menus.
 - `tree_drop_down_forum = "◆"`  
     A single character used to draw forum pointer in tree drop down menus.
@@ -263,7 +260,7 @@ All colors starting with `color_format` are formatted like this:
 `[[fg, bg, attr], [fg, bg, attr, start, end], [...]...]`  
 First `[fg, bg, attr]` is base color for whole context. If `bg` is -1, `bg` from `color_chat_default` and `color_chat_mention` is used. Same for `fg`.  
 Every next list has additional `start` and `end`- indexes on a line where color is applied. If `bg` is -2, `bg` from base color is used. -1 is terminal default color. Same for `fg`.  
-- `color_chat_default = [-1, -1]`  
+- `color_default = [-1, -1]`  
     Base color formatting for text. No attribute.
 - `color_chat_mention = [209, 234]`  
     Color for highlighted messages containing mentions (reply with ping included) and mention roles.

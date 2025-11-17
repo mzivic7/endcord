@@ -74,6 +74,8 @@
     Mute/unmute selected item in tree or specified channel/category/guild.
 - `mark_as_read` / `mark_as_read <#[channel_id]>`  
     Mark as read selected item in tree or specified channel/category/guild.
+- `mark_as_unread`  
+    Mark selected message as unread.
 - `insert_timestamp [time]`  
     Insert timestamp in input line, `[time]` can be of formats: `YYYY-MM-DD-HH-mm`, `YYYY-MM-DD`, `HH:mm`, `HH:mm:SS`.
 - `vote [num]`  
@@ -118,7 +120,7 @@
     Generate invite to current server with custom expiration `duration` and uses `limit`. Set to 0 for infinite. Invite URL will be copied to clipboard.
     `duration` can be: `4w3d5h30m10s` where `w`is weeks, `d` is days..., can be used partially and mixed: `5h1w`. Default is 7 days and infinite uses.
 - `rename_folder [name]`  
-    Locally rename currently selected folder in tree. Custom names are kept in state.json in config dir.
+    Locally rename currently selected folder in tree. Custom names are kept in state_profile_name.json in config dir.
 - `redraw`  
     Redraw UI if it ever gets messed up.
 - `show_log`  

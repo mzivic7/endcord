@@ -1776,6 +1776,9 @@ class TUI():
                     self.mlist_selected += 1
                     self.draw_member_list(self.member_list, self.member_list_format)
 
+        elif key in self.keybindings["quit"]:
+            return 49
+
         return None
 
 

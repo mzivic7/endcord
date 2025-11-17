@@ -1,9 +1,11 @@
 Fix member list not updating when switching between same-guild channels
-Dont flash tree when closing extra window
-Handle usernames with emoji
+Fix usernames with emoji in chat
+Fix usernames with emoji in member list
+
 Handle slowmode
 Add window borders
 New screenshots in higher resolution
+Game detection service?
 
 Add more extension points
     add to parser.py
@@ -29,6 +31,7 @@ Voice calls
     send and receive RTCP?
     send speaking event?
 
+Add and fix theming color options
 Optimize main loop with queues and threading
 Vim-like bindings
 Video calls
