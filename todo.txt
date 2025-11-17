@@ -1,6 +1,4 @@
 Fix member list not updating when switching between same-guild channels
-Fix wrong selection position after loading future chat chunk
-
 Handle slowmode
 Add window borders
 New screenshots in higher resolution

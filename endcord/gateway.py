@@ -665,7 +665,7 @@ class Gateway():
                                 for last_message in last_messages:
                                     if (
                                         channel["id"] == last_message["channel_id"] and
-                                        channel["last_message_id"] != last_message["message_id"]
+                                        channel["last_message_id"] < last_message["message_id"]
                                     ):
                                         # channel is unread
                                         msg_unseen.append((channel["id"], channel["last_message_id"]))

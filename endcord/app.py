@@ -5072,7 +5072,7 @@ class Endcord:
                 last_message_id = channel["last_message_id"]
                 unseen = not last_message_id or int(channel["last_acked_message_id"]) < int(last_message_id)
                 if unseen and (not this_channel or (not bool(self.tui.get_chat_selected()[1]) and this_channel) or force):
-                    if not message_id:
+                    if not message_id or message_id < channel["last_message_id"]:
                         message_id = channel["last_message_id"]
                     if message_id:
                         self.unseen[num]["last_message_id"] = message_id
@@ -6569,7 +6569,7 @@ class Endcord:
             # check if new chat chunks needs to be downloaded in any direction
             if not self.forum and self.messages:
                 if (selected_line == 0 or text_index == 0) and self.messages[0]["id"] != self.last_message_id:
-                    self.get_chat_chunk(past=False, scroll=(text_index == 0))
+                    self.get_chat_chunk(past=False, scroll=not(text_index == 0 and selected_line <= 2))
                 elif (selected_line >= len(self.chat) - 1 or self.tui.get_chat_scrolled_top()) and not self.chat_end:
                     self.get_chat_chunk(past=True, scroll=self.tui.get_chat_scrolled_top())
             elif self.forum and not self.forum_end:
