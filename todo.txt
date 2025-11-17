@@ -1,6 +1,5 @@
 Fix member list not updating when switching between same-guild channels
-Fix usernames with emoji in chat
-Fix usernames with emoji in member list
+Fix wrong selection position after loading future chat chunk
 
 Handle slowmode
 Add window borders

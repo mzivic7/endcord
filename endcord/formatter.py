@@ -46,25 +46,28 @@ def sorted_indexes(input_list):
     return [i for i, x in sorted(enumerate(input_list), key=lambda x: x[1])]
 
 
-def normalize_string(input_string, max_length):
+def normalize_string(input_string, max_length, emoji_safe=False):
     """
     Normalize length of string, by cropping it or appending spaces.
     Set max_length to None to disable.
     """
     input_string = str(input_string)
+    emoji_count = count_emojis(input_string[:max_length]) if emoji_safe else 0
     if not max_length:
         return input_string
-    if len(input_string) > max_length:
-        return input_string[:max_length]
-    while len(input_string) < max_length:
+    if len(input_string) + emoji_count > max_length:
+        return input_string[:max_length - emoji_count]
+    while len(input_string) + emoji_count < max_length:
         input_string = input_string + " "
     return input_string
+
 
 def trim_string(input_string, max_length):
     """If string is too long, trim it and append '...' so returned string is not longer than max_length"""
     if len(input_string) > max_length:
         return input_string[:max_length - 3] + "..."
     return input_string
+
 
 def normalize_int_str(input_int, digits_limit):
     """Convert integer to string and limit its value to preferred number of digits"""
@@ -815,7 +818,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                                 content += f"[{clean_type(embed["type"])} embed]: {embed_url}"
                 reply_line = (
                     format_reply
-                    .replace("%username", normalize_string(ref_message["username"], limit_username))
+                    .replace("%username", normalize_string(ref_message["username"], limit_username, emoji_safe=True))
                     .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
                     .replace("%timestamp", generate_timestamp(ref_message["timestamp"], format_timestamp, convert_timezone))
                     .replace("%content", content.replace("\r", " ").replace("\n", " "))
@@ -915,7 +918,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
 
         message_line = (
             format_message
-            .replace("%username", normalize_string(message["username"], limit_username))
+            .replace("%username", normalize_string(message["username"], limit_username, emoji_safe=True))
             .replace("%global_name", normalize_string(global_name_nick, limit_global_name))
             .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
             .replace("%edited", edited_string if edited else "")
@@ -1826,10 +1829,10 @@ def generate_extra_window_search(messages, roles, channels, blocked, total_msg, 
 
             message_string = (
                 format_message
-                .replace("%username", normalize_string(message["username"], limit_username))
-                .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
+                .replace("%username", normalize_string(message["username"], limit_username, emoji_safe=True))
+                .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name, emoji_safe=True))
                 .replace("%date", generate_timestamp(message["timestamp"], format_date, convert_timezone))
-                .replace("%channel", normalize_string(channel_name, limit_global_name))
+                .replace("%channel", normalize_string(channel_name, limit_global_name, emoji_safe=True))
                 .replace("%content", content)
             )
 
@@ -1961,7 +1964,7 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
 
         thread_line = (
             forum_thread_format
-            .replace("%thread_name", normalize_string(thread["name"], limit_thread_name))
+            .replace("%thread_name", normalize_string(thread["name"], limit_thread_name), emoji_safe=True)
             .replace("%timestamp", timestamp)
             .replace("%msg_count", normalize_int_str(thread["message_count"], 3))
         )
@@ -2028,7 +2031,6 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
                 if role["id"] == group_id:
                     text = role["name"]
             this_format = []
-
         member_list.append(trim_at_emoji(text[:width-1], width-1) + " ")
         member_list_format.append(this_format)
 
