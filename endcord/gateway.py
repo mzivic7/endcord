@@ -311,7 +311,7 @@ class Gateway():
                 hidden = True   # hidden by default
             else:
                 hidden = False
-            guild_channels.append({
+            data = {
                 "id": channel["id"],
                 "type": channel["type"],
                 "name": channel["name"],
@@ -320,7 +320,10 @@ class Gateway():
                 "position": channel["position"],
                 "permission_overwrites": channel["permission_overwrites"],
                 "hidden": hidden,
-            })
+            }
+            if channel.get("rate_limit_per_user"):
+                data["rate_limit"] = channel["rate_limit_per_user"]
+            guild_channels.append(data)
         guild_roles = []
         base_permissions = 0
 
@@ -622,18 +625,17 @@ class Gateway():
                         if not guild.get("unavailable"):
                             # build list of last messages from each channel
                             for channel in guild["channels"]:
-                                if "last_message_id" in channel and channel["type"] != 15:   # skip forums
+                                if channel["type"] != 15:   # skip forums
                                     last_messages.append({
-                                        "message_id": channel["last_message_id"],   # really last message id
+                                        "message_id": channel.get("last_message_id", 0),   # really last message id
                                         "channel_id": channel["id"],
                                     })
                             # add threads to list of last messages from channels
                             for thread in guild["threads"]:
-                                if "last_message_id" in thread:
-                                    last_messages.append({
-                                        "message_id": thread["last_message_id"],   # really last message id
-                                        "channel_id": thread["id"],
-                                    })
+                                last_messages.append({
+                                    "message_id": thread.get("last_message_id", 0),   # really last message id
+                                    "channel_id": thread["id"],
+                                })
                     time_log_string += f"    guilds - {round((time.time() - ready_time_start) * 1000, 3)}ms\n"
                     ready_time_mid = time.time()
                     # DM channels
@@ -667,16 +669,16 @@ class Gateway():
                                 last_message_id = last_message["message_id"]
                                 break
                         else:
-                            last_message_id = 0
-                        unseel_channel = {
+                            continue
+                        unseen_channel = {
                             "channel_id": channel_id,
                             "last_message_id": last_message_id,
                             "last_acked_message_id": last_acked if last_acked else 0,   # dont allow it to be None
                             "mentions": ["True"] if channel_id in msg_ping else [],   # message_id is unknown
                         }
-                        if not last_message_id or int(unseel_channel["last_acked_message_id"]) < int(last_message_id):
-                            unseel_channel["last_acked_unreads_line"] = unseel_channel["last_acked_message_id"]
-                        self.read_state.append(unseel_channel)
+                        if not last_message_id or int(unseen_channel["last_acked_message_id"]) < int(last_message_id):
+                            unseen_channel["last_acked_unreads_line"] = unseen_channel["last_acked_message_id"]
+                        self.read_state.append(unseen_channel)
                     time_log_string += f"    read state ({len(self.read_state)} channels) - {round((time.time() - ready_time_mid) * 1000, 3)}ms\n"
                     ready_time_mid = time.time()
                     # guild and dm settings
@@ -862,7 +864,7 @@ class Gateway():
                     user_id = data["user"]["id"]
                     custom_status = None
                     activities = []
-                    for activity in data.get("activities"):
+                    for activity in data.get("activities", []):
                         if activity["type"] == 4:
                             custom_status = activity.get("state")
                         elif activity["type"] in (0, 2):
@@ -1464,7 +1466,7 @@ class Gateway():
                                 break
                         else:
                             continue
-                        self.guilds[num]["channels"][num_ch] = {
+                        ready_data = {
                             "id": new_channel["id"],
                             "type": new_channel["type"],
                             "name": new_channel["name"],
@@ -1474,6 +1476,9 @@ class Gateway():
                             "permission_overwrites": new_channel["permission_overwrites"],
                             "hidden": False,
                         }
+                        if new_channel.get("rate_limit_per_user"):
+                            ready_data["rate_limit"] = new_channel["rate_limit_per_user"]
+                        self.guilds[num]["channels"][num_ch] = ready_data
                     self.guilds_changed = True
 
                 elif optext in ("GUILD_CREATE", "GUILD_UPDATE", "GUILD_DELETE"):

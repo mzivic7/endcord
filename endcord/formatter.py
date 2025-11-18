@@ -125,6 +125,20 @@ def generate_relative_time(timestamp):
     return time_string
 
 
+def format_seconds(seconds):
+    """Convert seconds to hh:mm:ss"""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    parts = []
+    if hours:
+        parts.append(f"{hours:02d}")
+    if minutes or hours:
+        parts.append(f"{minutes:02d}")
+    parts.append(f"{secs:02d}")
+    return ":".join(parts)
+
+
 def generate_discord_timestamp(timestamp, discord_format, timezone=True):
     """Generate discord formatted timestamp"""
     if discord_format == "R":
@@ -1218,7 +1232,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
     return chat, chat_format, indexes, chat_map
 
 
-def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, tabs, tabs_format, format_status_line, format_rich, limit_typing=30, use_nick=True, fun=True):
+def generate_status_line(my_user_data, my_status, unseen, typing, active_channel, action, tasks, tabs, tabs_format, format_status_line, format_rich, slowmode=None, limit_typing=30, use_nick=True, fun=True):
     """
     Generate status line according to provided formatting.
     Possible options for format_status_line:
@@ -1236,6 +1250,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         %action   # replying/editig/deleting
         %task   # currently running long task
         %tabs
+        %slowmode   # 'slowmode {time}'
     Possible options for format_rich:
         %type
         %name
@@ -1370,6 +1385,13 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         tabs = ""
         have_tabs = False
 
+    if slowmode is None:
+        slowmode = ""
+    elif slowmode == 0:
+        slowmode = "Slowmode"
+    else:
+        slowmode = f"Slowmode: {format_seconds(slowmode)}"
+
     status_line = (
         format_status_line
         .replace("%global_name", str(my_user_data["global_name"]))
@@ -1386,6 +1408,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
         .replace("%action", action_string)
         .replace("%task", task)
         .replace("%tabs", tabs)
+        .replace("%slowmode", slowmode)
     )
 
     status_line_format = []

@@ -173,6 +173,9 @@ class Endcord:
         self.current_guild_properties = {}
         self.current_channels = []
         self.current_channel = {}
+        self.slowmodes = {}
+        self.slowmode_times = {}
+        self.slowmode_thread = None
         self.summaries = []
         self.input_store = []
         self.running_tasks = []
@@ -381,6 +384,27 @@ class Endcord:
             time.sleep(self.extra_line_delay)
             self.update_extra_line()
             self.timed_extra_line.clear()
+
+
+    def wait_slowmode(self):
+        """Thread that times slowmode and updates extra line"""
+        while self.slowmodes and self.slowmode_times:
+            active_channel = self.active_channel["channel_id"]
+            all_times = 0
+            for key, val in list(self.slowmode_times.items()):
+                all_times += val
+                if val <= 0 and key != active_channel:
+                    self.slowmode_times.pop(key)
+                    self.slowmodes.pop(key)
+                elif val > 0:
+                    self.slowmode_times[key] = val - 1
+            if not all_times:
+                break
+            status = "%slowmode" in self.format_status_line_r or "%slowmode" in self.format_status_line_l
+            title = "%slowmode" in self.format_title_line_r or "%slowmode" in self.format_title_line_l
+            tree = "%slowmode" in self.format_title_tree
+            self.update_status_line(status=status, title=title, tree=tree)
+            time.sleep(1)
 
 
     def reset(self, online=False):
@@ -726,6 +750,11 @@ class Endcord:
         self.chat_end = False
         self.got_commands = False
         self.selected_attachment = 0
+        slowmode = current_channel.get("rate_limit")
+        if slowmode:# and not self.active_channel["admin"]:
+            self.slowmodes[channel_id] = slowmode
+            if self.slowmode_times.get(channel_id) is None:
+                self.slowmode_times[channel_id] = 0
         self.gateway.subscribe(channel_id, guild_id)
         self.tui.reset_chat_scrolled_top()
         self.gateway.set_subscribed_channels([x[0] for x in self.channel_cache] + [channel_id])
@@ -1187,8 +1216,9 @@ class Endcord:
                 restore_text = None
                 input_index = 0
                 if self.cache_typed:
+                    active_channel = self.active_channel["channel_id"]
                     for num, channel in enumerate(self.input_store):
-                        if channel["id"] == self.active_channel["channel_id"]:
+                        if channel["id"] == active_channel:
                             restore_text = self.input_store[num]["content"]
                             input_index = self.input_store.pop(num)["index"]
                             break
@@ -1204,7 +1234,7 @@ class Endcord:
                 if input_text and input_text != "\n":
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                 sel_channel = self.tree_metadata[tree_sel]
-                guild_id, parent_id, guild_name = self.find_parents(tree_sel)
+                guild_id, parent_id, guild_name = self.find_parents_from_tree(tree_sel)
                 self.switch_channel(sel_channel["id"], sel_channel["name"], guild_id, guild_name, parent_hint=parent_id)
                 self.reset_actions()
                 self.update_status_line()
@@ -1420,7 +1450,7 @@ class Endcord:
                 if self.tree_metadata[tree_sel] and self.tree_metadata[tree_sel]["type"] in (11, 12):
                     # find threads parent channel and guild
                     thread_id = self.tree_metadata[tree_sel]["id"]
-                    guild_id, channel_id, _ = self.find_parents(tree_sel)
+                    guild_id, channel_id, _ = self.find_parents_from_tree(tree_sel)
                     # toggle joined
                     self.thread_toggle_join(guild_id, channel_id, thread_id)
                     self.update_tree()
@@ -1443,36 +1473,15 @@ class Endcord:
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(url, False, True)))
                     self.download_threads[-1].start()
                 else:
+                    active_channel = self.active_channel["channel_id"]
                     for attachments in self.ready_attachments:
-                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                        if attachments["channel_id"] == active_channel:
                             if attachments["attachments"] and len(attachments["attachments"]) >= self.selected_attachment - 1:
                                 file_path = attachments["attachments"][self.selected_attachment]["path"]
                                 if isinstance(file_path, str):
                                     self.media_thread = threading.Thread(target=self.open_media, daemon=True, args=(file_path, ))
                                     self.media_thread.start()
                             break
-
-
-            # open and join thread from forum
-            elif action == 23 and self.forum:
-                if input_text and input_text != "\n":
-                    self.add_to_store(self.active_channel["channel_id"], input_text)
-                parent_hint = self.active_channel["channel_id"]
-                self.switch_channel(
-                    self.messages[chat_sel]["id"],
-                    self.messages[chat_sel]["name"],
-                    self.active_channel["guild_id"],
-                    self.active_channel["guild_name"],
-                    parent_hint=parent_hint,
-                )
-                self.reset_actions()
-                self.update_status_line()
-                self.thread_toggle_join(
-                    self.active_channel["guild_id"],
-                    parent_hint,
-                    self.active_channel["channel_id"],
-                    join=True,
-                )
 
             # view profile info
             elif action == 24:
@@ -2144,17 +2153,23 @@ class Endcord:
                     else:
                         self.execute_app_command(input_text)
 
+                elif self.slowmode_times.get(self.active_channel["channel_id"]):
+                    self.restore_input_text = (input_text, "standard")
+                    self.update_extra_line(f"Slowmode is enabled, will be able to send message in {self.slowmode_times[self.active_channel["channel_id"]]}s")
+                    # dont allow sending messagee until it expires
+
                 elif not self.disable_sending and not self.forum:
                     # select attachment
                     this_attachments = None
+                    active_channel = self.active_channel["channel_id"]
                     for num, attachments in enumerate(self.ready_attachments):
-                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                        if attachments["channel_id"] == active_channel:
                             this_attachments = self.ready_attachments.pop(num)["attachments"]
                             self.update_extra_line()
                             break
                     # if this thread is not joined, join it (locally only)
                     if self.current_channel.get("type") in (11, 12) and not self.current_channel.get("joined"):
-                        channel_id, _, guild_id, _, parent_id = self.find_parents(self.active_channel["channel_id"])
+                        channel_id, _, guild_id, _, parent_id = self.find_parents_from_tree(active_channel)
                         self.thread_toggle_join(
                             guild_id,
                             parent_id,
@@ -2213,16 +2228,17 @@ class Endcord:
 
                 elif self.ready_attachments and not self.disable_sending and not self.forum:
                     this_attachments = None
+                    active_channel = self.active_channel["channel_id"]
                     for num, attachments in enumerate(self.ready_attachments):
-                        if attachments["channel_id"] == self.active_channel["channel_id"]:
+                        if attachments["channel_id"] == active_channel:
                             this_attachments = self.ready_attachments.pop(num)["attachments"]
                             self.update_extra_line()
                             break
                     self.discord.send_message(
-                        self.active_channel["channel_id"],
+                        active_channel,
                         "",
                         reply_id=self.replying["id"],
-                        reply_channel_id=self.active_channel["channel_id"],
+                        reply_channel_id=active_channel,
                         reply_guild_id=self.active_channel["guild_id"],
                         reply_ping=self.replying["mention"],
                         attachments=this_attachments,
@@ -2435,9 +2451,9 @@ class Endcord:
             msg_index = self.lines_to_msg(chat_sel)
             self.spoil(msg_index)
 
-        elif cmd_type == 11 and self.tree_metadata[tree_sel] and self.tree_metadata[tree_sel]["type"] in (11, 12):   # TOGGLE_THREAD
+        elif cmd_type == 11 and self.tree_metadata[tree_sel] and self.tree_metadata[tree_sel]["type"] in (11, 12):   # TOGGLE_THREAD_TREE
             thread_id = self.tree_metadata[tree_sel]["id"]
-            guild_id, channel_id, _ = self.find_parents(tree_sel)
+            guild_id, channel_id, _ = self.find_parents_from_tree(tree_sel)
             self.thread_toggle_join(guild_id, channel_id, thread_id)
             self.update_tree()
 
@@ -2478,7 +2494,7 @@ class Endcord:
                 reset = False
                 self.reset_actions()
                 self.ignore_typing = True
-                guild_id = self.find_parents(tree_sel)[0]
+                guild_id = self.find_parents_from_tree(tree_sel)[0]
                 self.hiding_ch = {
                     "channel_name": channel_sel["name"],
                     "channel_id": channel_sel["id"],
@@ -2516,7 +2532,7 @@ class Endcord:
                 _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
             else:
                 channel_id = self.tree_metadata[tree_sel]["id"]
-                guild_id = self.find_parents(tree_sel)[0]
+                guild_id = self.find_parents_from_tree(tree_sel)[0]
             if guild_id:
                 url = f"https://{self.discord.host}/channels/{guild_id}/{channel_id}"
                 peripherals.copy_to_clipboard(url)
@@ -2698,7 +2714,7 @@ class Endcord:
                 _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
             else:
                 channel_id = self.tree_metadata[tree_sel]["id"]
-                guild_id = self.find_parents(tree_sel)[0]
+                guild_id = self.find_parents_from_tree(tree_sel)[0]
             if guild_id:   # mute channel/category
                 mute = self.toggle_mute(channel_id, guild_id=guild_id)
                 if mute is not None:
@@ -2890,7 +2906,7 @@ class Endcord:
                 _, _, guild_id, _, _ = self.find_parents_from_id(channel_id)
             else:
                 channel_id = self.tree_metadata[tree_sel]["id"]
-                guild_id = self.find_parents(tree_sel)[0]
+                guild_id = self.find_parents_from_tree(tree_sel)[0]
             if guild_id:   # set channel/category
                 if cmd_args["setting"].startswith("suppress"):
                     self.update_extra_line("Cant set that option for channel.")
@@ -3160,6 +3176,12 @@ class Endcord:
                 self.update_tree()
                 self.update_chat(scroll=False)
 
+        elif cmd_type == 60 and self.current_channel["type"] in (11, 12):   # TOGGLE_THREAD
+            thread_id = self.active_channel["channel_id"]
+            guild_id, channel_id, _ = self.find_parents_from_id(self.active_channel)
+            self.thread_toggle_join(guild_id, channel_id, thread_id)
+            self.update_tree()
+
         elif cmd_type == 66 and self.fun:   # 666
             self.fun = 1 if self.fun == 2 else 2
             self.tui.set_fun(self.fun)
@@ -3241,7 +3263,7 @@ class Endcord:
         return url
 
 
-    def find_parents(self, tree_sel):
+    def find_parents_from_tree(self, tree_sel):
         """Find object parents from its tree index"""
         guild_id = None
         guild_name = None
@@ -3868,7 +3890,7 @@ class Endcord:
                         break
             elif ch_type not in (1, 3, 4, 11, 12):
                 channel_id = self.tree_metadata[tree_sel]["id"]
-                guild_id = self.find_parents(tree_sel)[0]
+                guild_id = self.find_parents_from_tree(tree_sel)[0]
                 for guild in self.guilds:
                     if guild["guild_id"] == guild_id:
                         for channel in guild["channels"]:
@@ -4016,6 +4038,7 @@ class Endcord:
         # start log watche thread
         if not self.log_queue_nanager:
             threading.Thread(target=self.log_watcher, daemon=True, args=(log, )).start()
+
 
     def log_watcher(self, log=[]):
         """Thread that looks for log changes and updates it in chat area"""
@@ -4301,7 +4324,7 @@ class Endcord:
                 else:
                     tree_sel = self.tui.get_tree_selected()
                     channel_id = self.tree_metadata[tree_sel]["id"]
-                    guild_id = self.find_parents(tree_sel)[0]
+                    guild_id = self.find_parents_from_tree(tree_sel)[0]
                 if assist_word.endswith(" ") and not all(not x for x in query_words[1:]):
                     guild_id = None   # skip all
                     channel_id = None
@@ -4718,7 +4741,7 @@ class Endcord:
             self.update_status_line()
 
 
-    def update_status_line(self):
+    def update_status_line(self, status=True, title=True, tree=True):
         """Generate status and title lines and update them in TUI"""
         action = {
             "type": None,
@@ -4763,8 +4786,28 @@ class Endcord:
         else:
             action["type"] = 0
 
-        if self.format_status_line_r:
-            status_line_r, status_line_r_format = formatter.generate_status_line(
+        if status:
+            if self.format_status_line_r:
+                status_line_r, status_line_r_format = formatter.generate_status_line(
+                    self.my_user_data,
+                    self.my_status,
+                    self.new_unreads,
+                    self.typing,
+                    self.active_channel,
+                    action,
+                    self.running_tasks,
+                    self.tab_string,
+                    self.tab_string_format,
+                    self.format_status_line_r,
+                    self.format_rich,
+                    slowmode=self.slowmode_times.get(self.active_channel["channel_id"]),
+                    limit_typing=self.limit_typing,
+                    fun=self.fun,
+                )
+            else:
+                status_line_r = None
+                status_line_r_format = []
+            status_line_l, status_line_l_format = formatter.generate_status_line(
                 self.my_user_data,
                 self.my_status,
                 self.new_unreads,
@@ -4774,86 +4817,75 @@ class Endcord:
                 self.running_tasks,
                 self.tab_string,
                 self.tab_string_format,
-                self.format_status_line_r,
+                self.format_status_line_l,
                 self.format_rich,
+                slowmode=self.slowmode_times.get(self.active_channel["channel_id"]),
                 limit_typing=self.limit_typing,
                 fun=self.fun,
-        )
-        else:
-            status_line_r = None
-            status_line_r_format = []
-        status_line_l, status_line_l_format = formatter.generate_status_line(
-            self.my_user_data,
-            self.my_status,
-            self.new_unreads,
-            self.typing,
-            self.active_channel,
-            action,
-            self.running_tasks,
-            self.tab_string,
-            self.tab_string_format,
-            self.format_status_line_l,
-            self.format_rich,
-            limit_typing=self.limit_typing,
-            fun=self.fun,
-        )
-        self.tui.update_status_line(status_line_l, status_line_r, status_line_l_format, status_line_r_format)
+            )
+            self.tui.update_status_line(status_line_l, status_line_r, status_line_l_format, status_line_r_format)
 
-        if self.format_title_line_r:
-            title_line_r, title_line_r_format = formatter.generate_status_line(
-                self.my_user_data,
-                self.my_status,
-                self.new_unreads,
-                self.typing,
-                self.active_channel,
-                action,
-                self.running_tasks,
-                self.tab_string,
-                self.tab_string_format,
-                self.format_title_line_r,
-                self.format_rich,
-                limit_typing=self.limit_typing,
-                fun=self.fun,
-            )
-        else:
-            title_line_r = None
-            title_line_r_format = []
-        if self.format_title_line_l:
-            title_line_l, title_line_l_format = formatter.generate_status_line(
-                self.my_user_data,
-                self.my_status,
-                self.new_unreads,
-                self.typing,
-                self.active_channel,
-                action,
-                self.running_tasks,
-                self.tab_string,
-                self.tab_string_format,
-                self.format_title_line_l,
-                self.format_rich,
-                limit_typing=self.limit_typing,
-                fun=self.fun,
-            )
-            self.tui.update_title_line(title_line_l, title_line_r, title_line_l_format, title_line_r_format)
-        if self.format_title_tree:
-            title_tree, _ = formatter.generate_status_line(
-                self.my_user_data,
-                self.my_status,
-                self.new_unreads,
-                self.typing,
-                self.active_channel,
-                action,
-                self.running_tasks,
-                self.tab_string,
-                self.tab_string_format,
-                self.format_title_tree,
-                self.format_rich,
-                limit_typing=self.limit_typing,
-                fun=self.fun,
-            )
-        else:
-            title_tree = None
-        self.tui.update_title_tree(title_tree)
+        if title:
+            if self.format_title_line_r:
+                title_line_r, title_line_r_format = formatter.generate_status_line(
+                    self.my_user_data,
+                    self.my_status,
+                    self.new_unreads,
+                    self.typing,
+                    self.active_channel,
+                    action,
+                    self.running_tasks,
+                    self.tab_string,
+                    self.tab_string_format,
+                    self.format_title_line_r,
+                    self.format_rich,
+                    slowmode=self.slowmode_times.get(self.active_channel["channel_id"]),
+                    limit_typing=self.limit_typing,
+                    fun=self.fun,
+                )
+            else:
+                title_line_r = None
+                title_line_r_format = []
+            if self.format_title_line_l:
+                title_line_l, title_line_l_format = formatter.generate_status_line(
+                    self.my_user_data,
+                    self.my_status,
+                    self.new_unreads,
+                    self.typing,
+                    self.active_channel,
+                    action,
+                    self.running_tasks,
+                    self.tab_string,
+                    self.tab_string_format,
+                    self.format_title_line_l,
+                    self.format_rich,
+                    slowmode=self.slowmode_times.get(self.active_channel["channel_id"]),
+                    limit_typing=self.limit_typing,
+                    fun=self.fun,
+                )
+                self.tui.update_title_line(title_line_l, title_line_r, title_line_l_format, title_line_r_format)
+
+        if tree:
+            if self.format_title_tree:
+                title_tree, _ = formatter.generate_status_line(
+                    self.my_user_data,
+                    self.my_status,
+                    self.new_unreads,
+                    self.typing,
+                    self.active_channel,
+                    action,
+                    self.running_tasks,
+                    self.tab_string,
+                    self.tab_string_format,
+                    self.format_title_tree,
+                    self.format_rich,
+                    slowmode=self.slowmode_times.get(self.active_channel["channel_id"]),
+                    limit_typing=self.limit_typing,
+                    fun=self.fun,
+                )
+            else:
+                title_tree = None
+            self.tui.update_title_tree(title_tree)
 
 
     def update_prompt(self):
@@ -5362,6 +5394,8 @@ class Endcord:
         """Process message events for currently active channel"""
         data = new_message["d"]
         op = new_message["op"]
+        my_message = data.get("user_id") == self.my_id
+        channel_id = self.active_channel["channel_id"]
         if op == "MESSAGE_CREATE":
             # if latest message is loaded - not viewing old message chunks
             if self.messages[0]["id"] == self.last_message_id:
@@ -5382,6 +5416,12 @@ class Endcord:
                     self.typing.pop(num)
                     update_status_line = True
                     break
+            if my_message and self.slowmodes and self.slowmodes.get(channel_id):
+                if not self.slowmode_times.get(channel_id):
+                    self.slowmode_times[channel_id] = self.slowmodes.get(channel_id, 0)
+                if not self.slowmode_thread or not self.slowmode_thread.is_alive():
+                    self.slowmode_thread = threading.Thread(target=self.wait_slowmode, daemon=True, args=())
+                    self.slowmode_thread.start()
             if update_status_line:
                 self.update_status_line()
         else:
@@ -5407,7 +5447,7 @@ class Endcord:
                         for num2, reaction in enumerate(loaded_message["reactions"]):
                             if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
                                 loaded_message["reactions"][num2]["count"] += 1
-                                if data["user_id"] == self.my_id:
+                                if my_message:
                                     loaded_message["reactions"][num2]["me"] = True
                                 break
                         else:
@@ -5415,7 +5455,7 @@ class Endcord:
                                 "emoji": data["emoji"],
                                 "emoji_id": data["emoji_id"],
                                 "count": 1,
-                                "me": data["user_id"] == self.my_id,
+                                "me": my_message,
                             })
                         self.update_chat(scroll=False)
                     elif op == "MESSAGE_REACTION_REMOVE":
@@ -5425,7 +5465,7 @@ class Endcord:
                                     loaded_message["reactions"].pop(num2)
                                 else:
                                     loaded_message["reactions"][num2]["count"] -= 1
-                                    if data["user_id"] == self.my_id:
+                                    if my_message:
                                         loaded_message["reactions"][num2]["me"] = False
                                 break
                         self.update_chat(scroll=False)
@@ -5435,7 +5475,7 @@ class Endcord:
                             for num2, option in enumerate(loaded_message["poll"]["options"]):
                                 if option["id"] == data["answer_id"]:
                                     loaded_message["poll"]["options"][num2]["count"] += (1 if add else -1)
-                                    if data["user_id"] == self.my_id:
+                                    if my_message:
                                         loaded_message["poll"]["options"][num2]["me_voted"] = add
                                     break
                         self.update_chat(scroll=False)
@@ -5450,6 +5490,7 @@ class Endcord:
             if len(self.channel_cache[ch_num][1]) > self.msg_num:
                 self.channel_cache[ch_num][1].pop(-1)
         else:
+            my_message = data.get("user_id") == self.my_id
             for num, loaded_message in enumerate(self.channel_cache[ch_num][1]):
                 if data["id"] == loaded_message["id"]:
                     if op == "MESSAGE_UPDATE":
@@ -5464,7 +5505,7 @@ class Endcord:
                         for num2, reaction in enumerate(loaded_message["reactions"]):
                             if data["emoji_id"] == reaction["emoji_id"] and data["emoji"] == reaction["emoji"]:
                                 loaded_message["reactions"][num2]["count"] += 1
-                                if data["user_id"] == self.my_id:
+                                if my_message:
                                     loaded_message["reactions"][num2]["me"] = True
                                 break
                         else:
@@ -5472,7 +5513,7 @@ class Endcord:
                                 "emoji": data["emoji"],
                                 "emoji_id": data["emoji_id"],
                                 "count": 1,
-                                "me": data["user_id"] == self.my_id,
+                                "me": my_message,
                             })
                     elif op == "MESSAGE_REACTION_REMOVE":
                         for num2, reaction in enumerate(loaded_message["reactions"]):
@@ -5481,7 +5522,7 @@ class Endcord:
                                     loaded_message["reactions"].pop(num2)
                                 else:
                                     loaded_message["reactions"][num2]["count"] -= 1
-                                    if data["user_id"] == self.my_id:
+                                    if my_message:
                                         loaded_message["reactions"][num2]["me"] = False
                                 break
                     elif op in ("MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE") and "poll" in loaded_message:
@@ -5490,7 +5531,7 @@ class Endcord:
                             for num2, option in enumerate(loaded_message["poll"]["options"]):
                                 if option["id"] == data["answer_id"]:
                                     loaded_message["poll"]["options"][num2]["count"] + (1 if add else -1)
-                                    if data["user_id"] == self.my_id:
+                                    if my_message:
                                         loaded_message["poll"]["options"][num2]["me_voted"] = add
                                     break
 
@@ -5618,7 +5659,7 @@ class Endcord:
             else:
                 num = None
             if num is not None:
-                self.all_roles = color.convert_role_colors(self.all_roles, guild_id, role_id)
+                self.all_roles = color.convert_role_colors(self.all_roles, guild_id, role_id, default=self.config["color_default"][0])
                 # 255_curses_bug - update only portion of roles color ids
                 self.all_roles = self.tui.init_role_colors(
                     self.all_roles,
@@ -6142,7 +6183,7 @@ class Endcord:
         if guilds:
             self.guilds = guilds
         self.all_roles = self.gateway.get_roles()
-        self.all_roles = color.convert_role_colors(self.all_roles)
+        self.all_roles = color.convert_role_colors(self.all_roles, default=self.config["color_default"][0])
         last_free_color_id = self.tui.get_last_free_color_id()
 
         # get my roles and compute perms
@@ -6426,8 +6467,15 @@ class Endcord:
                 my_typing = self.tui.get_my_typing()
                 # typing indicator on server expires in 10s, so lest stay safe with 7s
                 if not self.ignore_typing and my_typing and time.time() >= self.typing_sent + 7:
-                    self.discord.send_typing(self.active_channel["channel_id"])
+                    slowmode_time = self.discord.send_typing(self.active_channel["channel_id"])
                     self.typing_sent = int(time.time())
+                    # check for slowmode
+                    if slowmode_time and self.active_channel["channel_id"] not in self.slowmode_times:
+                        self.slowmode_times[self.active_channel["channel_id"]] = slowmode_time
+                        self.update_extra_line(f"Slowmode is enabled, will be able to send message in {slowmode_time}s")
+                        if not self.slowmode_thread or not self.slowmode_thread.is_alive():
+                            self.slowmode_thread = threading.Thread(target=self.wait_slowmode, daemon=True, args=())
+                            self.slowmode_thread.start()
 
             # remove unseen after scrolled to bottom on unseen channel
             if self.new_unreads or self.this_uread:

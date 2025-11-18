@@ -76,7 +76,7 @@ theme = {
     "format_one_reaction": "%count:%reaction",
     "format_timestamp": "%H:%M",
     "format_status_line_l": " %global_name (%username) - %status  %unreads %action %typing",
-    "format_status_line_r": None,
+    "format_status_line_r": "%slowmode",
     "format_title_line_l": " %server: %channel",
     "format_title_line_r": "%tabs",
     "format_title_tree": " endcord  %task",
@@ -208,7 +208,6 @@ keybindings = {
     "media_seek_backward": 260,   # Left
     # other
     "cancel": 24,   # Ctrl+X
-    "forum_join_thread": "ALT+107",   # Alt+K
     "cycle_status": "ALT+100",   # Alt+D
     "toggle_member_list": "ALT+109",   # Alt+M
     "toggle_tab": 20,   # Ctrl+T

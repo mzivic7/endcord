@@ -402,8 +402,8 @@ def command_string(text):
     elif text_lower.startswith("spoil"):
         cmd_type = 10
 
-    # 11 - TOGGLE_THREAD
-    elif text_lower.startswith("toggle_thread"):
+    # 11 - TOGGLE_THREAD_TREE
+    elif text_lower.startswith("toggle_thread_tree"):
         cmd_type = 11
 
     # 12 - PROFILE
@@ -745,6 +745,10 @@ def command_string(text):
     # 59 - MARK_AS_UNREAD
     elif text_lower.split(" ")[0] == "mark_as_unread":
         cmd_type = 59
+
+    # 60 - TOGGLE_THREAD
+    elif text_lower.split(" ")[0] == "toggle_thread":
+        cmd_type = 60
 
 
     # 66 - 666

@@ -860,7 +860,6 @@ class Discord():
             connection.close()
             return None
         if response.status != 204:
-            logger.info(response.read())
             logger.error(f"Failed to send bulk message ack. Response code: {response.status}")
             connection.close()
             return False
@@ -879,12 +878,16 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to set typing. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return None
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            return int(data["message_send_cooldown_ms"] / 1000)
+        logger.error(f"Failed to set typing. Response code: {response.status}")
         connection.close()
-        return True
+        return None
 
 
     def send_reaction(self, channel_id, message_id, reaction):
@@ -1759,8 +1762,31 @@ class Discord():
         return False
 
 
+    def check_ring(self, channel_id):
+        """Check if user can ring call in DM"""
+        message_data = None
+        url = f"/channels/{channel_id}/call"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return False
+        if response.status == 200:
+            data = json.loads(response.read())
+            connection.close()
+            return bool(data["ringable"])
+        connection.close()
+        return False
+
+
     def send_ring(self, channel_id, recipients):
         """Ring private channel recipients if there is an active call"""
+        if not self.check_ring(channel_id):
+            logger.warning("Cant ring a call in this private channel recipients")
+            return
+
         message_data = json.dumps({
             "recipients": recipients,
         })

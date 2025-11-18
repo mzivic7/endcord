@@ -183,7 +183,6 @@ Un/collapse channel with threads in tree - `Alt+H`
 Join/leave selected thread in tree - `Alt+J`  
 Cycle status (online/away/DnD/invisible) - `Alt+D`  
 Open selected post in forum - `Enter`  
-Open and join selected post in forum - `Alt+K`  
 Copy selected message url to clipboard - `Alt+U`  
 Copy selected channel (in tree) url to clipboard - `Alt+Shift+U`  
 Go to channel/message mentioned in selected message - `Alt+G`  
@@ -306,7 +305,7 @@ To switch to any tabbed channel use `Alt+NUM`, where `NUM` is tab number (use ke
 
 ### Forums
 Forums in tree can be opened just like a channel (`Ctrl+Space`).  
-Select post and `Enter` to open it, or `Alt+K` to open and join.  
+Select post and `Enter` to open it. While in a thread run `toggle_thread` command to join it.
 Posts are treated same as threads in channel tree, but only participated posts will be shown.  
 If there are no posts in the forum (this will happen when switching to forum in never opened server), switch to some channel in the same server, (client must subscribe to some channel so discord can send thread list sync).
 

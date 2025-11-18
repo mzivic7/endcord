@@ -2251,9 +2251,6 @@ class TUI():
             elif key in self.keybindings["preview_upload"]:
                 return self.return_input_code(22)
 
-            elif key in self.keybindings["forum_join_thread"] and forum:
-                return self.return_input_code(23)
-
             elif key in self.keybindings["profile_info"] and self.chat_selected != -1 and not forum:
                 self.extra_index = 0
                 self.extra_selected = -1

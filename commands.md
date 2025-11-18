@@ -40,6 +40,8 @@
 - `member_list`  
     Toggle member list.
 - `toggle_thread`  
+    Join/leave currently open thread.
+- `toggle_thread_tree`  
     Join/Leave selected thread in tree.
 - `bottom`  
     Go to chat bottom.

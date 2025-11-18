@@ -177,7 +177,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Format for timestamps in messages. Same as [datetime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
 - `format_status_line_l = " %global_name (%username) - %status  %unreads %action %typing"`  
     Formatting for left side of status line. See [format_status](#format_status) for more info. Set to None to disable.
-- `format_status_line_r = None`  
+- `format_status_line_r = "%slowmode"`  
     Formatting for right side of status line. See [format_status](#format_status) for more info.
 - `format_title_line_l = " %server: %channel"`  
     Formatting for left side of title line. See [format_status](#format_status) for more info. Set to None to disable.
@@ -361,6 +361,7 @@ Note: everything after `%content` may be pushed to newline.
 - `%action` - warning for replying/editing/deleting message
 - `%task` - currently running slow task (reconnecting, downloading chat...)
 - `%tabs` - all tabs formatted with `format_tabs` then joined with `tabs_separator`
+- `%slowmode` - `Slowmode: hh:mm:ss` if slowmode is enabled, otherwise its hidden
 
 ### format_rich
 - `%type` - type of rich presence: "Playing" or "Listening to"
