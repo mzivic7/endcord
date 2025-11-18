@@ -1,4 +1,5 @@
 import curses
+import importlib.util
 
 from endcord import xterm256
 
@@ -17,20 +18,22 @@ def closest_color(rgb):
     """
     r, g, b = rgb
     distances = []
-    for color in colors:
-        r_i, g_i, b_i = color
-        distance = (r - r_i)**2 + (g - g_i)**2 + (b - b_i)**2
-        distances.append((distance, color))
+    for i, (cr, cg, cb) in enumerate(colors):
+        dr = r - cr
+        dg = g - cg
+        db = b - cb
+        distances.append(dr*dr + dg*dg + db*db)   # doing it like this for better performance
     index = argmin(distances)
-    return index, distances[index][1]
+    return index, colors[index]
 
 
 def int_to_rgb(int_color):
     """Convert integer color string to rgb tuple"""
-    b = int_color  & 255
-    g = (int_color >> 8) & 255
-    r = (int_color >> 16) & 255
-    return (r, g, b)
+    return (
+        (int_color >> 16) & 255,   # r
+        (int_color >> 8) & 255,   # g
+        int_color & 255,   # b
+    )
 
 
 def convert_role_colors(all_roles, guild_id=None, role_id=None, default=-1):
@@ -40,20 +43,35 @@ def convert_role_colors(all_roles, guild_id=None, role_id=None, default=-1):
     Optionally update only one guild and/or one role.
     """
     for guild in all_roles:
-        if not guild_id or guild["guild_id"] == guild_id:
-            for role in guild["roles"]:
-                if not role_id or role["id"] == role_id:
-                    color = role["color"]
-                    if color == 0:
-                        color = default
-                    rgb = int_to_rgb(color)
-                    ansi = closest_color(rgb)[0]
-                    role["color"] = ansi
-                if role_id and role["id"] == role_id:
-                    break
-            if guild_id and guild["guild_id"] == guild_id:
+        if guild_id and guild["guild_id"] != guild_id:
+            continue
+        for role in guild["roles"]:
+            if role_id and role["id"] != role_id:
+                continue
+            color = role["color"]
+            if color == 0:
+                color = default
+            rgb = int_to_rgb(color)
+            ansi = closest_color(rgb)[0]
+            role["color"] = ansi
+            if role_id:
                 break
+        if guild_id:
+            break
+
     return all_roles
+
+
+# use cython if available, ~20 times faster
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.color"):
+    from endcord_cython.color import convert_role_colors as convert_role_colors_cython
+    def convert_role_colors(all_roles, guild_id=None, role_id=None, default=-1):
+        """
+        For all roles, in all guilds, convert integer color format into rgb tuple color and closest 8bit ANSI color code.
+        If ANSI code is 0, then use default color.
+        Optionally update only one guild and/or one role.
+        """
+        return convert_role_colors_cython(all_roles, colors, guild_id, role_id, default)
 
 
 def check_color(color):
