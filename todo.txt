@@ -1,7 +1,4 @@
-Optimize self.read_state
-Fix member list not updating when switching between same-guild channels
-
-Game detection service
+Add game detection service
     option in settings
     use head request to check data version
     get /api/v9/applications/detectable
@@ -11,6 +8,7 @@ Game detection service
     update activity session
     update presence
 
+Fix member list not updating when switching between same-guild channels
 Add window borders
 New screenshots in higher resolution
 
