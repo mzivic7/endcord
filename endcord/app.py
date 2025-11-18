@@ -393,6 +393,7 @@ class Endcord:
         self.tab_string = ""
         self.tab_string_format = []
         self.new_unreads = False
+        self.this_uread = False
         self.chat_indexes = []
         self.chat_map = []
         if self.my_user_data:
@@ -717,6 +718,7 @@ class Endcord:
                     select_message_index = len(self.messages) - 2
             else:
                 select_message_index = None
+        self.this_uread = select_message_index is not None
 
         # misc
         self.typing = []
@@ -5086,7 +5088,6 @@ class Endcord:
                         if update_tree:
                             self.update_tree()
                 break
-
         if self.enable_notifications and remove_notification:
             for num, notification in enumerate(self.notifications):
                 if notification["channel_id"] == channel_id:
@@ -6429,9 +6430,10 @@ class Endcord:
                     self.typing_sent = int(time.time())
 
             # remove unseen after scrolled to bottom on unseen channel
-            if self.new_unreads:
+            if self.new_unreads or self.this_uread:
                 if text_index == 0:
                     self.new_unreads = False
+                    self.this_uread = False
                     self.update_status_line()
                     self.set_channel_seen(self.active_channel["channel_id"], self.messages[0]["id"], update_line=True)
 
