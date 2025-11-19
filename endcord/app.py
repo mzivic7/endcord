@@ -929,7 +929,7 @@ class Endcord:
         channel_id = self.active_channel["channel_id"]
 
         if refresh:
-            parent_hint = self.active_channel["parent_id"]
+            parent_hint = self.current_channel["parent_id"]
 
         for this_guild in self.guilds:
             if this_guild["guild_id"] == guild_id:
