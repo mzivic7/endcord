@@ -96,13 +96,13 @@ class RPC:
 
     def __init__(self, discord, user, config):
         self.discord = discord
-        self.run = True
         self.changed = False
         self.external = config["rpc_external"]
         self.presences = []
         if user["bot"]:
             logger.warn("RPC server cannot be started for bot accounts")
             return
+        self.run = True
 
         self.generate_dispatch(user)
 
@@ -301,6 +301,7 @@ class RPC:
                 logger.warning("Failed retrieving RPC app data from discord")
         except Exception as e:
             logger.error(e)
+
         # remove presence from list
         if app_id:
             for num, app in enumerate(self.presences):
@@ -353,8 +354,8 @@ class RPC:
             threading.Thread(target=self.client_thread, daemon=True, args=(client, )).start()
 
 
-    def get_rpc(self):
-        """Get RPC events for all connected apps, only when presence has changed."""
+    def get_activities(self):
+        """Get activities for all connected apps, only when they changed."""
         if self.changed:
             self.changed = False
             logger.debug(f"Sending: {json.dumps(self.presences, indent=2)}")

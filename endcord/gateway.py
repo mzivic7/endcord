@@ -1745,27 +1745,27 @@ class Gateway():
         return self.state
 
 
-    def update_presence(self, status, custom_status=None, custom_status_emoji=None, rpc=None):
+    def update_presence(self, status, custom_status=None, custom_status_emoji=None, activities=None):
         """Update client status. Statuses: 'online', 'idle', 'dnd', 'invisible', 'offline'"""
-        activities = []
+        all_activities = []
         if custom_status:
-            activities.append({
+            all_activities.append({
                 "name": "Custom Status",
                 "type": 4,
                 "state": custom_status,
             })
             if custom_status_emoji:
-                activities[0]["emoji"] = custom_status_emoji
-        if rpc:
-            for activity in rpc:
-                activities.append(activity)
+                all_activities[0]["emoji"] = custom_status_emoji
+        if activities:
+            for activity in activities:
+                all_activities.append(activity)
         payload = {
             "op": 3,
             "d": {
                 "status": status,
                 "afk": "false",
                 "since": 0,
-                "activities": activities,
+                "activities": all_activities,
             },
         }
         self.send(payload)

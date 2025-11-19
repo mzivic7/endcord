@@ -429,7 +429,7 @@ class Endcord:
         self.sent_ack_time = time.time() - self.ack_throttling
         self.pending_acks = []
         self.last_message_id = 0
-        self.my_rpc = []
+        self.my_activities = []
         self.chat_end = False
         self.forum_end = False
         self.forum_old = []
@@ -523,7 +523,7 @@ class Endcord:
             self.my_status["status"],
             custom_status=self.my_status["custom_status"],
             custom_status_emoji=self.my_status["custom_status_emoji"],
-            rpc=self.my_rpc,
+            activities=self.my_activities,
         )
 
         self.messages = self.get_messages_with_members()
@@ -3029,7 +3029,7 @@ class Endcord:
                 self.my_status["status"],
                 custom_status=self.my_status["custom_status"],
                 custom_status_emoji=self.my_status["custom_status_emoji"],
-                rpc=self.my_rpc,
+                activities=self.my_activities,
             )
 
         elif cmd_type == 45:   # BLOCK
@@ -3810,7 +3810,7 @@ class Endcord:
                 status,
                 custom_status=self.my_status["custom_status"],
                 custom_status_emoji=self.my_status["custom_status_emoji"],
-                rpc=self.my_rpc,
+                activities=self.my_activities,
             )
             if self.my_status["custom_status_emoji"]:
                 custom_status_emoji_name = self.my_status["custom_status_emoji"]["name"]
@@ -4165,8 +4165,10 @@ class Endcord:
         content, channel_id, author_id, mentions, has, max_id, min_id, pinned = parser.search_string(text)
         self.search = (content, channel_id, author_id, mentions, has, max_id, min_id, pinned)
         logger.debug(f"Starting search with params: {self.search}")
+        is_dm = not(self.active_channel["guild_id"])
         total_search_messages, self.search_messages = self.discord.search(
-            self.active_channel["guild_id"],
+            self.active_channel["channel_id"] if is_dm else self.active_channel["guild_id"],
+            channel=is_dm,
             content=content,
             channel_id=channel_id,
             author_id=author_id,
@@ -4195,8 +4197,10 @@ class Endcord:
         """Repeat search and add more messages"""
         self.add_running_task("Searching", 4)
         logger.debug(f"Extending search with params: {self.search}")
+        is_dm = not(self.active_channel["guild_id"])
         total_search_messages, search_chunk = self.discord.search(
-            self.active_channel["guild_id"],
+            self.active_channel["channel_id"] if is_dm else self.active_channel["guild_id"],
+            channel=is_dm,
             content=self.search[0],
             channel_id=self.search[1],
             author_id=self.search[2],
@@ -5616,7 +5620,8 @@ class Endcord:
             if "name" in new_user_data:   # its my user_update
                 self.my_user_data = new_user_data
                 self.premium = self.gateway.get_premium()
-                self.rpc.generate_dispatch(new_user_data)
+                if self.rpc.run:
+                    self.rpc.generate_dispatch(new_user_data)
             else:   # its guild_member_update
                 self.my_user_data["nick"] = new_user_data["nick"]
             if changed_guild:   # its my roles update from guild_member_update
@@ -6291,7 +6296,7 @@ class Endcord:
             self.my_status["status"],
             custom_status=self.my_status["custom_status"],
             custom_status_emoji=self.my_status["custom_status_emoji"],
-            rpc=self.my_rpc,
+            activities=self.my_activities,
         )
 
         # start input thread
@@ -6434,16 +6439,16 @@ class Endcord:
                         if not self.voice_gateway.get_state():
                             self.leave_call()
 
-            # send new rpc
+            # send new rpc activities
             if self.enable_rpc:
-                new_rpc = self.rpc.get_rpc()
-                if new_rpc is not None and self.gateway_state == 1:
-                    self.my_rpc = new_rpc
+                new_activities = self.rpc.get_activities()
+                if new_activities is not None and self.gateway_state == 1:
+                    self.my_activities = new_activities
                     self.gateway.update_presence(
                         self.my_status["status"],
                         custom_status=self.my_status["custom_status"],
                         custom_status_emoji=self.my_status["custom_status_emoji"],
-                        rpc=self.my_rpc,
+                        activities=self.my_activities,
                     )
 
             # remove expired typing
@@ -6551,7 +6556,7 @@ class Endcord:
                     self.my_status["status"],
                     custom_status=self.my_status["custom_status"],
                     custom_status_emoji=self.my_status["custom_status_emoji"],
-                    rpc=self.my_rpc,
+                    activities=self.my_activities,
                 )
 
             # check changes in presences and update tree

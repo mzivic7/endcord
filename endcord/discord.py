@@ -630,11 +630,10 @@ class Discord():
 
     def get_rpc_app_external(self, app_id, asset_url):
         """Get Discord application external assets"""
-        url = f"/api/v9/applications/{app_id}/external-assets"
         message_data = json.dumps({"urls": [asset_url]})
+        url = f"/api/v9/applications/{app_id}/external-assets"
         try:
             connection = self.get_connection(self.host, 443)
-            # no oauth2 here
             connection.request("POST", url, message_data, self.header)
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
@@ -1210,9 +1209,9 @@ class Discord():
         return True
 
 
-    def search(self, guild_id, content=None, channel_id=None, author_id=None, mentions=None, has=None, max_id=None, min_id=None, pinned=None, offset=None):
+    def search(self, object_id, channel=False, content=None, channel_id=None, author_id=None, mentions=None, has=None, max_id=None, min_id=None, pinned=None, offset=None):
         """
-        Search in specified guild
+        Search in specified guild/channel (dm)
         author_id   - (from) user_id
         mentions    - user_id
         has         - link, embed, poll, file, video, image, sound, sticker, forward
@@ -1224,7 +1223,7 @@ class Discord():
         offset      - starting number
         """
         message_data = None
-        url = f"/api/v9/guilds/{guild_id}/messages/search?"
+        url = f"/api/v9/{"channels" if channel else "guilds"}/{object_id}/messages/search?"
         if "true" in pinned:
             pinned = "true"
         elif "false" in pinned:
@@ -1871,7 +1870,6 @@ class Discord():
         return None
 
 
-
     def get_invite_url(self, channel_id, max_age, max_uses):
         """Get invite url for specified guild channel"""
         message_dict = {
@@ -1959,6 +1957,7 @@ class Discord():
 
     def get_best_voice_region(self):
         """Get voice regions ranked by latency"""
+        # TOKEN IS NOT USED
         if self.ranked_voice_regions:
             return self.ranked_voice_regions
         message_data = None
@@ -1966,7 +1965,7 @@ class Discord():
         try:
             media_host = re.sub(r"(?<=\.)[^./]+(?=/|$)", "media", self.host)
             connection = self.get_connection(f"latency.{media_host}", 443)
-            connection.request("GET", url, message_data, {})
+            connection.request("GET", url, message_data, {"User-Agent": self.header["User-Agent"]})
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
