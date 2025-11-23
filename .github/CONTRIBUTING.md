@@ -137,6 +137,15 @@ def zstd_decompress(data):
 ```
 Use `&compress=zstd-stream` in gateway url.
 
+### Decode X-Super-Sroperties
+```py
+import base64
+import json
+encoded = "STRING_HERE"
+decoded = json.loads(base64.b64decode(encoded).decode("utf-8"))
+print(json.dumps(decoded, indent=2))
+```
+
 ### Spacebar differences
 In the code, all spacebar fixes can be found as `# spacebar_fix - [note]`.  
 `[note]` contains some information on what is changed.  

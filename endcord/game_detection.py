@@ -1,0 +1,395 @@
+import glob
+import logging
+import os
+import sys
+import threading
+import time
+from datetime import datetime
+
+import orjson as json
+
+from endcord import peripherals
+
+if sys.platform != "linux":
+    import psutil
+
+GAME_DETECTION_DELAY = 5
+MAX_CACHE_AGE = 604800   # 7 days
+logger = logging.getLogger(__name__)
+
+proc_cache = {}   # pid = [path, alive]
+
+
+def get_user_processes_diff_linux():
+    """
+    Get newly added and removed user processes on linux, deduplicated and cached.
+    Not using psutil because this is much more efficient.
+    """
+    added = []
+    removed = []
+
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+
+        # check cache
+        if pid in proc_cache:
+           proc_cache[pid][1] = True
+           continue
+        proc_cache[pid] = [None, True]
+
+        # read and check uid
+        try:
+            with open(f"/proc/{pid}/status", "r") as f:
+                uid = None
+                for line in f:
+                    if line.startswith("Uid:"):
+                        uid = int(line.split()[1])
+                        break
+        except Exception:
+            continue
+        if uid is None or uid < 1000:
+            continue
+
+        # read cmdline
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                # will decode only what is needed, not entire file
+                cmdline = f.read().split(b" -")[0].split(b"\x00-")[0]
+                if not cmdline:
+                    continue
+                cmdline = cmdline.decode("utf-8")
+        except Exception:
+            continue
+
+        # skip libraries
+        if cmdline.startswith("/usr/lib"):
+            continue
+
+        # add to cache and newly added processes
+        path = cmdline.replace("\\", "/").replace("\x00", "")
+        proc_cache[pid] = [path, True]
+        if path not in added:
+            added.append(path)
+
+    # remove all not alive processes, and flip alive status
+    for key in list(proc_cache.keys()):
+        if not proc_cache[key][1]:
+            path = proc_cache[key][0]
+            if path and path not in removed:
+                removed.append((path))
+            del proc_cache[key]
+        else:
+            proc_cache[key][1] = False
+
+    return added, removed
+
+
+def get_user_processes_diff_windows():
+    """Get newly added and removed user processes on windows, deduplicated and cached"""
+    added = []
+    removed = []
+
+    # not doing process_iter([...]) because there is caching
+    current_username = psutil.Process().username().split("\\")[-1]
+    for p in psutil.process_iter():
+        pid = p.pid
+
+        # check cache
+        if pid in proc_cache:
+           proc_cache[pid][1] = True
+           continue
+        proc_cache[pid] = [None, True]
+
+        # skip system processes
+        username = p.username()
+        if username is None:
+            continue
+
+        # keep only current user
+        if username.split("\\")[-1] != current_username:
+            continue
+
+        # get cmdline
+        cmdline = p.cmdline()
+        if not cmdline:
+            continue
+        cmdline = cmdline[0]
+
+        # skip processes from windows dirs
+        if ":\\Windows\\" in cmdline or ":\\Program Files\\WindowsApps\\" in cmdline:
+            continue
+
+        # add to cache and newly added processes
+        path = cmdline.replace("\\", "/").replace("\x00", "")
+        proc_cache[pid] = [path, True]
+        if path not in added:
+            added.append(path)
+
+    # remove all not alive processes, and flip alive status
+    for key in list(proc_cache.keys()):
+        if not proc_cache[key][1]:
+            path = proc_cache[key][0]
+            if path and path not in removed:
+                removed.append((path))
+            del proc_cache[key]
+        else:
+            proc_cache[key][1] = False
+
+    return added, removed
+
+
+def get_user_processes_diff_darwin():
+    """
+    Get newly added and removed user processes on macos, deduplicated and cached.
+    Probably wont work but here it is anyways.
+    """
+    added = []
+    removed = []
+    user_uid = psutil.Process().uids().real
+    for p in psutil.process_iter():
+        pid = p.pid
+
+        # check cache
+        if pid in proc_cache:
+           proc_cache[pid][1] = True
+           continue
+        proc_cache[pid] = [None, True]
+
+        # check uid
+        if user_uid:
+            try:
+                uid = p.uids().real
+            except Exception:
+                continue
+            if uid != user_uid:
+                continue
+
+        # get cmdline
+        try:
+            cmdline = p.cmdline()
+        except Exception:
+            continue
+        if not cmdline:
+            continue
+
+        # add to cache and newly added processes
+        path = cmdline.replace("\\", "/").replace("\x00", "")
+        proc_cache[pid] = [path, True]
+        if path not in added:
+            added.append(path)
+
+    # remove all not alive processes, and flip alive status
+    for key in list(proc_cache.keys()):
+        if not proc_cache[key][1]:
+            path = proc_cache[key][0]
+            if path and path not in removed:
+                removed.append((path))
+            del proc_cache[key]
+        else:
+            proc_cache[key][1] = False
+
+    return added, removed
+
+
+if sys.platform == "linux":
+    get_user_processes_diff = get_user_processes_diff_linux
+elif sys.platform == "darwin":
+    get_user_processes_diff = get_user_processes_diff_darwin
+else:
+    get_user_processes_diff = get_user_processes_diff_windows
+
+
+def find_detectable_apps_file(directory):
+    """Find detectable_apps_[date].ndjson path and extract date"""
+    pattern = os.path.join(directory, "detectable_apps_*.ndjson")
+    matches = glob.glob(pattern)
+    if not matches:
+        return None, None
+    path = matches[0]
+    filename = os.path.basename(path)
+    date_str = filename[len("detectable_apps_"):-7]
+    return path, date_str
+
+
+def find_app(proc_path, list_path, my_platform):
+    """Search the detectable applications list and find the app"""
+    proc_path = proc_path.lower()
+
+    try:
+        f = open(list_path, "r", encoding="utf-8")
+    except Exception:
+        return None, None, None
+    try:
+        for line in f:
+            try:
+                app = json.loads(line)   # [id, name, [os, app_path]]
+            except Exception:
+                continue
+            for platform_val, app_path in app[2]:
+                if not app_path:
+                    continue
+                if my_platform == 0:   # linux matches linux(0) and windows(1)
+                    if platform_val not in (0, 1):
+                        continue
+                elif my_platform == 1:   # windows
+                    if platform_val != 1:
+                        continue
+                elif platform_val != 2:   # macos
+                    continue
+                if app_path in proc_path:
+                    return app[0], app[1], app_path
+    finally:
+        f.close()
+    return None, None, None
+
+
+class GameDetection:
+    """Main game detection class"""
+
+    def __init__(self, app, discord):
+        self.app = app
+        self.discord = discord
+        self.run = True
+        self.changed = False
+        self.activities = []
+        threading.Thread(target=self.main, daemon=True, args=()).start()
+
+
+    def main(self):
+        """
+        Main thread that:
+        - checks and downloads detetcable applications list on startup
+        - checks for added/removed application processes
+        - detects games
+        - builds and stores/removes activity for each game
+        - updates activity session
+        """
+        # get platform
+        if sys.platform == "linux":
+            platform = 0
+        elif sys.platform == "win32":
+            platform = 1
+        elif sys.platform == "darwin":
+            platform = 2
+        else:
+            logger.warning(f"Game detection service cannot be started on this platform: {sys.platform}")
+            return
+
+        # find existing detectable apps and check version
+        path, old_date = find_detectable_apps_file(os.path.expanduser(peripherals.config_path))
+        new_date = self.discord.check_detectable_apps_version()[:-4]
+        if new_date:
+            dt = datetime.strptime(new_date, "%a, %d %b %Y %H:%M:%S")
+            new_date = dt.strftime("%Y-%m-%d")
+
+        # download new detectable apps
+        if new_date != old_date:
+            if path:
+                os.remove(path)
+            path = os.path.expanduser(os.path.join(peripherals.config_path, f"detectable_apps_{new_date}.ndjson"))
+            saved = self.discord.get_detectable_apps(path)
+            if saved:
+                logger.info(f"Downloaded new detectable applications list: {old_date} -> {new_date}")
+            else:
+                logger.info("Cound not start game detection service: failed to download detectable applications list")
+                return
+        del (dt, new_date, old_date)
+
+        # load cached processes and remove outdated
+        cache = peripherals.load_json("detected_apps_cache.json", {})   # {proc_path: [app_id, app_name, app_path, last_seen]...}
+        now = int(time.time())
+        outdated = [key for key, val in cache.items() if now - val[3] > MAX_CACHE_AGE]
+        for key in outdated:
+            del cache[key]
+        del outdated
+
+        # update last seen times in cache
+        added, _ = get_user_processes_diff()
+        global proc_cache
+        proc_cache = {}
+        for proc_path in added:
+            proc = cache.get(proc_path)
+            if proc:
+                cache[proc_path][3] = now
+
+        # main loop
+        logger.info("Game detection service started")
+        cache_changed = True   # to save updated times
+        _get_user_processes_diff = get_user_processes_diff
+        while self.run:
+            added, removed = _get_user_processes_diff()
+
+            for proc_path in added:
+                proc = cache.get(proc_path)
+                if proc:
+                    app_id, app_name, app_path = proc[0], proc[1], proc[2]
+                else:
+                    app_id, app_name, app_path = find_app(proc_path, path, platform)
+                    cache[proc_path] = [app_id, app_name, app_path, int(time.time())]
+                    cache_changed = True
+
+                # skip unindentified
+                if not app_id:
+                    continue
+
+                # when identified app appears
+                # update activity session
+                self.discord.send_update_activity_session(
+                    app_id,
+                    exe_path=app_path,
+                    closed=False,
+                    session_id=self.app.session_id,
+                    media_session_id=self.app.get_media_session_id(),
+                    voice_channel_id=self.app.get_voice_channel_id(),
+                )
+                # add activity
+                self.activities.append({
+                    "type": 0,
+                    "application_id": app_id,
+                    "name": app_name,
+                    "timestamps": {"start": int(time.time()*1000)},
+                })
+                self.changed = True
+                logger.info(f"Game added to activities: {app_name}")
+
+            # when identified app disappears
+            for proc_path in removed:
+                # find app_name and app_path
+                data = cache.get(proc_path)
+                if not data:
+                    continue
+                app_id, app_name, app_path, _ = data
+                if not app_id:
+                    continue
+
+                # update activity session
+                self.discord.send_update_activity_session(
+                    app_id,
+                    exe_path=app_path,
+                    closed=True,
+                    session_id=self.app.session_id,
+                    media_session_id=self.app.get_media_session_id(),
+                    voice_channel_id=self.app.get_voice_channel_id(),
+                )
+                # remove activity
+                for num, activity in enumerate(self.activities):
+                    if activity["application_id"] == app_id:
+                        del self.activities[num]
+                        break
+                self.changed = True
+                logger.info(f"Game removed from activities: {app_name}")
+
+            if cache_changed:
+                cache_changed = False
+                peripherals.save_json(cache, "detected_apps_cache.json")
+
+            time.sleep(GAME_DETECTION_DELAY)
+
+
+    def get_activities(self, force=False):
+        """Get activities for all detected games, only when they changed"""
+        if self.changed or force:
+            self.changed = False
+            return self.activities
+        return None

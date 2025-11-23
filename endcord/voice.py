@@ -1,4 +1,3 @@
-import json
 import logging
 import queue
 import random
@@ -11,6 +10,7 @@ import urllib.parse
 
 import av
 import nacl.bindings
+import orjson as json
 import socks
 import websocket
 
@@ -72,6 +72,7 @@ class Gateway():
         self.voice_handler_thread = None
         self.call_buffer = []
         self.mute = mute
+        self.media_session_id = None
         self.connect()
 
 
@@ -414,6 +415,11 @@ class Gateway():
         if len(self.call_buffer) == 0:
             return None
         return self.call_buffer.pop(0)
+
+
+    def get_media_session_id(self):
+        """Get media session id"""
+        return self.media_session_id
 
 
     def set_mute(self, state):

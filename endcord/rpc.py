@@ -7,6 +7,8 @@ import sys
 import threading
 import time
 
+import orjson
+
 if sys.platform == "win32":
     import pywintypes
     import win32file
@@ -36,7 +38,7 @@ def receive_data_linux(connection):
         header = connection.recv(8)
         op, length = struct.unpack("<II", header)
         data = connection.recv(length)
-        final_data = json.loads(data)
+        final_data = orjson.loads(data)
         return op, final_data
     except struct.error as e:
         logger.error(e)
@@ -98,9 +100,9 @@ class RPC:
         self.discord = discord
         self.changed = False
         self.external = config["rpc_external"]
-        self.presences = []
+        self.activities = []
         if user["bot"]:
-            logger.warn("RPC server cannot be started for bot accounts")
+            logger.warning("RPC server cannot be started for bot accounts")
             return
         self.run = True
 
@@ -172,7 +174,6 @@ class RPC:
         app_id = None
 
         try:   # lets keep server running even if there is error in one thread
-            logger.info("RPC client connected")
             op, init_data = receive_data(connection)
             if op is None or init_data is None:
                 return
@@ -180,6 +181,7 @@ class RPC:
             logger.debug(f"RPC app id: {app_id}")
             rpc_data = self.discord.get_rpc_app(app_id)
             rpc_assets = self.discord.get_rpc_app_assets(app_id)
+            logger.info(f"RPC client connected: {rpc_data["name"]}")
             if rpc_data and rpc_assets:
                 send_data(connection, 1, self.dispatch)
                 sent_time = time.time() - (GATEWAY_RATE_LIMIT + 1)
@@ -266,14 +268,14 @@ class RPC:
                         activity.pop("instance", None)
 
                         # self.changed will be true only when presence data has been updated
-                        for num, app in enumerate(self.presences):
+                        for num, app in enumerate(self.activities):
                             if app["application_id"] == app_id:
-                                if activity != self.presences[num]:
-                                    self.presences[num] = activity
+                                if activity != self.activities[num]:
+                                    self.activities[num] = activity
                                     self.changed = True
                                 break
                         else:
-                            self.presences.append(activity)
+                            self.activities.append(activity)
                             self.changed = True
 
                         response = {
@@ -304,9 +306,9 @@ class RPC:
 
         # remove presence from list
         if app_id:
-            for num, app in enumerate(self.presences):
+            for num, app in enumerate(self.activities):
                 if app["application_id"] == app_id:
-                    self.presences.pop(num)
+                    self.activities.pop(num)
                     self.changed = True
                     break
         if sys.platform == "win32":
@@ -354,10 +356,10 @@ class RPC:
             threading.Thread(target=self.client_thread, daemon=True, args=(client, )).start()
 
 
-    def get_activities(self):
+    def get_activities(self, force=False):
         """Get activities for all connected apps, only when they changed."""
-        if self.changed:
+        if self.changed or force:
             self.changed = False
-            logger.debug(f"Sending: {json.dumps(self.presences, indent=2)}")
-            return self.presences
+            logger.debug(f"Sending: {json.dumps(self.activities, indent=2)}")
+            return self.activities
         return None

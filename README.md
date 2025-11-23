@@ -23,7 +23,7 @@ Discord token is required in order to run endcord! see [Token](#token).
 - Extremely low CPU and RAM usage (values greatly depend on number of servers and channels)
 - Extension API
 - Voice calls (WIP)
-- Integrated RPC (only Rich Presence)
+- Integrated RPC (only Rich Presence) and game detection
 - Mouse controls
 - Desktop notifications
 - View images, gifs, videos, audio, stickers and YouTube with ASCII art or in external app
@@ -313,12 +313,16 @@ If there are no posts in the forum (this will happen when switching to forum in 
 If UI ever gets messed up, redraw it with command: press `Ctrl+/` then type `redraw`, and press `Enter` to execute it.  
 
 ### Terminal size
-Recommended terminal size for proper viewing is minimum 118 columns and 32 rows, for default theme.
+Recommended terminal size for proper viewing is minimum 120 columns and 32 rows, for default theme.
 
 ### RPC
-For now RPC only supports Rich Presence over IPC, which means no process detection, subscriptions, join requests, lobby, etc.  
+For now RPC only supports Rich Presence over IPC, which means no subscriptions, join requests, lobby, etc.  
 Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
 If this happens, more info about what is going on can be found in log, when endcord is in debug mode.  
+
+### Game detection
+Game detection service is ON by default and can be disabled in config.  
+Occasionally, it will download ~10MB json file, clean it up, and save it as ~1MB file. When this happens there will be small spike in CPU usage at startup.  
 
 ### Theming
 Custom theme path can be provided with `-c [PATH_TO_THEME]` flag or in `config.ini`.
@@ -343,6 +347,31 @@ View attached media (image, gif, video, audio) - `Alt+Y`
 #### macOS:
 Navigating channel tree - `Shift+Up/Down`  
 Open link in browser - `Alt+O`  
+
+### Experimental windowed mode
+This mode entirely replaces curses with pygame-ce GUI library. This means Endcord runs in its own window, not in terminal, but UI remains terminal-like.  
+Tray icon will also be enabled, so closing window will only minimize it to tray.  
+Keybinding remain the same, but all codes are like on Linux, so old keybinding codes may not work on Windows.  
+If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer in terminal.  
+Building with nuitka on python >=3.13 will create executable that segfaults! Building with pyinstaller is not recommended because it generates huge binary.  
+You can toggle experimental mode bu running: `uv run build.py --experimental`.  
+Then run endcord from source: `uv run main.py`.  
+After first run in experimental mode, extra config will be generated in endcord config path in file called `pgcurses.json`. More info in [configuration](configuration.md).
+
+### Spacebar and other custom hosts
+Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `old.server.spacebar.chat`. Set to `None` to use default host (`discord.com`).  
+Then endcord will try to connect to that host instead discord. Token is different on different hosts!  
+Only connecting to spacebar instances is known to work, but endcord may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
+
+### Termux
+Endcord does work under termux, but some keybindings dont (`Ctrl/Alt+Space`). It is recommended to rebind them in endcord config or use endcord in desktop environment (like `openbox`) in a terminal emulator with xterm256-colors (like `alacritty`) and with Termux:X11 app.  
+Endcord cant be built in termux, so to run it: first install python >= 3.12 and `uv`, then clone this repo, cd to folder and run from source: `uv run main.py` (it will take some time to download and build numpy).  
+To enable android notifications simply run `pkg install termux-api` and install Termux:API app. Vibration is disabled by default, to enable it: run endcord at least once, then in Termux:Api notification settings enable vibration for endcord ntifications.  
+Notifications will work as ling as endcord is running, so it might be necessary for termux to "Acquire wakelock".  
+
+### Extensions warning
+Extensions are enabled by default, and can be toggled in settings. But extension can modify almost everything in endcord, and can access your tokens. **Use extensions at your own risk!**  
+To prevent extension injection (malware can modify endcord config and inject extension in extensions directory) - which is very unlikely, there is build script option: `--disable-extensions` which disables extension loading in the code itself, overriding config.
 
 
 ## Installing
@@ -461,7 +490,6 @@ Less important steps is to decrease REST API calls, which might have little to n
 - Disable `rpc_external` in config - it calls REST API for fetching external resources for Rich Presence, but it shouldn't be critical.
 - Disable `send_typing` in config - it calls REST API every 7s when typing, but it shouldn't be critical.
 
-
 ### What if you get banned?
 You can write to Discord TNS team: https://dis.gd/request.  
 If you did something particular with endcord that caused the ban, open an issue describing what that is. Maybe that can be prevented or other users can be warned.  
@@ -510,31 +538,6 @@ Note: keybinding `Ctrl+Up/Down/Left/Right` does not work in tty.
 ### Legacy theme
 Endcord default theme uses non-standard characters to display som TUI elements, and these characters may not work on some terminals, or look weird wih some fonts.  
 If that happens, use [legacy theme](themes/legacy.ini). It is used by default on windows.  
-
-### Experimental windowed mode
-This mode entirely replaces curses with pygame-ce GUI library. This means Endcord runs in its own window, not in terminal, but UI remains terminal-like.  
-Tray icon will also be enabled, so closing window will only minimize it to tray.  
-Keybinding remain the same, but all codes are like on Linux, so old keybinding codes may not work on Windows.  
-If using external editor, use some with graphical interface. TUI editors will not work, as this is no longer in terminal.  
-Building with nuitka on python >=3.13 will create executable that segfaults! Building with pyinstaller is not recommended because it generates huge binary.  
-You can toggle experimental mode bu running: `uv run build.py --experimental`.  
-Then run endcord from source: `uv run main.py`.  
-After first run in experimental mode, extra config will be generated in endcord config path in file called `pgcurses.json`. More info in [configuration](configuration.md).
-
-### Spacebar and other custom hosts
-Connecting to [Spacebar](https://github.com/spacebarchat) or any other discord-like instance can be configured in `config.ini`. Set `custom_host = ` to preferred host domain, like `old.server.spacebar.chat`. Set to `None` to use default host (`discord.com`).  
-Then endcord will try to connect to that host instead discord. Token is different on different hosts!  
-Only connecting to spacebar instances is known to work, but endcord may crash at any time. Further, each host may have different spam filters, so **use at your own risk** still applies.
-
-### Termux
-Endcord does work under termux, but some keybindings dont (`Ctrl/Alt+Space`). It is recommended to rebind them in endcord config or use endcord in desktop environment (like `openbox`) in a terminal emulator with xterm256-colors (like `alacritty`) and with Termux:X11 app.  
-Endcord cant be built in termux, so to run it: first install python >= 3.12 and `uv`, then clone this repo, cd to folder and run from source: `uv run main.py` (it will take some time to download and build numpy).  
-To enable android notifications simply run `pkg install termux-api` and install Termux:API app. Vibration is disabled by default, to enable it: run endcord at least once, then in Termux:Api notification settings enable vibration for endcord ntifications.  
-Notifications will work as ling as endcord is running, so it might be necessary for termux to "Acquire wakelock".  
-
-### Extensions warning
-Extensions are enabled by default, and can be toggled in settings. But extension can modify almost everything in endcord, and can access your tokens. **Use extensions at your own risk!**  
-To prevent extension injection (malware can modify endcord config and inject extension in extensions directory) - which is very unlikely, there is build script option: `--disable-extensions` which disables extension loading in the code itself, overriding config.
 
 ### Virus scanners are flagging endcord binaries as malware
 These are false positives. Binaries are built using nuitka, the problem is that its regularly used by other people to distribute malware. So some AVs flag all Nuitka-built binaries as malware. [Ref](https://nuitka.net/user-documentation/common-issue-solutions.html#windows-virus-scanners).  

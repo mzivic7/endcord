@@ -8,6 +8,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Enable extensions.
 - `rpc = True`  
     Enable RPC server.
+- `game_detection = True`  
+    Enable game detection service.
 - `downloads_path = None`  
     Directory where to store downloaded files. Set to None to use 'Downloads' directory (cross platform).
 - `limit_chat_buffer = 100`  
@@ -133,6 +135,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     [Format code](https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#format-selection) for youtube video to play.
 - `mpv_path = "mpv"`  
     Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
+- `yt_in_mpv = False`  
+    Wether to open youtube links in mpv or in browser.  
 -  `client_properties = "default"`  
     Client properties are used by discord in spam detection system. They contain various system information like operating system and browser user agent. There are 2 options available: `"default"` and `"anonymous"`.  
     - `"default"` - Approximately what official desktop client sends. Includes: OS version, architecture, Linux window manager, locale.  

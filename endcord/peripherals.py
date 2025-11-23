@@ -435,9 +435,9 @@ def notify_remove(notification_id):
         )
 
 
-def load_json(file, default=None):
+def load_json(file, default=None, dir_path=config_path):
     """Load saved json from same location where default config is saved"""
-    path = os.path.expanduser(config_path + file)
+    path = os.path.expanduser(os.path.join(dir_path, file))
     if not os.path.exists(path):
         return default
     try:
@@ -451,13 +451,16 @@ def load_json(file, default=None):
         return default
 
 
-def save_json(data, file):
+def save_json(data, file, compact=False, dir_path=config_path):
     """Save json to same location where default config is saved"""
-    if not os.path.exists(config_path):
-        os.makedirs(os.path.expanduser(config_path), exist_ok=True)
-    path = os.path.expanduser(config_path + file)
+    if not os.path.exists(dir_path):
+        os.makedirs(os.path.expanduser(dir_path), exist_ok=True)
+    path = os.path.expanduser(os.path.join(dir_path, file))
     with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+        if compact:
+            json.dump(data, f, indent=None, separators=(",", ":"))
+        else:
+            json.dump(data, f, indent=2)
 
 
 def copy_to_clipboard(text):
@@ -599,15 +602,16 @@ def get_audio_waveform(path):
     return waveform, duration
 
 
-def native_open(path, mpv_path=""):
+def native_open(path, mpv_path="", yt_in_mpv=True):
     """Open media file in native application, cross-system"""
     if not path:
         return
     if path.startswith("https://") and "youtu" in path:
-        if mpv_path:
+        if mpv_path and yt_in_mpv:
             current_runner = mpv_path
         else:
             webbrowser.open(path, new=0, autoraise=True)
+            return
     else:
         current_runner = runner
     _ = subprocess.Popen(
@@ -856,3 +860,34 @@ class Player():
             self.playing = False
         if self.play_thread:
             self.play_thread.join()
+
+
+def json_array_objects(stream):
+    """Stream a json array from a file like object. Yield one parsed object at a time without loading full json into memory"""
+    # replaces ijson.items(data, "item")
+    decoder = json.JSONDecoder()
+    buf = ""
+    in_array = False
+    for chunk in iter(lambda: stream.read(65536).decode("utf-8"), ""):
+        buf += chunk
+        i = 0
+        length = len(buf)
+        while i < length:
+            ch = buf[i]
+            if not in_array:
+                if ch == "[":   # skip to [
+                    in_array = True
+                i += 1
+                continue
+            if ch == "]":
+                return
+            if ch.isspace() or ch == ",":   # skip space and comma
+                i += 1
+                continue
+            try:   # try to get object
+                obj, consumed = decoder.raw_decode(buf[i:])
+            except json.JSONDecodeError:
+                break
+            yield obj
+            i += consumed
+        buf = buf[i:]   # keep incomplete json only

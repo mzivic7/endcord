@@ -19,6 +19,7 @@ from endcord import (
     discord,
     downloader,
     formatter,
+    game_detection,
     gateway,
     log_queue,
     parser,
@@ -86,6 +87,7 @@ class Endcord:
 
         # load often used values from config
         self.enable_rpc = config["rpc"]
+        self.enable_game_detection = config["game_detection"]
         self.limit_chat_buffer = max(min(config["limit_chat_buffer"], 1000), 50)
         self.limit_channel_cache = config["limit_channel_cache"]
         self.msg_num = max(min(config["download_msg"], 100), 20)
@@ -324,7 +326,7 @@ class Endcord:
         if log_text:
             logger.info(f"Loaded {len(self.extensions)} extensions:\n" + "\n".join(log_text))
         if log_text_invalid:
-            logger.warn("Invalid extensions:\n" + "\n".join(log_text_invalid))
+            logger.warning("Invalid extensions:\n" + "\n".join(log_text_invalid))
         self.chat.insert(0, f"Successfully loaded {len(self.extensions)} extensions")
         self.chat.insert(0, f"Not loaded (invalid) {len(extensions) - len(self.extensions) + len(invalid)} extensions")
         self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
@@ -929,7 +931,7 @@ class Endcord:
         channel_id = self.active_channel["channel_id"]
 
         if refresh:
-            parent_hint = self.current_channel["parent_id"]
+            parent_hint = self.current_channel.get("parent_id")
 
         for this_guild in self.guilds:
             if this_guild["guild_id"] == guild_id:
@@ -4590,7 +4592,7 @@ class Endcord:
             else:
                 mpv_path = ""
             self.update_extra_line("Media will be opened in native app")
-            peripherals.native_open(path, mpv_path)
+            peripherals.native_open(path, mpv_path, yt_in_mpv=self.config["yt_in_mpv"])
 
 
     def update_chat(self, keep_selected=True, change_amount=0, select_message_index=None, scroll=True):
@@ -6057,6 +6059,18 @@ class Endcord:
         self.update_status_line()
 
 
+    def get_media_session_id(self):
+        """Return current media session id"""
+        if self.voice_gateway:
+            return self.voice_gateway.get_media_session_id()
+
+
+    def get_voice_channel_id(self):
+        """Return current voice channel id"""
+        if self.in_call:
+            return self.in_call["channel_id"]
+
+
     def send_desktop_notification(self, new_message):
         """
         Send desktop notification, and handle its ID so it can be removed.
@@ -6307,6 +6321,10 @@ class Endcord:
         if self.enable_rpc:
             self.rpc = rpc.RPC(self.discord, self.my_user_data, self.config)
 
+        # start game detection service
+        if self.enable_game_detection:
+            self.game_detection = game_detection.GameDetection(self, self.discord)
+
         # start extra line remover thread
         threading.Thread(target=self.extra_line_remover, daemon=True).start()
 
@@ -6443,7 +6461,19 @@ class Endcord:
             if self.enable_rpc:
                 new_activities = self.rpc.get_activities()
                 if new_activities is not None and self.gateway_state == 1:
-                    self.my_activities = new_activities
+                    self.my_activities = new_activities + self.game_detection.get_activities(force=True)
+                    self.gateway.update_presence(
+                        self.my_status["status"],
+                        custom_status=self.my_status["custom_status"],
+                        custom_status_emoji=self.my_status["custom_status_emoji"],
+                        activities=self.my_activities,
+                    )
+
+            # send new detectable games activities
+            if self.enable_game_detection:
+                new_activities = self.game_detection.get_activities()
+                if new_activities is not None and self.gateway_state == 1:
+                    self.my_activities = new_activities + self.rpc.get_activities(force=True)
                     self.gateway.update_presence(
                         self.my_status["status"],
                         custom_status=self.my_status["custom_status"],

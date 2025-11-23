@@ -1,7 +1,6 @@
 import base64
 import gc
 import http.client
-import json
 import logging
 import random
 import socket
@@ -14,6 +13,7 @@ import urllib
 import urllib.parse
 import zlib
 
+import orjson as json
 import socks
 import websocket
 from discord_protos import PreloadedUserSettings
@@ -137,11 +137,7 @@ class Gateway():
 
 
     def thread_guard(self):
-        """
-        Check if reconnect is requested and run reconnect thread if its not running.
-        This is one in main thread so other threads are not further recursing when
-        reconnecting multiple times.
-        """
+        """Check if reconnect is requested and run reconnect thread if its not running"""
         while self.run:
             if self.reconnect_requested:
                 self.reconnect_requested = False
@@ -1686,7 +1682,7 @@ class Gateway():
             op = json.loads(zlib_decompress(self.ws.recv()))["op"]
             logger.info("Connection resumed")
             return op
-        except json.decoder.JSONDecodeError:
+        except json.JSONDecodeError:
             logger.info("Failed to resume connection")
             return 9
 
@@ -1959,6 +1955,12 @@ class Gateway():
     def set_want_summaries(self, want):
         """Set if client wants to receive summaries"""
         self.want_summaries = want
+
+
+    def set_offline(self):
+        """Set offline client status"""
+        # this will trigger reconnect from thread guard
+        self.reconnect_requested = True
 
 
     def get_ready(self):

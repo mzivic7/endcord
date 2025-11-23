@@ -1,13 +1,7 @@
-Add game detection service
-    option in settings
-    use head request to check data version
-    get /api/v9/applications/detectable
-    save to file
-    monitor processes
-    check new process in list
-    update activity session
-    update presence
-
+When api request fails set offline status and avoid errors
+    add returned values to discord.py
+    in app.py look for self.discord calls that can fail
+    prevent errors by skipping subsequent code
 Fix member list not updating when switching between same-guild channels
 Add window borders
 New screenshots in higher resolution

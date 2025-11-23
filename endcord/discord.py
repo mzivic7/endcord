@@ -1,6 +1,5 @@
 import base64
 import http.client
-import json
 import logging
 import os
 import re
@@ -10,6 +9,7 @@ import time
 import urllib.parse
 import uuid
 
+import orjson as json
 import socks
 from discord_protos import FrecencyUserSettings, PreloadedUserSettings
 from google.protobuf.json_format import MessageToDict, ParseDict
@@ -65,7 +65,7 @@ def build_multipart_body(data):
         f"--{boundary}",
         'Content-Disposition: form-data; name="payload_json"',
         "",
-        json.dumps(data),
+        json.dumps(data).decode("utf-8"),
         f"--{boundary}--",
         "",
     ]
@@ -106,6 +106,7 @@ class Discord():
         self.user_agent = user_agent
         self.proxy = urllib.parse.urlsplit(proxy)
         self.my_id = self.get_my_id(exit_on_error=True)
+        self.activity_token = None
         self.protos = [[], []]
         self.stickers = []
         self.my_commands = []
@@ -390,8 +391,8 @@ class Discord():
             data = json.loads(response.read())
             connection.close()
             # debug_chat
-            # with open("messages.json", "w") as f:
-            #     json.dump(data, f, indent=2)
+            # from endcord import debug
+            # debug.save_json(data, "messages.json", False)
             return prepare_messages(data)
         logger.error(f"Failed to fetch messages. Response code: {response.status}")
         connection.close()
@@ -1021,7 +1022,6 @@ class Discord():
             }
 
         url = "/api/v9/users/@me/guilds/%40me/settings"
-        logger.info(message_dict)
         message_data = json.dumps(message_dict)
         try:
             connection = self.get_connection(self.host, 443)
@@ -1523,7 +1523,6 @@ class Discord():
             return None
         if response.status != 204:
             logger.error(f"Failed to pin a message: Response code: {response.status}")
-            logger.info(response.read())
             connection.close()
             return False
         connection.close()
@@ -1921,6 +1920,35 @@ class Discord():
         return None
 
 
+    def send_update_activity_session(self, app_id, exe_path, closed, session_id, media_session_id=None, voice_channel_id=None):
+        """Send update for currently running activity session"""
+        message_data = json.dumps({
+            "token": self.activity_token,
+            "application_id": app_id,
+            "share_activity": True,
+            "exePath": exe_path,
+            "voice_channel_id": voice_channel_id,
+            "session_id": session_id,
+            "media_session_id": media_session_id,
+            "closed": closed,
+        })
+        url = "/api/v9/activities"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("POST", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            self.activity_token = json.loads(response.read())["token"]
+            connection.close()
+            return self.activity_token
+        logger.error(f"Failed to update activity session. Response code: {response.status}")
+        connection.close()
+        return None
+
+
     def get_voice_regions(self):
         """Get voice regions list"""
         if self.voice_regions:
@@ -1981,3 +2009,57 @@ class Discord():
         logger.error(f"Failed to fetch ranked voice regions. Response code: {response.status}")
         connection.close()
         return self.ranked_voice_regions
+
+
+    def check_detectable_apps_version(self):
+        """Get last-modified value for list of detectable applications"""
+        # TOKEN IS NOT USED
+        message_data = None
+        url = "/api/v9/applications/detectable"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("HEAD", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return None
+        if response.status == 200:
+            last_modified = response.getheader("Last-Modified")
+            connection.close()
+            return last_modified
+        connection.close()
+        return None
+
+
+    def get_detectable_apps(self, save_path):
+        """Get and save list (as ndjson) of detectable applications, containing all detectable games"""
+        message_data = None
+        url = "/api/v9/applications/detectable"
+        try:
+            connection = self.get_connection(self.host, 443)
+            connection.request("GET", url, message_data, self.header)
+            response = connection.getresponse()
+        except (socket.gaierror, TimeoutError):
+            connection.close()
+            return False
+        json_array_objects = peripherals.json_array_objects   # to skip name lookup
+        if response.status == 200:
+            with open(save_path, "wb") as f:
+                try:
+                    for app in json_array_objects(response):
+                        executables = []
+                        for exe in app["executables"]:
+                            os = exe["os"]
+                            os = 0 if os == "linux" else 1 if os == "win32" else 2 if os == "darwin" else None
+                            if os is not None:
+                                executables.append((os, exe["name"].lower()))
+                        if not executables:
+                            continue
+                        ready_app = (app["id"], app["name"], executables)
+                        f.write(json.dumps(ready_app) + b"\n")
+                except Exception as e:
+                    logger.error(f"Error decoding detectable apps json: {e}")
+                    return False
+                return True
+        connection.close()
+        return False

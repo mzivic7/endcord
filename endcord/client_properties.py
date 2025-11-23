@@ -7,9 +7,10 @@ import sys
 import uuid
 
 # default client properties
-CLIENT_BUILD_NUMBER = 400453   # should only affect experimental features availability
-USER_AGENT_WEB = "Mozilla/5.0 (%OS; rv:144.0) Gecko/20100101 Firefox/144.0"
-USER_AGENT_DESKTOP = "Mozilla/5.0 (%OS) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.112 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36"
+CLIENT_BUILD_NUMBER = 471383   # should only affect experimental features availability
+CLIENT_VERSION = "0.0.115"
+USER_AGENT_WEB = "Mozilla/5.0 (%OS; rv:145.0) Gecko/20100101 Firefox/145.0"
+USER_AGENT_DESKTOP = f"Mozilla/5.0 (%OS) AppleWebKit/537.36 (KHTML, like Gecko) discord/{CLIENT_VERSION} Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36"
 LINUX_UA_STRING = "X11; Linux x86_64"
 WINDOWS_UA_STRING = "Windows NT %VER; Win64; x64"
 MACOS_UA_STRING = "Machintos; Intel Mac OS X %VER"
@@ -54,6 +55,7 @@ def get_anonymous_properties():
         "client_build_number": CLIENT_BUILD_NUMBER,
         "client_event_source": None,
         "has_client_mods": False,
+        "launch_signature": generate_launch_signature(),
         "client_launch_id": str(uuid.uuid4()),
         "client_heartbeat_session_id": str(uuid.uuid4()),   # used for persisted analytics heartbeat
     }
@@ -85,6 +87,7 @@ def get_default_properties():
         "os": operating_system,
         "browser": "Discord Client",
         "release_channel": "stable",
+        "client_version": CLIENT_VERSION,
         "os_version": os_version,
         "os_arch": arch,
         "app_arch": arch,
@@ -92,10 +95,11 @@ def get_default_properties():
         "has_client_mods": False,
         "browser_user_agent": "",
         "browser_version": "",
+        "runtime_environment": "native",
         "client_build_number": CLIENT_BUILD_NUMBER,
         "native_build_number": None,
         "client_event_source": None,
-        "client_app_state": "unfocused",
+        "launch_signature": generate_launch_signature(),
         "client_launch_id": str(uuid.uuid4()),
         "client_heartbeat_session_id": str(uuid.uuid4()),
     }
@@ -105,6 +109,13 @@ def get_default_properties():
     user_agent = adjust_user_agent_os(USER_AGENT_DESKTOP, sys.platform, os_version)
 
     return add_user_agent(data, user_agent)
+
+
+def generate_launch_signature():
+    """Gebnerate launch singature"""
+    bits = 0b00000000100000000001000000010000000010000001000000001000000000000010000010000001000000000100000000000001000000000000100000000000
+    launch_signature = uuid.uuid4().int & (~bits & ((1 << 128) - 1))
+    return str(uuid.UUID(int=launch_signature))
 
 
 def add_for_gateway(data):
@@ -121,33 +132,41 @@ def add_user_agent(data, user_agent):
     """Add browser user agent to client properties and extract browser version"""
     browser_version = ""
     if "Firefox" in user_agent:
-        match = re.search(r"Firefox/([\d\.]+);", user_agent)
+        match = re.search(r"Firefox/([\d\.]+)", user_agent)
         if match:
             browser_version = match.group(1)
     if "Opera" in user_agent:
-        match = re.search(r"Opera/([\d\.]+);", user_agent)
+        match = re.search(r"Opera/([\d\.]+)", user_agent)
         if match:
             browser_version = match.group(1)
     if "Trident" in user_agent:
-        match = re.search(r"Trident\/.*rv:([\d\.]+);", user_agent)
+        match = re.search(r"Trident\/.*rv:([\d\.]+)", user_agent)
         if match:
             browser_version = match.group(1)
     if "Safari" in user_agent:
-        match = re.search(r"Version/([\d\.]+).*Safari/;", user_agent)
+        match = re.search(r"Version/([\d\.]+).*Safari/", user_agent)
         if match:
             browser_version = match.group(1)
     elif "Electron" in user_agent:
-        match = re.search(r"Elelctron/([\d\.]+);", user_agent)
+        match = re.search(r"Elelctron/([\d\.]+)", user_agent)
         if match:
             browser_version = match.group(1)
     else:
-        match = re.search(r"Chrome/([\d\.]+);", user_agent)
+        match = re.search(r"Chrome/([\d\.]+)", user_agent)
         if match:
             browser_version = match.group(1)
 
     data["browser_user_agent"] = user_agent
     data["browser_version"] = browser_version
+    return data
 
+
+def add_client_version(data, user_agent):
+    """Add client version from User-Agent"""
+    if "discord/" in user_agent:
+        match = re.search(r"discord\/([\d\.]+)", user_agent)
+        if match:
+            data["client_version"] = match.group(1)
     return data
 
 

@@ -319,7 +319,7 @@ def toggle_experimental(check_only=False):
     return not enable
 
 
-def enable_extensions(enable=True, check_only=False):
+def enable_extensions(enable=True, check_only=False, silent=False):
     """"Enable/disable extensions support in the code"""
     path = "./endcord/app.py"
     with open(path, "r", encoding="utf-8") as f:
@@ -337,7 +337,7 @@ def enable_extensions(enable=True, check_only=False):
     if changed and not check_only:
         with open(path, "w", encoding="utf-8") as f:
             f.writelines(lines)
-    if not check_only:
+    if not check_only and not silent:
         fprint(f"Extensions {"enabled" if enable else "disabled"}!")
 
 
@@ -668,6 +668,6 @@ if __name__ == "__main__":
     else:
         build_with_pyinstaller(args.onedir, args.nosoundcard)
 
-    enable_extensions(enable=True)
+    enable_extensions(enable=True, silent=True)
 
     sys.exit()

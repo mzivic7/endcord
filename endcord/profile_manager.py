@@ -602,7 +602,7 @@ def manage(profiles_path, external_selected, force_open=False):
         profiles_enc = load_secret()
         try:
             profiles_enc = json.loads(profiles_enc)
-        except json.decoder.JSONDecodeError:
+        except json.JSONDecodeError:
             remove_secret()   # failsafe for remnants of old save method
             profiles_enc = None
         if not profiles_enc:
