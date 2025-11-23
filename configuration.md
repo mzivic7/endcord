@@ -60,7 +60,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_cache_deleted = 30`  
     Limit number of cached deleted messages per channel.
 - `tree_show_folders = True`  
-    Wether to show or hide server folders in tree.
+    Whether to show or hide server folders in tree.
 - `wrap_around = True`  
     Wrap around selection in tree and extra window, i.e. go to first when moving selection past last item and opposite.
 - `mouse = True`  
@@ -128,7 +128,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `linux_ringtone_outgoing = "phone-outgoing-call"`  
     Sound played when there is outgoing call. Linux only. Set to None to disable. Sound names can be found in `/usr/share/sounds/freedesktop/stereo`, without extension.
 - `custom_ringtone_outgoing = None`  
-    Path to audi file played when there is outgoing call. Set to `None` to disable. The file will be played in loop.
+    Path to audio file played when there is outgoing call. Set to `None` to disable. The file will be played in loop.
 - `yt_dlp_path = "yt-dlp"`  
     Path to [yt-dlp](https://github.com/yt-dlp/yt-dlp) executable or command. Used for playing youtube videos.
 - `yt_dlp_format = 18`  
@@ -136,7 +136,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `mpv_path = "mpv"`  
     Path to [mpv](https://mpv.io/) executable or command. Used for playing youtube videos without ascii art.
 - `yt_in_mpv = False`  
-    Wether to open youtube links in mpv or in browser.  
+    Whether to open youtube links in mpv or in browser.  
 -  `client_properties = "default"`  
     Client properties are used by discord in spam detection system. They contain various system information like operating system and browser user agent. There are 2 options available: `"default"` and `"anonymous"`.  
     - `"default"` - Approximately what official desktop client sends. Includes: OS version, architecture, Linux window manager, locale.  

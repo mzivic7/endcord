@@ -52,7 +52,7 @@
 - `toggle_tab`  
     Toggle tabbed (pinned) state of currently active channel.
 - `switch_tab [num]`  
-    Switch to specified tab by ist number.
+    Switch to specified tab by its number.
 - `show_pinned`  
     Show pinned messages for current channel.
 - `quit`  

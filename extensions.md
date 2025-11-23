@@ -27,7 +27,7 @@ To prevent extension injection (malware can modify endcord config to enable exte
 It is recommended to use `endcord-extension` or `endcord` tags on github and other git hosting services for easier extension search.  
 
 ### Logging
-Extensions can add log entries at any lavel and will have their name in the module name section of log entry.  
+Extensions can add log entries at any level and will have their name in the module name section of log entry.  
 To add log entry from extension:  
 First `imprt logging`. Then add this at global part of the code: `logger = logging.getLogger(__name__)`.  
 Now to add an `info` level log entry anywhere in the code: `logger.info("Text to be logged")`. Or use any other of the log levels from `logging` library.  

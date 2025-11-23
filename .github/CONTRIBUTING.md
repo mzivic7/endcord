@@ -137,7 +137,7 @@ def zstd_decompress(data):
 ```
 Use `&compress=zstd-stream` in gateway url.
 
-### Decode X-Super-Sroperties
+### Decode X-Super-Properties
 ```py
 import base64
 import json

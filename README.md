@@ -317,7 +317,7 @@ Recommended terminal size for proper viewing is minimum 120 columns and 32 rows,
 
 ### RPC
 For now RPC only supports Rich Presence over IPC, which means no subscriptions, join requests, lobby, etc.  
-Because of this, some apps may not connect, misbehave or even error. If that happen, disable RPC in config.  
+Because of this, some apps may not connect, misbehave or even error. If that happens, disable RPC in config.  
 If this happens, more info about what is going on can be found in log, when endcord is in debug mode.  
 
 ### Game detection
@@ -456,7 +456,7 @@ Nuitka requirements:
 
 ### Free-threaded Python
 Endcord does work with free-threaded python, and it significantly improves media player performance with large video resolutions, by allowing decoding, video and sound to be played in separate threads, completely removing crackling sound when playing on high "terminal resolution".  
-But currently building does not work in this mode, nuitka [doesnt support free-threaded mode](<https://github.com/Nuitka/Nuitka/issues/3062>) yet.  
+But currently building does not work in this mode, nuitka [doesn't support free-threaded mode](<https://github.com/Nuitka/Nuitka/issues/3062>) yet.  
 Anyway, to run it from source:  
 First install python with uv: `uv python install 3.14t`, it must be >= 3.14t (because some libraries dont have free-threaded support for < 3.14).  
 Install dependencies: `uv sync --python 3.14t --group media`  
