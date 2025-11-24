@@ -1,7 +1,3 @@
-When api request fails set offline status and avoid errors
-    add returned values to discord.py
-    in app.py look for self.discord calls that can fail
-    prevent errors by skipping subsequent code
 Fix member list not updating when switching between same-guild channels
 Add window borders
 New screenshots in higher resolution

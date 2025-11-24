@@ -29,11 +29,12 @@ NO_NOTIFY_SOUND_DE = ("kde", "plasma")   # linux desktops without notification s
 
 
 # platform specific code
+have_termux_notify = False
 if sys.platform == "win32":
     import win32clipboard
     from windows_toasts import Toast, WindowsToaster
     toaster = WindowsToaster(APP_NAME)
-if sys.platform == "linux":
+elif sys.platform == "linux":
     have_gdbus = shutil.which("gdbus")
     have_notify_send = shutil.which("notify-send")
     have_termux_notify = shutil.which("termux-notification")

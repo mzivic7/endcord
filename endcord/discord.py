@@ -172,7 +172,7 @@ class Discord():
             raise SystemExit("unauthorized access. Probably invalid token. Exiting...")
         logger.error(f"Failed to get my id. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_user(self, user_id, extra=False):
@@ -225,7 +225,7 @@ class Discord():
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_user_guild(self, user_id, guild_id):
@@ -281,7 +281,7 @@ class Discord():
             }
         logger.error(f"Failed to fetch user data. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_dms(self):
@@ -300,7 +300,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return None
+            return None, None
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
@@ -328,7 +328,7 @@ class Discord():
             return dms, dms_id
         logger.error(f"Failed to fetch dm list. Response code: {response.status}")
         connection.close()
-        return None, None
+        return [], []
 
 
     def get_channels(self, guild_id):
@@ -367,7 +367,7 @@ class Discord():
             return channels
         logger.error(f"Failed to fetch guild channels. Response code: {response.status}")
         connection.close()
-        return None
+        return []
 
 
     def get_messages(self, channel_id, num=50, before=None, after=None, around=None):
@@ -396,7 +396,7 @@ class Discord():
             return prepare_messages(data)
         logger.error(f"Failed to fetch messages. Response code: {response.status}")
         connection.close()
-        return None
+        return []
 
 
     def get_reactions(self, channel_id, message_id, reaction):
@@ -423,7 +423,7 @@ class Discord():
             return reaction
         logger.error(f"Failed to fetch reaction details: {reaction}. Response code: {response.status}")
         connection.close()
-        return False
+        return []
 
 
     def get_mentions(self, num=25, roles=True, everyone=True):
@@ -458,7 +458,7 @@ class Discord():
             return mentions
         logger.error(f"Failed to fetch mentions. Response code: {response.status}")
         connection.close()
-        return None
+        return []
 
 
     def get_stickers(self):
@@ -473,7 +473,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return None
+            return []
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
@@ -493,7 +493,7 @@ class Discord():
             return self.stickers
         logger.error(f"Failed to fetch stickers. Response code: {response.status}")
         connection.close()
-        return None
+        return []
 
 
     def get_settings_proto(self, num):
@@ -526,7 +526,7 @@ class Discord():
             return self.protos[num-1]
         logger.error(f"Failed to fetch settings. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def patch_settings_proto(self, num, data):
@@ -552,7 +552,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return False
+            return None
         if response.status == 200:
             connection.close()
             return True
@@ -571,12 +571,13 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return False
+            return None
         if response.status == 200:
             connection.close()
             return True
         logger.error(f"Failed to patch user setting {setting}. Response code: {response.status}")
         connection.close()
+        return False
 
 
     def get_rpc_app(self, app_id):
@@ -600,7 +601,7 @@ class Discord():
             }
         logger.error(f"Failed to fetch application rpc data. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_rpc_app_assets(self, app_id):
@@ -626,7 +627,7 @@ class Discord():
             return assets
         logger.error(f"Failed to fetch application assets. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_rpc_app_external(self, app_id, asset_url):
@@ -652,7 +653,7 @@ class Discord():
             return retry_after
         logger.error(f"Failed to fetch application external assets. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_file(self, url, save_path):
@@ -755,7 +756,7 @@ class Discord():
             }
         logger.error(f"Failed to send message. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_update_message(self, channel_id, message_id, message_content):
@@ -793,7 +794,7 @@ class Discord():
 
         logger.error(f"Failed to edit the message. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_delete_message(self, channel_id, message_id):
@@ -807,12 +808,13 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to delete the message. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to delete the message. Response code: {response.status}")
         connection.close()
-        return True
+        return False
+
 
 
     def send_ack(self, channel_id, message_id, manual=False):
@@ -834,12 +836,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 200:
-            logger.error(f"Failed to set the message as seen. Response code: {response.status}")
+        if response.status == 200:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to set the message as seen. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def send_ack_bulk(self, channels):
@@ -859,12 +861,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to send bulk message ack. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to send bulk message ack. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def send_typing(self, channel_id):
@@ -880,14 +882,14 @@ class Discord():
             return None
         if response.status == 204:
             connection.close()
-            return None
+            return True
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
             return int(data["message_send_cooldown_ms"] / 1000)
         logger.error(f"Failed to set typing. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_reaction(self, channel_id, message_id, reaction):
@@ -902,12 +904,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to send reaction: {reaction}. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to send reaction: {reaction}. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def remove_reaction(self, channel_id, message_id, reaction):
@@ -922,12 +924,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to delete reaction: {reaction}. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to delete reaction: {reaction}. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def send_mute_guild(self, mute, guild_id):
@@ -1181,12 +1183,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to join a thread. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to join a thread. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def leave_thread(self, thread_id):
@@ -1201,12 +1203,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to leave a thread. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to leave a thread. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def search(self, object_id, channel=False, content=None, channel_id=None, author_id=None, mentions=None, has=None, max_id=None, min_id=None, pinned=None, offset=None):
@@ -1246,7 +1248,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return 0, []
+            return None, []
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
@@ -1420,7 +1422,7 @@ class Discord():
             return True
         logger.error(f"Failed to send app interaction. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_vote(self, channel_id, message_id, vote_ids, clear=False):
@@ -1437,12 +1439,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to send poll vote. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to send poll vote. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def block_user(self, user_id, ignore=False):
@@ -1461,12 +1463,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed block/ignore user. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed block/ignore user. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def unblock_user(self, user_id, ignore=False):
@@ -1482,12 +1484,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to unblock user. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to unblock user. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def get_pinned(self, channel_id):
@@ -1507,7 +1509,7 @@ class Discord():
             return prepare_messages(data, have_channel_id=True)
         logger.error(f"Failed to get pinned messages. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_pin(self, channel_id, message_id):
@@ -1521,12 +1523,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to pin a message: Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to pin a message: Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def search_gifs(self, query):
@@ -1586,7 +1588,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return None, 1
+            return None, 3   # network error
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
@@ -1624,7 +1626,7 @@ class Discord():
                 self.uploading.remove((upload_url, connection))
             except (socket.gaierror, TimeoutError):
                 connection.close()
-                return False
+                return None
             if response.status == 200:
                 connection.close()
                 return True
@@ -1675,7 +1677,7 @@ class Discord():
             return True
         logger.error(f"Failed to delete attachment. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def refresh_attachment_url(self, url):
@@ -1696,7 +1698,7 @@ class Discord():
                 return data["refreshed_urls"][0]["refreshed"]
         logger.error(f"Failed to refresh attachment URL. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_voice_message(self, channel_id, path, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=None):
@@ -1751,7 +1753,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return False
+            return None
         if response.status == 200:
             connection.close()
             return True
@@ -1770,7 +1772,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return False
+            return None
         if response.status == 200:
             data = json.loads(response.read())
             connection.close()
@@ -1797,12 +1799,12 @@ class Discord():
         except (socket.gaierror, TimeoutError):
             connection.close()
             return None
-        if response.status != 204:
-            logger.error(f"Failed to ring private channel recipients. Response code: {response.status}")
+        if response.status == 204:
             connection.close()
-            return False
+            return True
+        logger.error(f"Failed to ring private channel recipients. Response code: {response.status}")
         connection.close()
-        return True
+        return False
 
 
     def get_pfp(self, user_id, pfp_id, size=80):
@@ -1833,7 +1835,7 @@ class Discord():
             return destination
         logger.error(f"Failed to download pfp. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_emoji(self, emoji_id, size=None):
@@ -1866,7 +1868,7 @@ class Discord():
             return destination
         logger.error(f"Failed to download emoji. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_invite_url(self, channel_id, max_age, max_uses):
@@ -1897,7 +1899,7 @@ class Discord():
             return None
         logger.error(f"Failed to generate invite url. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_my_standing(self):
@@ -1917,7 +1919,7 @@ class Discord():
             return data["account_standing"]["state"]
         logger.error(f"Failed to fetch account standing. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def send_update_activity_session(self, app_id, exe_path, closed, session_id, media_session_id=None, voice_channel_id=None):
@@ -1946,7 +1948,7 @@ class Discord():
             return self.activity_token
         logger.error(f"Failed to update activity session. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_voice_regions(self):
@@ -1980,7 +1982,7 @@ class Discord():
             return regions
         logger.error(f"Failed to fetch voice regions. Response code: {response.status}")
         connection.close()
-        return None
+        return False
 
 
     def get_best_voice_region(self):
@@ -2028,7 +2030,7 @@ class Discord():
             connection.close()
             return last_modified
         connection.close()
-        return None
+        return False
 
 
     def get_detectable_apps(self, save_path):
@@ -2041,7 +2043,7 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return False
+            return None
         json_array_objects = peripherals.json_array_objects   # to skip name lookup
         if response.status == 200:
             with open(save_path, "wb") as f:

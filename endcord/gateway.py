@@ -1697,7 +1697,7 @@ class Gateway():
             if self.resumable:
                 self.resumable = False
                 code = self.resume()
-            if code == 9:
+            if code == 9 or code is None:
                 self.ws.close(timeout=0)   # this will stop receiver
                 time.sleep(1)   # so receiver ends before opening new socket
                 reset_inflator()   # otherwise decompression wont work

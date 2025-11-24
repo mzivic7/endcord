@@ -177,6 +177,12 @@ class RPC:
             op, init_data = receive_data(connection)
             if op is None or init_data is None:
                 return
+            if isinstance(init_data, str):   # discord client sends a number string for unknown reason
+                if sys.platform == "win32":
+                    win32file.CloseHandle(connection)
+                else:
+                    connection.close()
+                return
             app_id = init_data["client_id"]
             logger.debug(f"RPC app id: {app_id}")
             rpc_data = self.discord.get_rpc_app(app_id)
@@ -225,7 +231,7 @@ class RPC:
                                         external_asset = self.discord.get_rpc_app_external(app_id, activity["assets"][asset_client])
                                         if isinstance(external_asset, float):   # rate limited
                                             time.sleep(external_asset + 0.2)
-                                        elif external_asset is None:
+                                        elif not external_asset:
                                             break
                                         else:
                                             assets[asset_client] = f"mp:{external_asset[0]["external_asset_path"]}"
