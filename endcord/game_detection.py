@@ -278,9 +278,10 @@ class GameDetection:
 
         # find existing detectable apps and check version
         path, old_date = find_detectable_apps_file(os.path.expanduser(peripherals.config_path))
-        new_date = self.discord.check_detectable_apps_version()[:-4]
+        new_date = self.discord.check_detectable_apps_version()
+        dt = None
         if new_date:
-            dt = datetime.strptime(new_date, "%a, %d %b %Y %H:%M:%S")
+            dt = datetime.strptime(new_date[:-4], "%a, %d %b %Y %H:%M:%S")
             new_date = dt.strftime("%Y-%m-%d")
 
         # download new detectable apps

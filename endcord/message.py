@@ -574,11 +574,12 @@ def prepare_poll(poll):
         answer_id = answer["answer_id"]
         me_voted = False
         answer_votes = 0
-        for answer_res in poll["results"]["answer_counts"]:
-            if answer_res["id"] == answer_id:
-                answer_votes = answer_res["count"]
-                me_voted = answer_res["me_voted"]
-                break
+        if "results" in poll:
+            for answer_res in poll["results"]["answer_counts"]:
+                if answer_res["id"] == answer_id:
+                    answer_votes = answer_res["count"]
+                    me_voted = answer_res["me_voted"]
+                    break
         options.append({
             "answer": answer["poll_media"].get("text"),
             "id": answer_id,
