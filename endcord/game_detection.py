@@ -66,8 +66,12 @@ def get_user_processes_diff_linux():
         if cmdline.startswith("/usr/lib"):
             continue
 
-        # add to cache and newly added processes
+        # if path doesnt have / or \ its definitely not a game
         path = cmdline.replace("\\", "/").replace("\x00", "")
+        if "/" not in path:
+            continue
+
+        # add to cache and newly added processes
         proc_cache[pid] = [path, True]
         if path not in added:
             added.append(path)
@@ -120,8 +124,12 @@ def get_user_processes_diff_windows():
         if ":\\Windows\\" in cmdline or ":\\Program Files\\WindowsApps\\" in cmdline:
             continue
 
-        # add to cache and newly added processes
+        # if path doesnt have / or \ its definitely not a game
         path = cmdline.replace("\\", "/").replace("\x00", "")
+        if "/" not in path:
+            continue
+
+        # add to cache and newly added processes
         proc_cache[pid] = [path, True]
         if path not in added:
             added.append(path)

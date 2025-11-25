@@ -1588,7 +1588,7 @@ class Gateway():
 
     def send_heartbeat(self):
         """Send heartbeat to gateway, if response is not received, triggers reconnect, should be run in a thread"""
-        logger.info(f"Heartbeater started, interval={self.heartbeat_interval/1000}s")
+        logger.debug(f"Heartbeater started, interval={self.heartbeat_interval/1000}s")
         self.heartbeat_running = True
         self.heartbeat_received = True
         # wait for ready event for some time
@@ -1638,7 +1638,7 @@ class Gateway():
             # in this time heartbeat ack should be received from discord
             time.sleep(1)
         self.state = 0
-        logger.info("Heartbeater stopped")
+        logger.debug("Heartbeater stopped")
         self.reconnect_requested = True
 
 
@@ -1680,8 +1680,8 @@ class Gateway():
         self.send(payload)
         try:
             op = json.loads(zlib_decompress(self.ws.recv()))["op"]
-            logger.info("Connection resumed")
-            return op
+            logger.debug(f"Connection resumed with code {op}")
+            return op or True
         except json.JSONDecodeError:
             logger.info("Failed to resume connection")
             return 9
@@ -1698,6 +1698,7 @@ class Gateway():
                 self.resumable = False
                 code = self.resume()
             if code == 9 or code is None:
+                logger.debug("Restarting connection")
                 self.ws.close(timeout=0)   # this will stop receiver
                 time.sleep(1)   # so receiver ends before opening new socket
                 reset_inflator()   # otherwise decompression wont work
@@ -1705,7 +1706,6 @@ class Gateway():
                 self.ws = websocket.WebSocket()
                 self.connect_ws()
                 self.authenticate()
-                logger.info("Restarting connection")
             self.wait = False
             # restarting threads
             if not self.receiver_thread.is_alive():

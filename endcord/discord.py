@@ -2054,7 +2054,10 @@ class Discord():
                             os = exe["os"]
                             os = 0 if os == "linux" else 1 if os == "win32" else 2 if os == "darwin" else None
                             if os is not None:
-                                executables.append((os, exe["name"].lower()))
+                                path_piece = exe["name"].lower()
+                                if not path_piece.startswith("/"):
+                                    path_piece = "/" + path_piece
+                                executables.append((os, path_piece))
                         if not executables:
                             continue
                         ready_app = (app["id"], app["name"], executables)

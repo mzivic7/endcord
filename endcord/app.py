@@ -146,14 +146,14 @@ class Endcord:
         properties = [peripherals.detect_runtime()]
         if support_media:
             properties.append("ASCII media")
-        if shutil.which(self.config["yt_dlp_path"]):
-            properties.append("have yt-dlp")
-        if shutil.which(self.config["mpv_path"]):
-            properties.append("have mpv")
         if cythonized:
             properties.append("cythonized")
         if uses_pgcurses:
             properties.append("windowed")
+        if shutil.which(self.config["mpv_path"]):
+            properties.append("have mpv")
+        if shutil.which(self.config["yt_dlp_path"]):
+            properties.append("have yt-dlp")
         logger.info("Properties: " + ", ".join(properties))
         del (properties)
 
