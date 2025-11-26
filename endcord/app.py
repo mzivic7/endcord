@@ -6620,7 +6620,7 @@ class Endcord:
                     slowmode_time = self.discord.send_typing(self.active_channel["channel_id"])
                     self.typing_sent = int(time.time())
                     # check for slowmode
-                    if slowmode_time and self.active_channel["channel_id"] not in self.slowmode_times:
+                    if slowmode_time and slowmode_time is not True and self.active_channel["channel_id"] not in self.slowmode_times:
                         self.slowmode_times[self.active_channel["channel_id"]] = slowmode_time
                         self.update_extra_line(f"Slowmode is enabled, will be able to send message in {slowmode_time}s")
                         if not self.slowmode_thread or not self.slowmode_thread.is_alive():
