@@ -311,11 +311,12 @@ class Endcord:
                 if not callable(ext_class):
                     log_text_invalid.append(f"  {ext_name} - ERROR: Extension class is invalid")
                     continue
-                if ext_app_version != version:
-                    log_text.append(f"  {ext_name} {ext_version} - WARNING: This extension is built for different endcord version!")
                 instance = ext_class(self)
                 self.extensions.append(instance)
-                log_text.append(f"  {ext_name} {ext_version} - OK")
+                if ext_app_version != version:
+                    log_text.append(f"  {ext_name} {ext_version} - WARNING: This extension is built for different endcord version!")
+                else:
+                    log_text.append(f"  {ext_name} {ext_version} - OK")
             except Exception as e:
                 log_text_invalid.append(f"  {ext_name} - ERROR: {e}")
             finally:   # restore old sys.path
