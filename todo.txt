@@ -23,6 +23,7 @@ Voice calls
     send and receive RTCP?
     send speaking event?
 
+Replace @username and #channel in input line
 Add and fix theming color options
 Optimize self.guilds by using dicts, each guild/channel is keyed with its id; if its worth it
 Optimize main loop with queues and threading

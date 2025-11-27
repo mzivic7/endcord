@@ -232,7 +232,7 @@ if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endc
         return limit_width_wch_cython(text, max_width, WIDE_RANGES)
 
 
-def normalize_string(input_string, max_length, emoji_safe=False, dots=False):
+def normalize_string(input_string, max_length, emoji_safe=False, dots=False, fill=True):
     """
     Normalize length of string, by cropping it or appending spaces.
     Set max_length to None to disable.
@@ -242,17 +242,13 @@ def normalize_string(input_string, max_length, emoji_safe=False, dots=False):
         return input_string
     if emoji_safe:
         input_string, length = limit_width_wch(input_string, max_length)
-        missing = max_length - length
-        while missing > 0:
-            input_string += " "
-            missing -= 1
-        else:
-            if dots:
-                return input_string[:-3] + "..."
-            return input_string
+        if fill:
+            input_string += " " * (max_length - length)
+        if max_length - length < 0:
+            return input_string[:-3] + "..."
         return input_string
-    while len(input_string) < max_length:
-        input_string += " "
+    if fill:
+        input_string += " " * (max_length - len(input_string))
     if len(input_string) > max_length:
         if dots:
             return input_string[:max_length-3] + "..."
@@ -1235,7 +1231,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 )
             reactions_line = lazy_replace(format_reactions, "%timestamp", lambda: generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
             reactions_line = reactions_line.replace("%reactions", reactions_separator.join(reactions))
-            reactions_line = normalize_string(reactions_line, max_length, emoji_safe=True, dots=True)
+            reactions_line = normalize_string(reactions_line, max_length-1, emoji_safe=True, dots=True, fill=False)
             temp_chat.append(reactions_line)
             if disable_formatting:
                 temp_format.append([color_base])

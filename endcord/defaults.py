@@ -191,7 +191,7 @@ keybindings = {
     "show_summaries": "ALT+115",   # Alt+S
     "copy_message_link": "ALT+117",   # Alt+U
     "go_channel": "ALT+103",   # Alt+G
-    "add_reaction": "12",   # Ctrl+L
+    "add_reaction": 12,   # Ctrl+L
     "search_gif": "ALT+102",   # Alt+F
     "record_audio": "ALT+114",   # Alt+R
     "show_reactions": "ALT+119",   # Alt+W

@@ -1680,7 +1680,7 @@ class Endcord:
                 self.restore_input_text = (input_text, "standard")
                 self.toggle_member_list()
 
-            # add reaction
+            # react
             elif action == 36 and self.messages:
                 msg_index = self.lines_to_msg(chat_sel)
                 self.add_to_store(self.active_channel["channel_id"], input_text)
@@ -4182,6 +4182,7 @@ class Endcord:
         if msg_index is None or msg_index < 0:
             return
         all_reactions = self.messages[msg_index]["reactions"]
+
         my_present_emojis = []
         my_present_ids = []
         success = False
@@ -4192,6 +4193,7 @@ class Endcord:
                 else:
                     my_present_emojis.append(reaction["emoji"])
         add_to_existing = False
+
         try:  # existing emoji index
             num = max(int(first) - 1, 0)
             if num < len(all_reactions) and num >= 0:
@@ -4203,7 +4205,8 @@ class Endcord:
                     emoji_string = selected_reaction["emoji"]
                 add_to_existing = True
         except ValueError:   # new emoji
-            emoji_string = emoji.emojize(first, language="alias", variant="emoji_type")
+            emoji_string = emoji.emojize(first, language="alias")
+
         if emoji.is_emoji(emoji_string):   # standard emoji
             if emoji_string not in my_present_emojis:
                 if len(all_reactions) < 20 or add_to_existing:
@@ -4220,6 +4223,7 @@ class Endcord:
                     self.messages[msg_index]["id"],
                     emoji_string,
                 )
+
         else:   # discord emoji
             match = re.match(match_emoji, emoji_string)
             if match:

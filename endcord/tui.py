@@ -1366,6 +1366,7 @@ class TUI():
             if start_zero:
                 self.extra_index = 0
                 self.extra_selected = 0
+
             if title_txt and not self.disable_drawing:
                 h, w = self.screen.getmaxyx()
                 if not self.win_extra_window:
@@ -1389,6 +1390,7 @@ class TUI():
                         self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(11) | curses.A_STANDOUT)
                         self.screen.noutrefresh()
                         self.draw_status_line()
+
                 if self.bordered:
                     title_txt = "─" + trim_with_dash(title_txt, dash=False) + "─" * (w - len(title_txt))
                     self.win_extra_window.insstr(0, 0, title_txt, curses.color_pair(11) | curses.A_STANDOUT)
@@ -1405,6 +1407,7 @@ class TUI():
                             self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(11) | self.attrib_map[11])
                         else:
                             self.win_extra_window.insstr(y + 1, 0, line + " " * (w - len(line)) + "\n", curses.color_pair(21) | self.attrib_map[21])
+
                 y += 2
                 while y < h:
                     self.win_extra_window.insstr(y, 0, "\n", curses.color_pair(1))
@@ -1426,6 +1429,15 @@ class TUI():
                 self.chat_hw = self.win_chat.getmaxyx()
                 if not self.member_list:
                     self.draw_chat()
+                elif self.bordered:   # have to redraw member list borders
+                    h, w = self.screen.getmaxyx()
+                    member_list_hwyx = (
+                        h - (2 + bool(self.win_extra_line)) - self.have_title - 2*self.bordered,
+                        self.member_list_width - self.bordered,
+                         self.bordered or self.have_title,
+                        w - self.member_list_width,
+                    )
+                    self.draw_border(member_list_hwyx, top=not(self.have_title))
                 if self.bordered:
                     self.draw_status_line()
                 self.draw_extra_line(self.extra_line_text)
@@ -1464,6 +1476,7 @@ class TUI():
                             self.draw_title_line()
                     else:
                         self.screen.vline(1, w - self.member_list_width-1, self.vert_line, common_h)
+
                 h, w = self.win_member_list.getmaxyx()
                 w -= 1
                 y = 0
@@ -1488,6 +1501,7 @@ class TUI():
                                     break
                             else:
                                 safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
+
                 y += 1
                 while y < h:
                     self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
