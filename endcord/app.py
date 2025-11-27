@@ -1361,9 +1361,10 @@ class Endcord:
                 embeds = self.get_msg_embeds(msg_index)
                 selected_urls = []
                 urls = self.get_msg_urls_chat(msg_index)
-                for num in self.get_url_from_selected_line(chat_sel):
-                    if urls[num] in embeds:
-                        selected_urls.append(urls[num])
+                if urls:
+                    for num in self.get_url_from_selected_line(chat_sel):
+                        if urls[num] in embeds:
+                            selected_urls.append(urls[num])
                 if len(selected_urls) == 1:
                     self.restore_input_text = (input_text, "standard")
                     selected_url = self.refresh_attachment_url(selected_urls[0])
