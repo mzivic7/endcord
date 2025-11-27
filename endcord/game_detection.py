@@ -246,7 +246,7 @@ def find_app(proc_path, list_path, my_platform):
                 elif platform_val != 2:   # macos
                     continue
                 if app_path in proc_path:
-                    return app[0], app[1], app_path
+                    return app[0], app[1], app_path[1:]
     finally:
         f.close()
     return None, None, None

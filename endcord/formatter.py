@@ -1,10 +1,13 @@
 import curses
+import importlib.util
 import logging
 import re
 import time
 from datetime import UTC, datetime
 
 import emoji
+
+from endcord.wide_ranges import WIDE_RANGES
 
 logger = logging.getLogger(__name__)
 DAY_MS = 24*60*60*1000
@@ -46,20 +49,11 @@ def sorted_indexes(input_list):
     return [i for i, x in sorted(enumerate(input_list), key=lambda x: x[1])]
 
 
-def normalize_string(input_string, max_length, emoji_safe=False):
-    """
-    Normalize length of string, by cropping it or appending spaces.
-    Set max_length to None to disable.
-    """
-    input_string = str(input_string)
-    emoji_count = count_emojis(input_string[:max_length]) if emoji_safe else 0
-    if not max_length:
-        return input_string
-    if len(input_string) + emoji_count > max_length:
-        return input_string[:max_length - emoji_count]
-    while len(input_string) + emoji_count < max_length:
-        input_string = input_string + " "
-    return input_string
+def lazy_replace(text, key, value_function):
+    """Replace key in text with result from value_function, but run it only if key is found"""
+    if key in text:
+        text = text.replace(key, value_function())
+    return text
 
 
 def trim_string(input_string, max_length):
@@ -193,22 +187,77 @@ def replace_emoji_string(line):
     return re.sub(match_emoji, TREE_EMOJI_REPLACE, line)
 
 
-def trim_at_emoji(line, limit):
-    """Remove zwj emojis that are near the limit of the string"""
-    if len(line) < limit-1:
-        return line
-    i = len(line) - 1
-    while i >= 0:
-        if emoji.is_emoji(line[i]):
-            i -= 1
+def binary_search(codepoint, ranges):
+    """Binary-search a tuple of (start, end) ranges and return 1 if codepoint is inside any range, else 0"""
+    low = 0
+    high = len(ranges) - 1
+
+    if codepoint < ranges[0][0] or codepoint > ranges[high][1]:
+        return 0
+
+    while low <= high:
+        mid = (low + high) // 2
+        start, end = ranges[mid]
+
+        if codepoint > end:
+            low = mid + 1
+        elif codepoint < start:
+            high = mid - 1
         else:
-            break
-    return line[:i+1]
+            return 1
+
+    return 0
 
 
-def count_emojis(text):
-    """Count how many emojis are in the text"""
-    return sum(1 for char in text if char in emoji.EMOJI_DATA)
+def limit_width_wch(text, max_width):
+    """Limit width of the text on the screen, because "wide characters" are 2 characters wide"""
+    total_width = 0
+    for i, ch in enumerate(text):
+        character = ord(ch)
+        if 32 <= character < 0x7f:
+            char_width = 1
+        else:
+            char_width = 1 + binary_search(character, WIDE_RANGES)
+        if total_width + char_width > max_width:
+            return text[:i], total_width
+        total_width += char_width
+    return text, total_width
+
+
+# use cython if available, ~5 times faster
+if importlib.util.find_spec("endcord_cython") and importlib.util.find_spec("endcord_cython.formatter"):
+    from endcord_cython.formatter import limit_width_wch as limit_width_wch_cython
+    def limit_width_wch(text, max_width):
+        """Limit width of the text on the screen, because "wide characters" are 2 characters wide"""
+        return limit_width_wch_cython(text, max_width, WIDE_RANGES)
+
+
+def normalize_string(input_string, max_length, emoji_safe=False, dots=False):
+    """
+    Normalize length of string, by cropping it or appending spaces.
+    Set max_length to None to disable.
+    """
+    input_string = str(input_string)
+    if not max_length:
+        return input_string
+    if emoji_safe:
+        input_string, length = limit_width_wch(input_string, max_length)
+        missing = max_length - length
+        while missing > 0:
+            input_string += " "
+            missing -= 1
+        else:
+            if dots:
+                return input_string[:-3] + "..."
+            return input_string
+        return input_string
+    while len(input_string) < max_length:
+        input_string += " "
+    if len(input_string) > max_length:
+        if dots:
+            return input_string[:max_length-3] + "..."
+        return input_string[:max_length]
+    return input_string
 
 
 def replace_discord_emoji(text):
@@ -830,24 +879,16 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                                 if trim_embed_url_size:
                                     embed_url = trim_string(embed_url, trim_embed_url_size)
                                 content += f"[{clean_type(embed["type"])} embed]: {embed_url}"
-                reply_line = (
-                    format_reply
-                    .replace("%username", normalize_string(ref_message["username"], limit_username, emoji_safe=True))
-                    .replace("%global_name", normalize_string(str(global_name_nick), limit_global_name))
-                    .replace("%timestamp", generate_timestamp(ref_message["timestamp"], format_timestamp, convert_timezone))
-                    .replace("%content", content.replace("\r", " ").replace("\n", " "))
-                )
+                reply_line = lazy_replace(format_reply, "%username", lambda: normalize_string(ref_message["username"], limit_username, emoji_safe=True))
+                reply_line = lazy_replace(reply_line, "%global_name", lambda: normalize_string(str(global_name_nick), limit_global_name, emoji_safe=True))
+                reply_line = lazy_replace(reply_line, "%timestamp", lambda: generate_timestamp(ref_message["timestamp"], format_timestamp, convert_timezone))
+                reply_line = lazy_replace(reply_line, "%content", lambda: content.replace("\r", " ").replace("\n", " "))
             else:
-                reply_line =  (
-                    format_reply
-                    .replace("%username", normalize_string("Unknown", limit_username))
-                    .replace("%global_name", normalize_string("Unknown", limit_global_name))
-                    .replace("%timestamp", "")
-                    .replace("%content", ref_message["content"].replace("\r", "").replace("\n", ""))
-                )
-            emoji_count = count_emojis(reply_line[:max_length - 3])
-            if len(reply_line) + emoji_count > max_length:
-                reply_line = reply_line[:max_length - (3 + emoji_count)] + "..."   # -3 to leave room for "..." and adjust for emojis
+                reply_line = lazy_replace(format_reply, "%username", lambda: normalize_string("Unknown", limit_username))
+                reply_line = lazy_replace(reply_line, "%global_name", lambda: normalize_string("Unknown", limit_global_name))
+                reply_line = reply_line.replace("%timestamp", "")
+                reply_line = lazy_replace(reply_line, "%content", lambda: ref_message["content"].replace("\r", "").replace("\n", ""))
+            reply_line = normalize_string(reply_line, max_length, emoji_safe=True, dots=True)
             temp_chat.append(reply_line)
             if disable_formatting or reply_color_format == color_blocked:
                 temp_format.append([reply_color_format])
@@ -864,9 +905,7 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 .replace("%username", message["interaction"]["username"][:limit_username])
                 .replace("%command", message["interaction"]["command"])
             )
-            emoji_count = count_emojis(interaction_line[:max_length - 3])
-            if len(interaction_line) + emoji_count > max_length:
-                interaction_line = interaction_line[:max_length - (3 + emoji_count)] + "..."
+            interaction_line = normalize_string(interaction_line, max_length, emoji_safe=True, dots=True)
             temp_chat.append(interaction_line)
             if disable_formatting or reply_color_format == color_blocked:
                 temp_format.append([reply_color_format])
@@ -930,14 +969,11 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             else:
                 content += f"[gif sticker] (can be opened): {sticker["name"]}"
 
-        message_line = (
-            format_message
-            .replace("%username", normalize_string(message["username"], limit_username, emoji_safe=True))
-            .replace("%global_name", normalize_string(global_name_nick, limit_global_name))
-            .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
-            .replace("%edited", edited_string if edited else "")
-            .replace("%content", content)
-        )
+        message_line = lazy_replace(format_message, "%username", lambda: normalize_string(message["username"], limit_username, emoji_safe=True))
+        message_line = lazy_replace(message_line, "%global_name", lambda: normalize_string(global_name_nick, limit_global_name))
+        message_line = lazy_replace(message_line, "%timestamp", lambda: generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
+        message_line = message_line.replace("%edited", edited_string if edited else "")
+        message_line = message_line.replace("%content", content)
 
         # find all code snippets and blocks
         code_snippets = []
@@ -997,15 +1033,14 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                 quote = False
                 newline_sign = True
                 split_on_space = 0
-            elif newline_index <= len(
-                format_newline
-                .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
-                .replace("%content", ""),
-                ):
+            else:
+                newline_text = lazy_replace(format_newline, "%timestamp", lambda: generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
+                newline_text = newline_text.replace("%content", "")
+                if newline_index <= len(newline_text):
                     newline_index = max_length
                     quote_nl = False
-            else:
-                quote_nl = False
+                else:
+                    quote_nl = False
             if message_line[newline_index] in (" ", "\n"):   # remove space and \n
                 next_line = message_line[newline_index+1:]
                 split_on_space = 1
@@ -1083,11 +1118,8 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
             else:
                 full_content = next_line
                 extra_newline_len = 0
-            new_line = (
-                format_newline
-                .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
-                .replace("%content", full_content)
-            )
+            new_line = lazy_replace(format_newline, "%timestamp", lambda: generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
+            new_line = new_line.replace("%content", full_content)
 
             # correct index for each new line
             content_index_correction = newline_len + extra_newline_len - 1 + (not split_on_space) - newline_index - quote_nl*2
@@ -1201,14 +1233,9 @@ def generate_chat(messages, roles, channels, max_length, my_id, my_roles, member
                     .replace("%reaction", emoji_str)
                     .replace("%count", f"{my_reaction}{reaction["count"]}"),
                 )
-            reactions_line = (
-                format_reactions
-                .replace("%timestamp", generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
-                .replace("%reactions", reactions_separator.join(reactions))
-            )
-            if len(reactions_line) > max_length - 5:   # -3 for "..." and -2 for safety
-                reactions_line = trim_at_emoji(reactions_line[:max_length-5], max_length-5)
-                reactions_line += "..."
+            reactions_line = lazy_replace(format_reactions, "%timestamp", lambda: generate_timestamp(message["timestamp"], format_timestamp, convert_timezone))
+            reactions_line = reactions_line.replace("%reactions", reactions_separator.join(reactions))
+            reactions_line = normalize_string(reactions_line, max_length, emoji_safe=True, dots=True)
             temp_chat.append(reactions_line)
             if disable_formatting:
                 temp_format.append([color_base])
@@ -1271,7 +1298,7 @@ def generate_status_line(my_user_data, my_status, unseen, typing, active_channel
             typing_string = typing[0]["username"]
         # -15 is for "(... is typing)"
         typing_string = typing_string[:limit_typing - 15]
-        suffix = "... is typing"
+        suffix = " is typing"
         typing_string = f"({typing_string.replace("\n ", ", ")}{suffix})"
     else:
         usernames = []
@@ -1991,9 +2018,7 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
             .replace("%timestamp", timestamp)
             .replace("%msg_count", normalize_int_str(thread["message_count"], 3))
         )
-        emoji_count = count_emojis(thread_line[:max_length - 3])
-        if len(thread_line) + emoji_count > max_length:
-            thread_line = thread_line[:max_length - (3 + emoji_count)] + "..."   # -3 to leave room for "..." and adjust for emojis
+        thread_line = normalize_string(thread_line, max_length, emoji_safe=True, dots=True)
         forum.append(thread_line)
 
         if thread["owner_id"] in blocked:
@@ -2054,7 +2079,7 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
                 if role["id"] == group_id:
                     text = role["name"]
             this_format = []
-        member_list.append(trim_at_emoji(text[:width-1], width-1) + " ")
+        member_list.append(normalize_string(text, width-1, emoji_safe=True))
         member_list_format.append(this_format)
 
     return member_list, member_list_format

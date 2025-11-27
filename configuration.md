@@ -159,6 +159,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Enable debug mode.
 
 ### Theme
+- `compact = True`  
+    Compact mode that is more space-efficient, has less borders between windows.
 - `tree_width = 32`  
     Width of channel tree in characters.
 - `extra_window_height = 6`  
@@ -224,7 +226,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `limit_thread_name = 0`  
     Limit to `%username`, `%global_name`, `%server` and `%channel` length in `format_prompt`.
 - `limit_tabs_string = 40`  
-    Limit to `%tabs` length `format_status`.
+    Limit to `%tabs` length in `format_status`.
 - `tree_vert_line = "│"`  
     A single character used to draw vertical line separating channel tree and the chat.
 - `tree_drop_down_vline = "│"`  
@@ -245,6 +247,8 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     A single character used to draw folder pointer in tree drop down menus.
 - `tree_dm_status = "●"`  
     A single character prepended to DM name in tree drop down, to indicate status: online/away/dnd. Also used in member list.
+- `border_corners = "╭╰╮╯"`  
+    Characters used to draw corners in bordered mode.
 - `username_role_colors = True`  
     Allow `%username` and `%global_name` to have color of primary role.
 - `media_ascii_palette = "  ..',;:c*loexk#O0XNW"`  

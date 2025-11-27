@@ -40,7 +40,7 @@ def main():
     any_updated = False
 
     for path in file_list:
-        if "version_update.py" not in path:
+        if "update_version.py" not in path:
             with open(path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 

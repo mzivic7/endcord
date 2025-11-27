@@ -81,21 +81,43 @@ https://discord.com/developers/docs/change-log#upcoming-application-command-perm
 - 2 - listening
 
 ### Layout
+Standard:
 ```
--------------------------------------------
-|W TITLE W|WWWWWWWWWWWW TITLE WWWWWWWWWWWW|
-|         |                        |      |
-|         |                        |MEMBER|
-|         |          CHAT          | LIST |
-|         |                        |      |
-|  TREE   |                        |      |
-|         |MMMMMMMMMMMM EXTRA2 MMMMMMMMMMM|
-|         |           EXTRA BODY          |
-|         |UUUUUUUUUUUU EXTRA1 UUUUUUUUUUU|
-|         |WWWWWWWWWWWW STATUS WWWWWWWWWWW|
-|         |[PROMPT]>                      |
--------------------------------------------
+┌────────────────────────────────────────────────┐
+│┌─TITLE─┐┌─────────────── TITLE ─────┐┌────────┐│
+││       ││                           ││        ││
+││       ││                           ││ MEMBER ││
+││       ││            CHAT           ││  LIST  ││
+││       ││                           ││        ││
+││       ││                           ││        ││
+││ TREE  │└───────────────────────────┘└────────┘│
+││       │┌────────────── EXTRA2 ───────────────┐│
+││       ││             EXTRA BODY              ││
+││       │┌────────────── EXTRA1 ───────────────┐│
+││       │├────────────── STATUS ───────────────┤│
+││       ││[PROMPT]>                            ││
+│└───────┘└─────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
 ```
+Compact:
+```
+┌────────────────────────────────────────────────┐
+│W TITLE W│WWWWWWWWWWWWWWW TITLE WWWWWWWWWWWWWWWW│
+│         │                             │        │
+│         │                             │        │
+|         │                             │ MEMBER │
+│         │            CHAT             │  LIST  │
+│         │                             │        │
+│         │                             │        │
+│  TREE   │                             │        │
+│         │MMMMMMMMMMMMMMM EXTRA2 MMMMMMMMMMMMMMM│
+│         │              EXTRA BODY              │
+│         │UUUUUUUUUUUUUUU EXTRA1 UUUUUUUUUUUUUUU│
+│         │WWWWWWWWWWWWWWW STATUS WWWWWWWWWWWWWWW│
+│         │[PROMPT]>                             │
+└────────────────────────────────────────────────┘
+```
+
 
 ### Tree layout and formatting
 ```

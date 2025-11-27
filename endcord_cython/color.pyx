@@ -36,7 +36,7 @@ cpdef inline tuple int_to_rgb(int int_color):
     )
 
 
-cpdef convert_role_colors(list all_roles, tuple colors, object guild_id, object role_id, int default):
+cpdef list convert_role_colors(list all_roles, tuple colors, object guild_id, object role_id, int default):
     cdef dict guild
     cdef dict role
     cdef int color

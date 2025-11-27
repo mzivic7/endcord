@@ -18,7 +18,7 @@ cdef inline bint is_emoji(Py_UCS4 ch):
     )
 
 
-cpdef insstr(
+cpdef void insstr(
     list buffer,
     int nlines,
     int ncols,
@@ -62,7 +62,7 @@ cpdef insstr(
             dirty_lines.add(row)
 
 
-cpdef render(
+cpdef void render(
     object screen,
     list buffer,
     set dirty_lines,

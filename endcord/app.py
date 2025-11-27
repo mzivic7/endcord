@@ -228,10 +228,11 @@ class Endcord:
             self.fun = 2 if (10, 25) <= today <= (11, 8) else self.fun
             self.fun = 3 if today >= (12, 25) or today <= (1, 8) else self.fun
             self.fun = 4 if today == (4, 1) else self.fun
+            self.tui.set_fun(self.fun)
         self.colors = self.tui.init_colors(self.colors)
         self.colors_formatted = self.tui.init_colors_formatted(self.colors_formatted, self.default_msg_alt_color)
         self.tui.update_chat(self.chat, [[[self.colors[0]]]] * len(self.chat))
-        self.tui.update_status_line("CONNECTING")
+        self.tui.update_status_line(" CONNECTING")
         self.my_id = None   # will be taken from gateway in main()
         self.premium = None    # same
         self.my_user_data = None    # same
@@ -6620,7 +6621,7 @@ class Endcord:
                     slowmode_time = self.discord.send_typing(self.active_channel["channel_id"])
                     self.typing_sent = int(time.time())
                     # check for slowmode
-                    if slowmode_time and slowmode_time is not True and self.active_channel["channel_id"] not in self.slowmode_times:
+                    if slowmode_time and slowmode_time != 1 and self.active_channel["channel_id"] not in self.slowmode_times:
                         self.slowmode_times[self.active_channel["channel_id"]] = slowmode_time
                         self.update_extra_line(f"Slowmode is enabled, will be able to send message in {slowmode_time}s")
                         if not self.slowmode_thread or not self.slowmode_thread.is_alive():

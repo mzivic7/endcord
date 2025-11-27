@@ -67,6 +67,7 @@ settings = {
     "debug": False,
 }
 theme = {
+    "compact": False,
     "tree_width": 32,
     "extra_window_height": 6,
     "member_list_width": 20,
@@ -110,6 +111,7 @@ theme = {
     "tree_drop_down_forum": "◆",
     "tree_drop_down_folder": "+",
     "tree_dm_status": "●",
+    "border_corners": "╭╰╮╯",
     "username_role_colors": True,
     "color_default": [-1, -1],
     "color_chat_mention": [209, 234],

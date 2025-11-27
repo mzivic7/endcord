@@ -3,7 +3,7 @@
 import curses
 cimport cython
 
-cpdef img_to_curses(
+cpdef void img_to_curses(
     object screen,
     object img,
     object img_gray,

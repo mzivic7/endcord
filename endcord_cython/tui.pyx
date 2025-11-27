@@ -16,7 +16,7 @@ cdef void safe_insch(object win_chat, int y, int x, unicode ch, unsigned int att
         win_chat.insch(y, x, ch, attr)
 
 
-cpdef draw_chat(
+cpdef void draw_chat(
     object win_chat,
     int h, int w,
     list chat_buffer,

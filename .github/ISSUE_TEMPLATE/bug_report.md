@@ -17,8 +17,8 @@ A clear and concise description of what the bug is.
  - Platform: [e.g. Linux x86_64]
  - OS: [e.g. Arch 6.12.7]
  - Terminal: [e.g. Alacritty]
- - Version [e.g. 0.6.0 full/lite]
-  - Install method: [e.g. downloaded binary / custom build / from AUR]
+ - Version [e.g. 1.0.0 full/lite]
+ - Install method: [e.g. downloaded binary / custom build / from AUR]
 
 **Steps to reproduce**
 Steps to reproduce the behavior:
@@ -32,4 +32,4 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Additional context**
-Add any other context about the problem here.
+Add any other context about the problem.

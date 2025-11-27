@@ -365,7 +365,7 @@ Only connecting to spacebar instances is known to work, but endcord may crash at
 
 ### Termux
 Endcord does work under termux, but some keybindings dont (`Ctrl/Alt+Space`). It is recommended to rebind them in endcord config or use endcord in desktop environment (like `openbox`) in a terminal emulator with xterm256-colors (like `alacritty`) and with Termux:X11 app.  
-Endcord cant be built in termux, so to run it: first install python >= 3.12 and `uv`, then clone this repo, cd to folder and run from source: `uv run main.py` (it will take some time to download and build numpy).  
+Endcord cant be built in termux, so to run it: first install python >= 3.12 and `uv`, then clone this repo, cd to folder and run it from source: `uv run main.py` (it will take some time to download and build numpy and orjson). To skip waiting for some dependencies, or if it fails building them run: `uv remove numpy soundcard soundfile orjson`, and then patch files with: `find . -maxdepth 2 -type f -name "*.py" -exec sed -i 's/orjson/json/g' {} +`.  
 To enable android notifications simply run `pkg install termux-api` and install Termux:API app. Vibration is disabled by default, to enable it: run endcord at least once, then in Termux:Api notification settings enable vibration for endcord ntifications.  
 Notifications will work as ling as endcord is running, so it might be necessary for termux to "Acquire wakelock".  
 

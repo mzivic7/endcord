@@ -1,5 +1,3 @@
-Fix member list not updating when switching between same-guild channels
-Add window borders
 New screenshots in higher resolution
 
 Add more extension points
@@ -28,6 +26,7 @@ Voice calls
 Add and fix theming color options
 Optimize self.guilds by using dicts, each guild/channel is keyed with its id; if its worth it
 Optimize main loop with queues and threading
+Fix member list not updating when switching between same-guild channels
 Vim-like bindings
 Video calls
 Localization

@@ -21,6 +21,7 @@ else:
     BACKSPACE = curses.KEY_BACKSPACE
 match_word = re.compile(r"\w")
 match_split = re.compile(r"[^\w']")
+match_spaces = re.compile(r" {3,}")
 
 
 def ctrl(x):
@@ -57,6 +58,18 @@ def set_list_item(input_list, item, index):
     except IndexError:
         input_list.append(item)
     return input_list
+
+
+def trim_with_dash(text, dash=True):
+    """Trim spaces from a line and add '─' if there were spaces prepended"""
+    if dash and text and text[0] == " ":
+        return "─" + text.strip()
+    return text.strip()
+
+
+def replace_spaces_dash(text):
+    """Replace more than 3 spaces with ' ─ '"""
+    return match_spaces.sub(lambda match: " " + ("─" * (len(match.group(0)))) + " ", text)
 
 
 def safe_insch(screen, y, x, character, color):
@@ -219,6 +232,7 @@ class TUI():
         self.screen = screen
 
         # load config
+        self.bordered = not(config["compact"])
         self.have_title = bool(config["format_title_line_l"])
         self.have_title_tree = bool(config["format_title_tree"])
         vert_line = config["tree_vert_line"][0]
@@ -234,15 +248,20 @@ class TUI():
         self.mouse = config["mouse"]
         self.screen_update_delay = min(config["screen_update_delay"], 0.01)
         self.mouse_scroll_sensitivity = min(max(1, config["mouse_scroll_sensitivity"]), 10)
-        self.fun = 0
-        self.fun_thread = None
-        mouse_scroll_selection = config["mouse_scroll_selection"]
+        self.corner_ul = config["border_corners"][0]
+        self.corner_ur = config["border_corners"][2]
+        self.corner_dl = config["border_corners"][1]
+        self.corner_dr = config["border_corners"][3]
+
+        # select bordered method
+        if self.bordered:
+            self.resize = self.resize_bordered
 
         # select mouse scroll method
-        if not mouse_scroll_selection:
+        if not config["mouse_scroll_selection"]:
             self.mouse_scroll = self.mouse_scroll_content
 
-        # find all first chain parts
+        # find all keybinding first-chain-parts
         self.chainable = []
         for binding_group in self.keybindings.values():
             for binding in binding_group:
@@ -312,6 +331,8 @@ class TUI():
         self.extra_select = False
         self.mlist_selected = -1
         self.mlist_index = 0
+        self.fun = 0
+        self.fun_thread = None
         self.run = True
         self.win_extra_line = None
         self.win_extra_window = None
@@ -352,52 +373,181 @@ class TUI():
                 self.need_update.clear()
 
 
-    def resize(self):
-        """Resize screen area"""
+    def resize(self, redraw_only=False):
+        """Resize screen area and redraw ui"""
+        # re-init areas
+        if not redraw_only:
+            h, w = self.screen.getmaxyx()
+            chat_hwyx = (
+                h - 2 - self.have_title,
+                w - (self.tree_width + 1),
+                self.have_title,
+                self.tree_width + 1,
+            )
+            prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+            input_line_hwyx = (
+                1,
+                w - (self.tree_width + 1) - len(self.prompt),
+                h - 1,
+                self.tree_width + len(self.prompt) + 1,
+            )
+            status_line_hwyx = (1, w - (self.tree_width + 1), h - 2, self.tree_width + 1)
+            tree_hwyx = (
+                h - self.have_title_tree,
+                self.tree_width,
+                self.have_title,
+                0,
+            )
+            self.win_chat = self.screen.derwin(*chat_hwyx)
+            self.win_prompt = self.screen.derwin(*prompt_hwyx)
+            self.win_input_line = self.screen.derwin(*input_line_hwyx)
+            self.win_status_line = self.screen.derwin(*status_line_hwyx)
+            self.win_tree = self.screen.derwin(*tree_hwyx)
+            if self.have_title:
+                title_line_hwyx = (1, w - (self.tree_width + 1), 0, self.tree_width + 1)
+                self.win_title_line = self.screen.derwin(*title_line_hwyx)
+                self.title_hw = self.win_title_line.getmaxyx()
+            if self.have_title_tree:
+                tree_title_line_hwyx = (1, self.tree_width, 0, 0)
+                self.win_title_tree = self.screen.derwin(*tree_title_line_hwyx)
+                self.tree_title_hw = self.win_title_tree.getmaxyx()
+            self.screen_hw = self.screen.getmaxyx()
+            self.chat_hw = self.win_chat.getmaxyx()
+            self.prompt_hw = self.win_prompt.getmaxyx()
+            self.input_hw = self.win_input_line.getmaxyx()
+            self.status_hw = self.win_status_line.getmaxyx()
+            self.tree_hw = self.win_tree.getmaxyx()
+            self.win_extra_line = None
+            self.win_extra_window = None
+            self.win_member_list = None
+
+        # redraw
+        with self.lock:
+            self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
+            if self.have_title and self.have_title_tree:
+                # fill gap between titles
+                self.screen.addch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
+            self.screen.noutrefresh()
+            self.need_update.set()
+        self.draw_status_line()
+        self.draw_chat()
+        self.update_prompt(self.prompt)   # draw_input_line() is called in here
+        self.draw_tree()
+        if self.have_title:
+            self.draw_title_line()
+        if self.have_title_tree:
+            self.draw_title_tree()
+        self.draw_extra_line(self.extra_line_text)
+        self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+        self.draw_member_list(self.member_list, self.member_list_format, force=True)
+
+
+    def resize_bordered(self, redraw_only=False):
+        """Resize screen area and redraw ui in bordered mode"""
         h, w = self.screen.getmaxyx()
         chat_hwyx = (
-            h - 2 - int(self.have_title),
-            w - (self.tree_width + 1),
-            int(self.have_title),
-            self.tree_width + 1,
+            h - 4 - self.have_title,
+            w - (self.tree_width + 4) - bool(self.member_list),
+            self.have_title,
+            self.tree_width + 3,
         )
-        input_line_hwyx = (1, w - (self.tree_width + 1), h - 1, self.tree_width + 1)
-        status_line_hwyx = (1, w - (self.tree_width + 1), h - 2, self.tree_width + 1)
+        win_prompt_input_line = (1, w - self.tree_width - 4, h - 2, self.tree_width + 3)
         tree_hwyx = (
-            h - int(self.have_title_tree),
+            h - self.have_title_tree - 1,
             self.tree_width,
-            int(self.have_title),
-            0,
+            self.have_title,
+            1,
+        )
+
+        # re-init areas
+        if not redraw_only:
+            prompt_hwyx = (1, len(self.prompt), h - 2, self.tree_width + 3)
+            input_line_hwyx = (
+                1,
+                w - (self.tree_width + 2) - len(self.prompt) - 2,
+                h - 2,
+                self.tree_width + len(self.prompt) + 3,
+            )
+            status_line_hwyx = (1, w - (self.tree_width + 2), h - 3, self.tree_width + 2)
+            self.win_chat = self.screen.derwin(*chat_hwyx)
+            self.win_prompt = self.screen.derwin(*prompt_hwyx)
+            self.win_input_line = self.screen.derwin(*input_line_hwyx)
+            self.win_status_line = self.screen.derwin(*status_line_hwyx)
+            self.win_tree = self.screen.derwin(*tree_hwyx)
+            if self.have_title:
+                title_line_hwyx = (1, w - (self.tree_width + 2) - bool(self.win_member_list) * (self.member_list_width + 1), 0, self.tree_width + 2)
+                self.win_title_line = self.screen.derwin(*title_line_hwyx)
+                self.title_hw = self.win_title_line.getmaxyx()
+            if self.have_title_tree:
+                tree_title_line_hwyx = (1, self.tree_width + 2, 0, 0)
+                self.win_title_tree = self.screen.derwin(*tree_title_line_hwyx)
+                self.tree_title_hw = self.win_title_tree.getmaxyx()
+            self.screen_hw = self.screen.getmaxyx()
+            self.chat_hw = self.win_chat.getmaxyx()
+            self.prompt_hw = self.win_prompt.getmaxyx()
+            self.input_hw = self.win_input_line.getmaxyx()
+            self.status_hw = self.win_status_line.getmaxyx()
+            self.tree_hw = self.win_tree.getmaxyx()
+            self.win_extra_line = None
+            self.win_extra_window = None
+            self.win_member_list = None
+
+        # redraw
+        self.draw_border(win_prompt_input_line, top=False)
+        self.draw_status_line()
+        self.draw_border(chat_hwyx, top=not(self.have_title))
+        self.draw_chat()
+        self.update_prompt(self.prompt)   # draw_input_line() is called in here
+        self.draw_border(tree_hwyx, top=not(self.have_title_tree))
+        self.draw_tree()
+        if self.have_title:
+            self.draw_title_line()
+        if self.have_title_tree:
+            self.draw_title_tree()
+        self.draw_extra_line(self.extra_line_text)
+        self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
+        if self.win_extra_window:   # redraw borders for extra window
+            extra_window_hwyx = self.win_extra_window.getmaxyx() + self.win_extra_window.getbegyx()
+            self.draw_border(extra_window_hwyx, top=False, bot=False)
+            y, x = extra_window_hwyx[2], extra_window_hwyx[3]
+            self.screen.addstr(y, x - 1, self.corner_ul, curses.color_pair(11) | curses.A_STANDOUT)
+            self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(11) | curses.A_STANDOUT)
+        self.draw_member_list(self.member_list, self.member_list_format, force=True)
+        self.screen.noutrefresh()
+        self.need_update.set()
+
+
+    def force_redraw(self):
+        """Forcibly redraw entire screen"""
+        self.screen.clear()
+        self.screen.redrawwin()
+        if sys.platform == "win32":
+            self.screen.noutrefresh()   # ??? needed only with windows-curses
+            self.need_update.set()
+        self.resize()
+
+
+    def init_chat(self):
+        """Initialize chat window"""
+        h, w = self.screen.getmaxyx()
+        if self.win_extra_window:
+            common_h = h - 3 - self.have_title - 2*self.bordered - self.extra_window_h
+        elif self.win_extra_line:
+            common_h = h - 3 - self.have_title - 2*self.bordered
+        else:
+            common_h = h - 2 - self.have_title - 2*self.bordered
+        chat_hwyx = (
+            common_h,
+            w - (self.tree_width + 3 * self.bordered + 1) - bool(self.member_list) * (self.member_list_width + 1),
+            self.have_title,
+            self.tree_width + 2 * self.bordered + 1,
         )
         self.win_chat = self.screen.derwin(*chat_hwyx)
-        prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
-        self.win_prompt = self.screen.derwin(*prompt_hwyx)
-        input_line_hwyx = (
-            1,
-            w - (self.tree_width + 1) - len(self.prompt),
-            h - 1,
-            self.tree_width + len(self.prompt) + 1,
-        )
-        self.win_input_line = self.screen.derwin(*input_line_hwyx)
-        self.win_status_line = self.screen.derwin(*status_line_hwyx)
-        self.win_tree = self.screen.derwin(*tree_hwyx)
-        if self.have_title:
-            title_line_yx = (1, w - (self.tree_width + 1), 0, self.tree_width + 1)
-            self.win_title_line = self.screen.derwin(*title_line_yx)
-            self.title_hw = self.win_title_line.getmaxyx()
-        if self.have_title_tree:
-            tree_title_line_hwyx = (1, self.tree_width, 0, 0)
-            self.win_title_tree = self.screen.derwin(*tree_title_line_hwyx)
-            self.tree_title_hw = self.win_title_tree.getmaxyx()
-        self.screen_hw = self.screen.getmaxyx()
         self.chat_hw = self.win_chat.getmaxyx()
-        self.status_hw = self.win_status_line.getmaxyx()
-        self.input_hw = self.win_input_line.getmaxyx()
-        self.tree_hw = self.win_tree.getmaxyx()
-        self.win_extra_line = None
-        self.win_extra_window = None
-        self.win_member_list = None
-        self.redraw_ui()
+        if self.bordered:
+            self.draw_border(chat_hwyx, top=not(self.have_title))
+            self.screen.noutrefresh()
+        return common_h
 
 
     def pause_curses(self):
@@ -424,7 +574,7 @@ class TUI():
             self.hibernate_cursor = 10
         else:
             self.screen.clear()
-            self.redraw_ui()
+            self.resize(redraw_only=True)
 
 
     def is_window_open(self):
@@ -630,7 +780,7 @@ class TUI():
             h, w = self.screen.getmaxyx()
             flakes = []
             while self.run and self.fun == 3:
-                self.redraw_ui()
+                self.resize(redraw_only=True)
                 with self.lock:
                     h, w = self.screen.getmaxyx()
                     flakes = [flake for flake in flakes if flake[0] <= h]   # despawn
@@ -791,36 +941,36 @@ class TUI():
             self.tree_format_changed = True
 
 
-    def redraw_ui(self):
-        """Redraw entire ui"""
-        with self.lock:
-            self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
-            if self.have_title and self.have_title_tree:
-                # fill gap between titles
-                self.screen.addch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
-            self.screen.noutrefresh()
-            self.need_update.set()
-        self.draw_status_line()
-        self.draw_chat()
-        self.update_prompt(self.prompt)   # draw_input_line() is called in here
-        self.draw_tree()
-        if self.have_title:
-            self.draw_title_line()
-        if self.have_title_tree:
-            self.draw_title_tree()
-        self.draw_extra_line(self.extra_line_text)
-        self.draw_extra_window(self.extra_window_title, self.extra_window_body, self.extra_select)
-        self.draw_member_list(self.member_list, self.member_list_format, force=True)
+    def draw_border(self, hwyx, top=True, bot=True, left=True, right=True):
+        """Draw border around area on the screen with custom corners"""
+        h, w, y, x = hwyx
+        h += 2
+        w += 2
+        y -= 1
+        x -= 1
 
+        # lines
+        if top and w > 0:
+            self.screen.hline(y, x + 1, curses.ACS_HLINE, w - 2, curses.color_pair(0))
+        if bot and w > 0:
+            self.screen.hline(y + h - 1, x + 1, curses.ACS_HLINE, w - 2, curses.color_pair(0))
+        if left and h > 0:
+            self.screen.vline(y + 1, x, curses.ACS_VLINE, h - 2, curses.color_pair(0))
+        if right and h > 0:
+            self.screen.vline(y + 1, x + w - 1, curses.ACS_VLINE, h - 2, curses.color_pair(0))
 
-    def force_redraw(self):
-        """Forcibly redraw entire screen"""
-        self.screen.clear()
-        self.screen.redrawwin()
-        if sys.platform == "win32":
-            self.screen.noutrefresh()   # ??? needed only with windows-curses
-            self.need_update.set()
-        self.resize()
+        # corners
+        if top and left:
+            self.screen.addstr(y, x, self.corner_ul)
+        if bot and left:
+            self.screen.addstr(y + h - 1, x, self.corner_dl)
+        if top and right:
+            self.screen.addstr(y, x + w - 1, self.corner_ur)
+        if bot and right:
+            try:
+                self.screen.addstr(y + h - 1, x + w - 1, self.corner_dr)
+            except curses.error:
+                pass   # it errors when drawing in bottom-right cell, but still draws it
 
 
     def draw_status_line(self):
@@ -830,20 +980,47 @@ class TUI():
             status_txt_l = self.status_txt_l[:w-1]   # limit status text size
             # if there is enough space for right text, add spaces and right text
             if self.status_txt_r:
-                status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + " "
-                status_txt_l = status_txt_l + " " * (w - len(status_txt_l) - len(status_txt_r))
+                if self.bordered:
+                    if self.win_extra_line or self.win_extra_window:
+                        status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + "┤"
+                        status_txt_r = replace_spaces_dash(trim_with_dash(status_txt_r))
+                        status_txt_l = replace_spaces_dash(trim_with_dash(status_txt_l))
+                        status_txt_l = "├" + status_txt_l + "─" * (w - len(status_txt_l) - len(status_txt_r) - 1)
+                    else:
+                        status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + self.corner_ur
+                        status_txt_r = replace_spaces_dash(trim_with_dash(status_txt_r))
+                        status_txt_l = replace_spaces_dash(trim_with_dash(status_txt_l))
+                        status_txt_l = self.corner_ul + status_txt_l + "─" * (w - len(status_txt_l) - len(status_txt_r) - 1)
+                    new_format_l = []
+                    for item in self.status_txt_l_format:
+                        new_format_l.append((item[0], item[1] + 1, min(item[2] + 1, w-1)))
+                    self.status_txt_l_format = new_format_l
+                else:
+                    status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + " "
+                    status_txt_l = status_txt_l + " " * (w - len(status_txt_l) - len(status_txt_r))
                 status_line = status_txt_l + status_txt_r
                 text_l_len = len(status_txt_l)
                 status_format = self.status_txt_l_format
                 for tab in self.status_txt_r_format:
                     status_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
+            elif self.bordered:
+                status_txt_l = replace_spaces_dash(trim_with_dash(status_txt_l))
+                if self.win_extra_line or self.win_extra_window:
+                    status_line = "├" + status_txt_l + "─" * (w - len(status_txt_l) - 2) + "┤"
+                else:
+                    status_line = self.corner_ul + status_txt_l + "─" * (w - len(status_txt_l) - 2) + self.corner_ur
+                status_format = []
+                for item in self.status_txt_l_format:
+                    status_format.append((item[0], item[1] + 1, min(item[2] + 1, w-1)))
             else:
                 # add spaces to end of line
                 status_line = status_txt_l + " " * (w - len(status_txt_l))
                 status_format = self.status_txt_l_format
 
             if status_format:
-                self.draw_formatted_line(self.win_status_line, status_line, status_format, 17)
+                self.draw_formatted_line(self.win_status_line, status_line, status_format, 0 if self.bordered else 17)
+            elif self.bordered:
+                self.win_status_line.insstr(0, 0, status_line + "\n")
             else:
                 self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
             self.win_status_line.noutrefresh()
@@ -856,19 +1033,37 @@ class TUI():
             h, w = self.title_hw
             title_txt_l = self.title_txt_l[:w-1]
             if self.title_txt_r:
-                title_txt_r = self.title_txt_r[: max(w - (len(title_txt_l) + 4), 0)] + " "
-                title_txt_l = title_txt_l + " " * (w - len(title_txt_l) - len(title_txt_r))
+                if self.bordered:
+                    title_txt_r = self.title_txt_r[: max(w - (len(title_txt_l) + 4), 0)] + "─" + self.corner_ur
+                    title_txt_r = replace_spaces_dash(trim_with_dash(title_txt_r))
+                    title_txt_l = replace_spaces_dash(trim_with_dash(title_txt_l))
+                    title_txt_l = self.corner_ul + title_txt_l + "─" * (w - len(title_txt_l) - len(title_txt_r) - 1)
+                    new_format_l = []
+                    for item in self.title_txt_l_format:
+                        new_format_l.append((item[0], item[1] + 1, min(item[2] + 1, w-1)))
+                    self.title_txt_l_format = new_format_l
+                else:
+                    title_txt_r = self.title_txt_r[: max(w - (len(title_txt_l) + 4), 0)] + " "
+                    title_txt_l = title_txt_l + " " * (w - len(title_txt_l) - len(title_txt_r))
                 title_line = title_txt_l + title_txt_r
                 text_l_len = len(title_txt_l)
                 title_format = self.title_txt_l_format
                 for tab in self.title_txt_r_format:
                     title_format.append((tab[0], tab[1] + text_l_len, min(tab[2] + text_l_len, w-1)))
+            elif self.bordered:
+                title_txt_l = replace_spaces_dash(trim_with_dash(title_txt_l))
+                title_line = self.corner_ul + title_txt_l + "─" * (w - len(title_txt_l) - 2) + self.corner_ur
+                title_format = []
+                for item in self.title_txt_l_format:
+                    title_format.append((item[0], item[1] + 1, min(item[2] + 1, w-1)))
             else:
                 title_line = title_txt_l + " " * (w - len(title_txt_l))
                 title_format = self.title_txt_l_format
 
             if title_format:
-                self.draw_formatted_line(self.win_title_line, title_line, title_format, 12)
+                self.draw_formatted_line(self.win_title_line, title_line, title_format, 0 if self.bordered else 12)
+            elif self.bordered:
+                self.win_title_line.insstr(0, 0, title_line + "\n")
             else:
                 self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
             self.win_title_line.noutrefresh()
@@ -889,6 +1084,8 @@ class TUI():
                                 attrib = curses.A_ITALIC
                             elif format_part[0] == 3:
                                 attrib = curses.A_UNDERLINE
+                            elif default_color == 0:
+                                attrib = 0
                             else:
                                 attrib = self.attrib_map[default_color]
                             safe_insch(window, 0, pos, character, curses.color_pair(default_color) | attrib)
@@ -906,8 +1103,13 @@ class TUI():
         with self.lock:
             h, w = self.tree_title_hw
             title_txt = self.title_tree_txt[:w]
-            title_line = title_txt + " " * (w - len(title_txt))
-            self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
+            if self.bordered:
+                title_txt = replace_spaces_dash(trim_with_dash(title_txt))
+                title_line = self.corner_ul + title_txt + "─" * (w - len(title_txt) - 2) + self.corner_ur
+                self.win_title_tree.insstr(0, 0, title_line + "\n")
+            else:
+                title_line = title_txt + " " * (w - len(title_txt))
+                self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
             self.win_title_tree.noutrefresh()
             self.need_update.set()
 
@@ -1087,12 +1289,16 @@ class TUI():
         with self.lock:
             h, w = self.screen.getmaxyx()
             del (self.win_prompt, self.win_input_line)
-            input_line_hwyx = (1, w - (self.tree_width + 1) - len(self.prompt), h - 1, self.tree_width + len(self.prompt) + 1)
+            input_line_hwyx = (
+                1,
+                w - (self.tree_width + self.bordered + 1) - len(self.prompt) - 2*self.bordered,
+                h - 1 - self.bordered,
+                self.tree_width + len(self.prompt) + 2*self.bordered + 1)
             self.win_input_line = self.screen.derwin(*input_line_hwyx)
             self.input_hw = self.win_input_line.getmaxyx()
             self.spellcheck()
             self.draw_input_line()
-            prompt_hwyx = (1, len(self.prompt), h - 1, self.tree_width + 1)
+            prompt_hwyx = (1, len(self.prompt), h - 1 - self.bordered, self.tree_width + 2*self.bordered + 1)
             self.win_prompt = self.screen.derwin(*prompt_hwyx)
             self.win_prompt.insstr(0, 0, self.prompt, curses.color_pair(13) | self.attrib_map[13])
             self.win_prompt.noutrefresh()
@@ -1113,20 +1319,21 @@ class TUI():
                 h, w = self.screen.getmaxyx()
                 if not self.win_extra_line:
                     del self.win_chat
-                    chat_hwyx = (
-                        h - 3 - int(self.have_title),
-                        w - (self.tree_width + 1),
-                        int(self.have_title),
-                        self.tree_width + 1,
-                    )
-                    self.win_chat = self.screen.derwin(*chat_hwyx)
-                    self.chat_hw = self.win_chat.getmaxyx()
+                    self.init_chat()
                     if not self.member_list:
                         self.draw_chat(norefresh=True)
-                    extra_line_hwyx = (1, w - (self.tree_width + 1), h - 3, self.tree_width + 1)
+                    extra_line_hwyx = (1, w - (self.tree_width + self.bordered + 1), h - self.bordered - 3, self.tree_width + self.bordered + 1)
                     self.win_extra_line = self.screen.derwin(*extra_line_hwyx)
                     self.draw_member_list(self.member_list, self.member_list_format, force=True)
-                self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                    if self.bordered:
+                        self.draw_status_line()
+                w = w - (self.tree_width + self.bordered + 1)
+                if self.bordered:
+                    text = "─" + trim_with_dash(text, dash=False)
+                    line_text = self.corner_ul + text + "─" * (w - len(text) - 2) + self.corner_ur
+                    self.win_extra_line.insstr(0, 0, line_text, curses.color_pair(11) | curses.A_STANDOUT)
+                else:
+                    self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
                 self.win_extra_line.noutrefresh()
                 self.need_update.set()
 
@@ -1138,51 +1345,55 @@ class TUI():
                 del self.win_chat
                 self.extra_line_text = ""
                 self.win_extra_line = None
-                h, w = self.screen.getmaxyx()
-                chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
-                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.init_chat()
                 self.chat_hw = self.win_chat.getmaxyx()
                 if not self.member_list:
                     self.draw_chat()
+                if self.bordered:
+                    self.draw_status_line()
                 self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
 
-    def draw_extra_window(self, title_text, body_text, select=False, start_zero=False):
+    def draw_extra_window(self, title_txt, body_text, select=False, start_zero=False):
         """
         Draw extra window above status line and resize chat.
-        title_text is string, body_text is list.
+        title_txt is string, body_text is list.
         """
         with self.lock:
             self.extra_select = select
-            self.extra_window_title = title_text
+            self.extra_window_title = title_txt
             self.extra_window_body = body_text
             if start_zero:
                 self.extra_index = 0
                 self.extra_selected = 0
-            if title_text and not self.disable_drawing:
+            if title_txt and not self.disable_drawing:
                 h, w = self.screen.getmaxyx()
                 if not self.win_extra_window:
                     del self.win_chat
                     self.win_extra_line = None
-                    chat_hwyx = (
-                        h - 3 - int(self.have_title) - self.extra_window_h,
-                        w - (self.tree_width + 1),
-                        int(self.have_title),
-                        self.tree_width + 1,
-                    )
-                    self.win_chat = self.screen.derwin(*chat_hwyx)
-                    self.chat_hw = self.win_chat.getmaxyx()
-                    if not self.member_list:
-                        self.draw_chat(norefresh=True)
                     extra_window_hwyx = (
                         self.extra_window_h + 1,
-                        w - (self.tree_width + 1),
-                        h - 3 - self.extra_window_h,
-                        self.tree_width + 1,
+                        w - (self.tree_width + 3*self.bordered + 1),
+                        h - 3 - self.extra_window_h - self.bordered,
+                        self.tree_width + 2*self.bordered + 1,
                     )
                     self.win_extra_window = self.screen.derwin(*extra_window_hwyx)
+                    self.init_chat()
+                    if not self.member_list:
+                        self.draw_chat(norefresh=True)
                     self.draw_member_list(self.member_list, self.member_list_format, force=True)
-                self.win_extra_window.insstr(0, 0, title_text + " " * (w - len(title_text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
+                    if self.bordered:
+                        self.draw_border(extra_window_hwyx, top=False, bot=False)
+                        y, x = extra_window_hwyx[2], extra_window_hwyx[3]
+                        self.screen.addstr(y, x - 1, self.corner_ul, curses.color_pair(11) | curses.A_STANDOUT)
+                        self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(11) | curses.A_STANDOUT)
+                        self.screen.noutrefresh()
+                        self.draw_status_line()
+                if self.bordered:
+                    title_txt = "─" + trim_with_dash(title_txt, dash=False) + "─" * (w - len(title_txt))
+                    self.win_extra_window.insstr(0, 0, title_txt, curses.color_pair(11) | curses.A_STANDOUT)
+                else:
+                    self.win_extra_window.insstr(0, 0, title_txt + " " * (w - len(title_txt)) + "\n", curses.color_pair(11) | self.attrib_map[11])
                 h = self.win_extra_window.getmaxyx()[0]
                 y = 0
                 for num, line in enumerate(body_text):
@@ -1211,12 +1422,12 @@ class TUI():
                 self.extra_window_body = ""
                 self.win_extra_window = None
                 self.extra_selected = -1
-                h, w = self.screen.getmaxyx()
-                chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
-                self.win_chat = self.screen.derwin(*chat_hwyx)
+                self.init_chat()
                 self.chat_hw = self.win_chat.getmaxyx()
                 if not self.member_list:
                     self.draw_chat()
+                if self.bordered:
+                    self.draw_status_line()
                 self.draw_extra_line(self.extra_line_text)
                 self.draw_member_list(self.member_list, self.member_list_format, force=True)
 
@@ -1235,29 +1446,24 @@ class TUI():
                     if not force and self.win_member_list:
                         self.mlist_selected = -1
                         self.mlist_index = 0
-                    if self.win_extra_window:
-                        common_h = h - 3 - int(self.have_title) - self.extra_window_h
-                    elif self.win_extra_line:
-                        common_h = h - 3 - int(self.have_title)
-                    else:
-                        common_h = h - 2 - int(self.have_title)
-                    chat_hwyx = (
-                        common_h,
-                        w - (self.tree_width + 1) - (self.member_list_width + 1),
-                        int(self.have_title),
-                        self.tree_width + 1,
-                    )
-                    self.win_chat = self.screen.derwin(*chat_hwyx)
-                    self.chat_hw = self.win_chat.getmaxyx()
+                    common_h = self.init_chat()
                     self.draw_chat(norefresh=True)
                     member_list_hwyx = (
                         common_h,
-                        self.member_list_width+1,
-                        int(self.have_title),
-                        w - self.member_list_width-1,
+                        self.member_list_width - self.bordered,
+                         self.bordered or self.have_title,
+                        w - self.member_list_width,
                     )
                     self.win_member_list = self.screen.derwin(*member_list_hwyx)
-                    self.win_member_list.vline(0, 0, self.vert_line, common_h)
+                    if self.bordered:
+                        self.draw_border(member_list_hwyx)
+                        if self.have_title:
+                            title_line_hwyx = (1, w - (self.tree_width + 2) - bool(self.win_member_list) * (self.member_list_width + 1), 0, self.tree_width + 2)
+                            self.win_title_line = self.screen.derwin(*title_line_hwyx)
+                            self.title_hw = self.win_title_line.getmaxyx()
+                            self.draw_title_line()
+                    else:
+                        self.screen.vline(1, w - self.member_list_width-1, self.vert_line, common_h)
                 h, w = self.win_member_list.getmaxyx()
                 w -= 1
                 y = 0
@@ -1267,10 +1473,10 @@ class TUI():
                         break
                     line_format = member_list_format[num]
                     if num == self.mlist_selected:
-                        self.win_member_list.insstr(y, 1, line + " " * (w - len(line)) + "\n", curses.color_pair(4) | self.attrib_map[4])
+                        self.win_member_list.insstr(y, 0, line, curses.color_pair(4) | self.attrib_map[4])
                     else:
-                        for pos, character in enumerate(line + " " * (w - len(line)) + "\n"):
-                            if pos >= w:
+                        for pos, character in enumerate(line):
+                            if pos > w:
                                 break
                             for format_part in line_format:
                                 if format_part[1] <= pos < format_part[2]:
@@ -1278,13 +1484,13 @@ class TUI():
                                     if color > 255:   # set all colors after 255 to default color
                                         color = self.color_default
                                     color_ready = curses.color_pair(color) | self.attrib_map[color]
-                                    safe_insch(self.win_member_list, y, pos+1, character, color_ready)
+                                    safe_insch(self.win_member_list, y, pos, character, color_ready)
                                     break
                             else:
-                                safe_insch(self.win_member_list, y, pos+1, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
+                                safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
                 y += 1
                 while y < h:
-                    self.win_member_list.insstr(y, 1, "\n", curses.color_pair(1))
+                    self.win_member_list.insstr(y, 0, "\n", curses.color_pair(1))
                     y += 1
                 self.win_member_list.noutrefresh()
                 self.need_update.set()
@@ -1299,27 +1505,12 @@ class TUI():
                 self.member_list_format = []
                 self.win_member_list = None
                 h, w = self.screen.getmaxyx()
-                chat_hwyx = (h - 2 - int(self.have_title), w - (self.tree_width + 1), int(self.have_title), self.tree_width + 1)
-                self.win_chat = self.screen.derwin(*chat_hwyx)
-                self.chat_hw = self.win_chat.getmaxyx()
-                if self.win_extra_line:
-                    chat_hwyx = (
-                        h - 3 - int(self.have_title),
-                        w - (self.tree_width + 1),
-                        int(self.have_title),
-                        self.tree_width + 1,
-                    )
-                    self.win_chat = self.screen.derwin(*chat_hwyx)
-                    self.chat_hw = self.win_chat.getmaxyx()
-                elif self.win_extra_window:
-                    chat_hwyx = (
-                        h - 3 - int(self.have_title) - self.extra_window_h,
-                        w - (self.tree_width + 1),
-                        int(self.have_title),
-                        self.tree_width + 1,
-                    )
-                    self.win_chat = self.screen.derwin(*chat_hwyx)
-                    self.chat_hw = self.win_chat.getmaxyx()
+                self.init_chat()
+                if self.bordered and self.have_title:
+                    title_line_hwyx = (1, w - (self.tree_width + 2) - bool(self.win_member_list) * (self.member_list_width + 1), 0, self.tree_width + 2)
+                    self.win_title_line = self.screen.derwin(*title_line_hwyx)
+                    self.title_hw = self.win_title_line.getmaxyx()
+                    self.draw_title_line()
                 self.draw_chat()
 
 

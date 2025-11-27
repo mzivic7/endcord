@@ -40,6 +40,12 @@ extensions = [
         extra_link_args=extra_link_args,
     ),
     Extension(
+        "endcord_cython.formatter",
+        ["endcord_cython/formatter.pyx"],
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args,
+    ),
+    Extension(
         "endcord_cython.color",
         ["endcord_cython/color.pyx"],
         extra_compile_args=extra_compile_args,
