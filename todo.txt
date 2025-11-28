@@ -1,5 +1,3 @@
-New screenshots in higher resolution
-
 Add more extension points
     add to parser.py
     add to assist_data

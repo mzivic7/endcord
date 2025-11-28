@@ -144,7 +144,7 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
 - `custom_user_agent = None`  
     Custom [user agent string](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent) for `client_properties`.  
     Default user agent is Firefox for `"anonymous"` and discord desktop client for `default` client properties.  
-    User agent should not be changed unless the [default ones](https://github.com/mzivic7/endcord/blob/main/endcord/app.py) are very outdated.  
+    User agent should not be changed unless the [default ones](https://github.com/sparklost/endcord/blob/main/endcord/app.py) are very outdated.  
     Setting wrong user agent can make you more suspicious to discord spam filter! Make sure user agent string matches your OS.  
 - `proxy = None`  
     Proxy URL to use, it must be this format: `protocol://host:port`, example: `socks5://localhost:1080`.  

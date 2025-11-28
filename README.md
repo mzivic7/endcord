@@ -1,22 +1,22 @@
 <div align="center">
 <h1>Endcord</h1>
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#features">Features</a> |
-<a href="https://github.com/mzivic7/endcord/blob/main/.github/screenshots.md">Screenshots</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#configuration">Config</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#usage">Usage</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#installing">Installing</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#building">Building</a> |
-<a href="https://github.com/mzivic7/endcord/blob/main/extensions.md">Extensions</a> |
-<a href="https://github.com/mzivic7/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
-<a href="https://github.com/mzivic7/endcord?tab=readme-ov-file#faq">FAQ</a> |
+<a href="https://github.com/sparklost/endcord?tab=readme-ov-file#features">Features</a> |
+<a href="https://github.com/sparklost/endcord/blob/main/.github/screenshots.md">Screenshots</a> |
+<a href="https://github.com/sparklost/endcord?tab=readme-ov-file#configuration">Config</a> |
+<a href="https://github.com/sparklost/endcord?tab=readme-ov-file#usage">Usage</a> |
+<a href="https://github.com/sparklost/endcord?tab=readme-ov-file#installing">Installing</a> |
+<a href="https://github.com/sparklost/endcord?tab=readme-ov-file#building">Building</a> |
+<a href="https://github.com/sparklost/endcord/blob/main/extensions.md">Extensions</a> |
+<a href="https://github.com/sparklost/endcord/blob/main/.github/CONTRIBUTING.md">Contributing</a> |
+<a href="https://github.com/sparklost/endcord?tab=readme-ov-file#faq">FAQ</a> |
 <a href="https://discord.gg/judQSxw5K2">Discord</a>
-<img src="./.github/screenshots/02.png" alt="Screenshot 1" width="864">
+<img src="./.github/screenshots/01.png" alt="Screenshot 1" width="864">
 </div>
 
 Endcord is a third-party feature rich Discord client, running entirely in terminal.  
 It is built with python and ncurses library, to deliver lightweight yet feature rich experience.  
 Discord token is required in order to run endcord! see [Token](#token).  
-[More screenshots](https://github.com/mzivic7/endcord/blob/main/.github/screenshots.md).  
+[More screenshots](https://github.com/sparklost/endcord/blob/main/.github/screenshots.md).  
 
 
 ## Features
@@ -427,7 +427,7 @@ If compiler is not available, or built binary is failing, try building with `--n
 To toggle [experimental windowed mode](#experimental-windowed-mode) run: `uv run build.py --toggle-experimental`
 
 ### Linux
-1. Clone this repository: `git clone https://github.com/mzivic7/endcord.git`
+1. Clone this repository: `git clone https://github.com/sparklost/endcord.git`
 2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 3. `cd endcord`
 4. run build script: `uv run build.py`  
@@ -545,7 +545,7 @@ Its the same with all other python freezing tools, like pyinstaller, cx-freeze..
 So to run endcord, either allow it in anti-virus/windows-defender or run it from source.  
 
 ### Support
-Open an issue in [issue tracker](https://github.com/mzivic7/endcord/issues).  
+Open an issue in [issue tracker](https://github.com/sparklost/endcord/issues).  
 Or, if you don't have a github account, want more interactive support, to share a theme or have a question: [Endcord Discord Server](https://discord.gg/judQSxw5K2).
 
 

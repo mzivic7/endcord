@@ -120,7 +120,7 @@ EXT_NAME = "Notify Test"
 EXT_VERSION = "0.1.0"
 EXT_ENDCORD_VERSION = "0.9.0"
 EXT_DESCRIPTION = "An extension that sends desktop notification every time user sends a message containing word 'test'"
-EXT_SOURCE = "https://github.com/mzivic7/endcord"
+EXT_SOURCE = "https://github.com/sparklost/endcord"
 logger = logging.getLogger(__name__)
 
 

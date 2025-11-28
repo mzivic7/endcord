@@ -1,8 +1,7 @@
-## Before trying to contribute
-Better don't contribute. You'll save your mental health, and I will save time trying to understand your code.  
-But if you insist:  
-First have a look at the code, if you can navigate through that mess and keep your sanity: try to maintain same writing style, and explain in detail what is done in a PR.  
-If the code makes you scream, just open an issue, and I will get to it.  
+## **Before trying to contribute**
+Just don't contribute. You'll save your mental health, and I will save time trying to understand your code. Simply open an issue, and I will get to it.  
+The code is total mess that only I can efficiently navigate through it, and if someone else adds any-quality code to it, it will only get harder for me.  
+Mostly any PR will be rejected, sorry.  
 
 
 ## **LLM generated code is strongly prohibited**
@@ -121,16 +120,7 @@ Compact:
 
 ### Tree layout and formatting
 ```
-> GUILD
-|--> CATEGORY
-|  |-- CHANNEL
-|  |--> CHANNEL
-|  |  |-< THREAD
-|  |  \-< THREAD
-|  \--> CHANNEL
-\--> CATEGORY
-```
-```
+> FOLDER
 > GUILD
 |--> CATEGORY
 |  |-- CHANNEL
@@ -143,6 +133,7 @@ Compact:
 |--> CATEGORY
 |  end_category 1200
 end_guild 1100
+end_folder 1000
 ```
 
 ### Support for zstd stream compression:
