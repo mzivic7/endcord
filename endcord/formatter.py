@@ -2010,7 +2010,7 @@ def generate_forum(threads, blocked, max_length, colors, colors_formatted, confi
 
         thread_line = (
             forum_thread_format
-            .replace("%thread_name", normalize_string(thread["name"], limit_thread_name), emoji_safe=True)
+            .replace("%thread_name", normalize_string(thread["name"], limit_thread_name, emoji_safe=True))
             .replace("%timestamp", timestamp)
             .replace("%msg_count", normalize_int_str(thread["message_count"], 3))
         )
@@ -2031,7 +2031,7 @@ def generate_member_list(member_list_raw, guild_roles, width, use_nick, status_s
     member_list = []
     member_list_format = []
     if not member_list_raw:
-        return ["No online members"], [[]]
+        return [normalize_string("No online members", width-1)], [[]]
     for member in member_list_raw:
         this_format = []
         if "id" in member:

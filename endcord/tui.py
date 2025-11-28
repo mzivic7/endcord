@@ -225,7 +225,8 @@ class TUI():
         self.init_pair((208, tree_bg))   # orange
         self.init_pair((196, tree_bg))   # red
         self.init_pair(config["color_extra_window"])   # 21
-        self.color_default = self.last_free_id + 1
+        curses.init_pair(255, config["color_default"][0], config["color_default"][1])   # temporary
+        self.default_color = 255
         self.role_color_start_id = self.last_free_id   # starting id for role colors
         self.keybindings = {key: (val,) if not isinstance(val, tuple) else val for key, val in keybindings.items()}
         self.switch_tab_modifier = self.keybindings["switch_tab_modifier"][0][:-4]
@@ -423,7 +424,7 @@ class TUI():
 
         # redraw
         with self.lock:
-            self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0])
+            self.screen.vline(0, self.tree_hw[1], self.vert_line, self.screen_hw[0], curses.color_pair(self.default_color))
             if self.have_title and self.have_title_tree:
                 # fill gap between titles
                 self.screen.addch(0, self.tree_hw[1], self.vert_line, curses.color_pair(12))
@@ -510,8 +511,8 @@ class TUI():
             extra_window_hwyx = self.win_extra_window.getmaxyx() + self.win_extra_window.getbegyx()
             self.draw_border(extra_window_hwyx, top=False, bot=False)
             y, x = extra_window_hwyx[2], extra_window_hwyx[3]
-            self.screen.addstr(y, x - 1, self.corner_ul, curses.color_pair(11) | curses.A_STANDOUT)
-            self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(11) | curses.A_STANDOUT)
+            self.screen.addstr(y, x - 1, self.corner_ul, curses.color_pair(self.default_color))
+            self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(self.default_color))
         self.draw_member_list(self.member_list, self.member_list_format, force=True)
         self.screen.noutrefresh()
         self.need_update.set()
@@ -951,24 +952,24 @@ class TUI():
 
         # lines
         if top and w > 0:
-            self.screen.hline(y, x + 1, curses.ACS_HLINE, w - 2, curses.color_pair(0))
+            self.screen.hline(y, x + 1, curses.ACS_HLINE, w - 2, curses.color_pair(self.default_color))
         if bot and w > 0:
-            self.screen.hline(y + h - 1, x + 1, curses.ACS_HLINE, w - 2, curses.color_pair(0))
+            self.screen.hline(y + h - 1, x + 1, curses.ACS_HLINE, w - 2, curses.color_pair(self.default_color))
         if left and h > 0:
-            self.screen.vline(y + 1, x, curses.ACS_VLINE, h - 2, curses.color_pair(0))
+            self.screen.vline(y + 1, x, curses.ACS_VLINE, h - 2, curses.color_pair(self.default_color))
         if right and h > 0:
-            self.screen.vline(y + 1, x + w - 1, curses.ACS_VLINE, h - 2, curses.color_pair(0))
+            self.screen.vline(y + 1, x + w - 1, curses.ACS_VLINE, h - 2, curses.color_pair(self.default_color))
 
         # corners
         if top and left:
-            self.screen.addstr(y, x, self.corner_ul)
+            self.screen.addstr(y, x, self.corner_ul, curses.color_pair(self.default_color))
         if bot and left:
-            self.screen.addstr(y + h - 1, x, self.corner_dl)
+            self.screen.addstr(y + h - 1, x, self.corner_dl, curses.color_pair(self.default_color))
         if top and right:
-            self.screen.addstr(y, x + w - 1, self.corner_ur)
+            self.screen.addstr(y, x + w - 1, self.corner_ur, curses.color_pair(self.default_color))
         if bot and right:
             try:
-                self.screen.addstr(y + h - 1, x + w - 1, self.corner_dr)
+                self.screen.addstr(y + h - 1, x + w - 1, self.corner_dr, curses.color_pair(self.default_color))
             except curses.error:
                 pass   # it errors when drawing in bottom-right cell, but still draws it
 
@@ -982,12 +983,12 @@ class TUI():
             if self.status_txt_r:
                 if self.bordered:
                     if self.win_extra_line or self.win_extra_window:
-                        status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + "┤"
+                        status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + "─" + "┤"
                         status_txt_r = replace_spaces_dash(trim_with_dash(status_txt_r))
                         status_txt_l = replace_spaces_dash(trim_with_dash(status_txt_l))
                         status_txt_l = "├" + status_txt_l + "─" * (w - len(status_txt_l) - len(status_txt_r) - 1)
                     else:
-                        status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + self.corner_ur
+                        status_txt_r = self.status_txt_r[: max(w - (len(status_txt_l) + 4), 0)] + "─" + self.corner_ur
                         status_txt_r = replace_spaces_dash(trim_with_dash(status_txt_r))
                         status_txt_l = replace_spaces_dash(trim_with_dash(status_txt_l))
                         status_txt_l = self.corner_ul + status_txt_l + "─" * (w - len(status_txt_l) - len(status_txt_r) - 1)
@@ -1018,9 +1019,9 @@ class TUI():
                 status_format = self.status_txt_l_format
 
             if status_format:
-                self.draw_formatted_line(self.win_status_line, status_line, status_format, 0 if self.bordered else 17)
+                self.draw_formatted_line(self.win_status_line, status_line, status_format, self.default_color if self.bordered else 17)
             elif self.bordered:
-                self.win_status_line.insstr(0, 0, status_line + "\n")
+                self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(self.default_color))
             else:
                 self.win_status_line.insstr(0, 0, status_line + "\n", curses.color_pair(17) | self.attrib_map[17])
             self.win_status_line.noutrefresh()
@@ -1061,9 +1062,9 @@ class TUI():
                 title_format = self.title_txt_l_format
 
             if title_format:
-                self.draw_formatted_line(self.win_title_line, title_line, title_format, 0 if self.bordered else 12)
+                self.draw_formatted_line(self.win_title_line, title_line, title_format, self.default_color if self.bordered else 12)
             elif self.bordered:
-                self.win_title_line.insstr(0, 0, title_line + "\n")
+                self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(self.default_color))
             else:
                 self.win_title_line.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
             self.win_title_line.noutrefresh()
@@ -1084,7 +1085,7 @@ class TUI():
                                 attrib = curses.A_ITALIC
                             elif format_part[0] == 3:
                                 attrib = curses.A_UNDERLINE
-                            elif default_color == 0:
+                            elif default_color == self.default_color:
                                 attrib = 0
                             else:
                                 attrib = self.attrib_map[default_color]
@@ -1106,7 +1107,7 @@ class TUI():
             if self.bordered:
                 title_txt = replace_spaces_dash(trim_with_dash(title_txt))
                 title_line = self.corner_ul + title_txt + "─" * (w - len(title_txt) - 2) + self.corner_ur
-                self.win_title_tree.insstr(0, 0, title_line + "\n")
+                self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(self.default_color))
             else:
                 title_line = title_txt + " " * (w - len(title_txt))
                 self.win_title_tree.insstr(0, 0, title_line + "\n", curses.color_pair(12) | self.attrib_map[12])
@@ -1173,7 +1174,7 @@ class TUI():
                     self.chat_index,
                     self.chat_selected,
                     self.attrib_map,
-                    self.color_default,
+                    self.default_color,
                 )
                 self.win_chat.noutrefresh()
                 if not norefresh:
@@ -1331,7 +1332,7 @@ class TUI():
                 if self.bordered:
                     text = "─" + trim_with_dash(text, dash=False)
                     line_text = self.corner_ul + text + "─" * (w - len(text) - 2) + self.corner_ur
-                    self.win_extra_line.insstr(0, 0, line_text, curses.color_pair(11) | curses.A_STANDOUT)
+                    self.win_extra_line.insstr(0, 0, line_text, curses.color_pair(self.default_color))
                 else:
                     self.win_extra_line.insstr(0, 0, text + " " * (w - len(text)) + "\n", curses.color_pair(11) | self.attrib_map[11])
                 self.win_extra_line.noutrefresh()
@@ -1349,6 +1350,15 @@ class TUI():
                 self.chat_hw = self.win_chat.getmaxyx()
                 if not self.member_list:
                     self.draw_chat()
+                elif self.bordered:   # have to redraw member list borders
+                    h, w = self.screen.getmaxyx()
+                    member_list_hwyx = (
+                        h - (2 + bool(self.win_extra_line)) - self.have_title - 2*self.bordered,
+                        self.member_list_width - self.bordered,
+                         self.bordered or self.have_title,
+                        w - self.member_list_width,
+                    )
+                    self.draw_border(member_list_hwyx, top=not(self.have_title))
                 if self.bordered:
                     self.draw_status_line()
                 self.draw_member_list(self.member_list, self.member_list_format, force=True)
@@ -1386,14 +1396,14 @@ class TUI():
                     if self.bordered:
                         self.draw_border(extra_window_hwyx, top=False, bot=False)
                         y, x = extra_window_hwyx[2], extra_window_hwyx[3]
-                        self.screen.addstr(y, x - 1, self.corner_ul, curses.color_pair(11) | curses.A_STANDOUT)
-                        self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(11) | curses.A_STANDOUT)
+                        self.screen.addstr(y, x - 1, self.corner_ul, curses.color_pair(self.default_color))
+                        self.screen.addstr(y, x + extra_window_hwyx[1], self.corner_ur, curses.color_pair(self.default_color))
                         self.screen.noutrefresh()
                         self.draw_status_line()
 
                 if self.bordered:
                     title_txt = "─" + trim_with_dash(title_txt, dash=False) + "─" * (w - len(title_txt))
-                    self.win_extra_window.insstr(0, 0, title_txt, curses.color_pair(11) | curses.A_STANDOUT)
+                    self.win_extra_window.insstr(0, 0, title_txt, curses.color_pair(self.default_color))
                 else:
                     self.win_extra_window.insstr(0, 0, title_txt + " " * (w - len(title_txt)) + "\n", curses.color_pair(11) | self.attrib_map[11])
                 h = self.win_extra_window.getmaxyx()[0]
@@ -1475,7 +1485,7 @@ class TUI():
                             self.title_hw = self.win_title_line.getmaxyx()
                             self.draw_title_line()
                     else:
-                        self.screen.vline(1, w - self.member_list_width-1, self.vert_line, common_h)
+                        self.screen.vline(1, w - self.member_list_width-1, self.vert_line, common_h, curses.color_pair(self.default_color))
 
                 h, w = self.win_member_list.getmaxyx()
                 w -= 1
@@ -1495,12 +1505,12 @@ class TUI():
                                 if format_part[1] <= pos < format_part[2]:
                                     color = format_part[0]
                                     if color > 255:   # set all colors after 255 to default color
-                                        color = self.color_default
+                                        color = self.default_color
                                     color_ready = curses.color_pair(color) | self.attrib_map[color]
                                     safe_insch(self.win_member_list, y, pos, character, color_ready)
                                     break
                             else:
-                                safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.color_default) | self.attrib_map[self.color_default])
+                                safe_insch(self.win_member_list, y, pos, character, curses.color_pair(self.default_color) | self.attrib_map[self.default_color])
 
                 y += 1
                 while y < h:
@@ -1686,8 +1696,9 @@ class TUI():
         for color in colors:
             pair_id = self.init_pair(color)
             color_codes.append(pair_id)
-        self.color_default = color_codes[0]
+        self.default_color = color_codes[0]
         self.role_color_start_id = self.last_free_id
+        self.resize(redraw_only=True)
         return color_codes
 
 

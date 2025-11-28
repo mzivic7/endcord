@@ -75,7 +75,7 @@ theme = {
     "format_newline": "                       %content",
     "format_reply": "[REPLY] <%username> | ╭──🡲 [%timestamp] %content",
     "format_reactions": "[REACT]                ╰──⤙ %reactions",
-    "format_interaction": "                       ╭──< %username used [%command]",
+    "format_interaction": "                       ╭──⤙ %username used [%command]",
     "format_one_reaction": "%count:%reaction",
     "format_timestamp": "%H:%M",
     "format_status_line_l": " %global_name (%username) - %status  %unreads %action %typing",
@@ -187,7 +187,7 @@ keybindings = {
     "view_media": 22,   # Ctrl+V
     "spoil": "ALT+116",   # Alt+T
     "search": 6,   # Ctrl+F
-    "profile_info": "",   # Alt+P
+    "profile_info": "ALT+112",   # Alt+P
     "show_summaries": "ALT+115",   # Alt+S
     "copy_message_link": "ALT+117",   # Alt+U
     "go_channel": "ALT+103",   # Alt+G

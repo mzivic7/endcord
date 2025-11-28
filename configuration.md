@@ -171,11 +171,11 @@ Note: always put string in `""`. To use `"` inside the string escape it like thi
     Formatting for message base string. See [format_message](#format_message) for more info.
 - `format_newline = "                       %content"`  
     Formatting for each newline string after message base. See [format_newline](#format_newline) for more info.
-- `format_reply = [REPLY] <%username> | ╭──> [%timestamp] %content"`  
+- `format_reply = [REPLY] <%username> | ╭──🡲 [%timestamp] %content"`  
     Formatting for replied message string. It is above message base. See [format_reply](#format_reply) for more info.
 - `format_reactions = "[REACT]                ╰──< %reactions"`  
     Formatting for message reactions string. It is bellow last newline string. See [format_reactions](#format_reactions) for more info.
-- `format_interaction = "                       ╭──< %username used [%command]"`  
+- `format_interaction = "                       ╭──⤙ %username used [%command]"`  
     Formatting for bot interaction string. It is above message base. Only `%username` and `%command` options are available.
 - `format_one_reaction = "%count:%reaction"`  
     Formatting for single reaction string. Reactions string is assembled by joining these strings with `reactions_separator` in between. See [format_one_reaction](#format_one_reaction) for more info.

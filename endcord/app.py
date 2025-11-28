@@ -980,7 +980,7 @@ class Endcord:
 
         # update slowmode
         slowmode = self.current_channel.get("rate_limit")
-        if slowmode and not self.active_channel["admin"]:
+        if slowmode and not this_guild.get("admin", False):
             self.slowmodes[channel_id] = slowmode
             if self.slowmode_times.get(channel_id) is None:
                 self.slowmode_times[channel_id] = 0
@@ -1344,7 +1344,7 @@ class Endcord:
                     self.restore_input_text = (input_text, "standard")
                     selected_url = self.refresh_attachment_url(selected_urls[0])
                     webbrowser.open(selected_url, new=0, autoraise=True)
-                else:
+                elif selected_urls:
                     self.ignore_typing = True
                     self.downloading_file = {
                         "urls": selected_urls,
@@ -1354,6 +1354,8 @@ class Endcord:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.restore_input_text = (None, "prompt")
                     self.update_status_line()
+                else:
+                    self.restore_input_text = (input_text, "standard")
 
             # play media attachment
             elif action == 17:
@@ -1370,7 +1372,7 @@ class Endcord:
                     selected_url = self.refresh_attachment_url(selected_urls[0])
                     self.download_threads.append(threading.Thread(target=self.download_file, daemon=True, args=(selected_url, False, True)))
                     self.download_threads[-1].start()
-                else:
+                elif selected_urls:
                     self.ignore_typing = True
                     self.downloading_file = {
                         "urls": selected_urls,
@@ -1380,6 +1382,8 @@ class Endcord:
                     self.add_to_store(self.active_channel["channel_id"], input_text)
                     self.restore_input_text = (None, "prompt")
                     self.update_status_line()
+                else:
+                    self.restore_input_text = (input_text, "standard")
 
             # cancel all downloads and uploads
             elif action == 11:
