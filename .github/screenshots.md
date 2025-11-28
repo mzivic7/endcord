@@ -13,16 +13,16 @@
 <img src="./screenshots/01.png" alt="Standard theme" width="864">
 <br><br>
 <b>Client command assist above input line:<b><br>
-<img src="./screenshots/02.png" alt="Legacy theme" width="800">
+<img src="./screenshots/02.png" alt="Client command assist above input line:" width="800">
 <br><br>
-<b>Emoji assist while typing :emoji_name:<br>
-<img src="./screenshots/03.png" alt="Viewing user profile" width="800">
+<b>Emoji assist while typing:<br>
+<img src="./screenshots/03.png" alt="Emoji assist while typing" width="800">
 <br><br>
-<b>Media with ASCII art:<b><br>
-<img src="./screenshots/04.png" alt="Media with ASCII art" width="800">
+<b>Message search:<b><br>
+<img src="./screenshots/04.png" alt="Message search" width="800">
 <br><br>
 <b>Viewing user profile:<b><br>
-<img src="./screenshots/05.png" alt="Media with ASCII art" width="800">
+<img src="./screenshots/05.png" alt="Viewing user profile" width="800">
 <br><br>
 <b>Video in built-in ASCII art media player:<b><br>
 <img src="./screenshots/06.png" alt="Media with ASCII art" width="800">
